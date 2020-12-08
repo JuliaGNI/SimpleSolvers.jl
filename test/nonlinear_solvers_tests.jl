@@ -3,6 +3,15 @@ using SimpleSolvers
 using Test
 
 
+struct NonlinearSolverTest{T} <: NonlinearSolver{T} end
+
+test_solver = NonlinearSolverTest{Float64}()
+
+@test_throws ErrorException solve!(test_solver)
+@test_throws ErrorException status(test_solver)
+@test_throws ErrorException params(test_solver)
+
+
 n = 1
 T = Float64
 

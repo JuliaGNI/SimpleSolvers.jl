@@ -3,6 +3,14 @@ using SimpleSolvers
 using Test
 
 
+struct LinearSolverTest{T} <: LinearSolver{T} end
+
+test_solver = LinearSolverTest{Float64}()
+
+@test_throws ErrorException factorize!(test_solver)
+@test_throws ErrorException solve!(test_solver)
+
+
 A = [[+4.  +5.  -2.]
      [+7.  -1.  +2.]
      [+3.  +1.  +4.]]
@@ -17,10 +25,16 @@ function test_lu_solver(solver, A, b, x)
         bT = convert(Array{T,1}, b)
         xT = convert(Array{T,1}, x)
 
-        lu = solver(AT, bT)
-        factorize!(lu)
-        solve!(lu)
-        @test lu.b ≈ xT atol=1E-14
+        lu1 = solver(AT, bT)
+        factorize!(lu1)
+        solve!(lu1)
+        @test lu1.b ≈ xT atol=1E-14
+
+        lu2 = solver(AT)
+        factorize!(lu2)
+        lu2.b .= bT
+        solve!(lu2)
+        @test lu2.b ≈ xT atol=1E-14
     end
 end
 
