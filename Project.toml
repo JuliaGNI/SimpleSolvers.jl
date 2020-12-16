@@ -1,7 +1,7 @@
 name = "SimpleSolvers"
 uuid = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
 authors = ["Michael Kraus"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

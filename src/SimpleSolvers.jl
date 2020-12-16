@@ -36,6 +36,7 @@ module SimpleSolvers
 
     function __init__()
         default_params = (
+            (:verbosity, 1),
             (:ls_solver, :julia),
             (:nls_atol,  2eps()),
             (:nls_rtol,  2eps()),
