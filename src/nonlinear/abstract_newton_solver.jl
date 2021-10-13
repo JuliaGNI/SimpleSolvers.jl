@@ -16,6 +16,7 @@ abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
     Jparams::TJ
 
     linear::TL
+    ls::TS
 
     params::NonlinearSolverParameters{T}
     status::NonlinearSolverStatus{T}

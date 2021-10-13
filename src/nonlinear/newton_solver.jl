@@ -1,7 +1,8 @@
 
-struct NewtonSolver{T, FT, TJ, TL} <: AbstractNewtonSolver{T}
+struct NewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolver{T}
     @newton_solver_variables
-    function NewtonSolver{T,FT,TJ,TL}(x, F!, Jparams, linear_solver) where {T,FT,TJ,TL}
+
+    function NewtonSolver{T,FT,TJ,TL,TS}(x, F!, Jparams, linear_solver, line_search) where {T,FT,TJ,TL,TS}
         J  = zero(linear_solver.A)
         x₀ = zero(x)
         x₁ = zero(x)
@@ -13,7 +14,7 @@ struct NewtonSolver{T, FT, TJ, TL} <: AbstractNewtonSolver{T}
         nls_params = NonlinearSolverParameters(T)
         nls_status = NonlinearSolverStatus{T}(length(x))
 
-        new(x, J, x₀, x₁, y₀, y₁, δx, δy, F!, Jparams, linear_solver,
+        new(x, J, x₀, x₁, y₀, y₁, δx, δy, F!, Jparams, linear_solver, line_search,
             nls_params, nls_status)
     end
 end
@@ -23,7 +24,8 @@ function NewtonSolver(x::AbstractVector{T}, F!::Function; J!::Union{Function,Not
     n = length(x)
     Jparams = getJacobianParameters(J!, F!, T, n)
     linear_solver = getLinearSolver(x)
-    NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver)}(x, F!, Jparams, linear_solver)
+    line_search = NoLineSearch()
+    NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(line_search)}(x, F!, Jparams, linear_solver, line_search)
 end
 
 

@@ -16,11 +16,13 @@ n = 1
 T = Float64
 
 function F(x::Vector, b::Vector)
-    b[:] = x.^2
+    b .= x.^2
 end
 
 function J(x::Vector, A::Matrix)
-    A[:,:] = 2x
+    for i in eachindex(x)
+        A[i,i] = 2x[i]
+    end
 end
 
 

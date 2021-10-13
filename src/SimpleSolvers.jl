@@ -5,12 +5,20 @@ module SimpleSolvers
     include("config.jl")
     include("utils.jl")
 
+    export solve!
+
     export LinearSolver, LUSolver, LUSolverLAPACK,
-           factorize!, solve!
+           factorize!
 
     include("linear/linear_solvers.jl")
     include("linear/lu_solver.jl")
     include("linear/lu_solver_lapack.jl")
+
+
+    export LineSearch, Armijo
+
+    include("linesearch/linesearch.jl")
+    include("linesearch/armijo.jl")
 
     export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
            JacobianParametersUser, getJacobianParameters,
