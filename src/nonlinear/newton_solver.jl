@@ -20,12 +20,11 @@ struct NewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolver{T}
 end
 
 
-function NewtonSolver(x::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing) where {T}
+function NewtonSolver(x::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=NoLineSearch()) where {T}
     n = length(x)
     Jparams = getJacobianParameters(J!, F!, T, n)
     linear_solver = getLinearSolver(x)
-    line_search = NoLineSearch()
-    NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(line_search)}(x, F!, Jparams, linear_solver, line_search)
+    NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, F!, Jparams, linear_solver, linesearch)
 end
 
 
@@ -39,12 +38,26 @@ function solve!(s::NewtonSolver{T}; n::Int=0) where {T}
     if s.status.rₐ ≥ s.params.atol²
         for s.status.i = 1:nmax
             computeJacobian(s)
+
+            # copy Jacobian into linear solver
             s.linear.A .= s.J
+
+            # b = - y₀
             s.linear.b .= -s.y₀
+
+            # factorize linear solver
             factorize!(s.linear)
+
+            # solve J δx = -f(x)
             solve!(s.linear)
+
+            # δx = b
             s.δx .= s.linear.b
-            s.x .+= s.δx
+            
+            # apply line search
+            solve!(s.x, s.δx, s.x₀, s.y₀, s.J, s.ls)
+
+            # compute residual
             s.F!(s.x, s.y₀)
             residual!(s.status, s.δx, s.x, s.y₀)
 
