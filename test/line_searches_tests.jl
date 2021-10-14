@@ -16,6 +16,24 @@ function J(x::Vector, A::Matrix)
 end
 
 
+
+
+
+for n in (1,3)
+    x  = zeros(n)
+    δx = rand(n)
+    x₀ = rand(n)
+    y₀ = zeros(n)
+    g₀ = zeros(n,n)
+    
+    ls = NoLineSearch()
+
+    @test ls == NoLineSearch(F, x₀)
+    @test solve!(x, δx, x₀, y₀, g₀, ls) == x₀ .+ δx
+    @test solve!(x, δx, x₀, y₀, g₀, ls) == ls(x, δx, x₀, y₀, g₀)
+end
+
+
 # for Solver in (Armijo,ArmijoQuadratic,ArmijoCubic)
 for Solver in (Armijo,)
     n = 1
@@ -44,6 +62,8 @@ for Solver in (Armijo,)
         @test bi ≈ 0 atol=4E-2
     end
 
+    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(x, δx, x0, y0, g0, F)
+
 
     n = 3
     x0 = -ones(T, n)
@@ -63,5 +83,7 @@ for Solver in (Armijo,)
 
     @test x == zeros(n)
     @test b == zeros(n)
+
+    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(x, δx, x0, y0, g0, F)
 
 end

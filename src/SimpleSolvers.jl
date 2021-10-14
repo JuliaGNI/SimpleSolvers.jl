@@ -15,9 +15,11 @@ module SimpleSolvers
     include("linear/lu_solver_lapack.jl")
 
 
-    export LineSearch, Armijo
+    export LineSearch, NoLineSearch
+    export Armijo, armijo
 
     include("linesearch/linesearch.jl")
+    include("linesearch/nolinesearch.jl")
     include("linesearch/armijo.jl")
 
     export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
