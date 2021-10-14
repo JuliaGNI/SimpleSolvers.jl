@@ -103,7 +103,7 @@ function solve!(x, δx, x₀, y₀, g₀, ls::Armijo)
     ls(x, δx, x₀, y₀, g₀)
 end
 
-function armijo(x, δx, x₀, y₀, g₀, f; kwargs...)
+function armijo(f, x, δx, x₀, y₀, g₀; kwargs...)
     ls = Armijo(f, y₀; kwargs...)
     ls(x, δx, x₀, y₀, g₀)
 end

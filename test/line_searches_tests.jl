@@ -62,7 +62,7 @@ for Solver in (Armijo,)
         @test bi ≈ 0 atol=4E-2
     end
 
-    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(x, δx, x0, y0, g0, F)
+    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(F, x, δx, x0, y0, g0)
 
 
     n = 3
@@ -84,6 +84,6 @@ for Solver in (Armijo,)
     @test x == zeros(n)
     @test b == zeros(n)
 
-    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(x, δx, x0, y0, g0, F)
+    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(F, x, δx, x0, y0, g0)
 
 end
