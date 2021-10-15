@@ -2,6 +2,8 @@ module SimpleSolvers
 
     using LinearAlgebra
 
+    import Base: Callable
+
     include("config.jl")
     include("utils.jl")
 
@@ -16,11 +18,13 @@ module SimpleSolvers
 
 
     export LineSearch, NoLineSearch
-    export ArmijoQuadratic, armijo_quadratic,
+    export Armijo, armijo,
+           ArmijoQuadratic, armijo_quadratic,
            Bisection, bisection
 
     include("linesearch/linesearch.jl")
     include("linesearch/nolinesearch.jl")
+    include("linesearch/armijo.jl")
     include("linesearch/armijo_quadratic.jl")
     include("linesearch/bisection.jl")
 

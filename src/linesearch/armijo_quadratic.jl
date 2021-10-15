@@ -1,11 +1,3 @@
-
-import Base: Callable
-
-const DEFAULT_ARMIJO_λ₀ = 1.0
-const DEFAULT_ARMIJO_σ₀ = 0.1
-const DEFAULT_ARMIJO_σ₁ = 0.5
-const DEFAULT_ARMIJO_ϵ  = 1E-4
-
 """
 Quadratic Armijo line search
 """
@@ -57,7 +49,7 @@ function (ls::ArmijoQuadratic)(x::AbstractArray{T}, f::AbstractArray{T}, g::Abst
     p₀ = y₀norm^2
     p₁ = 2(⋅(f, ls.δy))
     
-    for _ in 1:ls.nmax
+    for lsiter in 1:ls.nmax
         # x₁ = x₀ + λ δx
         x .= x₀ .+ λ .* ls.δx
 
