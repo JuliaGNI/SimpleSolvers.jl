@@ -167,14 +167,6 @@ function residual_initial!(status::NonlinearSolverStatus{T}, x::Vector{T}, y::Ve
     status.yₚ .= y
 end
 
-function residual!(status::NonlinearSolverStatus{T}, δx::Vector{T}, x::Vector{T}, y::Vector{T}) where {T}
-    residual_absolute!(status, y)
-    residual_relative!(status, y)
-    residual_successive!(status, δx, x)
-    status.xₚ .= x
-    status.yₚ .= y
-end
-
 function residual_absolute!(status::NonlinearSolverStatus{T}, y::Vector{T}) where {T}
     @assert length(y) == length(status.y₀)
     local rₐ²::T = 0
@@ -185,11 +177,19 @@ function residual_absolute!(status::NonlinearSolverStatus{T}, y::Vector{T}) wher
 end
 
 function residual_relative!(status::NonlinearSolverStatus{T}, y::Vector{T}) where {T}
-    @assert length(y) == length(status.y₀)
-    status.rᵣ = norm(y) / norm(status.y₀)
+    @assert length(y) == length(status.yₚ)
+    status.rᵣ = norm(y .- status.yₚ) / norm(status.yₚ)
 end
 
 function residual_successive!(status::NonlinearSolverStatus{T}, δx::Vector{T}, x::Vector{T}) where {T}
     @assert length(δx) == length(x)
     status.rₛ = norm(δx) / norm(x)
+end
+
+function residual!(status::NonlinearSolverStatus{T}, δx::Vector{T}, x::Vector{T}, y::Vector{T}) where {T}
+    residual_absolute!(status, y)
+    residual_relative!(status, y)
+    residual_successive!(status, δx, x)
+    status.xₚ .= x
+    status.yₚ .= y
 end

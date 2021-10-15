@@ -16,11 +16,13 @@ module SimpleSolvers
 
 
     export LineSearch, NoLineSearch
-    export Armijo, armijo
+    export Armijo, armijo,
+           Bisection, bisection
 
     include("linesearch/linesearch.jl")
     include("linesearch/nolinesearch.jl")
     include("linesearch/armijo.jl")
+    include("linesearch/bisection.jl")
 
     export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
            JacobianParametersUser, getJacobianParameters,

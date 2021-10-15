@@ -2,88 +2,134 @@
 using SimpleSolvers
 using Test
 
-T = Float64
 
-function F(x::Vector, b::Vector)
-    b .= x.^2
+function F!(f, x)
+    f .= x.^2
 end
 
-function J(x::Vector, A::Matrix)
-    A .= 0
+function J!(g, x)
+    g .= 0
     for i in eachindex(x)
-        A[i,i] = 2x[i]
+        g[i,i] = 2x[i]
     end
 end
 
 
 
+@testset "$(rpad("NoLineSearch",80))" begin
+    for n ∈ (1,3)
+        x₀ = rand(n)
+        x₁ = rand(n)
+        x  = copy(x₀)
+        f  = zeros(n)
+        g  = zeros(n,n)
+
+        ls = NoLineSearch()
+
+        @test ls == NoLineSearch(F!, x, f)
+        @test solve!(x, f, g, x₀, x₁, ls) == x₁
+        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁)
+    end
+end
 
 
-for n in (1,3)
-    x  = zeros(n)
-    δx = rand(n)
-    x₀ = rand(n)
-    y₀ = zeros(n)
-    g₀ = zeros(n,n)
+
+@testset "$(rpad("Armijo",80))" begin
+
+    # TODO Test scalars!
+        
+    # for Solver in (Armijo,ArmijoQuadratic,ArmijoCubic)
+    for Solver in (Armijo,)
+
+        n = 1
+        x₀ = -0.5*ones(n)
+        x₁ = +1.0*ones(n)
+        x  = copy(x₀)
+        f  = zeros(n)
+        g  = zeros(n,n)
+        ls = Solver(F!, x, f)
+        
+        F!(f,x)
+        J!(g,x)
+
+        solve!(x, f, g, x₀, x₁, ls)
+
+        F!(f,x)
+
+        @test x ≈ zero(x) atol=2E-1
+        @test f ≈ zero(f) atol=4E-2
+
+        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == armijo(F!, x, f, g, x₀, x₁)
+
+
+        n = 3
+        x₀ = -ones(n)
+        x₁ = +ones(n)
+        x  = copy(x₀)
+        f  = zeros(n)
+        g  = zeros(n,n)
+        ls = Solver(F!, x, f)
+        
+        F!(f,x)
+        J!(g,x)
+
+        solve!(x, f, g, x₀, x₁, ls)
+
+        F!(f,x)
+
+        @test x == zero(x)
+        @test f == zero(f)
+
+        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == armijo(F!, x, f, g, x₀, x₁)
+
+    end
+
+end
+
+
+@testset "$(rpad("Bisection",80))" begin
+
+    # TODO Test scalars!
     
-    ls = NoLineSearch()
-
-    @test ls == NoLineSearch(F, x₀)
-    @test solve!(x, δx, x₀, y₀, g₀, ls) == x₀ .+ δx
-    @test solve!(x, δx, x₀, y₀, g₀, ls) == ls(x, δx, x₀, y₀, g₀)
-end
-
-
-# for Solver in (Armijo,ArmijoQuadratic,ArmijoCubic)
-for Solver in (Armijo,)
     n = 1
-    x0 = -0.5*ones(T, n)
-    x1 =  1.0*ones(T, n)
-    ls = Solver(F, x0)
+    x₀ = -π*ones(n)
+    x₁ =    ones(n)
+    x  = copy(x₀)
+    f  = zeros(n)
+    g  = zeros(n,n)
+    ls = Bisection(F!, x, f)
 
-    # @test params(nl) == nl.params
-    # @test status(nl) == nl.status
+    F!(f,x)
+    J!(g,x)
+    
+    solve!(x, f, g, x₀, x₁, ls)
 
-    x  = copy(x0)
-    δx = x1 .- x0
-    y0 = zeros(n)
-    g0 = zeros(n,n)
-    F(x,y0)
-    J(x,g0)
+    F!(f,x)
 
-    solve!(x, δx, x0, y0, g0, ls)
-    # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)
-    b = zero(x)
-    F(x,b)
-    for xi in x
-        @test xi ≈ 0 atol=2E-1
-    end
-    for bi in b
-        @test bi ≈ 0 atol=4E-2
-    end
+    @test x == zero(x)
+    @test f == zero(f)
 
-    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(F, x, δx, x0, y0, g0)
+    @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == bisection(F!, x, f, g, x₀, x₁)
 
 
     n = 3
-    x0 = -ones(T, n)
-    x1 = +ones(T, n)
-    ls = Solver(F, x0)
+    x₀ = -ones(n)
+    x₁ = +ones(n)
+    x  = copy(x₀)
+    f  = zeros(n)
+    g  = zeros(n,n)
+    ls = Bisection(F!, x, f)
 
-    x  = copy(x0)
-    δx = x1 .- x0
-    y0 = zeros(n)
-    g0 = zeros(n,n)
-    F(x,y0)
-    J(x,g0)
+    F!(f,x)
+    J!(g,x)
 
-    solve!(x, δx, x0, y0, g0, ls)
-    b = zero(x)
-    F(x,b)
+    solve!(x, f, g, x₀, x₁, ls)
 
-    @test x == zeros(n)
-    @test b == zeros(n)
+    F!(f,x)
 
-    @test solve!(x, δx, x0, y0, g0, ls) == ls(x, δx, x0, y0, g0) == armijo(F, x, δx, x0, y0, g0)
+    @test x == zero(x)
+    @test f == zero(f)
+
+    @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == bisection(F!, x, f, g, x₀, x₁)
 
 end

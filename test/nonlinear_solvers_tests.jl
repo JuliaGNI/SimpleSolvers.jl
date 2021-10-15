@@ -12,23 +12,23 @@ test_solver = NonlinearSolverTest{Float64}()
 @test_throws ErrorException params(test_solver)
 
 
-n = 1
-T = Float64
-
-function F(x::Vector, b::Vector)
-    b .= x.^2
+function F!(f, x)
+    f .= x.^2
 end
 
-function J(x::Vector, A::Matrix)
+function J!(g, x)
+    g .= 0
     for i in eachindex(x)
-        A[i,i] = 2x[i]
+        g[i,i] = 2x[i]
     end
 end
 
 
 for Solver in (NewtonSolver, QuasiNewtonSolver, NLsolveNewton)
-    x = ones(T, n)
-    nl = Solver(x, F)
+    n = 1
+    x = ones(n)
+    y = zero(x)
+    nl = Solver(x, y, F!)
 
     @test params(nl) == nl.params
     @test status(nl) == nl.status
@@ -39,8 +39,8 @@ for Solver in (NewtonSolver, QuasiNewtonSolver, NLsolveNewton)
         @test x ≈ 0 atol=1E-7
     end
 
-    x = ones(T, n)
-    nl = Solver(x, F; J! = J)
+    x = ones(n)
+    nl = Solver(x, y, F!; J! = J!)
     solve!(nl)
     # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)
     for x in nl.x

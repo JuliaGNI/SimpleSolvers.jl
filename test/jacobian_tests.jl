@@ -4,30 +4,33 @@ using Test
 
 import SimpleSolvers: get_config, set_config
 
+
 n = 1
 T = Float64
-
 x = [T(π),]
 j = reshape(2x, 1, 1)
 
 
-function F(x::Vector, b::Vector)
-    b[:] = x.^2
+function F!(f::Vector, x::Vector)
+    f .= x.^2
 end
 
-function J(x::Vector, A::Matrix)
-    A[:,:] = 2x
+function J!(g::Matrix, x::Vector)
+    g .= 0
+    for i in eachindex(x)
+        g[i,i] = 2x[i]
+    end
 end
 
 
 set_config(:jacobian_autodiff, true)
-JPAD = getJacobianParameters(nothing, F, T, n)
+JPAD = getJacobianParameters(nothing, F!, T, n)
 
 set_config(:jacobian_autodiff, false)
-JPFD = getJacobianParameters(nothing, F, T, n)
+JPFD = getJacobianParameters(nothing, F!, T, n)
 
 set_config(:jacobian_autodiff, true)
-JPUS = getJacobianParameters(J, F, T, n)
+JPUS = getJacobianParameters(J!, F!, T, n)
 
 @test typeof(JPAD) <: JacobianParametersAD
 @test typeof(JPFD) <: JacobianParametersFD
@@ -55,8 +58,8 @@ test_jac(jus, j, 0)
 jad2 = zero(j)
 jfd2 = zero(j)
 
-computeJacobianAD(x, jad2, F)
-computeJacobianFD(x, jfd2, F, get_config(:jacobian_fd_ϵ))
+computeJacobianAD(x, jad2, F!)
+computeJacobianFD(x, jfd2, F!, get_config(:jacobian_fd_ϵ))
 
 test_jac(jad, jad2, 0)
 test_jac(jfd, jfd2, 0)

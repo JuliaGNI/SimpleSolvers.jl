@@ -30,22 +30,19 @@ struct NLsolveNewton{T, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T}
 end
 
 
-function NLsolveNewton(x::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing) where {T}
+function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing) where {T}
     linear_solver = getLinearSolver(x)
 
-    f  = linear_solver.b
     df = linear_solver.A
-    f! = (f, x) -> F!(x, f)
 
     if J! === nothing
         if get_config(:jacobian_autodiff)
-            DF = OnceDifferentiable(f!, x, f, df; autodiff=:forward, inplace=true)
+            DF = OnceDifferentiable(F!, x, f, df; autodiff=:forward, inplace=true)
         else
-            DF = OnceDifferentiable(f!, x, f, df; autodiff=:finite, inplace=true)
+            DF = OnceDifferentiable(F!, x, f, df; autodiff=:finite, inplace=true)
         end
     else
-        j! = (df, x) -> J!(x, df)
-        DF = OnceDifferentiable(f!, j!, x, f, df; inplace=true)
+        DF = OnceDifferentiable(F!, J!, x, f, df; inplace=true)
     end
 
     NLsolveNewton(x, f, df, F!, DF, NewtonCache(DF), LineSearches.Static(), linear_solver)

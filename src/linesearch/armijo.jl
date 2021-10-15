@@ -1,8 +1,6 @@
 
 import Base: Callable
 
-const DEFAULT_LINESEARCH_nmax=100
-const DEFAULT_LINESEARCH_rmax=100
 const DEFAULT_ARMIJO_λ₀ = 1.0
 const DEFAULT_ARMIJO_σ₀ = 0.1
 const DEFAULT_ARMIJO_σ₁ = 0.5
@@ -23,16 +21,18 @@ struct Armijo{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: 
 
     F!::FT
 
+    δx::AT
+    δy::AT
     y::AT
 
-    function Armijo(F!, y::AbstractArray{T}; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
-                    λ₀=DEFAULT_ARMIJO_λ₀, σ₀=DEFAULT_ARMIJO_σ₀, σ₁=DEFAULT_ARMIJO_σ₁, ϵ=DEFAULT_ARMIJO_ϵ) where {T}
-        new{T, eltype(y), typeof(y), typeof(F!)}(nmax, rmax, λ₀, σ₀, σ₁, ϵ, F!, zero(y))
+    function Armijo(F!, x, y; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
+                    λ₀::T=DEFAULT_ARMIJO_λ₀, σ₀::T=DEFAULT_ARMIJO_σ₀, σ₁::T=DEFAULT_ARMIJO_σ₁, ϵ::T=DEFAULT_ARMIJO_ϵ) where {T}
+        new{T, eltype(y), typeof(y), typeof(F!)}(nmax, rmax, λ₀, σ₀, σ₁, ϵ, F!, zero(x), zero(y), zero(y))
     end
 end
 
 
-function (ls::Armijo)(x::AbstractArray{T}, δx::AbstractArray{T}, x₀::AbstractArray{T}, y₀::AbstractArray{T}, g₀::AbstractArray{T}) where {T}
+function (ls::Armijo)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
     local λ::T
     local λₜ::T
     local y₀norm::T
@@ -44,20 +44,27 @@ function (ls::Armijo)(x::AbstractArray{T}, δx::AbstractArray{T}, x₀::Abstract
     # set initial λ
     λ = ls.λ₀
 
+    # δx = x₁ - x₀
+    ls.δx .= x₁ .- x₀
+
     # δy = Jδx
-    # mul!(ls.δy, g₀, δx)
+    mul!(ls.δy, g, ls.δx)
 
     # compute norms of initial solution
-    y₀norm = l2norm(y₀)
+    y₀norm = l2norm(f)
+
+    # determine constant coefficients of polynomial p(λ) = p₀ + p₁λ + p₂λ²
+    p₀ = y₀norm^2
+    p₁ = 2(⋅(f, ls.δy))
     
     for _ in 1:ls.nmax
         # x₁ = x₀ + λ δx
-        x .= x₀ .+ λ .* δx
+        x .= x₀ .+ λ .* ls.δx
 
         for _ in 1:ls.rmax
             try
                 # y = f(x)
-                ls.F!(x, ls.y)
+                ls.F!(ls.y, x)
 
                 break
             catch DomainError
@@ -74,12 +81,8 @@ function (ls::Armijo)(x::AbstractArray{T}, δx::AbstractArray{T}, x₀::Abstract
         # compute norms of solution
         y₁norm = l2norm(ls.y)
 
-        # if y₁norm ≥ ls.atol + ls.rtol * y₀norm
-        if y₁norm ≥ (one(T)-ls.ϵ*λ)*y₀norm
-            # determine coefficients of polynomial p(λ) = p₀ + p₁λ + p₂λ²
-            p₀ = y₀norm^2
-            # p₁ = 2(⋅(y₀, ls.δy))
-            p₁ = 2(⋅(y₀, g₀, δx))
+        if y₁norm ≥ (one(T) - ls.ϵ * λ) * y₀norm
+            # determine nonconstant coefficient of polynomial p(λ) = p₀ + p₁λ + p₂λ²
             p₂ = (y₁norm^2 - p₀ - p₁*λ) / λ^2
 
             # compute minimum λₜ of p(λ)
@@ -96,14 +99,15 @@ function (ls::Armijo)(x::AbstractArray{T}, δx::AbstractArray{T}, x₀::Abstract
             break
         end
     end
+
+    return x
 end
 
 
-function solve!(x, δx, x₀, y₀, g₀, ls::Armijo)
-    ls(x, δx, x₀, y₀, g₀)
-end
+solve!(x, f, g, x₀, x₁, ls::Armijo) = ls(x, f, g, x₀, x₁)
 
-function armijo(f, x, δx, x₀, y₀, g₀; kwargs...)
-    ls = Armijo(f, y₀; kwargs...)
-    ls(x, δx, x₀, y₀, g₀)
+
+function armijo(F, x, f, g, x₀, x₁; kwargs...)
+    ls = Armijo(F, x, f; kwargs...)
+    ls(x, f, g, x₀, x₁)
 end

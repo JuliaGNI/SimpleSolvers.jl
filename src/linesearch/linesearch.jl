@@ -1,4 +1,7 @@
 
+const DEFAULT_LINESEARCH_nmax=100
+const DEFAULT_LINESEARCH_rmax=100
+
 abstract type LineSearch end
 
-solve!(x, δx, x₀, y₀, g₀, ls::LineSearch) = error("solve!(x, δx, x₀, y₀, g₀, ls::LineSearch) not implemented for line search ", typeof(ls))
+solve!(x, f, g, x₀, x₁, ls::LineSearch) = error("solve!(x, f, g, x₀, x₁, ls::LineSearch) not implemented for line search ", typeof(ls))

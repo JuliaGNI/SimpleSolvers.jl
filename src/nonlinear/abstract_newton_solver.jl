@@ -3,6 +3,7 @@ abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
 
 @define newton_solver_variables begin
     x::Vector{T}
+    y::Vector{T}
     J::Matrix{T}
 
     x₀::Vector{T}
@@ -23,7 +24,8 @@ abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
 end
 
 function setInitialConditions!(s::AbstractNewtonSolver{T}, x₀::Vector{T}) where {T}
-    s.x[:] = x₀
+    s.x .= x₀
+    s.F!(s.y, s.x)
 end
 
 status(solver::AbstractNewtonSolver) = solver.status

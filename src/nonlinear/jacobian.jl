@@ -22,11 +22,10 @@ function JacobianParametersAD(F!::FT, Jconfig::JT, tx::Vector{T}, ty::Vector{T})
 end
 
 function JacobianParametersAD(F!::FT, T, n::Int) where {FT <: Function}
-    F!rev = (y,x) -> F!(x,y)
     tx = zeros(T, n)
     ty = zeros(T, n)
-    Jconfig = ForwardDiff.JacobianConfig(F!rev, ty, tx)
-    Jparams = JacobianParametersAD(F!rev, Jconfig, tx, ty)
+    Jconfig = ForwardDiff.JacobianConfig(F!, ty, tx)
+    Jparams = JacobianParametersAD(F!, Jconfig, tx, ty)
 end
 
 
@@ -49,7 +48,7 @@ end
 
 
 function computeJacobian(x::Vector{T}, J::Matrix{T}, params::JacobianParametersUser{T}) where {T}
-    params.J(x, J)
+    params.J(J, x)
 end
 
 function computeJacobian(x::Vector{T}, J::Matrix{T}, params::JacobianParametersFD{T}) where {T}
@@ -62,9 +61,9 @@ function computeJacobian(x::Vector{T}, J::Matrix{T}, params::JacobianParametersF
         fill!(params.e, 0)
         params.e[j] = 1
         params.tx .= x .- ϵⱼ .* params.e
-        params.F!(params.tx, params.f1)
+        params.F!(params.f1, params.tx)
         params.tx .= x .+ ϵⱼ .* params.e
-        params.F!(params.tx, params.f2)
+        params.F!(params.f2, params.tx)
         for i in eachindex(x)
             J[i,j] = (params.f2[i]-params.f1[i])/(2ϵⱼ)
         end
