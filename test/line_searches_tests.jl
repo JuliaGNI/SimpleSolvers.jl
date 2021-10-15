@@ -39,7 +39,7 @@ end
     # TODO Test scalars!
         
     # for Solver in (Armijo,ArmijoQuadratic,ArmijoCubic)
-    for Solver in (Armijo,)
+    for Solver in (ArmijoQuadratic,)
 
         n = 1
         x₀ = -0.5*ones(n)
@@ -59,7 +59,7 @@ end
         @test x ≈ zero(x) atol=2E-1
         @test f ≈ zero(f) atol=4E-2
 
-        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == armijo(F!, x, f, g, x₀, x₁)
+        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == armijo_quadratic(F!, x, f, g, x₀, x₁)
 
 
         n = 3
@@ -80,7 +80,7 @@ end
         @test x == zero(x)
         @test f == zero(f)
 
-        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == armijo(F!, x, f, g, x₀, x₁)
+        @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == armijo_quadratic(F!, x, f, g, x₀, x₁)
 
     end
 

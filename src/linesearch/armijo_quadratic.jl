@@ -7,9 +7,9 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_ϵ  = 1E-4
 
 """
-simple Armijo line search
+Quadratic Armijo line search
 """
-struct Armijo{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT <: Callable}
+struct ArmijoQuadratic{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT <: Callable}
 
     nmax::Int
     rmax::Int
@@ -25,14 +25,14 @@ struct Armijo{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: 
     δy::AT
     y::AT
 
-    function Armijo(F!, x, y; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
+    function ArmijoQuadratic(F!, x, y; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
                     λ₀::T=DEFAULT_ARMIJO_λ₀, σ₀::T=DEFAULT_ARMIJO_σ₀, σ₁::T=DEFAULT_ARMIJO_σ₁, ϵ::T=DEFAULT_ARMIJO_ϵ) where {T}
         new{T, eltype(y), typeof(y), typeof(F!)}(nmax, rmax, λ₀, σ₀, σ₁, ϵ, F!, zero(x), zero(y), zero(y))
     end
 end
 
 
-function (ls::Armijo)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
+function (ls::ArmijoQuadratic)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
     local λ::T
     local λₜ::T
     local y₀norm::T
@@ -104,10 +104,10 @@ function (ls::Armijo)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray
 end
 
 
-solve!(x, f, g, x₀, x₁, ls::Armijo) = ls(x, f, g, x₀, x₁)
+solve!(x, f, g, x₀, x₁, ls::ArmijoQuadratic) = ls(x, f, g, x₀, x₁)
 
 
-function armijo(F, x, f, g, x₀, x₁; kwargs...)
-    ls = Armijo(F, x, f; kwargs...)
+function armijo_quadratic(F, x, f, g, x₀, x₁; kwargs...)
+    ls = ArmijoQuadratic(F, x, f; kwargs...)
     ls(x, f, g, x₀, x₁)
 end

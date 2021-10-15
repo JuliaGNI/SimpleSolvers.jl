@@ -22,7 +22,7 @@ struct QuasiNewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolve
 end
 
 
-function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=Armijo(F!, x, y)) where {T}
+function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=ArmijoQuadratic(F!, x, y)) where {T}
     n = length(y)
     Jparams = getJacobianParameters(J!, F!, T, n)
     linear_solver = getLinearSolver(y)
