@@ -27,12 +27,8 @@ end
 
 function (ls::Armijo)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
     local λ::T
-    local λₜ::T
     local y₀norm::T
     local y₁norm::T
-    local p₀::T
-    local p₁::T
-    local p₂::T
 
     # set initial λ
     λ = ls.λ₀
