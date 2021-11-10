@@ -1,0 +1,3 @@
+var documenterSearchIndex = {"docs":
+[{"location":"","page":"Home","title":"Home","text":"CurrentModule = SimpleSolvers","category":"page"},{"location":"#SimpleSolvers","page":"Home","title":"SimpleSolvers","text":"","category":"section"},{"location":"","page":"Home","title":"Home","text":"","category":"page"},{"location":"","page":"Home","title":"Home","text":"Modules = [SimpleSolvers]","category":"page"},{"location":"#SimpleSolvers.ArmijoQuadratic","page":"Home","title":"SimpleSolvers.ArmijoQuadratic","text":"Quadratic Armijo line search\n\n\n\n\n\n","category":"type"},{"location":"#SimpleSolvers.Bisection","page":"Home","title":"SimpleSolvers.Bisection","text":"simple bisection line search\n\n\n\n\n\n","category":"type"}]
+}
