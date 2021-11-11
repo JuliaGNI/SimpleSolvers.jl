@@ -42,8 +42,8 @@ module SimpleSolvers
            get_solver_status, get_solver_status!,
            solve!
 
-    include("nonlinear/nonlinear_solvers.jl")
     include("nonlinear/jacobian.jl")
+    include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/abstract_newton_solver.jl")
     include("nonlinear/newton_solver.jl")
     include("nonlinear/quasi_newton_solver.jl")
