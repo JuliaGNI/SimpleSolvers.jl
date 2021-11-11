@@ -9,6 +9,14 @@ module SimpleSolvers
 
     export solve!
 
+    export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
+           JacobianParametersUser, getJacobianParameters,
+           computeJacobian, computeJacobianAD, computeJacobianFD
+
+    export computeJacobian, check_jacobian, print_jacobian
+
+    include("base/jacobian.jl")
+
     export LinearSolver, LUSolver, LUSolverLAPACK,
            factorize!
 
@@ -28,12 +36,6 @@ module SimpleSolvers
     include("linesearch/armijo_quadratic.jl")
     include("linesearch/bisection.jl")
 
-    export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
-           JacobianParametersUser, getJacobianParameters,
-           computeJacobian, computeJacobianAD, computeJacobianFD
-
-    export computeJacobian, check_jacobian, print_jacobian
-
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
            params, status,
@@ -42,7 +44,6 @@ module SimpleSolvers
            get_solver_status, get_solver_status!,
            solve!
 
-    include("nonlinear/jacobian.jl")
     include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/abstract_newton_solver.jl")
     include("nonlinear/newton_solver.jl")
