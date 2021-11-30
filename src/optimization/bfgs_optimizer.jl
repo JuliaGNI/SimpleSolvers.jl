@@ -107,8 +107,9 @@ function _linesearch!(s::BFGSOptimizer)
     s.δ .*= -1
     objective = α -> _f(s, α)
     a, b = bracket_minimum(objective, 1.0)
-    α = s.ls(objective, a, b)
+    α, y = s.ls(objective, a, b)
     s.x̄ .= s.x .+ α .* s.δ
+    s.ȳ  = y
 end
 
 
@@ -126,7 +127,6 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
             # solve!(s.x̄, s.y, s.g, s.x, s.ls)
 
             # compute Gradient at new solution
-            s.ȳ = s.F(s.x̄)
             computeGradient(s.x̄, s.ḡ, s.∇params)
 
             # compute residual

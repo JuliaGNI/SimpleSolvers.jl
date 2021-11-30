@@ -29,6 +29,7 @@ function (ls::Bisection)(f::Callable, xmin::T, xmax::T) where {T}
 
     local y₀ = f(x₀)
     local y₁ = f(x₁)
+    local y  = zero(y₀)
 
     # y₀ * y₁ ≤ 0 || error("Either no or multiple real roots in [xmin,xmax]")
 
@@ -53,7 +54,7 @@ function (ls::Bisection)(f::Callable, xmin::T, xmax::T) where {T}
 
     # i != ls.nmax || error("Max iteration number exceeded")
 
-    return x
+    return x, y
 end
 
 (ls::Bisection)(xmin, xmax) = ls(ls.f, xmin, xmax)

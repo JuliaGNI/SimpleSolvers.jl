@@ -109,14 +109,14 @@ end
     
     ls = Bisection(F; xtol=0.)
 
-    x1 = ls(x₀, x₁)
-    x2 = ls(x)
-    x3 = solve!(x, f, g, x₀, x₁, ls)
-    x4 = solve!(x₀, x₁, ls)
-    x5 = solve!(x, f, g, ls)
-    x6 = solve!(x, ls)
-    x7 = bisection(F, x₀, x₁; xtol=0.)
-    x8 = bisection(F, x; xtol=0.)
+    x1, y1 = ls(x₀, x₁)
+    x2, y2 = ls(x)
+    x3, y3 = solve!(x, f, g, x₀, x₁, ls)
+    x4, y4 = solve!(x₀, x₁, ls)
+    x5, y5 = solve!(x, f, g, ls)
+    x6, y6 = solve!(x, ls)
+    x7, y7 = bisection(F, x₀, x₁; xtol=0.)
+    x8, y8 = bisection(F, x; xtol=0.)
 
     @test x1 ≈ -1  atol=∛(2eps())
     @test x2 ≈ -1  atol=∛(2eps())
@@ -127,26 +127,26 @@ end
     @test x7 ≈ -1  atol=∛(2eps())
     @test x8 ≈ -1  atol=∛(2eps())
 
-    @test F(x1) ≈ 0  atol=2eps()
-    @test F(x2) ≈ 0  atol=2eps()
-    @test F(x3) ≈ 0  atol=2eps()
-    @test F(x4) ≈ 0  atol=2eps()
-    @test F(x5) ≈ 0  atol=2eps()
-    @test F(x6) ≈ 0  atol=2eps()
-    @test F(x7) ≈ 0  atol=2eps()
-    @test F(x8) ≈ 0  atol=2eps()
+    @test y1 ≈ 0  atol=2eps()
+    @test y2 ≈ 0  atol=2eps()
+    @test y3 ≈ 0  atol=2eps()
+    @test y4 ≈ 0  atol=2eps()
+    @test y5 ≈ 0  atol=2eps()
+    @test y6 ≈ 0  atol=2eps()
+    @test y7 ≈ 0  atol=2eps()
+    @test y8 ≈ 0  atol=2eps()
 
 
     ls = Bisection(F; ftol=0.)
 
-    x1 = ls(x₀, x₁)
-    x2 = ls(x)
-    x3 = solve!(x, f, g, x₀, x₁, ls)
-    x4 = solve!(x₀, x₁, ls)
-    x5 = solve!(x, f, g, ls)
-    x6 = solve!(x, ls)
-    x7 = bisection(F, x₀, x₁; ftol=0.)
-    x8 = bisection(F, x; ftol=0.)
+    x1, y1 = ls(x₀, x₁)
+    x2, y2 = ls(x)
+    x3, y3 = solve!(x, f, g, x₀, x₁, ls)
+    x4, y4 = solve!(x₀, x₁, ls)
+    x5, y5 = solve!(x, f, g, ls)
+    x6, y6 = solve!(x, ls)
+    x7, y7 = bisection(F, x₀, x₁; ftol=0.)
+    x8, y8 = bisection(F, x; ftol=0.)
 
     @test x1 ≈ -1  atol=2eps()
     @test x2 ≈ -1  atol=2eps()
@@ -157,13 +157,13 @@ end
     @test x7 ≈ -1  atol=2eps()
     @test x8 ≈ -1  atol=2eps()
 
-    @test F(x1) ≈ 0  atol=(2eps())^3
-    @test F(x2) ≈ 0  atol=(2eps())^3
-    @test F(x3) ≈ 0  atol=(2eps())^3
-    @test F(x4) ≈ 0  atol=(2eps())^3
-    @test F(x5) ≈ 0  atol=(2eps())^3
-    @test F(x6) ≈ 0  atol=(2eps())^3
-    @test F(x7) ≈ 0  atol=(2eps())^3
-    @test F(x8) ≈ 0  atol=(2eps())^3
+    @test y1 ≈ 0  atol=(2eps())^3
+    @test y2 ≈ 0  atol=(2eps())^3
+    @test y3 ≈ 0  atol=(2eps())^3
+    @test y4 ≈ 0  atol=(2eps())^3
+    @test y5 ≈ 0  atol=(2eps())^3
+    @test y6 ≈ 0  atol=(2eps())^3
+    @test y7 ≈ 0  atol=(2eps())^3
+    @test y8 ≈ 0  atol=(2eps())^3
 
 end
