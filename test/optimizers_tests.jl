@@ -16,7 +16,7 @@ function F(x)
     1 + sum(x.^2)
 end
 
-function J!(g, x)
+function ∇F!(g, x)
     g .= 0
     for i in eachindex(g,x)
         g[i] = 2x[i]
@@ -35,7 +35,7 @@ for Optim in (BFGSOptimizer,)
     n = 1
     x = ones(n)
     y = zero(eltype(x))
-    nl = Optim(x, y, F)
+    nl = Optim(x, F)
 
     @test params(nl) == nl.params
     @test status(nl) == nl.status
@@ -48,7 +48,7 @@ for Optim in (BFGSOptimizer,)
     end
 
     x = ones(n)
-    nl = Optim(x, y, F; J! = J!)
+    nl = Optim(x, F; ∇F! = ∇F!)
     setInitialConditions!(nl, x)
     solve!(nl)
     # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)

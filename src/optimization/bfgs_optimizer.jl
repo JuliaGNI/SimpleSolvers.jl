@@ -1,26 +1,26 @@
-mutable struct BFGSOptimizer{T,FT,TJ,TS<:LineSearch} <: Optimizer{T}
-    x::Vector{T}
-    x̄::Vector{T}
-    δ::Vector{T}
+mutable struct BFGSOptimizer{XT, YT, FT <: Callable, T∇ <: GradientParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
+    x::VT
+    x̄::VT
+    δ::VT
 
-    g::Vector{T}
-    ḡ::Vector{T}
-    γ::Vector{T}
+    g::VT
+    ḡ::VT
+    γ::VT
 
-    Q::Matrix{T}
-    y::T
-    ȳ::T
+    Q::Matrix{XT}
+    y::YT
+    ȳ::YT
 
     F::FT
-    Jparams::TJ
+    ∇params::T∇
 
     ls::TS
 
-    params::NonlinearSolverParameters{T}
-    status::NonlinearSolverStatus{T}
+    params::NonlinearSolverParameters{XT}
+    status::NonlinearSolverStatus{XT}
 
-    function BFGSOptimizer{T,FT,TJ,TS}(x, y, F, Jparams, line_search) where {T,FT,TJ,TS}
-        Q = zeros(T, length(x), length(x))
+    function BFGSOptimizer{XT,YT,FT,T∇,TS,VT}(x, F, ∇params, line_search) where {XT,YT,FT,T∇,TS,VT}
+        Q = zeros(XT, length(x), length(x))
     
         x = zero(x)
         x̄ = zero(x)
@@ -29,37 +29,37 @@ mutable struct BFGSOptimizer{T,FT,TJ,TS<:LineSearch} <: Optimizer{T}
         g = zero(x)
         ḡ = zero(x)
         γ = zero(x)
+
+        nls_params = NonlinearSolverParameters(XT)
+        nls_status = NonlinearSolverStatus{XT}(length(x))
     
-        nls_params = NonlinearSolverParameters(T)
-        nls_status = NonlinearSolverStatus{T}(length(x))
-    
-        new(x, x̄, δ, g, ḡ, γ, Q, zero(y), zero(y), F, Jparams, line_search, nls_params, nls_status)
+        new(x, x̄, δ, g, ḡ, γ, Q, zero(YT), zero(YT), F, ∇params, line_search, nls_params, nls_status)
     end
 end
 
 
-function BFGSOptimizer(x::AbstractVector{T}, y::T, F::Function; J!::Union{Function,Nothing} = nothing, linesearch = Bisection(F)) where {T}
-    Jparams = getJacobianParameters(J!, (y,x) -> [F(x)], T, length(x), 1)
-    BFGSOptimizer{T,typeof(F),typeof(Jparams),typeof(linesearch)}(x, y, F, Jparams, linesearch)
+function BFGSOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
+    ∇params = getGradientParameters(∇F!, F, x)
+    YT = typeof(F(x))
+    BFGSOptimizer{XT,YT,typeof(F),typeof(∇params),typeof(linesearch),VT}(x, F, ∇params, linesearch)
 end
 
 
 status(solver::BFGSOptimizer) = solver.status
 params(solver::BFGSOptimizer) = solver.params
 
-function computeJacobian(s::BFGSOptimizer)
-    ∇F = x -> ForwardDiff.gradient(s.F, x)
-    s.g .= ∇F(s.x)
+function computeGradient(s::BFGSOptimizer)
+    computeGradient(s.x, s.g, s.∇params)
 end
 
-check_jacobian(s::BFGSOptimizer) = check_jacobian(s.g)
-print_jacobian(s::BFGSOptimizer) = print_jacobian(s.g)
+check_gradient(s::BFGSOptimizer) = check_gradient(s.g)
+print_gradient(s::BFGSOptimizer) = print_gradient(s.g)
 
 
 function setInitialConditions!(s::BFGSOptimizer{T}, x₀::Vector{T}) where {T}
     s.x .= x₀
     s.y = s.F(s.x)
-    computeJacobian(s)
+    computeGradient(s)
     s.Q .= Matrix(1.0I, length(s.x), length(s.x))
 end
 
@@ -93,11 +93,9 @@ end
 function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
     local nmax::Int = n > 0 ? nmax = n : s.params.nmax
 
-    computeJacobian(s)
+    computeGradient(s)
     _residual_initial!(s.status, s.x, s.y, s.g)
     s.status.i = 0
-
-    ∇F = x -> ForwardDiff.gradient(s.F, x)
 
     if s.status.rₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
         for s.status.i = 1:nmax
@@ -105,9 +103,9 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
             _linesearch!(s.x̄, s.F, s.x, - s.Q * s.g)
             # solve!(s.x̄, s.y, s.g, s.x, s.ls)
 
-            # compute Jacobian at new solution
+            # compute Gradient at new solution
             s.ȳ  = s.F(s.x̄)
-            s.ḡ .= ∇F(s.x̄)
+            computeGradient(s.x̄, s.ḡ, s.∇params)
 
             # compute residual
             _residual!(s.status, s.x̄, s.ȳ, s.ḡ)
