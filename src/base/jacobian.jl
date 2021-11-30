@@ -6,14 +6,14 @@ struct JacobianParametersUser{T, JT <: Callable} <: JacobianParameters{T}
     J::JT
 end
 
-struct JacobianParametersAD{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig} <: JacobianParameters{T}
+struct JacobianParametersAD{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig, VT <: AbstractVector{T}} <: JacobianParameters{T}
     F!::FT
     Jconfig::JT
-    tx::Vector{T}
-    ty::Vector{T}
+    tx::VT
+    ty::VT
 
-    function JacobianParametersAD(F!::FT, Jconfig::JT, tx::Vector{T}, ty::Vector{T}) where {T, FT, JT}
-        new{T, FT, JT}(F!, Jconfig, tx, ty)
+    function JacobianParametersAD(F!::FT, Jconfig::JT, tx::VT, ty::VT) where {T, FT, JT, VT <: AbstractVector{T}}
+        new{T, FT, JT, VT}(F!, Jconfig, tx, ty)
     end
 end
 
@@ -40,16 +40,16 @@ function JacobianParametersFD(F!::FT, ϵ, T, nx::Int, ny::Int) where {FT <: Call
     f2 = zeros(T, ny)
     e  = zeros(T, nx)
     tx = zeros(T, nx)
-    Jparams = JacobianParametersFD{T, typeof(F!)}(ϵ, F!, f1, f2, e, tx)
+    JacobianParametersFD{T, typeof(F!)}(ϵ, F!, f1, f2, e, tx)
 end
 
 JacobianParametersFD(F!, ϵ, T, n) = JacobianParametersFD(F!, ϵ, T, n, n)
 
-function computeJacobian(x::Vector{T}, J::Matrix{T}, params::JacobianParametersUser{T}) where {T}
+function computeJacobian(x::AbstractVector{T}, J::AbstractMatrix{T}, params::JacobianParametersUser{T}) where {T}
     params.J(J, x)
 end
 
-function computeJacobian(x::Vector{T}, J::Matrix{T}, params::JacobianParametersFD{T}) where {T}
+function computeJacobian(x::AbstractVector{T}, J::AbstractMatrix{T}, params::JacobianParametersFD{T}) where {T}
     local ϵⱼ::T
 
     for j in eachindex(x)
@@ -66,16 +66,16 @@ function computeJacobian(x::Vector{T}, J::Matrix{T}, params::JacobianParametersF
     end
 end
 
-function computeJacobian(x::Vector{T}, J::Matrix{T}, Jparams::JacobianParametersAD{T}) where {T}
+function computeJacobian(x::AbstractVector{T}, J::AbstractMatrix{T}, Jparams::JacobianParametersAD{T}) where {T}
     ForwardDiff.jacobian!(J, Jparams.F!, Jparams.ty, x, Jparams.Jconfig)
 end
 
-function computeJacobianFD(x::Vector{T}, J::Matrix{T}, F!::FT, ϵ::T) where{T, FT <: Callable}
+function computeJacobianFD(x::AbstractVector{T}, J::AbstractMatrix{T}, F!::FT, ϵ::T) where{T, FT <: Callable}
     params = JacobianParametersFD(F!, ϵ, T, length(x))
     computeJacobian(x, J, params)
 end
 
-function computeJacobianAD(x::Vector{T}, J::Matrix{T}, F!::FT) where{T, FT <: Callable}
+function computeJacobianAD(x::AbstractVector{T}, J::AbstractMatrix{T}, F!::FT) where{T, FT <: Callable}
     params = JacobianParametersAD(F!, T, length(x))
     computeJacobian(x, J, params)
 end
@@ -97,7 +97,7 @@ end
 getJacobianParameters(J, F!, T, n) = getJacobianParameters(J, F!, T, n, n)
 
 
-function check_jacobian(J::Matrix)
+function check_jacobian(J::AbstractMatrix)
     println("Condition Number of Jacobian: ", cond(J))
     println("Determinant of Jacobian:      ", det(J))
     println("minimum(|Jacobian|):          ", minimum(abs.(J)))
@@ -105,7 +105,7 @@ function check_jacobian(J::Matrix)
     println()
 end
 
-function print_jacobian(J::Matrix)
+function print_jacobian(J::AbstractMatrix)
     display(J)
     println()
 end
