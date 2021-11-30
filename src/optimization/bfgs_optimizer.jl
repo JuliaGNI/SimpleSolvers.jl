@@ -62,19 +62,28 @@ end
 status(solver::BFGSOptimizer) = solver.status
 params(solver::BFGSOptimizer) = solver.params
 
-function computeGradient(s::BFGSOptimizer)
-    computeGradient(s.x, s.g, s.∇params)
-end
-
 check_gradient(s::BFGSOptimizer) = check_gradient(s.g)
 print_gradient(s::BFGSOptimizer) = print_gradient(s.g)
 
 
 function setInitialConditions!(s::BFGSOptimizer{T}, x₀::Vector{T}) where {T}
     s.x .= x₀
-    s.y = s.F(s.x)
-    computeGradient(s)
+    s.y  = s.F(s.x)
     s.Q .= Matrix(1.0I, length(s.x), length(s.x))
+    computeGradient(s.x, s.g, s.∇params)
+    _residual_initial!(s.status, s.x, s.y, s.g)
+end
+
+
+function update!(s::BFGSOptimizer)
+    # update status
+    s.status.xₚ .= s.x̄
+    s.status.yₚ .= s.ȳ
+
+    # update temporaries
+    s.x .= s.x̄
+    s.y  = s.ȳ
+    s.g .= s.ḡ
 end
 
 
@@ -82,6 +91,7 @@ function _residual_initial!(status, x, y, g)
     status.rₐ = Inf
     status.rᵣ = Inf
     status.rₛ = Inf
+    status.r₀ .= 0
     status.x₀ .= x
     status.xₚ .= x
     status.y₀ .= y
@@ -90,10 +100,10 @@ end
 
 
 function _residual!(status, x̄, ȳ, ḡ)
-    status.rₐ = norm(status.yₚ[1] - ȳ[1])
-    status.rᵣ = norm(status.yₚ[1] - ȳ[1]) / norm(status.yₚ[1])
+    status.rₐ  = norm(status.yₚ[1] - ȳ[1])
+    status.rᵣ  = norm(status.yₚ[1] - ȳ[1]) / norm(status.yₚ[1])
     status.r₀ .= status.xₚ .- x̄
-    status.rₛ = norm(status.r₀)
+    status.rₛ  = norm(status.r₀)
 end
 
 
@@ -116,15 +126,11 @@ end
 function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
     local nmax::Int = n > 0 ? nmax = n : s.params.nmax
 
-    computeGradient(s)
-    _residual_initial!(s.status, s.x, s.y, s.g)
     s.status.i = 0
-
     if s.status.rₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
         for s.status.i = 1:nmax
             # apply line search
             _linesearch!(s)
-            # solve!(s.x̄, s.y, s.g, s.x, s.ls)
 
             # compute Gradient at new solution
             computeGradient(s.x̄, s.ḡ, s.∇params)
@@ -166,14 +172,8 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
             s.Q3 .= (1 + dot(s.γ, s.Q, s.γ) ./ δγ) .* s.δδ
             s.Q .-= (s.Q1 .+ s.Q2 .- s.Q3) ./ δγ
 
-            # update status
-            s.status.xₚ .= s.x̄
-            s.status.yₚ .= s.ȳ
-
-            # update temporaries
-            s.x .= s.x̄
-            s.y  = s.ȳ
-            s.g .= s.ḡ
+            # update status and temporaries
+            update!(s)
         end
     end
 end
