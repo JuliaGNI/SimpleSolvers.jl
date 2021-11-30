@@ -98,3 +98,17 @@ function getJacobianParameters(J, F!, T, nx, ny)
 end
 
 getJacobianParameters(J, F!, T, n) = getJacobianParameters(J, F!, T, n, n)
+
+
+function check_jacobian(J::Matrix)
+    println("Condition Number of Jacobian: ", cond(J))
+    println("Determinant of Jacobian:      ", det(J))
+    println("minimum(|Jacobian|):          ", minimum(abs.(J)))
+    println("maximum(|Jacobian|):          ", maximum(abs.(J)))
+    println()
+end
+
+function print_jacobian(J::Matrix)
+    display(J)
+    println()
+end
