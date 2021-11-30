@@ -54,6 +54,13 @@ module SimpleSolvers
     include("nonlinear/quasi_newton_solver.jl")
     include("nonlinear/nlsolve_newton.jl")
 
+    export Optimizer,
+           BFGSOptimizer,
+           setInitialConditions!
+
+    include("optimization/optimizer.jl")
+    include("optimization/bfgs_optimizer.jl")
+
 
     function __init__()
         default_params = (
