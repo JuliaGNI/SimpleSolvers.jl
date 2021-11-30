@@ -20,21 +20,21 @@ mutable struct Bisection{XT,YT,FT} <: LineSearch where {XT <: Number, YT <: Numb
 end
 
 
-function (ls::Bisection)(xmin::T, xmax::T) where {T}
+function (ls::Bisection)(f::Callable, xmin::T, xmax::T) where {T}
     local x₀ = xmin
     local x₁ = xmax
     local x  = zero(T)
 
     x₀ < x₁ || begin x₀, x₁ = x₁, x₀ end
 
-    local y₀ = ls.f(x₀)
-    local y₁ = ls.f(x₁)
+    local y₀ = f(x₀)
+    local y₁ = f(x₁)
 
     # y₀ * y₁ ≤ 0 || error("Either no or multiple real roots in [xmin,xmax]")
 
     for _ in 1:ls.nmax
         x = (x₀ + x₁) / 2
-        y = ls.f(x)
+        y = f(x)
 
         !isapprox(y, zero(y), atol=ls.ftol) || break
 
@@ -56,6 +56,7 @@ function (ls::Bisection)(xmin::T, xmax::T) where {T}
     return x
 end
 
+(ls::Bisection)(xmin, xmax) = ls(ls.f, xmin, xmax)
 (ls::Bisection)(x) = ls(bracket_minimum(ls.f, x)...)
 
 solve!(x, f, g, x₀, x₁, ls::Bisection) = ls(x₀, x₁)

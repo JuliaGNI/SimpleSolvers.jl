@@ -18,3 +18,14 @@ end
 function l2norm(x)
     sqrt(L2norm(x))
 end
+
+function outer!(O, x, y)
+    @assert axes(O,1) == axes(x,1)
+    @assert axes(O,2) == axes(y,1)
+    @inbounds @simd for i in axes(O, 1)
+        for j in axes(O, 2)
+            O[i,j] = x[i] * y[j]
+        end
+    end
+
+end
