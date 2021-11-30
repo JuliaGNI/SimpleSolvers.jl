@@ -10,6 +10,14 @@ module SimpleSolvers
 
     export solve!
 
+    export GradientParameters, GradientParametersAD, GradientParametersFD,
+           GradientParametersUser, getGradientParameters,
+           computeGradient, computeGradientAD, computeGradientFD
+
+    export computeJacobian, check_jacobian, print_jacobian
+
+    include("base/gradient.jl")
+
     export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
            JacobianParametersUser, getJacobianParameters,
            computeJacobian, computeJacobianAD, computeJacobianFD
@@ -77,6 +85,8 @@ module SimpleSolvers
             (:nls_nmin,  0),
             (:nls_nwarn, 100),
             (:nls_solver, NewtonSolver),
+            (:gradient_autodiff, true),
+            (:gradient_fd_ϵ, 8sqrt(eps())),
             (:jacobian_autodiff, true),
             (:jacobian_fd_ϵ, 8sqrt(eps())),
             (:quasi_newton_refactorize, 5),
