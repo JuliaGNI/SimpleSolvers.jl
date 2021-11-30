@@ -87,6 +87,10 @@ end
 
 end
 
+@testset "$(rpad("Bracketing",80))" begin
+    @test bracket_minimum(x -> x^2) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
+    @test bracket_minimum(x -> (x-1)^2) == (0.64, 2.56)
+end
 
 @testset "$(rpad("Bisection",80))" begin
 

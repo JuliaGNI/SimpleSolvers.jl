@@ -1,0 +1,2 @@
+
+const DEFAULT_BRACKETING_nmax=100

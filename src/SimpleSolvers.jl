@@ -24,6 +24,10 @@ module SimpleSolvers
     include("linear/lu_solver.jl")
     include("linear/lu_solver_lapack.jl")
 
+    export bracket_minimum
+
+    include("bracketing/bracketing.jl")
+    include("bracketing/bracket_minimum.jl")
 
     export LineSearch, NoLineSearch
     export Armijo, armijo,
