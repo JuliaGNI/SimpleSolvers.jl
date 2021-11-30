@@ -1,15 +1,12 @@
 
-using ForwardDiff
-
-
 abstract type JacobianParameters{T} end
 
 
-struct JacobianParametersUser{T, JT <: Function} <: JacobianParameters{T}
+struct JacobianParametersUser{T, JT <: Callable} <: JacobianParameters{T}
     J::JT
 end
 
-struct JacobianParametersAD{T, FT <: Function, JT <: ForwardDiff.JacobianConfig} <: JacobianParameters{T}
+struct JacobianParametersAD{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig} <: JacobianParameters{T}
     F!::FT
     Jconfig::JT
     tx::Vector{T}
@@ -20,7 +17,7 @@ struct JacobianParametersAD{T, FT <: Function, JT <: ForwardDiff.JacobianConfig}
     end
 end
 
-function JacobianParametersAD(F!::FT, T, nx::Int, ny::Int) where {FT <: Function}
+function JacobianParametersAD(F!::FT, T, nx::Int, ny::Int) where {FT <: Callable}
     tx = zeros(T, nx)
     ty = zeros(T, ny)
     Jconfig = ForwardDiff.JacobianConfig(F!, ty, tx)
@@ -38,7 +35,7 @@ struct JacobianParametersFD{T, FT} <: JacobianParameters{T}
     tx::Vector{T}
 end
 
-function JacobianParametersFD(F!::FT, ϵ, T, nx::Int, ny::Int) where {FT <: Function}
+function JacobianParametersFD(F!::FT, ϵ, T, nx::Int, ny::Int) where {FT <: Callable}
     f1 = zeros(T, ny)
     f2 = zeros(T, ny)
     e  = zeros(T, nx)
@@ -73,12 +70,12 @@ function computeJacobian(x::Vector{T}, J::Matrix{T}, Jparams::JacobianParameters
     ForwardDiff.jacobian!(J, Jparams.F!, Jparams.ty, x, Jparams.Jconfig)
 end
 
-function computeJacobianFD(x::Vector{T}, J::Matrix{T}, F!::FT, ϵ::T) where{T, FT <: Function}
+function computeJacobianFD(x::Vector{T}, J::Matrix{T}, F!::FT, ϵ::T) where{T, FT <: Callable}
     params = JacobianParametersFD(F!, ϵ, T, length(x))
     computeJacobian(x, J, params)
 end
 
-function computeJacobianAD(x::Vector{T}, J::Matrix{T}, F!::FT) where{T, FT <: Function}
+function computeJacobianAD(x::Vector{T}, J::Matrix{T}, F!::FT) where{T, FT <: Callable}
     params = JacobianParametersAD(F!, T, length(x))
     computeJacobian(x, J, params)
 end

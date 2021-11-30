@@ -1,5 +1,6 @@
 module SimpleSolvers
 
+    using ForwardDiff
     using LinearAlgebra
 
     import Base: Callable
