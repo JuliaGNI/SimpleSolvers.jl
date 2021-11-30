@@ -82,6 +82,8 @@ function getGradientParameters(g, F, T, nx)
     return ∇params
 end
 
+getGradientParameters(g, F, x::AbstractVector) = getGradientParameters(g, F, eltype(x), length(x))
+
 
 function check_gradient(g::AbstractVector)
     println("norm(Gradient):               ", norm(g))
