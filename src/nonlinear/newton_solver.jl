@@ -22,7 +22,7 @@ end
 
 function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=NoLineSearch()) where {T}
     n = length(y)
-    Jparams = getJacobianParameters(J!, F!, T, n)
+    Jparams = JacobianParameters{T}(J!, F!, n)
     linear_solver = getLinearSolver(y)
     NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch)
 end
@@ -38,7 +38,7 @@ function solve!(s::NewtonSolver{T}; n::Int=0) where {T}
     if s.status.rₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
         for s.status.i in 1:nmax
             # compute Jacobian
-            computeJacobian(s)
+            compute_jacobian!(s)
 
             # copy Jacobian into linear solver
             s.linear.A .= s.J

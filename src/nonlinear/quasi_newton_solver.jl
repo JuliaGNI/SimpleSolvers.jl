@@ -24,7 +24,7 @@ end
 
 function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=ArmijoQuadratic(F!, x, y)) where {T}
     n = length(y)
-    Jparams = getJacobianParameters(J!, F!, T, n)
+    Jparams = JacobianParameters{T}(J!, F!, n)
     linear_solver = getLinearSolver(y)
     QuasiNewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch)
 end
@@ -42,7 +42,7 @@ function solve!(s::QuasiNewtonSolver{T}; n::Int=0) where {T}
         for s.status.i in 1:nmax
             # compute Jacobian and factorize
             if mod(s.status.i-1, refactorize) == 0
-                computeJacobian(s)
+                compute_jacobian!(s)
                 s.linear.A .= s.J
                 factorize!(s.linear)
             end
