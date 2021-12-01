@@ -87,50 +87,83 @@ end
 
 end
 
+@testset "$(rpad("Bracketing",80))" begin
+    @test bracket_minimum(x -> x^2) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
+    @test bracket_minimum(x -> (x-1)^2) == (0.64, 2.56)
+end
+
+
+function F(x)
+    x^2-1
+end
+
 
 @testset "$(rpad("Bisection",80))" begin
 
-    # TODO Test scalars!
-    
-    n = 1
-    x₀ = -π*ones(n)
-    x₁ =    ones(n)
+    n  = 1
+    x₀ = -π
+    x₁ = one(x₀)
     x  = copy(x₀)
     f  = zeros(n)
     g  = zeros(n,n)
-    ls = Bisection(F!, x, f)
-
-    F!(f,x)
-    J!(g,x)
     
-    solve!(x, f, g, x₀, x₁, ls)
+    ls = Bisection(F; xtol=0.)
 
-    F!(f,x)
+    x1, y1 = ls(x₀, x₁)
+    x2, y2 = ls(x)
+    x3, y3 = solve!(x, f, g, x₀, x₁, ls)
+    x4, y4 = solve!(x₀, x₁, ls)
+    x5, y5 = solve!(x, f, g, ls)
+    x6, y6 = solve!(x, ls)
+    x7, y7 = bisection(F, x₀, x₁; xtol=0.)
+    x8, y8 = bisection(F, x; xtol=0.)
 
-    @test x == zero(x)
-    @test f == zero(f)
+    @test x1 ≈ -1  atol=∛(2eps())
+    @test x2 ≈ -1  atol=∛(2eps())
+    @test x3 ≈ -1  atol=∛(2eps())
+    @test x4 ≈ -1  atol=∛(2eps())
+    @test x5 ≈ -1  atol=∛(2eps())
+    @test x6 ≈ -1  atol=∛(2eps())
+    @test x7 ≈ -1  atol=∛(2eps())
+    @test x8 ≈ -1  atol=∛(2eps())
 
-    @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == bisection(F!, x, f, g, x₀, x₁)
+    @test y1 ≈ 0  atol=2eps()
+    @test y2 ≈ 0  atol=2eps()
+    @test y3 ≈ 0  atol=2eps()
+    @test y4 ≈ 0  atol=2eps()
+    @test y5 ≈ 0  atol=2eps()
+    @test y6 ≈ 0  atol=2eps()
+    @test y7 ≈ 0  atol=2eps()
+    @test y8 ≈ 0  atol=2eps()
 
 
-    n = 3
-    x₀ = -ones(n)
-    x₁ = +ones(n)
-    x  = copy(x₀)
-    f  = zeros(n)
-    g  = zeros(n,n)
-    ls = Bisection(F!, x, f)
+    ls = Bisection(F; ftol=0.)
 
-    F!(f,x)
-    J!(g,x)
+    x1, y1 = ls(x₀, x₁)
+    x2, y2 = ls(x)
+    x3, y3 = solve!(x, f, g, x₀, x₁, ls)
+    x4, y4 = solve!(x₀, x₁, ls)
+    x5, y5 = solve!(x, f, g, ls)
+    x6, y6 = solve!(x, ls)
+    x7, y7 = bisection(F, x₀, x₁; ftol=0.)
+    x8, y8 = bisection(F, x; ftol=0.)
 
-    solve!(x, f, g, x₀, x₁, ls)
+    @test x1 ≈ -1  atol=2eps()
+    @test x2 ≈ -1  atol=2eps()
+    @test x3 ≈ -1  atol=2eps()
+    @test x4 ≈ -1  atol=2eps()
+    @test x5 ≈ -1  atol=2eps()
+    @test x6 ≈ -1  atol=2eps()
+    @test x7 ≈ -1  atol=2eps()
+    @test x8 ≈ -1  atol=2eps()
 
-    F!(f,x)
-
-    @test x == zero(x)
-    @test f == zero(f)
-
-    @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == bisection(F!, x, f, g, x₀, x₁)
+    @test y1 ≈ 0  atol=(2eps())^3
+    @test y2 ≈ 0  atol=(2eps())^3
+    @test y3 ≈ 0  atol=(2eps())^3
+    @test y4 ≈ 0  atol=(2eps())^3
+    @test y5 ≈ 0  atol=(2eps())^3
+    @test y6 ≈ 0  atol=(2eps())^3
+    @test y7 ≈ 0  atol=(2eps())^3
+    @test y8 ≈ 0  atol=(2eps())^3
 
 end

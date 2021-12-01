@@ -1,5 +1,6 @@
 module SimpleSolvers
 
+    using ForwardDiff
     using LinearAlgebra
 
     import Base: Callable
@@ -9,6 +10,26 @@ module SimpleSolvers
 
     export solve!
 
+    export GradientParameters, GradientParametersAD, GradientParametersFD,
+           GradientParametersUser, getGradientParameters,
+           computeGradient, computeGradientAD, computeGradientFD
+
+    export computeJacobian, check_jacobian, print_jacobian
+
+    include("base/gradient.jl")
+
+    export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
+           JacobianParametersUser, getJacobianParameters,
+           computeJacobian, computeJacobianAD, computeJacobianFD
+
+    export computeJacobian, check_jacobian, print_jacobian
+
+    include("base/jacobian.jl")
+
+    export HessianParameters
+
+    include("base/hessian.jl")
+
     export LinearSolver, LUSolver, LUSolverLAPACK,
            factorize!
 
@@ -16,6 +37,10 @@ module SimpleSolvers
     include("linear/lu_solver.jl")
     include("linear/lu_solver_lapack.jl")
 
+    export bracket_minimum
+
+    include("bracketing/bracketing.jl")
+    include("bracketing/bracket_minimum.jl")
 
     export LineSearch, NoLineSearch
     export Armijo, armijo,
@@ -28,12 +53,6 @@ module SimpleSolvers
     include("linesearch/armijo_quadratic.jl")
     include("linesearch/bisection.jl")
 
-    export JacobianParameters, JacobianParametersAD, JacobianParametersFD,
-           JacobianParametersUser, getJacobianParameters,
-           computeJacobian, computeJacobianAD, computeJacobianFD
-
-    export computeJacobian, check_jacobian, print_jacobian
-
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
            params, status,
@@ -42,12 +61,24 @@ module SimpleSolvers
            get_solver_status, get_solver_status!,
            solve!
 
-    include("nonlinear/nonlinear_solvers.jl")
-    include("nonlinear/jacobian.jl")
+    include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/abstract_newton_solver.jl")
     include("nonlinear/newton_solver.jl")
     include("nonlinear/quasi_newton_solver.jl")
     include("nonlinear/nlsolve_newton.jl")
+
+    export Optimizer,
+           QuasiNewtonOptimizer,
+           BFGSOptimizer,
+           DFPOptimizer,
+           HessianBFGS,
+           HessianDFP,
+           setInitialConditions!
+
+    include("optimization/optimizer.jl")
+    include("optimization/hessian_bfgs.jl")
+    include("optimization/hessian_dfp.jl")
+    include("optimization/quasi_newton_optimizer.jl")
 
 
     function __init__()
@@ -64,6 +95,8 @@ module SimpleSolvers
             (:nls_nmin,  0),
             (:nls_nwarn, 100),
             (:nls_solver, NewtonSolver),
+            (:gradient_autodiff, true),
+            (:gradient_fd_ϵ, 8sqrt(eps())),
             (:jacobian_autodiff, true),
             (:jacobian_fd_ϵ, 8sqrt(eps())),
             (:quasi_newton_refactorize, 5),
