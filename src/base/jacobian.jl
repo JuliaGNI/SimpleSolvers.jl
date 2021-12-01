@@ -73,7 +73,7 @@ function JacobianParametersFD{T}(F!::FT, nx::Int, ny::Int; ϵ=DEFAULT_JACOBIAN_�
     f2 = zeros(T, ny)
     e  = zeros(T, nx)
     tx = zeros(T, nx)
-    JacobianParametersFD{T, typeof(F!)}(ϵ, F!, f1, f2, e, tx)
+    JacobianParametersFD{T,FT}(ϵ, F!, f1, f2, e, tx)
 end
 
 JacobianParametersFD{T}(F!, n; kwargs...) where {T} = JacobianParametersFD{T}(F!, n, n; kwargs...)

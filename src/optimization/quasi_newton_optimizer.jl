@@ -62,7 +62,7 @@ function _f(s, α)
 end
 
 function _linesearch!(s::QuasiNewtonOptimizer)
-    mul!(s.status.δ, inverse(s.H), s.status.g)
+    mul!(s.status.δ, inverse(hessian(s)), s.status.g)
     s.status.δ .*= -1
     objective = α -> _f(s, α)
     a, b = bracket_minimum(objective, 1.0)
