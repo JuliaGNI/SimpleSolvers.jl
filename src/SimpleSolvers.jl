@@ -68,15 +68,17 @@ module SimpleSolvers
     include("nonlinear/nlsolve_newton.jl")
 
     export Optimizer,
+           QuasiNewtonOptimizer,
            BFGSOptimizer,
+           DFPOptimizer,
            HessianBFGS,
            HessianDFP,
            setInitialConditions!
 
     include("optimization/optimizer.jl")
-    include("optimization/bfgs_optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
+    include("optimization/quasi_newton_optimizer.jl")
 
 
     function __init__()

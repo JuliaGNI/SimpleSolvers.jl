@@ -1,4 +1,5 @@
 
+using LinearAlgebra
 using SimpleSolvers
 using Test
 
@@ -33,7 +34,7 @@ function H!(g, x)
 end
 
 
-for Optim in (BFGSOptimizer,)
+for Optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
     n = 1
     x = ones(n)
     y = zero(eltype(x))
@@ -45,16 +46,12 @@ for Optim in (BFGSOptimizer,)
     setInitialConditions!(nl, x)
     solve!(nl)
     # println(status(nl))
-    for x in nl.status.x
-        @test x ≈ 0 atol=1E-7
-    end
+    @test norm(nl.status.x) ≈ 0 atol=1E-7
 
     x = ones(n)
     nl = Optim(x, F; ∇F! = ∇F!)
     setInitialConditions!(nl, x)
     solve!(nl)
     # println(status(nl))
-    for x in nl.status.x
-        @test x ≈ 0 atol=1E-7
-    end
+    @test norm(nl.status.x) ≈ 0 atol=1E-7
 end

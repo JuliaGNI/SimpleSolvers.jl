@@ -1,4 +1,5 @@
-mutable struct BFGSOptimizer{XT, YT, FT <: Callable, GT <: GradientParameters, HT <: HessianParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
+
+mutable struct QuasiNewtonOptimizer{XT, YT, FT <: Callable, GT <: GradientParameters, HT <: HessianParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
     x̃::VT
     ỹ::YT
     g̃::VT
@@ -12,7 +13,7 @@ mutable struct BFGSOptimizer{XT, YT, FT <: Callable, GT <: GradientParameters, H
     params::NonlinearSolverParameters{XT}
     status::OptimizerStatus{XT,YT,VT}
 
-    function BFGSOptimizer{XT,YT,FT,GT,HT,TS,VT}(x, F, G, H, line_search) where {XT,YT,FT,GT,HT,TS,VT}
+    function QuasiNewtonOptimizer{XT,YT,FT,GT,HT,TS,VT}(x, F, G, H, line_search) where {XT,YT,FT,GT,HT,TS,VT}
         x̃ = zero(x)
         g̃ = zero(x)
 
@@ -23,27 +24,30 @@ mutable struct BFGSOptimizer{XT, YT, FT <: Callable, GT <: GradientParameters, H
     end
 end
 
-function BFGSOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianBFGS, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
+function QuasiNewtonOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianBFGS, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
     G = getGradientParameters(∇F!, F, x)
     H = hessian(x)
     YT = typeof(F(x))
-    BFGSOptimizer{XT,YT,typeof(F),typeof(G),typeof(H),typeof(linesearch),VT}(x, F, G, H, linesearch)
+    QuasiNewtonOptimizer{XT,YT,typeof(F),typeof(G),typeof(H),typeof(linesearch),VT}(x, F, G, H, linesearch)
 end
 
-
-status(s::BFGSOptimizer) = s.status
-params(s::BFGSOptimizer) = s.params
-gradient(s::BFGSOptimizer) = s.G
-hessian(s::BFGSOptimizer) = s.H
-
-check_gradient(s::BFGSOptimizer) = check_gradient(s.g)
-print_gradient(s::BFGSOptimizer) = print_gradient(s.g)
-
-print_solver_status(s::BFGSOptimizer) = print_solver_status(status(s), params(s))
-check_solver_converged(s::BFGSOptimizer) = check_solver_converged(status(s), params(s))
+BFGSOptimizer(args...; kwargs...) = QuasiNewtonOptimizer(args...; hessian = HessianBFGS, kwargs...)
+DFPOptimizer(args...; kwargs...) = QuasiNewtonOptimizer(args...; hessian = HessianDFP, kwargs...)
 
 
-function setInitialConditions!(s::BFGSOptimizer{T}, x₀::Vector{T}) where {T}
+status(s::QuasiNewtonOptimizer) = s.status
+params(s::QuasiNewtonOptimizer) = s.params
+gradient(s::QuasiNewtonOptimizer) = s.G
+hessian(s::QuasiNewtonOptimizer) = s.H
+
+check_gradient(s::QuasiNewtonOptimizer) = check_gradient(s.g)
+print_gradient(s::QuasiNewtonOptimizer) = print_gradient(s.g)
+
+print_solver_status(s::QuasiNewtonOptimizer) = print_solver_status(status(s), params(s))
+check_solver_converged(s::QuasiNewtonOptimizer) = check_solver_converged(status(s), params(s))
+
+
+function setInitialConditions!(s::QuasiNewtonOptimizer{T}, x₀::Vector{T}) where {T}
     s.x̃ .= x₀
     s.ỹ  = s.F(s.x̃)
     computeGradient(s.x̃, s.g̃, s.G)
@@ -57,7 +61,7 @@ function _f(s, α)
     s.F(s.x̃)
 end
 
-function _linesearch!(s::BFGSOptimizer)
+function _linesearch!(s::QuasiNewtonOptimizer)
     mul!(s.status.δ, inverse(s.H), s.status.g)
     s.status.δ .*= -1
     objective = α -> _f(s, α)
@@ -67,7 +71,7 @@ function _linesearch!(s::BFGSOptimizer)
 end
 
 
-function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
+function solve!(s::QuasiNewtonOptimizer{T}; n::Int = 0) where {T}
     local nmax::Int = n > 0 ? nmax = n : s.params.nmax
 
     s.status.i = 0
@@ -99,7 +103,7 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
     end
 end
 
-function solve!(x, s::BFGSOptimizer; kwargs...)
+function solve!(x, s::QuasiNewtonOptimizer; kwargs...)
     setInitialConditions!(s, x)
     solve!(s; kwargs...)
     x .= s.params.x
