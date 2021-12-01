@@ -1,12 +1,7 @@
 mutable struct BFGSOptimizer{XT, YT, FT <: Callable, T∇ <: GradientParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
-    x::VT
-    x̄::VT
     x̃::VT
-    δ::VT
-
-    g::VT
-    ḡ::VT
-    γ::VT
+    ỹ::YT
+    g̃::VT
 
     Q::Matrix{XT}
     Q1::Matrix{XT}
@@ -15,16 +10,13 @@ mutable struct BFGSOptimizer{XT, YT, FT <: Callable, T∇ <: GradientParameters,
     δγ::Matrix{XT}
     δδ::Matrix{XT}
     
-    y::YT
-    ȳ::YT
-
     F::FT
     ∇params::T∇
 
     ls::TS
 
     params::NonlinearSolverParameters{XT}
-    status::NonlinearSolverStatus{XT}
+    status::OptimizerStatus{XT,YT,VT}
 
     function BFGSOptimizer{XT,YT,FT,T∇,TS,VT}(x, F, ∇params, line_search) where {XT,YT,FT,T∇,TS,VT}
         Q = zeros(XT, length(x), length(x))
@@ -35,22 +27,15 @@ mutable struct BFGSOptimizer{XT, YT, FT <: Callable, T∇ <: GradientParameters,
         δγ = zero(Q)
         δδ = zero(Q)
         
-        x = zero(x)
-        x̄ = zero(x)
         x̃ = zero(x)
-        δ = zero(x)
-    
-        g = zero(x)
-        ḡ = zero(x)
-        γ = zero(x)
+        g̃ = zero(x)
 
-        nls_params = NonlinearSolverParameters(XT)
-        nls_status = NonlinearSolverStatus{XT}(length(x))
+        params = NonlinearSolverParameters(XT)
+        status = OptimizerStatus{XT,YT,VT}(length(x))
     
-        new(x, x̄, x̃, δ, g, ḡ, γ, Q, Q1, Q2, Q3, δγ, δδ, zero(YT), zero(YT), F, ∇params, line_search, nls_params, nls_status)
+        new(x̃, zero(YT), g̃, Q, Q1, Q2, Q3, δγ, δδ, F, ∇params, line_search, params, status)
     end
 end
-
 
 function BFGSOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
     ∇params = getGradientParameters(∇F!, F, x)
@@ -59,67 +44,37 @@ function BFGSOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = noth
 end
 
 
-status(solver::BFGSOptimizer) = solver.status
-params(solver::BFGSOptimizer) = solver.params
+status(s::BFGSOptimizer) = s.status
+params(s::BFGSOptimizer) = s.params
 
 check_gradient(s::BFGSOptimizer) = check_gradient(s.g)
 print_gradient(s::BFGSOptimizer) = print_gradient(s.g)
 
+print_solver_status(s::BFGSOptimizer) = print_solver_status(status(s), params(s))
+check_solver_converged(s::BFGSOptimizer) = check_solver_converged(status(s), params(s))
+
 
 function setInitialConditions!(s::BFGSOptimizer{T}, x₀::Vector{T}) where {T}
-    s.x .= x₀
-    s.y  = s.F(s.x)
-    s.Q .= Matrix(1.0I, length(s.x), length(s.x))
-    computeGradient(s.x, s.g, s.∇params)
-    _residual_initial!(s.status, s.x, s.y, s.g)
-end
-
-
-function update!(s::BFGSOptimizer)
-    # update status
-    s.status.xₚ .= s.x̄
-    s.status.yₚ .= s.ȳ
-
-    # update temporaries
-    s.x .= s.x̄
-    s.y  = s.ȳ
-    s.g .= s.ḡ
-end
-
-
-function _residual_initial!(status, x, y, g)
-    status.rₐ = Inf
-    status.rᵣ = Inf
-    status.rₛ = Inf
-    status.r₀ .= 0
-    status.x₀ .= x
-    status.xₚ .= x
-    status.y₀ .= y
-    status.yₚ .= y
-end
-
-
-function _residual!(status, x̄, ȳ, ḡ)
-    status.rₐ  = norm(status.yₚ[1] - ȳ[1])
-    status.rᵣ  = norm(status.yₚ[1] - ȳ[1]) / norm(status.yₚ[1])
-    status.r₀ .= status.xₚ .- x̄
-    status.rₛ  = norm(status.r₀)
+    s.Q .= Matrix(1.0I, size(s.Q)...)
+    s.x̃ .= x₀
+    s.ỹ  = s.F(s.x̃)
+    computeGradient(s.x̃, s.g̃, s.∇params)
+    initialize!(status(s), s.x̃, s.ỹ, s.g̃)
 end
 
 
 function _f(s, α)
-    s.x̃ .= s.x .+ α .* s.δ
+    s.x̃ .= s.status.x .+ α .* s.status.δ
     s.F(s.x̃)
 end
 
 function _linesearch!(s::BFGSOptimizer)
-    mul!(s.δ, s.Q, s.g)
-    s.δ .*= -1
+    mul!(s.status.δ, s.Q, s.status.g)
+    s.status.δ .*= -1
     objective = α -> _f(s, α)
     a, b = bracket_minimum(objective, 1.0)
-    α, y = s.ls(objective, a, b)
-    s.x̄ .= s.x .+ α .* s.δ
-    s.ȳ  = y
+    α, s.status.y = s.ls(objective, a, b)
+    s.status.x .= s.status.x̄ .+ α .* s.status.δ
 end
 
 
@@ -127,16 +82,16 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
     local nmax::Int = n > 0 ? nmax = n : s.params.nmax
 
     s.status.i = 0
-    if s.status.rₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
+    if s.status.rgₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
         for s.status.i = 1:nmax
             # apply line search
             _linesearch!(s)
 
             # compute Gradient at new solution
-            computeGradient(s.x̄, s.ḡ, s.∇params)
+            computeGradient(s.status.x, s.status.g, s.∇params)
 
             # compute residual
-            _residual!(s.status, s.x̄, s.ȳ, s.ḡ)
+            residual!(s.status)
 
             # println(s.status.i, ", ", s.x̄, ", ", s.ȳ, ", ", s.status.rₐ,", ",  s.status.rᵣ,", ",  s.status.rₛ)
             if check_solver_converged(s.status, s.params) && s.status.i ≥ s.params.nmin && !(n > 0)
@@ -146,14 +101,14 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
                 break
             end
 
-            # δ = x̄ - x
-            s.δ .= s.x̄ .- s.x
+            # δ = x - x̄  (already computed in residual)
+            # s.status.δ .= s.status.x .- s.status.x̄
 
-            # γ = ḡ - g
-            s.γ .= s.ḡ .- s.g
+            # γ = g - ḡ  (already computed in residual)
+            # s.status.γ .= s.status.g .- s.status.ḡ
 
             # δγ = δᵀγ
-            δγ = s.δ ⋅ s.γ
+            δγ = s.status.δ ⋅ s.status.γ
 
             # DFP
             # Q = Q - ... + ...
@@ -165,15 +120,15 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
             # s.Q .-= (s.δ * s.γ' * s.Q .+ s.Q * s.γ * s.δ') ./ δγ .-
             #         (1 + dot(s.γ, s.Q, s.γ) ./ δγ) .* (s.δ * s.δ') ./ δγ
 
-            outer!(s.δγ, s.δ, s.γ)
-            outer!(s.δδ, s.δ, s.δ)
+            outer!(s.δγ, s.status.δ, s.status.γ)
+            outer!(s.δδ, s.status.δ, s.status.δ)
             mul!(s.Q1, s.δγ, s.Q)
             mul!(s.Q2, s.Q, s.δγ')
-            s.Q3 .= (1 + dot(s.γ, s.Q, s.γ) ./ δγ) .* s.δδ
+            s.Q3 .= (1 + dot(s.status.γ, s.Q, s.status.γ) ./ δγ) .* s.δδ
             s.Q .-= (s.Q1 .+ s.Q2 .- s.Q3) ./ δγ
 
             # update status and temporaries
-            update!(s)
+            update!(status(s))
         end
     end
 end
@@ -181,5 +136,5 @@ end
 function solve!(x, s::BFGSOptimizer; kwargs...)
     setInitialConditions!(s, x)
     solve!(s; kwargs...)
-    x .= s.x̄
+    x .= s.params.x
 end

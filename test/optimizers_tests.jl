@@ -44,8 +44,8 @@ for Optim in (BFGSOptimizer,)
 
     setInitialConditions!(nl, x)
     solve!(nl)
-    # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)
-    for x in nl.x̄
+    # println(status(nl))
+    for x in nl.status.x
         @test x ≈ 0 atol=1E-7
     end
 
@@ -53,8 +53,8 @@ for Optim in (BFGSOptimizer,)
     nl = Optim(x, F; ∇F! = ∇F!)
     setInitialConditions!(nl, x)
     solve!(nl)
-    # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)
-    for x in nl.x̄
+    # println(status(nl))
+    for x in nl.status.x
         @test x ≈ 0 atol=1E-7
     end
 end
