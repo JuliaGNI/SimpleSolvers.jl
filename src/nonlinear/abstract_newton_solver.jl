@@ -31,6 +31,6 @@ end
 status(solver::AbstractNewtonSolver) = solver.status
 params(solver::AbstractNewtonSolver) = solver.params
 
-computeJacobian(s::AbstractNewtonSolver) = computeJacobian(s.x, s.J, s.Jparams)
+compute_jacobian!(s::AbstractNewtonSolver) = compute_jacobian!(s.J, s.x, s.Jparams)
 check_jacobian(s::AbstractNewtonSolver) = check_jacobian(s.J)
 print_jacobian(s::AbstractNewtonSolver) = print_jacobian(s.J)
