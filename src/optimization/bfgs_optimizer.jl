@@ -84,6 +84,9 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
     s.status.i = 0
     if s.status.rgₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
         for s.status.i = 1:nmax
+            # update status and temporaries
+            update!(status(s))
+
             # apply line search
             _linesearch!(s)
 
@@ -126,9 +129,6 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
             mul!(s.Q2, s.Q, s.δγ')
             s.Q3 .= (1 + dot(s.status.γ, s.Q, s.status.γ) ./ δγ) .* s.δδ
             s.Q .-= (s.Q1 .+ s.Q2 .- s.Q3) ./ δγ
-
-            # update status and temporaries
-            update!(status(s))
         end
     end
 end
