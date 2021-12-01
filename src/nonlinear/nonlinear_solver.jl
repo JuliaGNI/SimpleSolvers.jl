@@ -159,7 +159,7 @@ function residual_initial!(status::NonlinearSolverStatus{T}, x::Vector{T}, y::Ve
     @assert length(x) == length(y) == length(status.r₀)
 
     status.r₀ .= y.^2
-    status.rₐ  = maximum(status.r₀)
+    status.rₐ  = maxnorm(y)
     status.rᵣ  = 1
     status.x₀ .= x
     status.xₚ .= x
@@ -169,11 +169,7 @@ end
 
 function residual_absolute!(status::NonlinearSolverStatus{T}, y::Vector{T}) where {T}
     @assert length(y) == length(status.y₀)
-    local rₐ²::T = 0
-    @inbounds for yᵢ in y
-        rₐ² = max(rₐ², yᵢ^2)
-    end
-    status.rₐ = sqrt(rₐ²)
+    status.rₐ = maxnorm(y)
 end
 
 function residual_relative!(status::NonlinearSolverStatus{T}, y::Vector{T}) where {T}
