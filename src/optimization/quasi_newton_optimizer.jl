@@ -25,7 +25,7 @@ mutable struct QuasiNewtonOptimizer{XT, YT, FT <: Callable, GT <: GradientParame
 end
 
 function QuasiNewtonOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianBFGS, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
-    G = getGradientParameters(∇F!, F, x)
+    G = GradientParameters(∇F!, F, x)
     H = hessian(x)
     YT = typeof(F(x))
     QuasiNewtonOptimizer{XT,YT,typeof(F),typeof(G),typeof(H),typeof(linesearch),VT}(x, F, G, H, linesearch)
@@ -50,7 +50,7 @@ check_solver_converged(s::QuasiNewtonOptimizer) = check_solver_converged(status(
 function setInitialConditions!(s::QuasiNewtonOptimizer{T}, x₀::Vector{T}) where {T}
     s.x̃ .= x₀
     s.ỹ  = s.F(s.x̃)
-    computeGradient(s.x̃, s.g̃, s.G)
+    gradient(s)(s.g̃, s.x̃)
     initialize!(status(s), s.x̃, s.ỹ, s.g̃)
     initialize!(hessian(s))
 end
@@ -84,7 +84,7 @@ function solve!(s::QuasiNewtonOptimizer{T}; n::Int = 0) where {T}
             _linesearch!(s)
 
             # compute Gradient at new solution
-            computeGradient(s.status.x, s.status.g, s.G)
+            gradient(s)(s.status.g, s.status.x)
 
             # compute residual
             residual!(s.status)
