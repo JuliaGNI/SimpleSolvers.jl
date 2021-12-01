@@ -1,51 +1,40 @@
-mutable struct BFGSOptimizer{XT, YT, FT <: Callable, T∇ <: GradientParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
+mutable struct BFGSOptimizer{XT, YT, FT <: Callable, GT <: GradientParameters, HT <: HessianParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
     x̃::VT
     ỹ::YT
     g̃::VT
 
-    Q::Matrix{XT}
-    Q1::Matrix{XT}
-    Q2::Matrix{XT}
-    Q3::Matrix{XT}
-    δγ::Matrix{XT}
-    δδ::Matrix{XT}
-    
     F::FT
-    ∇params::T∇
+    G::GT
+    H::HT
 
     ls::TS
 
     params::NonlinearSolverParameters{XT}
     status::OptimizerStatus{XT,YT,VT}
 
-    function BFGSOptimizer{XT,YT,FT,T∇,TS,VT}(x, F, ∇params, line_search) where {XT,YT,FT,T∇,TS,VT}
-        Q = zeros(XT, length(x), length(x))
-
-        Q1 = zero(Q)
-        Q2 = zero(Q)
-        Q3 = zero(Q)
-        δγ = zero(Q)
-        δδ = zero(Q)
-        
+    function BFGSOptimizer{XT,YT,FT,GT,HT,TS,VT}(x, F, G, H, line_search) where {XT,YT,FT,GT,HT,TS,VT}
         x̃ = zero(x)
         g̃ = zero(x)
 
         params = NonlinearSolverParameters(XT)
         status = OptimizerStatus{XT,YT,VT}(length(x))
     
-        new(x̃, zero(YT), g̃, Q, Q1, Q2, Q3, δγ, δδ, F, ∇params, line_search, params, status)
+        new(x̃, zero(YT), g̃, F, G, H, line_search, params, status)
     end
 end
 
-function BFGSOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
-    ∇params = getGradientParameters(∇F!, F, x)
+function BFGSOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianBFGS, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
+    G = getGradientParameters(∇F!, F, x)
+    H = hessian(x)
     YT = typeof(F(x))
-    BFGSOptimizer{XT,YT,typeof(F),typeof(∇params),typeof(linesearch),VT}(x, F, ∇params, linesearch)
+    BFGSOptimizer{XT,YT,typeof(F),typeof(G),typeof(H),typeof(linesearch),VT}(x, F, G, H, linesearch)
 end
 
 
 status(s::BFGSOptimizer) = s.status
 params(s::BFGSOptimizer) = s.params
+gradient(s::BFGSOptimizer) = s.G
+hessian(s::BFGSOptimizer) = s.H
 
 check_gradient(s::BFGSOptimizer) = check_gradient(s.g)
 print_gradient(s::BFGSOptimizer) = print_gradient(s.g)
@@ -55,11 +44,11 @@ check_solver_converged(s::BFGSOptimizer) = check_solver_converged(status(s), par
 
 
 function setInitialConditions!(s::BFGSOptimizer{T}, x₀::Vector{T}) where {T}
-    s.Q .= Matrix(1.0I, size(s.Q)...)
     s.x̃ .= x₀
     s.ỹ  = s.F(s.x̃)
-    computeGradient(s.x̃, s.g̃, s.∇params)
+    computeGradient(s.x̃, s.g̃, s.G)
     initialize!(status(s), s.x̃, s.ỹ, s.g̃)
+    initialize!(hessian(s))
 end
 
 
@@ -69,7 +58,7 @@ function _f(s, α)
 end
 
 function _linesearch!(s::BFGSOptimizer)
-    mul!(s.status.δ, s.Q, s.status.g)
+    mul!(s.status.δ, inverse(s.H), s.status.g)
     s.status.δ .*= -1
     objective = α -> _f(s, α)
     a, b = bracket_minimum(objective, 1.0)
@@ -91,7 +80,7 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
             _linesearch!(s)
 
             # compute Gradient at new solution
-            computeGradient(s.status.x, s.status.g, s.∇params)
+            computeGradient(s.status.x, s.status.g, s.G)
 
             # compute residual
             residual!(s.status)
@@ -104,31 +93,8 @@ function solve!(s::BFGSOptimizer{T}; n::Int = 0) where {T}
                 break
             end
 
-            # δ = x - x̄  (already computed in residual)
-            # s.status.δ .= s.status.x .- s.status.x̄
-
-            # γ = g - ḡ  (already computed in residual)
-            # s.status.γ .= s.status.g .- s.status.ḡ
-
-            # δγ = δᵀγ
-            δγ = s.status.δ ⋅ s.status.γ
-
-            # DFP
-            # Q = Q - ... + ...
-            # s.Q .-= s.Q * s.γ * s.γ' * s.Q / (s.γ' * s.Q * s.γ) .+
-            #         s.δ * s.δ' ./ δγ
-
-            # BFGS
-            # Q = Q - ... + ...
-            # s.Q .-= (s.δ * s.γ' * s.Q .+ s.Q * s.γ * s.δ') ./ δγ .-
-            #         (1 + dot(s.γ, s.Q, s.γ) ./ δγ) .* (s.δ * s.δ') ./ δγ
-
-            outer!(s.δγ, s.status.δ, s.status.γ)
-            outer!(s.δδ, s.status.δ, s.status.δ)
-            mul!(s.Q1, s.δγ, s.Q)
-            mul!(s.Q2, s.Q, s.δγ')
-            s.Q3 .= (1 + dot(s.status.γ, s.Q, s.status.γ) ./ δγ) .* s.δδ
-            s.Q .-= (s.Q1 .+ s.Q2 .- s.Q3) ./ δγ
+            # update Hessian
+            update!(s.H, s.status)
         end
     end
 end

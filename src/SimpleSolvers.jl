@@ -26,6 +26,10 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
+    export HessianParameters
+
+    include("base/hessian.jl")
+
     export LinearSolver, LUSolver, LUSolverLAPACK,
            factorize!
 
@@ -65,10 +69,14 @@ module SimpleSolvers
 
     export Optimizer,
            BFGSOptimizer,
+           HessianBFGS,
+           HessianDFP,
            setInitialConditions!
 
     include("optimization/optimizer.jl")
     include("optimization/bfgs_optimizer.jl")
+    include("optimization/hessian_bfgs.jl")
+    include("optimization/hessian_dfp.jl")
 
 
     function __init__()
