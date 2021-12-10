@@ -6,6 +6,12 @@ abstract type GradientParameters{T} end
 
 compute_gradient!(g, x, grad::GradientParameters) = grad(g,x)
 
+function compute_gradient(x, grad::GradientParameters)
+    g = similar(x)
+    grad(g,x)
+    return g
+end
+
 function check_gradient(g::AbstractVector)
     println("norm(Gradient):               ", norm(g))
     println("minimum(|Gradient|):          ", minimum(abs.(g)))
@@ -28,21 +34,18 @@ function (grad::GradientParametersUser{T})(g::AbstractVector{T}, x::AbstractVect
 end
 
 
-struct GradientParametersAD{T, FT <: Callable, ∇T <: ForwardDiff.GradientConfig, VT <: AbstractVector{T}} <: GradientParameters{T}
+struct GradientParametersAD{T, FT <: Callable, ∇T <: ForwardDiff.GradientConfig} <: GradientParameters{T}
     F::FT
     ∇config::∇T
-    tx::VT
 
-    function GradientParametersAD(F::FT, ∇config::∇T, tx::VT) where {T, FT, ∇T, VT <: AbstractVector{T}}
-        new{T, FT, ∇T, VT}(F, ∇config, tx)
+    function GradientParametersAD(F::FT, x::VT) where {T, FT, VT <: AbstractVector{T}}
+        ∇config = ForwardDiff.GradientConfig(F, x)
+        new{T, FT, typeof(∇config)}(F, ∇config)
     end
 end
 
-function GradientParametersAD{T}(F::FT, nx::Int) where {T, 
-    FT <: Callable}
-    tx = zeros(T, nx)
-    ∇config = ForwardDiff.GradientConfig(F, tx)
-    GradientParametersAD(F, ∇config, tx)
+function GradientParametersAD{T}(F::FT, nx::Int) where {T, FT <: Callable}
+    GradientParametersAD(F, zeros(T, nx))
 end
 
 function (grad::GradientParametersAD{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
@@ -107,6 +110,8 @@ GradientParameters{T}(∇F!::Callable, F, nx::Int; kwargs...) where {T} = Gradie
 GradientParameters{T}(∇F!::Nothing, F, nx::Int; kwargs...) where {T} = GradientParameters{T}(F, nx;  mode = :autodiff, kwargs...)
 
 GradientParameters(∇F!, F, x::Vector{T}; kwargs...) where {T} = GradientParameters{T}(∇F!, F, length(x); kwargs...)
+
+GradientParameters(F, x::Vector{T}; kwargs...) where {T} = GradientParameters{T}(F, length(x); kwargs...)
 
 function compute_gradient!(g::Vector{T}, x::Vector{T}, ForG::Callable; kwargs...) where {T}
     grad = GradientParameters{T}(ForG, length(x); kwargs...)
