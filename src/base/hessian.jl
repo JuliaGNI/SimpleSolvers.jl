@@ -3,6 +3,12 @@ abstract type HessianParameters{T} end
 
 compute_hessian!(h, x, hessian::HessianParameters) = hessian(h,x)
 
+function compute_hessian(x, hessian::HessianParameters)
+    h = alloc_h(x)
+    hessian(h,x)
+    return h
+end
+
 function check_hessian(H::AbstractMatrix)
     println("Condition Number of Hessian: ", cond(H))
     println("Determinant of Hessian:      ", det(H))

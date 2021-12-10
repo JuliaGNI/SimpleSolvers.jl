@@ -2,17 +2,15 @@
 using SimpleSolvers
 using Test
 
-import SimpleSolvers: get_config, set_config
-
 
 n = 2
-T = Float64
-x = rand(T, n)
-h = zeros(T, n, n)
+x = rand(n)
+h = zeros(n,n)
+T = eltype(x)
 
 
 function F(x::Vector)
-    sum(x.^2)
+    1 + sum(x.^2)
 end
 
 function H!(h::Matrix, x::Vector)

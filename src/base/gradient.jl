@@ -7,7 +7,7 @@ abstract type GradientParameters{T} end
 compute_gradient!(g, x, grad::GradientParameters) = grad(g,x)
 
 function compute_gradient(x, grad::GradientParameters)
-    g = similar(x)
+    g = alloc_g(x)
     grad(g,x)
     return g
 end

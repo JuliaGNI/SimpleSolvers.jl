@@ -2,11 +2,9 @@
 using SimpleSolvers
 using Test
 
-import SimpleSolvers: get_config, set_config
 
-
-n = 1
-x = [2.]
+n = 2
+x = rand(n)
 g = 2x
 T = eltype(x)
 

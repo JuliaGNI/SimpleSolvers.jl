@@ -16,7 +16,8 @@ module SimpleSolvers
            GradientParametersFD,
            GradientParametersUser
            
-    export compute_gradient!,
+    export compute_gradient,
+           compute_gradient!,
            compute_gradient_ad!,
            compute_gradient_fd!
 
@@ -24,6 +25,19 @@ module SimpleSolvers
            print_gradient
 
     include("base/gradient.jl")
+
+    export HessianParameters,
+           HessianParametersAD,
+           HessianParametersUser
+
+    export compute_hessian,
+           compute_hessian!,
+           compute_hessian_ad!
+
+    export check_hessian,
+           print_hessian
+
+    include("base/hessian.jl")
 
     export JacobianParameters,
            JacobianParametersAD,
@@ -39,17 +53,8 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    export HessianParameters,
-           HessianParametersAD,
-           HessianParametersUser
 
-    export compute_hessian!,
-           compute_hessian_ad!
 
-    export check_hessian,
-           print_hessian
-
-    include("base/hessian.jl")
 
     export LinearSolver, LUSolver, LUSolverLAPACK,
            factorize!

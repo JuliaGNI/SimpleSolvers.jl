@@ -2,8 +2,6 @@
 using SimpleSolvers
 using Test
 
-import SimpleSolvers: get_config, set_config
-
 
 n = 1
 T = Float64
