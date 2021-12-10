@@ -48,7 +48,7 @@ function HessianParametersAD(F::FT, x::AbstractVector{T}) where {T, FT <: Callab
     HessianParametersAD{T}(F, Hconfig)
 end
 
-HessianParametersAD{T}(F, nx) where {T} = HessianParametersAD{T}(F, zeros(T, nx))
+HessianParametersAD{T}(F, nx::Int) where {T} = HessianParametersAD{T}(F, zeros(T, nx))
 
 function (hes::HessianParametersAD{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
