@@ -38,7 +38,15 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    export HessianParameters
+    export HessianParameters,
+           HessianParametersAD,
+           HessianParametersUser
+
+    export compute_hessian!,
+           compute_hessian_ad!
+
+    export check_hessian,
+           print_hessian
 
     include("base/hessian.jl")
 
