@@ -107,7 +107,7 @@ module SimpleSolvers
            DFPOptimizer,
            HessianBFGS,
            HessianDFP,
-           setInitialConditions!
+           initialize!
 
     include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
