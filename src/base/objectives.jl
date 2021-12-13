@@ -99,7 +99,7 @@ function derivative!(obj::UnivariateObjective, x)
 end
 
 
-(obj::UnivariateObjective)(x) = value(obj, x)
+(obj::UnivariateObjective)(x) = value!(obj, x)
 
 
 function _clear_f!(obj::UnivariateObjective)
@@ -223,7 +223,7 @@ function gradient!(obj::MultivariateObjective, x)
 end
 
 
-(obj::MultivariateObjective)(x) = value(obj, x)
+(obj::MultivariateObjective)(x) = value!(obj, x)
 
 
 function _clear_f!(obj::MultivariateObjective)
