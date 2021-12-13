@@ -1,6 +1,8 @@
 
 abstract type HessianParameters{T} end
 
+initialize!(::HessianParameters) = nothing
+
 compute_hessian!(h, x, hessian::HessianParameters) = hessian(h,x)
 
 function compute_hessian(x, hessian::HessianParameters)
@@ -34,18 +36,19 @@ function (hes::HessianParametersUser{T})(H::AbstractMatrix{T}, x::AbstractVector
 end
 
 
-struct HessianParametersAD{T, FT <: Callable, HT <: ForwardDiff.HessianConfig} <: HessianParameters{T}
+struct HessianParametersAD{T, FT <: Callable, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: HessianParameters{T}
     F::FT
-    Hconfig::HT
+    H::HT
+    Hconfig::CT
 
-    function HessianParametersAD{T}(F::FT, Hconfig::HT) where {T, FT, HT}
-        new{T, FT, HT}(F, Hconfig)
+    function HessianParametersAD{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
+        new{T, FT, HT, CT}(F, H, Hconfig)
     end
 end
 
 function HessianParametersAD(F::FT, x::AbstractVector{T}) where {T, FT <: Callable}
     Hconfig = ForwardDiff.HessianConfig(F, x)
-    HessianParametersAD{T}(F, Hconfig)
+    HessianParametersAD{T}(F, alloc_h(x), Hconfig)
 end
 
 HessianParametersAD{T}(F, nx::Int) where {T} = HessianParametersAD{T}(F, zeros(T, nx))
@@ -54,10 +57,23 @@ function (hes::HessianParametersAD{T})(H::AbstractMatrix{T}, x::AbstractVector{T
     ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
 end
 
+function (hes::HessianParametersAD{T})(x::AbstractVector{T}) where {T}
+    ForwardDiff.hessian!(hes.H, hes.F, x, hes.Hconfig)
+end
+
 function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT) where {T, FT <: Callable}
     hes = HessianParametersAD(F, x)
     hes(H,x)
 end
+
+initialize!(H::HessianParametersAD, x) = H(x)
+update!(H::HessianParametersAD, status) = H(status.x)
+
+Base.inv(H::HessianParametersAD) = inv(H.H)
+
+Base.:\(H::HessianParametersAD, b) = H.H \ b
+
+LinearAlgebra.ldiv!(x, H::HessianParametersAD, b) = x .= H \ b
 
 
 
