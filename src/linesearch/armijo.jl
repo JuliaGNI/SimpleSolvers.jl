@@ -4,7 +4,7 @@ const DEFAULT_ARMIJO_σ₀ = 0.1
 const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_ϵ  = 1E-4
 
-struct Armijo{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT <: Callable}
+struct Armijo{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT}
 
     nmax::Int
     rmax::Int

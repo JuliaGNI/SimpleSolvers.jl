@@ -21,7 +21,7 @@ mutable struct QuasiNewtonOptimizer{XT, YT, OT <: MultivariateObjective, HT <: H
     end
 end
 
-function QuasiNewtonOptimizer(x::VT, F::Callable; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianParametersAD, linesearch = Bisection) where {XT, VT <: AbstractVector{XT}}
+function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParametersAD, linesearch = Bisection) where {XT, VT <: AbstractVector{XT}}
     G = GradientParameters(∇F!, F, x)
 
     objective = MultivariateObjective(F, G, x)

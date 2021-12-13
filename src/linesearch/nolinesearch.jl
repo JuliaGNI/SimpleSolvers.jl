@@ -1,9 +1,7 @@
 
-using Base: Callable
-
 struct NoLineSearch <: LineSearch end
 
-NoLineSearch(::Callable, ::AbstractArray, ::AbstractArray) = NoLineSearch()
+NoLineSearch(::Any, ::AbstractArray, ::AbstractArray) = NoLineSearch()
 
 (ls::NoLineSearch)(x, x₀, x₁) where {T} = x .= x₁
 
