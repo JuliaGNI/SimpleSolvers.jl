@@ -3,8 +3,6 @@ module SimpleSolvers
     using ForwardDiff
     using LinearAlgebra
 
-    import Base: Callable
-
     include("config.jl")
     include("utils.jl")
 

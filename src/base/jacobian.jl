@@ -4,7 +4,7 @@ const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
 
 abstract type JacobianParameters{T} end
 
-compute_jacobian!(j, x, jacobian::JacobianParameters) = jacobian(j,x)
+compute_jacobian!(j::AbstractMatrix, x::AbstractVector, jacobian::JacobianParameters) = jacobian(j,x)
 
 function check_jacobian(J::AbstractMatrix)
     println("Condition Number of Jacobian: ", cond(J))
@@ -20,7 +20,7 @@ function print_jacobian(J::AbstractMatrix)
 end
 
 
-struct JacobianParametersUser{T, JT <: Callable} <: JacobianParameters{T}
+struct JacobianParametersUser{T, JT} <: JacobianParameters{T}
     J!::JT
 end
 
@@ -31,7 +31,7 @@ function (jac::JacobianParametersUser{T})(J::AbstractMatrix{T}, x::AbstractVecto
 end
 
 
-struct JacobianParametersAD{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig, YT <: AbstractVector{T}} <: JacobianParameters{T}
+struct JacobianParametersAD{T, FT, JT <: ForwardDiff.JacobianConfig, YT <: AbstractVector{T}} <: JacobianParameters{T}
     F!::FT
     Jconfig::JT
     ty::YT
@@ -42,12 +42,12 @@ struct JacobianParametersAD{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig,
 
 end
 
-function JacobianParametersAD(F!::FT, x::AbstractVector{T}, y::AbstractVector{T}) where {T, FT <: Callable}
+function JacobianParametersAD(F!::FT, x::AbstractVector{T}, y::AbstractVector{T}) where {T, FT}
     Jconfig = ForwardDiff.JacobianConfig(F!, y, x)
     JacobianParametersAD{T}(F!, Jconfig, zero(y))
 end
 
-function JacobianParametersAD{T}(F!::FT, nx::Int, ny::Int) where {T, FT <: Callable}
+function JacobianParametersAD{T}(F!::FT, nx::Int, ny::Int) where {T, FT}
     tx = zeros(T, nx)
     ty = zeros(T, ny)
     JacobianParametersAD(F!, tx, ty)
@@ -59,7 +59,7 @@ function (jac::JacobianParametersAD{T})(J::AbstractMatrix{T}, x::AbstractVector{
     ForwardDiff.jacobian!(J, jac.F!, jac.ty, x, jac.Jconfig)
 end
 
-function compute_jacobian_ad!(J::AbstractMatrix{T}, x::AbstractVector{T}, F!::FT) where {T, FT <: Callable}
+function compute_jacobian_ad!(J::AbstractMatrix{T}, x::AbstractVector{T}, F!::FT) where {T, FT}
     jac = JacobianParametersAD{T}(F!, length(x))
     jac(J,x)
 end
@@ -74,7 +74,7 @@ struct JacobianParametersFD{T, FT} <: JacobianParameters{T}
     tx::Vector{T}
 end
 
-function JacobianParametersFD{T}(F!::FT, nx::Int, ny::Int; ϵ=DEFAULT_JACOBIAN_ϵ) where {T, FT <: Callable}
+function JacobianParametersFD{T}(F!::FT, nx::Int, ny::Int; ϵ=DEFAULT_JACOBIAN_ϵ) where {T, FT}
     f1 = zeros(T, ny)
     f2 = zeros(T, ny)
     e  = zeros(T, nx)
@@ -101,13 +101,13 @@ function (jac::JacobianParametersFD{T})(J::AbstractMatrix{T}, x::AbstractVector{
     end
 end
 
-function compute_jacobian_fd!(J::AbstractMatrix{T}, x::AbstractVector{T}, F!::FT; kwargs...) where {T, FT <: Callable}
+function compute_jacobian_fd!(J::AbstractMatrix{T}, x::AbstractVector{T}, F!::FT; kwargs...) where {T, FT}
     jac = JacobianParametersFD{T}(F!, length(x); kwargs...)
     jac(J,x)
 end
 
 
-function JacobianParameters{T}(ForJ::Callable, nx::Int, ny::Int; mode = :autodiff, diff_type = :forward, kwargs...) where {T}
+function JacobianParameters{T}(ForJ, nx::Int, ny::Int; mode = :autodiff, diff_type = :forward, kwargs...) where {T}
     if mode == :autodiff
         if diff_type == :forward
             Jparams = JacobianParametersAD{T}(ForJ, nx, ny)
@@ -120,15 +120,15 @@ function JacobianParameters{T}(ForJ::Callable, nx::Int, ny::Int; mode = :autodif
     return Jparams
 end
 
-JacobianParameters{T}(ForJ::Callable, n::Int; kwargs...) where {T} = JacobianParameters{T}(ForJ, n, n; kwargs...)
+JacobianParameters{T}(ForJ, n::Int; kwargs...) where {T} = JacobianParameters{T}(ForJ, n, n; kwargs...)
 
-JacobianParameters{T}(J!::Callable, F!, nx, ny; kwargs...) where {T} = JacobianParameters{T}(J!, nx, ny; mode = :user, kwargs...)
+JacobianParameters{T}(J!, F!, nx, ny; kwargs...) where {T} = JacobianParameters{T}(J!, nx, ny; mode = :user, kwargs...)
 
 JacobianParameters{T}(J!::Nothing, F!, nx, ny; kwargs...) where {T} = JacobianParameters{T}(F!, nx, ny;  mode = :autodiff, kwargs...)
 
 JacobianParameters{T}(J!, F!, n; kwargs...) where {T} = JacobianParameters{T}(J!, F!, n, n; kwargs...)
 
-function compute_jacobian!(j::Matrix{T}, x::Vector{T}, ForJ::Callable; kwargs...) where {T}
+function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ; kwargs...) where {T}
     jacobian = JacobianParameters{T}(ForJ, size(j,1), size(j,2); kwargs...)
     jacobian(j,x)
 end

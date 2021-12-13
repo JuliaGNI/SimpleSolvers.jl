@@ -1,7 +1,7 @@
 """
 Quadratic Armijo line search
 """
-struct ArmijoQuadratic{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT <: Callable}
+struct ArmijoQuadratic{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT}
 
     nmax::Int
     rmax::Int
