@@ -41,9 +41,9 @@ struct NonlinearSolverParameters{T}
         @assert nmin ≥ 0
         @assert nmax > 0
         @assert nwarn ≥ 0
-        @assert atol > 0
-        @assert rtol > 0
-        @assert stol > 0
+        @assert atol ≥ 0
+        @assert rtol ≥ 0
+        @assert stol ≥ 0
         @assert atol_break > 0
         @assert rtol_break > 0
         @assert stol_break > 0
@@ -52,16 +52,18 @@ struct NonlinearSolverParameters{T}
     end
 end
 
-function NonlinearSolverParameters(T)
-    NonlinearSolverParameters{T}(get_config(:nls_nmin),
-                                 get_config(:nls_nmax),
-                                 get_config(:nls_nwarn),
-                                 get_config(:nls_atol),
-                                 get_config(:nls_rtol),
-                                 get_config(:nls_stol),
-                                 get_config(:nls_atol_break),
-                                 get_config(:nls_rtol_break),
-                                 get_config(:nls_stol_break))
+function NonlinearSolverParameters(config::Options{T}) where {T}
+    NonlinearSolverParameters{T}(
+        config.min_iterations,
+        config.max_iterations,
+        config.warn_iterations,
+        config.f_abstol,
+        config.f_reltol,
+        config.f_reltol,
+        config.f_atol_break,
+        config.f_atol_break,
+        config.f_atol_break
+    )
 end
 
 
@@ -87,43 +89,43 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
                         (@sprintf "    i=%4i" status.i),  ",   ", (@sprintf "rₐ=%14.8e" status.rₐ), ",   ",
                         (@sprintf "rᵣ=%14.8e" status.rᵣ), ",   ", (@sprintf "rₛ=%14.8e" status.rₛ))
 
-function print_solver_status(status::NonlinearSolverStatus, params::NonlinearSolverParameters)
-    if (get_config(:verbosity) ≥ 1 && !(check_solver_converged(status, params) && status.i ≤ params.nmax)) ||
-        get_config(:verbosity) > 1
+function print_solver_status(status::NonlinearSolverStatus, config::Options)
+    if (config.verbosity ≥ 1 && !(check_solver_converged(status, config) && status.i ≤ config.max_iterations)) ||
+        config.verbosity > 1
         println(status)
     end
 end
 
-function check_solver_converged(status::NonlinearSolverStatus, params::NonlinearSolverParameters)
-    return status.rₐ ≤ params.atol  ||
-           status.rᵣ ≤ params.rtol  ||
-           status.rₛ ≤ params.stol
+function check_solver_converged(status::NonlinearSolverStatus, config::Options)
+    return (status.rₐ ≤ config.f_abstol  ||
+            status.rᵣ ≤ config.f_reltol) &&
+           status.i ≥ config.min_iterations
 end
 
-function check_solver_status(status::NonlinearSolverStatus, params::NonlinearSolverParameters)
+function check_solver_status(status::NonlinearSolverStatus, config::Options)
     if any(x -> isnan(x), status.xₚ)
         throw(NonlinearSolverException("Detected NaN"))
     end
 
-    if status.rₐ > params.atol_break
+    if status.rₐ > config.f_atol_break
         throw(NonlinearSolverException("Absolute error ($(status.rₐ)) larger than allowed ($(params.atol_break))"))
     end
 
-    if status.rᵣ > params.rtol_break
-        throw(NonlinearSolverException("Relative error ($(status.rᵣ)) larger than allowed ($(params.rtol_break))"))
-    end
+    # if status.rᵣ > params.rtol_break
+    #     throw(NonlinearSolverException("Relative error ($(status.rᵣ)) larger than allowed ($(params.rtol_break))"))
+    # end
 
-    if status.rₛ > params.stol_break
-        throw(NonlinearSolverException("Succesive error ($(status.rₛ)) larger than allowed ($(params.stol_break))"))
-    end
+    # if status.rₛ > params.stol_break
+    #     throw(NonlinearSolverException("Succesive error ($(status.rₛ)) larger than allowed ($(params.stol_break))"))
+    # end
 end
 
-function get_solver_status!(status::NonlinearSolverStatus, params::NonlinearSolverParameters, status_dict::Dict)
+function get_solver_status!(status::NonlinearSolverStatus, config::Options, status_dict::Dict)
     status_dict[:nls_niter] = status.i
     status_dict[:nls_atol] = status.rₐ
     status_dict[:nls_rtol] = status.rᵣ
     status_dict[:nls_stol] = status.rₛ
-    status_dict[:nls_converged] = check_solver_converged(status, params)
+    status_dict[:nls_converged] = check_solver_converged(status, config)
     return status_dict
 end
 
@@ -139,9 +141,15 @@ get_solver_status(solver::NonlinearSolver{T}) where {T} = get_solver_status!(sol
             )
 
 
-function getLinearSolver(x::AbstractVector{T}) where {T}
+function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
+    if config.warn_iterations > 0 && status.i ≥ config.warn_iterations
+        println("WARNING: Solver took ", status.i, " iterations.")
+    end
+end
+
+
+function getLinearSolver(x::AbstractVector{T}; linear_solver = :julia) where {T}
     n = length(x)
-    linear_solver = get_config(:ls_solver)
 
     if linear_solver === nothing || linear_solver == :julia
         linear_solver = LUSolver{T}(n)
