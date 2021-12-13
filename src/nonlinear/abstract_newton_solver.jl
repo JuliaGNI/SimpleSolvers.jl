@@ -23,7 +23,7 @@ abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
     status::NonlinearSolverStatus{T}
 end
 
-function setInitialConditions!(s::AbstractNewtonSolver{T}, x₀::Vector{T}) where {T}
+function initialize!(s::AbstractNewtonSolver{T}, x₀::Vector{T}) where {T}
     s.x .= x₀
     s.F!(s.y, s.x)
 end

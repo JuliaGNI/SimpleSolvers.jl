@@ -22,11 +22,9 @@ struct HessianDFP{T} <: HessianParameters{T}
     end
 end
 
-inverse(H::HessianDFP) = H.Q
+HessianDFP(F, x) = HessianDFP(x)
 
-function initialize!(H::HessianDFP)
-    H.Q .= Matrix(1.0I, size(H.Q)...)
-end
+initialize!(H::HessianDFP, ::Any) = H.Q .= Matrix(1.0I, size(H.Q)...)
 
 function update!(H::HessianDFP, status::OptimizerStatus)
     # δ = x - x̄
@@ -55,3 +53,9 @@ function update!(H::HessianDFP, status::OptimizerStatus)
     H.Q .-= H.T2 ./ γQγ
     H.Q .+= H.δδ ./ δγ
 end
+
+Base.inv(H::HessianDFP) = H.Q
+
+Base.:\(H::HessianDFP, b) = inv(H) * b
+
+LinearAlgebra.ldiv!(x, H::HessianDFP, b) = mul!(x, inv(H), b)

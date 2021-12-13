@@ -12,7 +12,7 @@ struct HessianBFGS{T} <: HessianParameters{T}
     δδ::Matrix{T}
 
     function HessianBFGS(x::Vector{T}) where {T}
-        Q = zeros(T, length(x), length(x))
+        Q  = zeros(T, length(x), length(x))
 
         T1 = zero(Q)
         T2 = zero(Q)
@@ -24,11 +24,9 @@ struct HessianBFGS{T} <: HessianParameters{T}
     end
 end
 
-inverse(H::HessianBFGS) = H.Q
+HessianBFGS(F, x) = HessianBFGS(x)
 
-function initialize!(H::HessianBFGS)
-    H.Q .= Matrix(1.0I, size(H.Q)...)
-end
+initialize!(H::HessianBFGS, ::Any) = H.Q .= Matrix(1.0I, size(H.Q)...)
 
 function update!(H::HessianBFGS, status::OptimizerStatus)
     # δ = x - x̄
@@ -52,3 +50,9 @@ function update!(H::HessianBFGS, status::OptimizerStatus)
     H.T3 .= (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* H.δδ
     H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
 end
+
+Base.inv(H::HessianBFGS) = H.Q
+
+Base.:\(H::HessianBFGS, b) = inv(H) * b
+
+LinearAlgebra.ldiv!(x, H::HessianBFGS, b) = mul!(x, inv(H), b)

@@ -43,14 +43,14 @@ for Optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
     @test params(nl) == nl.params
     @test status(nl) == nl.status
 
-    setInitialConditions!(nl, x)
+    initialize!(nl, x)
     solve!(nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7
 
     x = ones(n)
     nl = Optim(x, F; ∇F! = ∇F!)
-    setInitialConditions!(nl, x)
+    initialize!(nl, x)
     solve!(nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7

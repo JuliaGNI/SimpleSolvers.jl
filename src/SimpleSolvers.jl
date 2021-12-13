@@ -10,12 +10,14 @@ module SimpleSolvers
 
     export solve!
 
+
     export GradientParameters,
            GradientParametersAD,
            GradientParametersFD,
            GradientParametersUser
            
-    export compute_gradient!,
+    export compute_gradient,
+           compute_gradient!,
            compute_gradient_ad!,
            compute_gradient_fd!
 
@@ -23,6 +25,19 @@ module SimpleSolvers
            print_gradient
 
     include("base/gradient.jl")
+
+    export HessianParameters,
+           HessianParametersAD,
+           HessianParametersUser
+
+    export compute_hessian,
+           compute_hessian!,
+           compute_hessian_ad!
+
+    export check_hessian,
+           print_hessian
+
+    include("base/hessian.jl")
 
     export JacobianParameters,
            JacobianParametersAD,
@@ -38,9 +53,16 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    export HessianParameters
+    export UnivariateObjective,
+           MultivariateObjective
 
-    include("base/hessian.jl")
+    export value, value!, value!!,
+           derivative, derivative!, derivative!!,
+           gradient, gradient!, gradient!!,
+           hessian, hessian!, hessian!!,
+           d_calls, f_calls, g_calls, h_calls
+
+    include("base/objectives.jl")
 
     export LinearSolver, LUSolver, LUSolverLAPACK,
            factorize!
@@ -85,7 +107,7 @@ module SimpleSolvers
            DFPOptimizer,
            HessianBFGS,
            HessianDFP,
-           setInitialConditions!
+           initialize!
 
     include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
