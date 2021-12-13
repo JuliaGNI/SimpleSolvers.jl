@@ -24,6 +24,8 @@ struct HessianBFGS{T} <: HessianParameters{T}
     end
 end
 
+HessianBFGS(F, x) = HessianBFGS(x)
+
 inverse(H::HessianBFGS) = H.Q
 
 function initialize!(H::HessianBFGS)

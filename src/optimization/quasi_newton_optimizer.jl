@@ -24,9 +24,9 @@ mutable struct QuasiNewtonOptimizer{XT, YT, FT <: Callable, GT <: GradientParame
     end
 end
 
-function QuasiNewtonOptimizer(x::VT, F::Function; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianBFGS, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
+function QuasiNewtonOptimizer(x::VT, F::Callable; ∇F!::Union{Callable,Nothing} = nothing, hessian = HessianParametersAD, linesearch = Bisection(F)) where {XT, VT <: AbstractVector{XT}}
     G = GradientParameters(∇F!, F, x)
-    H = hessian(x)
+    H = hessian(F, x)
     YT = typeof(F(x))
     QuasiNewtonOptimizer{XT,YT,typeof(F),typeof(G),typeof(H),typeof(linesearch),VT}(x, F, G, H, linesearch)
 end

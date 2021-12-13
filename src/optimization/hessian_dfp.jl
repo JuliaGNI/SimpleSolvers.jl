@@ -22,6 +22,8 @@ struct HessianDFP{T} <: HessianParameters{T}
     end
 end
 
+HessianDFP(F, x) = HessianDFP(x)
+
 inverse(H::HessianDFP) = H.Q
 
 function initialize!(H::HessianDFP)
