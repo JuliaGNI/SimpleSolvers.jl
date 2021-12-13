@@ -6,7 +6,7 @@ const DEFAULT_BISECTION_ftol = 2eps()
 """
 simple bisection line search
 """
-mutable struct Bisection{XT,YT,FT} <: LineSearch where {XT <: Number, YT <: Number, FT <: Callable}
+mutable struct Bisection{XT,YT,FT} <: LineSearch where {XT <: Number, YT <: Number, FT}
 
     nmax::Int
     xtol::XT
@@ -20,7 +20,7 @@ mutable struct Bisection{XT,YT,FT} <: LineSearch where {XT <: Number, YT <: Numb
 end
 
 
-function (ls::Bisection)(f::Callable, xmin::T, xmax::T) where {T}
+function (ls::Bisection)(f, xmin::T, xmax::T) where {T}
     local x₀ = xmin
     local x₁ = xmax
     local x  = zero(T)
@@ -59,7 +59,7 @@ end
 
 (ls::Bisection)(xmin, xmax) = ls(ls.f, xmin, xmax)
 (ls::Bisection)(x) = ls(bracket_minimum(ls.f, x)...)
-
+            
 solve!(x, f, g, x₀, x₁, ls::Bisection) = ls(x₀, x₁)
 solve!(x₀, x₁, ls::Bisection) = ls(x₀, x₁)
 solve!(x, f, g, ls::Bisection) = ls(x)
