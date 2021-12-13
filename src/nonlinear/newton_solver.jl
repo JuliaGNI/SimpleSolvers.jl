@@ -2,7 +2,7 @@
 struct NewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolver{T}
     @newton_solver_variables
 
-    function NewtonSolver{T,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, line_search) where {T,FT,TJ,TL,TS}
+    function NewtonSolver{T,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, line_search, config = Options()) where {T,FT,TJ,TL,TS}
         J  = zero(linear_solver.A)
         x₀ = zero(x)
         x₁ = zero(x)
@@ -11,11 +11,11 @@ struct NewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolver{T}
         δx = zero(x)
         δy = zero(y)
 
-        nls_params = NonlinearSolverParameters(T)
-        nls_status = NonlinearSolverStatus{T}(length(x))
+        params = NonlinearSolverParameters(config)
+        status = NonlinearSolverStatus{T}(length(x))
 
         new(x, y, J, x₀, x₁, y₀, y₁, δx, δy, F!, Jparams, linear_solver, line_search,
-            nls_params, nls_status)
+            config, params, status)
     end
 end
 
@@ -28,15 +28,13 @@ function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; 
 end
 
 
-function solve!(s::NewtonSolver{T}; n::Int=0) where {T}
-    local nmax::Int = n > 0 ? nmax = n : s.params.nmax
-
+function solve!(s::NewtonSolver{T}) where {T}
     s.F!(s.y, s.x)
     residual_initial!(s.status, s.x, s.y)
     s.status.i  = 0
 
-    if s.status.rₐ ≥ s.params.atol² || n > 0 || s.params.nmin > 0
-        for s.status.i in 1:nmax
+    if s.status.rₐ ≥ s.params.atol² || s.config.min_iterations > 0
+        for s.status.i in 1:s.config.max_iterations
             # compute Jacobian
             compute_jacobian!(s)
 
@@ -69,10 +67,8 @@ function solve!(s::NewtonSolver{T}; n::Int=0) where {T}
             s.F!(s.y, s.x)
             residual!(s.status, s.δx, s.x, s.y)
 
-            if check_solver_converged(s.status, s.params) && s.status.i ≥ s.params.nmin && !(n > 0)
-                if s.params.nwarn > 0 && s.status.i ≥ s.params.nwarn
-                    println("WARNING: Newton Solver took ", s.status.i, " iterations.")
-                end
+            if check_solver_converged(s.status, s.config)
+                warn_iteration_number(s.status, s.config)
                 break
             end
         end

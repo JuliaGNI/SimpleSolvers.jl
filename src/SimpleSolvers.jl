@@ -2,6 +2,7 @@ module SimpleSolvers
 
     using ForwardDiff
     using LinearAlgebra
+    using Printf
 
     import Base: Callable
 
@@ -113,33 +114,5 @@ module SimpleSolvers
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
     include("optimization/quasi_newton_optimizer.jl")
-
-
-    function __init__()
-        default_params = (
-            (:verbosity, 1),
-            (:ls_solver, :julia),
-            (:nls_atol,  2eps()),
-            (:nls_rtol,  2eps()),
-            (:nls_stol,  2eps()),
-            (:nls_atol_break,  1E3),
-            (:nls_rtol_break,  1E3),
-            (:nls_stol_break,  1E3),
-            (:nls_nmax,  10000),
-            (:nls_nmin,  0),
-            (:nls_nwarn, 100),
-            (:nls_solver, NewtonSolver),
-            (:quasi_newton_refactorize, 5),
-            (:linesearch_nmax, 50),
-            (:linesearch_armijo_λ₀, 1.0),
-            (:linesearch_armijo_σ₀, 0.1),
-            (:linesearch_armijo_σ₁, 0.5),
-            (:linesearch_armijo_ϵ,  0.5),
-        )
-
-        for param in default_params
-            add_config(param...)
-        end
-    end
 
 end

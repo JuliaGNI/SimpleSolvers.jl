@@ -45,20 +45,21 @@ Base.show(io::IO, status::OptimizerStatus) = print(io,
                         (@sprintf "rgᵣ=%14.8e" status.rgᵣ), ",   ",
                     )
 
-function print_solver_status(status::OptimizerStatus, params::NonlinearSolverParameters)
-    if (get_config(:verbosity) ≥ 1 && !(check_solver_converged(status, params) && status.i ≤ params.nmax)) ||
-        get_config(:verbosity) > 1
+function print_solver_status(status::OptimizerStatus, config::Options)
+    if (config.verbosity ≥ 1 && !(check_solver_converged(status, config) && status.i ≤ config.max_iterations)) ||
+        config.verbosity > 1
         println(status)
     end
 end
 
-function check_solver_converged(status::OptimizerStatus, params::NonlinearSolverParameters)
-    return status.rxₐ ≤ params.atol  ||
-           status.rxᵣ ≤ params.rtol  ||
-           status.ryₐ ≤ params.atol  ||
-           status.ryᵣ ≤ params.rtol  ||
-           status.rgₐ ≤ params.atol  ||
-           status.rgᵣ ≤ params.rtol
+function check_solver_converged(status::OptimizerStatus, config::Options)
+    return (status.rxₐ ≤ config.x_abstol  ||
+            status.rxᵣ ≤ config.x_reltol  ||
+            status.ryₐ ≤ config.f_abstol  ||
+            status.ryᵣ ≤ config.f_reltol  ||
+            status.rgₐ ≤ config.g_abstol  ||
+            status.rgᵣ ≤ config.g_reltol) &&
+           status.i ≥ config.min_iterations
 end
 
 function check_solver_status(status::OptimizerStatus, params::NonlinearSolverParameters)
@@ -100,6 +101,13 @@ get_solver_status(solver::OptimizerStatus{T}) where {T} = get_solver_status!(sol
                  :grtol => zero(T),
                  :converged => false)
             )
+
+
+function warn_iteration_number(status, config)
+    if config.warn_iterations > 0 && status.i ≥ config.warn_iterations
+        println("WARNING: Optimizer took ", status.i, " iterations.")
+    end
+end
 
 
 function residual!(status::OptimizerStatus)

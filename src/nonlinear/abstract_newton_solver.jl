@@ -19,6 +19,7 @@ abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
     linear::TL
     ls::TS
 
+    config::Options{T}
     params::NonlinearSolverParameters{T}
     status::NonlinearSolverStatus{T}
 end
