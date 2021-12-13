@@ -17,17 +17,15 @@ mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractObjective
     d_calls::Int
 end
 
-function UnivariateObjective(F::Callable, D::Callable, x::Number,
+function UnivariateObjective(F, D, x::Number;
                              f::Real = alloc_f(x),
                              d::Number = alloc_d(x))
     UnivariateObjective(F, D, f, d, alloc_x(x), alloc_x(x), 0, 0)
 end
 
-function UnivariateObjective(F::Callable, x::Number,
-                             f::Real = alloc_f(x),
-                             d::Number = alloc_d(x))
+function UnivariateObjective(F, x::Number; kwargs...)
     D = (x) -> ForwardDiff.derivative(F,x)
-    UnivariateObjective(F, D, x, f, d)
+    UnivariateObjective(F, D, x; kwargs...)
 end
 
 
@@ -126,42 +124,30 @@ end
 
 
 
-mutable struct MultivariateObjective{TF, TG, TH, Tf, Tg, Th, Tx} <: AbstractObjective
+mutable struct MultivariateObjective{TF, TG, Tf, Tg, Tx} <: AbstractObjective
     F::TF
     G::TG
-    H::TH
 
     f::Tf
     g::Tg
-    h::Th
 
     x_f::Tx
     x_g::Tx
-    x_h::Tx
 
     f_calls::Int
     g_calls::Int
-    h_calls::Int
 end
 
-function MultivariateObjective(F::Callable, G, H,
-                               x::AbstractArray,
+function MultivariateObjective(F, G,
+                               x::AbstractArray;
                                f::Real = alloc_f(x),
-                               g::AbstractArray = alloc_g(x),
-                               h::AbstractArray = alloc_h(x))
-    MultivariateObjective(F, G, H, f, g, h, alloc_x(x), alloc_x(x), alloc_x(x), 0, 0, 0)
+                               g::AbstractArray = alloc_g(x))
+    MultivariateObjective(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
 end
 
-function MultivariateObjective(F::Callable,
-                               x::AbstractArray,
-                               f::Real = alloc_f(x),
-                               g::AbstractArray = alloc_g(x),
-                               h::AbstractArray = alloc_h(x))
-
+function MultivariateObjective(F, x::AbstractArray; kwargs...)
     G = GradientParametersAD(F, x)
-    H = HessianParametersAD(F, x)
-
-    MultivariateObjective(F, G, H, x, f, g, h)
+    MultivariateObjective(F, G, x; kwargs...)
 end
 
 
@@ -237,43 +223,6 @@ function gradient!(obj::MultivariateObjective, x)
 end
 
 
-"""
-Evaluates the Hessian at `x`.
-This does *not* update `obj.h` or `obj.x_h`.
-"""
-function hessian(obj::MultivariateObjective, x)
-    h̄ = copy(obj.h)
-    obj.H(h̄, x)
-    obj.h_calls += 1
-    return h̄
-end
-
-"Get the most recently evaluated Hessian of `obj`."
-hessian(obj::MultivariateObjective) = obj.h
-
-"""
-Force (re-)evaluation of the Hessian at `x`.
-Returns ∇²f(x) and stores the value in `obj.h`.
-"""
-function hessian!!(obj::MultivariateObjective, x)
-    copyto!(obj.x_h, x)
-    obj.H(obj.h, x)
-    obj.h_calls += 1
-    hessian(obj)
-end
-
-"""
-Evaluates the Hessian at `x`.
-Returns ∇²f(x) and stores the value in `obj.h`.
-"""
-function hessian!(obj::MultivariateObjective, x)
-    if x != obj.x_h
-        hessian!!(obj, x)
-    end
-    hessian(obj)
-end
-
-
 (obj::MultivariateObjective)(x) = value(obj, x)
 
 
@@ -291,17 +240,9 @@ function _clear_g!(obj::MultivariateObjective)
     nothing
 end
 
-function _clear_h!(obj::MultivariateObjective)
-    obj.h_calls = 0
-    obj.h .= eltype(obj.h)(NaN)
-    obj.x_h .= eltype(obj.x_h)(NaN)
-    nothing
-end
-
 function clear!(obj::MultivariateObjective)
     _clear_f!(obj)
     _clear_g!(obj)
-    _clear_h!(obj)
     nothing
 end
 
@@ -316,6 +257,3 @@ d_calls(o::UnivariateObjective) = o.d_calls
 
 g_calls(o::AbstractObjective) = error("g_calls is not implemented for $(summary(o)).")
 g_calls(o::MultivariateObjective) = o.g_calls
-
-h_calls(o::AbstractObjective) = error("h_calls is not implemented for $(summary(o)).")
-h_calls(o::MultivariateObjective) = o.h_calls
