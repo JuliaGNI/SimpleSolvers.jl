@@ -1,6 +1,7 @@
 
 abstract type AbstractObjective end
 
+clear!(::Function) = nothing
 
 mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractObjective
     F::TF     # objective
@@ -98,6 +99,9 @@ function derivative!(obj::UnivariateObjective, x)
     end
     derivative(obj)
 end
+
+
+(obj::UnivariateObjective)(x) = value(obj, x)
 
 
 function _clear_f!(obj::UnivariateObjective)
@@ -268,6 +272,9 @@ function hessian!(obj::MultivariateObjective, x)
     end
     hessian(obj)
 end
+
+
+(obj::MultivariateObjective)(x) = value(obj, x)
 
 
 function _clear_f!(obj::MultivariateObjective)
