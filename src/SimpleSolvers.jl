@@ -10,6 +10,7 @@ module SimpleSolvers
     include("utils.jl")
 
     export solve!
+    export config, status
 
 
     export GradientParameters,
@@ -90,9 +91,10 @@ module SimpleSolvers
 
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
-           params, status,
+           params,
            residual_initial!, residual_absolute!, residual_relative!,
-           print_solver_status, check_solver_converged, check_solver_status,
+           assess_convergence, assess_convergence!,
+           print_solver_status, check_solver_status,
            get_solver_status, get_solver_status!,
            solve!
 
@@ -107,10 +109,10 @@ module SimpleSolvers
            BFGSOptimizer,
            DFPOptimizer,
            HessianBFGS,
-           HessianDFP,
-           initialize!
+           HessianDFP
 
     include("optimization/optimizer.jl")
+    include("optimization/optimizer_status.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
     include("optimization/quasi_newton_optimizer.jl")
