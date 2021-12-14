@@ -1,24 +1,31 @@
 
-mutable struct QuasiNewtonOptimizer{XT, YT, OT <: MultivariateObjective, HT <: HessianParameters, TS <: LineSearch, VT <: AbstractVector{XT}} <: Optimizer{XT}
-    x̃::VT
-    g̃::VT
+struct QuasiNewtonOptimizerCache{T, AT <: AbstractArray{T}}
+    x̄::AT
+    x::AT
+    δ::AT
 
+    function QuasiNewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
+        new{T,AT}(zero(x), zero(x), zero(x))
+    end
+end
+
+function update!(cache::QuasiNewtonOptimizerCache, status::OptimizerStatus)
+    copyto!(cache.x̄, status.x̄)
+    copyto!(cache.x, status.x)
+    copyto!(cache.δ, status.δ)
+end
+
+
+mutable struct QuasiNewtonOptimizer{XT, YT, OT <: MultivariateObjective, HT <: HessianParameters, TS <: LineSearch, AT <: AbstractVector{XT}} <: Optimizer{XT}
     objective::OT
     hessian::HT
-
-    ls::TS
-
+    linesearch::TS
+    cache::QuasiNewtonOptimizerCache{XT,AT}
     config::Options{XT}
-    params::NonlinearSolverParameters{XT}
-    status::OptimizerStatus{XT,YT,VT}
+    status::OptimizerStatus{XT,YT,AT}
 
-    function QuasiNewtonOptimizer{XT,YT,OT,HT,TS,VT}(x, objective, hessian, status, line_search, config) where {XT,YT,OT,HT,TS,VT}
-        x̃ = zero(x)
-        g̃ = zero(x)
-
-        params = NonlinearSolverParameters(config)
-    
-        new(x̃, g̃, objective, hessian, line_search, config, params, status)
+    function QuasiNewtonOptimizer{XT,YT,OT,HT,TS,AT}(objective, hessian, linesearch, cache, config, status) where {XT,YT,OT,HT,TS,AT}
+        new(objective, hessian, linesearch, cache, config, status)
     end
 end
 
@@ -29,14 +36,13 @@ function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParame
     hessian = hessian(F, x)
 
     YT = typeof(F(x))
+    cache = QuasiNewtonOptimizerCache(x)
     status = OptimizerStatus{XT,YT,VT}(length(x))
 
     # create objective for linesearch algorithm
-    ls_x̃ = zero(x)
-
     function ls_f(α)
-        ls_x̃ .= status.x .+ α .* status.δ
-        value(objective, F(ls_x̃))
+        cache.x .= cache.x̄ .+ α .* cache.δ
+        value(objective, F(cache.x))
     end
 
     ls_objective = UnivariateObjective(ls_f, 1.)
@@ -44,71 +50,49 @@ function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParame
     # create linesearch algorithm
     ls = linesearch(ls_objective)
 
-    QuasiNewtonOptimizer{XT, YT, typeof(objective), typeof(hessian), typeof(ls), VT}(x, objective, hessian, status, ls, config)
+    QuasiNewtonOptimizer{XT, YT, typeof(objective), typeof(hessian), typeof(ls), VT}(objective, hessian, ls, cache, config, status)
 end
 
 BFGSOptimizer(args...; kwargs...) = QuasiNewtonOptimizer(args...; hessian = HessianBFGS, kwargs...)
 DFPOptimizer(args...; kwargs...) = QuasiNewtonOptimizer(args...; hessian = HessianDFP, kwargs...)
 
-
+cache(s::QuasiNewtonOptimizer) = s.cache
 config(s::QuasiNewtonOptimizer) = s.config
 status(s::QuasiNewtonOptimizer) = s.status
-params(s::QuasiNewtonOptimizer) = s.params
 objective(s::QuasiNewtonOptimizer) = s.objective
 hessian(s::QuasiNewtonOptimizer) = s.hessian
 
-check_gradient(s::QuasiNewtonOptimizer) = check_gradient(s.g)
-print_gradient(s::QuasiNewtonOptimizer) = print_gradient(s.g)
+check_gradient(s::QuasiNewtonOptimizer) = check_gradient(gradient(objective(s)))
+print_gradient(s::QuasiNewtonOptimizer) = print_gradient(gradient(objective(s)))
+print_status(s::QuasiNewtonOptimizer) = print_status(status(s), config(s))
 
-print_solver_status(s::QuasiNewtonOptimizer) = print_solver_status(status(s), config(s))
-check_solver_converged(s::QuasiNewtonOptimizer) = check_solver_converged(status(s), config(s))
-
+assess_convergence(s::QuasiNewtonOptimizer) = assess_convergence(status(s), config(s))
 
 function initialize!(s::QuasiNewtonOptimizer{T}, x₀::Vector{T}) where {T}
     clear!(objective(s))
     value!(objective(s), x₀)
     gradient!(objective(s), x₀)
-    initialize!(status(s), x₀, value(objective(s)), gradient(objective(s)))
     initialize!(hessian(s), x₀)
+    initialize!(status(s), x₀, value(objective(s)), gradient(objective(s)))
 end
 
 
-function solve!(s::QuasiNewtonOptimizer{T}) where {T}
-    s.status.i = 0
-    if s.status.rgₐ ≥ s.params.atol² || s.params.nmin > 0
-        for s.status.i = 1:s.config.max_iterations
-            # update status and temporaries
-            update!(status(s))
+function solver_step!(s::QuasiNewtonOptimizer{T}) where {T}
+    # update Hessian
+    update!(hessian(s), status(s))
 
-            # solve H δx = - ∇f
-            ldiv!(s.status.δ, hessian(s), s.status.g)
-            s.status.δ .*= -1
-        
-            # apply line search
-            α, y = s.ls(1.0)
-            s.status.x .= s.status.x̄ .+ α .* s.status.δ
-            s.status.y  = y
-        
-            # compute Gradient at new solution
-            s.status.g .= gradient!(s.objective, s.status.x)
+    # update cache
+    update!(cache(s), status(s))
 
-            # compute residual
-            residual!(s.status)
+    # solve H δx = - ∇f
+    ldiv!(s.cache.δ, hessian(s), s.status.g)
+    s.cache.δ .*= -1
 
-            # check for convergence
-            if check_solver_converged(s.status, s.config)
-                warn_iteration_number(s.status, s.config)
-                break
-            end
+    # apply line search
+    α, f = s.linesearch(1.0)
+    s.status.x .= s.status.x̄ .+ α .* s.cache.δ
+    s.status.f  = f
 
-            # update Hessian
-            update!(hessian(s), status(s))
-        end
-    end
-end
-
-function solve!(x, s::QuasiNewtonOptimizer; kwargs...)
-    initialize!(s, x)
-    solve!(s; kwargs...)
-    x .= s.params.x
+    # compute Gradient at new solution
+    copyto!(s.status.g, gradient!(objective(s), s.status.x))
 end

@@ -40,18 +40,16 @@ for Optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
     y = zero(eltype(x))
     nl = Optim(x, F)
 
-    @test params(nl) == nl.params
+    @test config(nl) == nl.config
     @test status(nl) == nl.status
 
-    initialize!(nl, x)
-    solve!(nl)
+    solve!(x, nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7
 
     x = ones(n)
     nl = Optim(x, F; ∇F! = ∇F!)
-    initialize!(nl, x)
-    solve!(nl)
+    solve!(x, nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7
 end
