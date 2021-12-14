@@ -2,9 +2,9 @@
 Configurable options with defaults (values 0 and NaN indicate unlimited):
 ```
 x_abstol::Real = 0.0,
-x_reltol::Real = 0.0,
+x_reltol::Real = 2eps(),
 f_abstol::Real = 0.0,
-f_reltol::Real = 0.0,
+f_reltol::Real = 2eps(),
 g_abstol::Real = 1e-8,
 g_reltol::Real = 1e-8,
 x_abstol_break::Real = Inf,
@@ -58,10 +58,10 @@ function Options(;
         x_tol = nothing,
         f_tol = nothing,
         g_tol = nothing,
-        x_abstol::Real = 2eps(),
-        x_reltol::Real = 0.0,
-        f_abstol::Real = 2eps(),
-        f_reltol::Real = 0.0,
+        x_abstol::Real = 0.0,
+        x_reltol::Real = 2eps(),
+        f_abstol::Real = 0.0,
+        f_reltol::Real = 2eps(),
         g_abstol::Real = 1e-8,
         g_reltol::Real = 1e-8,
         x_abstol_break::Real = Inf,
@@ -84,6 +84,7 @@ function Options(;
         verbosity::Int = 1)
 
     show_every = show_every > 0 ? show_every : 1
+    
     if extended_trace
        show_trace = true
     end
