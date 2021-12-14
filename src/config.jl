@@ -7,9 +7,12 @@ f_abstol::Real = 0.0,
 f_reltol::Real = 0.0,
 g_abstol::Real = 1e-8,
 g_reltol::Real = 1e-8,
-x_atol_break::Real = 1E3,
-f_atol_break::Real = 1E3,
-g_atol_break::Real = 1E3,
+x_abstol_break::Real = Inf,
+x_reltol_break::Real = Inf,
+f_abstol_break::Real = Inf,
+f_reltol_break::Real = Inf,
+g_abstol_break::Real = Inf,
+g_reltol_break::Real = Inf,
 f_calls_limit::Int = 0,
 g_calls_limit::Int = 0,
 h_calls_limit::Int = 0,
@@ -31,9 +34,12 @@ struct Options{T}
     f_reltol::T
     g_abstol::T
     g_reltol::T
-    x_atol_break::T
-    f_atol_break::T
-    g_atol_break::T
+    x_abstol_break::T
+    x_reltol_break::T
+    f_abstol_break::T
+    f_reltol_break::T
+    g_abstol_break::T
+    g_reltol_break::T
     f_calls_limit::Int
     g_calls_limit::Int
     h_calls_limit::Int
@@ -58,9 +64,12 @@ function Options(;
         f_reltol::Real = 0.0,
         g_abstol::Real = 1e-8,
         g_reltol::Real = 1e-8,
-        x_atol_break::Real = 1E3,
-        f_atol_break::Real = 1E3,
-        g_atol_break::Real = 1E3,
+        x_abstol_break::Real = Inf,
+        x_reltol_break::Real = Inf,
+        f_abstol_break::Real = Inf,
+        f_reltol_break::Real = Inf,
+        g_abstol_break::Real = Inf,
+        g_reltol_break::Real = Inf,
         f_calls_limit::Int = 0,
         g_calls_limit::Int = 0,
         h_calls_limit::Int = 0,
@@ -88,7 +97,8 @@ function Options(;
         f_reltol = f_tol
     end
 
-    Options(promote(x_abstol, x_reltol, f_abstol, f_reltol, g_abstol, g_reltol, x_atol_break, f_atol_break, g_atol_break)...,
+    Options(promote(x_abstol, x_reltol, f_abstol, f_reltol, g_abstol, g_reltol,
+                    x_abstol_break, x_reltol_break, f_abstol_break, f_reltol_break, g_abstol_break, g_reltol_break)...,
         f_calls_limit, g_calls_limit, h_calls_limit, allow_f_increases, min_iterations, max_iterations, warn_iterations,
         show_trace, store_trace, extended_trace, show_every, verbosity)
 end
