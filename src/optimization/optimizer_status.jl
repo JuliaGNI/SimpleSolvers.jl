@@ -24,7 +24,6 @@ mutable struct OptimizerStatus{XT,YT,VT}
     f_converged::Bool
     g_converged::Bool
     f_increased::Bool
-
 end
 
 OptimizerStatus{XT,YT,VT}(n) where {XT,YT,VT} = OptimizerStatus{XT,YT,VT}(
@@ -98,7 +97,7 @@ function assess_convergence!(status::OptimizerStatus, config::Options)
     status.f_converged = f_converged
     status.g_converged = g_converged
 
-    status.f_increased = status.f > status.f̄
+    status.f_increased = abs(status.f) > abs(status.f̄)
 
     return isconverged(status)
 end
@@ -170,22 +169,24 @@ end
 
 
 function residual!(status::OptimizerStatus)
-    status.rfₐ = norm(status.f̄ - status.f)
-    status.rfᵣ = status.rfₐ / norm(status.f̄)
-
-    status.δ .= status.x̄ .- status.x
     status.rxₐ = norm(status.δ)
-    status.rxᵣ = status.rxₐ / norm(status.x̄)
+    status.rxᵣ = status.rxₐ / norm(status.x)
 
-    status.γ  .= status.ḡ .- status.g
+    status.rfₐ = norm(status.f̄ - status.f)
+    status.rfᵣ = status.rfₐ / norm(status.f)
+
     status.rgₐ = norm(status.γ)
-    status.rgᵣ = status.rgₐ / norm(status.ḡ)
+    status.rgᵣ = status.rgₐ / norm(status.g)
 end
 
 function residual!(status::OptimizerStatus, x, f, g)
     status.x .= x
     status.f  = f
     status.g .= g
+
+    status.δ .= status.x .- status.x̄
+    status.γ .= status.g .- status.ḡ
+
     residual!(status)
 end
 

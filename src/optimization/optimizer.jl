@@ -14,7 +14,7 @@ function solve!(x, s::Optimizer)
     while !meets_stopping_criteria(status(s), config(s))
         next_iteration!(status(s))
         solver_step!(s)
-        residual!(status(s))
+        # residual!(status(s))
     end
 
     warn_iteration_number(status(s), config(s))

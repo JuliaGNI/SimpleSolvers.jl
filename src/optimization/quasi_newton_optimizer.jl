@@ -90,9 +90,8 @@ function solver_step!(s::QuasiNewtonOptimizer{T}) where {T}
 
     # apply line search
     α, f = s.linesearch(1.0)
-    s.status.x .= s.status.x̄ .+ α .* s.cache.δ
-    s.status.f  = f
+    # s.cache.x .= s.cache.x̄ .+ α .* s.cache.δ
 
-    # compute Gradient at new solution
-    copyto!(s.status.g, gradient!(objective(s), s.status.x))
+    # compute gradient at new solution and update residual
+    residual!(status(s), s.cache.x, f, gradient!(objective(s), s.cache.x))
 end
