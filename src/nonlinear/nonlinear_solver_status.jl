@@ -57,8 +57,8 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
                         (@sprintf "rfₐ=%14.8e" status.rfₐ), ",   ",
                         (@sprintf "rfᵣ=%14.8e" status.rfᵣ))
 
-function print_solver_status(status::NonlinearSolverStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(assess_convergence(status, config) && status.i ≤ config.max_iterations)) ||
+function print_status(status::NonlinearSolverStatus, config::Options)
+    if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && status.i ≤ config.max_iterations)) ||
         config.verbosity > 1
         println(status)
     end

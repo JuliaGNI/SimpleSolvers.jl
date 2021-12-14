@@ -36,7 +36,7 @@ for Solver in (NewtonSolver, QuasiNewtonSolver, NLsolveNewton)
     @test status(nl) == nl.status
 
     solve!(x, nl)
-    # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)
+    # println(status(nl))
     for x in nl.x
         @test x ≈ 0 atol=1E-7
     end
@@ -44,7 +44,7 @@ for Solver in (NewtonSolver, QuasiNewtonSolver, NLsolveNewton)
     x = ones(n)
     nl = Solver(x, y, F!; J! = J!)
     solve!(x, nl)
-    # println(nl.status.i, ", ", nl.status.rₐ,", ",  nl.status.rᵣ,", ",  nl.status.rₛ)
+    # println(status(nl))
     for x in nl.x
         @test x ≈ 0 atol=1E-7
     end

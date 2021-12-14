@@ -4,7 +4,7 @@ struct QuasiNewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolve
 
     refactorize::Int
 
-    function QuasiNewtonSolver{T,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, linesearch, refactorize, config = Options()) where {T,FT,TJ,TL,TS}
+    function QuasiNewtonSolver{T,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, linesearch, config, refactorize) where {T,FT,TJ,TL,TS}
         J  = zero(linear_solver.A)
         x₀ = zero(x)
         x₁ = zero(x)
@@ -19,11 +19,11 @@ struct QuasiNewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolve
     end
 end
 
-function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=Armijo(F!, x, y), refactorize=1) where {T}
+function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = nothing, linesearch = ArmijoQuadratic(F!, x, y), config = Options(), refactorize=5) where {T}
     n = length(y)
     Jparams = JacobianParameters{T}(J!, F!, n)
     linear_solver = LinearSolver(y)
-    QuasiNewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch, refactorize)
+    QuasiNewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch, config, refactorize)
 end
 
 function solver_step!(s::QuasiNewtonSolver{T}) where {T}

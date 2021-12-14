@@ -2,7 +2,7 @@
 struct NewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolver{T}
     @newton_solver_variables
 
-    function NewtonSolver{T,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, linesearch, config = Options()) where {T,FT,TJ,TL,TS}
+    function NewtonSolver{T,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, linesearch, config) where {T,FT,TJ,TL,TS}
         J  = zero(linear_solver.A)
         x₀ = zero(x)
         x₁ = zero(x)
@@ -17,11 +17,11 @@ struct NewtonSolver{T, FT, TJ, TL, TS <: LineSearch} <: AbstractNewtonSolver{T}
     end
 end
 
-function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=NoLineSearch()) where {T}
+function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = nothing, linesearch = NoLineSearch(), config = Options()) where {T}
     n = length(y)
     Jparams = JacobianParameters{T}(J!, F!, n)
     linear_solver = LinearSolver(y)
-    NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch)
+    NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch, config)
 end
 
 function solver_step!(s::NewtonSolver{T}) where {T}
