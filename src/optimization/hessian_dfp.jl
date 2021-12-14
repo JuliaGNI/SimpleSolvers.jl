@@ -44,14 +44,16 @@ function update!(H::HessianDFP, status::OptimizerStatus)
     # H.Q .-= H.Q * H.γ * H.γ' * H.Q / (H.γ' * H.Q * H.γ) .-
     #         H.δ * H.δ' ./ δγ
 
-    outer!(H.γγ, H.γ, H.γ)
-    outer!(H.δδ, H.δ, H.δ)
+    if δγ ≠ 0 && γQγ ≠ 0
+        outer!(H.γγ, H.γ, H.γ)
+        outer!(H.δδ, H.δ, H.δ)
 
-    mul!(H.T1, H.γγ, H.Q)
-    mul!(H.T2, H.Q, H.T1)
+        mul!(H.T1, H.γγ, H.Q)
+        mul!(H.T2, H.Q, H.T1)
 
-    H.Q .-= H.T2 ./ γQγ
-    H.Q .+= H.δδ ./ δγ
+        H.Q .-= H.T2 ./ γQγ
+        H.Q .+= H.δδ ./ δγ
+    end
 end
 
 Base.inv(H::HessianDFP) = H.Q
