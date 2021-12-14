@@ -90,13 +90,13 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
                         (@sprintf "rᵣ=%14.8e" status.rᵣ), ",   ", (@sprintf "rₛ=%14.8e" status.rₛ))
 
 function print_solver_status(status::NonlinearSolverStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(check_solver_converged(status, config) && status.i ≤ config.max_iterations)) ||
+    if (config.verbosity ≥ 1 && !(assess_convergence(status, config) && status.i ≤ config.max_iterations)) ||
         config.verbosity > 1
         println(status)
     end
 end
 
-function check_solver_converged(status::NonlinearSolverStatus, config::Options)
+function assess_convergence(status::NonlinearSolverStatus, config::Options)
     return (status.rₐ ≤ config.f_abstol  ||
             status.rᵣ ≤ config.f_reltol) &&
            status.i ≥ config.min_iterations
@@ -121,7 +121,7 @@ function get_solver_status!(status::NonlinearSolverStatus, config::Options, stat
     status_dict[:nls_atol] = status.rₐ
     status_dict[:nls_rtol] = status.rᵣ
     status_dict[:nls_stol] = status.rₛ
-    status_dict[:nls_converged] = check_solver_converged(status, config)
+    status_dict[:nls_converged] = assess_convergence(status, config)
     return status_dict
 end
 
