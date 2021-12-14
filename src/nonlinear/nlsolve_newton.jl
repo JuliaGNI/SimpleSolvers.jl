@@ -16,22 +16,21 @@ struct NLsolveNewton{T, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T}
     line_search::ST
     linear_solver::LT
 
-    params::NonlinearSolverParameters{T}
+    config::Options{T}
     status::NonlinearSolverStatus{T}
 
     function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, J::AbstractMatrix{T},
-                    F!::FT, DF::DT, cache::CT, line_search::ST, linear_solver::LT) where {T,FT,DT,CT,ST,LT}
+                    F!::FT, DF::DT, cache::CT, line_search::ST, linear_solver::LT, config = Options()) where {T,FT,DT,CT,ST,LT}
 
-        nls_params = NonlinearSolverParameters(T)
-        nls_status = NonlinearSolverStatus{T}(length(x))
+        status = NonlinearSolverStatus{T}(length(x))
 
-        new{T,FT,DT,CT,ST,LT}(x, f, J, cache, F!, DF, line_search, linear_solver, nls_params, nls_status)
+        new{T,FT,DT,CT,ST,LT}(x, f, J, cache, F!, DF, line_search, linear_solver, config, status)
     end
 end
 
 
 function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, mode = :autodiff, diff_type = :forward) where {T}
-    linear_solver = getLinearSolver(x)
+    linear_solver = LinearSolver(x)
 
     df = linear_solver.A
 
@@ -53,15 +52,14 @@ function linsolve!(s::NLsolveNewton, x, A, b)
     copyto!(x, s.linear_solver.b)
 end
 
-function solve!(s::NLsolveNewton; n::Int=0)
-    local nmax::Int = n > 0 ? nmax = n : s.params.nmax
-
-    res=newton_(s.DF, s.x, s.params.stol, s.params.atol, nmax, false, false, false,
+function solve!(x, s::NLsolveNewton)
+    res=newton_(s.DF, x, s.config.x_abstol, s.config.f_abstol, s.config.max_iterations, false, false, false,
                 s.line_search, (x, A, b) -> linsolve!(s, x, A, b), s.cache)
 
-    s.x .= res.zero
-    s.status.i  = res.iterations
-    s.status.rₐ = res.residual_norm
+    copyto!(x, res.zero)
 
-    nothing
+    s.status.i  = res.iterations
+    s.status.rfₐ = res.residual_norm
+
+    return x
 end

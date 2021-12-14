@@ -43,12 +43,14 @@ function update!(H::HessianBFGS, status::OptimizerStatus)
     # H.Q .-= (H.δ * H.γ' * H.Q .+ H.Q * H.γ * H.δ') ./ δγ .-
     #         (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* (H.δ * H.δ') ./ δγ
 
-    outer!(H.δγ, H.δ, H.γ)
-    outer!(H.δδ, H.δ, H.δ)
-    mul!(H.T1, H.δγ, H.Q)
-    mul!(H.T2, H.Q, H.δγ')
-    H.T3 .= (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* H.δδ
-    H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
+    if δγ ≠ 0
+        outer!(H.δγ, H.δ, H.γ)
+        outer!(H.δδ, H.δ, H.δ)
+        mul!(H.T1, H.δγ, H.Q)
+        mul!(H.T2, H.Q, H.δγ')
+        H.T3 .= (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* H.δδ
+        H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
+    end
 end
 
 Base.inv(H::HessianBFGS) = H.Q

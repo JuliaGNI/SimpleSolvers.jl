@@ -1,6 +1,7 @@
 
 using LinearAlgebra
 using SimpleSolvers
+using SimpleSolvers: initialize!, objective, solver_step!
 using Test
 
 
@@ -8,9 +9,11 @@ struct OptimizerTest{T} <: Optimizer{T} end
 
 test_optim = OptimizerTest{Float64}()
 
-@test_throws ErrorException solve!(test_optim)
+@test_throws ErrorException config(test_optim)
 @test_throws ErrorException status(test_optim)
-@test_throws ErrorException params(test_optim)
+@test_throws ErrorException objective(test_optim)
+@test_throws ErrorException initialize!(test_optim)
+@test_throws ErrorException solver_step!(test_optim)
 
 
 function F(x)
@@ -40,18 +43,16 @@ for Optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
     y = zero(eltype(x))
     nl = Optim(x, F)
 
-    @test params(nl) == nl.params
+    @test config(nl) == nl.config
     @test status(nl) == nl.status
 
-    initialize!(nl, x)
-    solve!(nl)
+    solve!(x, nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7
 
     x = ones(n)
     nl = Optim(x, F; ∇F! = ∇F!)
-    initialize!(nl, x)
-    solve!(nl)
+    solve!(x, nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7
 end

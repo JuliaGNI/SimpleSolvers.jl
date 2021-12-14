@@ -2,11 +2,13 @@ module SimpleSolvers
 
     using ForwardDiff
     using LinearAlgebra
+    using Printf
 
     include("config.jl")
     include("utils.jl")
 
     export solve!
+    export config, status
 
 
     export GradientParameters,
@@ -87,12 +89,13 @@ module SimpleSolvers
 
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
-           params, status,
            residual_initial!, residual_absolute!, residual_relative!,
-           print_solver_status, check_solver_converged, check_solver_status,
+           assess_convergence, assess_convergence!,
+           print_status, check_solver_status,
            get_solver_status, get_solver_status!,
            solve!
 
+    include("nonlinear/nonlinear_solver_status.jl")
     include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/abstract_newton_solver.jl")
     include("nonlinear/newton_solver.jl")
@@ -104,40 +107,12 @@ module SimpleSolvers
            BFGSOptimizer,
            DFPOptimizer,
            HessianBFGS,
-           HessianDFP,
-           initialize!
+           HessianDFP
 
+    include("optimization/optimizer_status.jl")
     include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
     include("optimization/quasi_newton_optimizer.jl")
-
-
-    function __init__()
-        default_params = (
-            (:verbosity, 1),
-            (:ls_solver, :julia),
-            (:nls_atol,  2eps()),
-            (:nls_rtol,  2eps()),
-            (:nls_stol,  2eps()),
-            (:nls_atol_break,  1E3),
-            (:nls_rtol_break,  1E3),
-            (:nls_stol_break,  1E3),
-            (:nls_nmax,  10000),
-            (:nls_nmin,  0),
-            (:nls_nwarn, 100),
-            (:nls_solver, NewtonSolver),
-            (:quasi_newton_refactorize, 5),
-            (:linesearch_nmax, 50),
-            (:linesearch_armijo_λ₀, 1.0),
-            (:linesearch_armijo_σ₀, 0.1),
-            (:linesearch_armijo_σ₁, 0.5),
-            (:linesearch_armijo_ϵ,  0.5),
-        )
-
-        for param in default_params
-            add_config(param...)
-        end
-    end
 
 end
