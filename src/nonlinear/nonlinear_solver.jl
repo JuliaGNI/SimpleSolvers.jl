@@ -3,13 +3,26 @@ using Printf
 
 abstract type NonlinearSolver{T} end
 
-solve!(s::NonlinearSolver) = error("solve! not implemented for $(typeof(s))")
+config(s::NonlinearSolver) = error("config not implemented for $(typeof(s))")
 status(s::NonlinearSolver) = error("status not implemented for $(typeof(s))")
-params(s::NonlinearSolver) = error("params not implemented for $(typeof(s))")
+initialize!(s::NonlinearSolver, x₀::AbstractArray) = error("initialize! not implemented for $(typeof(s))")
+solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
-function solve!(s::NonlinearSolver{T}, x₀::Vector{T}) where {T}
-    initialize!(s, x₀)
-    solve!(s)
+
+function solve!(x, s::NonlinearSolver)
+    initialize!(s, x)
+
+    while !meets_stopping_criteria(status(s), config(s))
+        next_iteration!(status(s))
+        solver_step!(s)
+        # residual!(status(s))
+    end
+
+    warn_iteration_number(status(s), config(s))
+
+    copyto!(x, solution(status(s)))
+
+    return x
 end
 
 
@@ -19,62 +32,14 @@ end
 
 Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
 
+# get_solver_status!(solver::NonlinearSolver{T}, status_dict::Dict) where {T} =
+#             get_solver_status!(status(solver), params(solver), status_dict)
 
-struct NonlinearSolverParameters{T}
-    nmin::Int   # minimum number of iterations
-    nmax::Int   # maximum number of iterations
-    nwarn::Int  # warn if number of iterations is larger than nwarn
-
-    atol::T     # absolute tolerance
-    rtol::T     # relative tolerance
-    stol::T     # successive tolerance
-
-    atol²::T
-    rtol²::T
-    stol²::T
-
-    atol_break::T
-    rtol_break::T
-    stol_break::T
-
-    function NonlinearSolverParameters{T}(nmin, nmax, nwarn, atol, rtol, stol, atol_break, rtol_break, stol_break) where {T}
-        @assert nmin ≥ 0
-        @assert nmax > 0
-        @assert nwarn ≥ 0
-        @assert atol ≥ 0
-        @assert rtol ≥ 0
-        @assert stol ≥ 0
-        @assert atol_break > 0
-        @assert rtol_break > 0
-        @assert stol_break > 0
-
-        new(nmin, nmax, nwarn, atol, rtol, stol, atol^2, rtol^2, stol^2, atol_break, rtol_break, stol_break)
-    end
-end
-
-function NonlinearSolverParameters(config::Options{T}) where {T}
-    NonlinearSolverParameters{T}(
-        config.min_iterations,
-        config.max_iterations,
-        config.warn_iterations,
-        config.f_abstol,
-        config.f_reltol,
-        config.f_reltol,
-        config.f_abstol_break,
-        config.f_abstol_break,
-        config.f_abstol_break
-    )
-end
-
-
-get_solver_status!(solver::NonlinearSolver{T}, status_dict::Dict) where {T} =
-            get_solver_status!(status(solver), params(solver), status_dict)
-
-get_solver_status(solver::NonlinearSolver{T}) where {T} = get_solver_status!(solver,
-            Dict(:nls_niter => 0,
-                 :nls_atol => zero(T),
-                 :nls_rtol => zero(T),
-                 :nls_stol => zero(T),
-                 :nls_converged => false)
-            )
+# get_solver_status(solver::NonlinearSolver{T}) where {T} = get_solver_status!(solver,
+#             Dict(:nls_niter => 0,
+#                  :nls_atol => zero(T),
+#                  :nls_rtol => zero(T),
+#                  :nls_stol => zero(T),
+#                  :nls_converged => false)
+#             )
 

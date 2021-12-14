@@ -20,18 +20,18 @@ abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
     ls::TS
 
     config::Options{T}
-    params::NonlinearSolverParameters{T}
     status::NonlinearSolverStatus{T}
 end
 
-function initialize!(s::AbstractNewtonSolver{T}, x₀::Vector{T}) where {T}
-    s.x .= x₀
-    s.F!(s.y, s.x)
-end
-
+config(solver::AbstractNewtonSolver) = solver.config
 status(solver::AbstractNewtonSolver) = solver.status
-params(solver::AbstractNewtonSolver) = solver.params
 
 compute_jacobian!(s::AbstractNewtonSolver) = compute_jacobian!(s.J, s.x, s.Jparams)
 check_jacobian(s::AbstractNewtonSolver) = check_jacobian(s.J)
 print_jacobian(s::AbstractNewtonSolver) = print_jacobian(s.J)
+
+function initialize!(s::AbstractNewtonSolver{T}, x₀::Vector{T}) where {T}
+    copyto!(s.x, x₀)
+    s.F!(s.y, s.x)
+    initialize!(status(s), s.x, s.y)
+end

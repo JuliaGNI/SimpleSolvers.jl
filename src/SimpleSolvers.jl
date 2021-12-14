@@ -89,7 +89,6 @@ module SimpleSolvers
 
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
-           params,
            residual_initial!, residual_absolute!, residual_relative!,
            assess_convergence, assess_convergence!,
            print_solver_status, check_solver_status,
