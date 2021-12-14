@@ -32,7 +32,7 @@ end
 
 
 function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, mode = :autodiff, diff_type = :forward) where {T}
-    linear_solver = getLinearSolver(x)
+    linear_solver = LinearSolver(x)
 
     df = linear_solver.A
 

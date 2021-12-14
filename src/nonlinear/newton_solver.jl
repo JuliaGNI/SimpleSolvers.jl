@@ -23,7 +23,7 @@ end
 function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, linesearch=NoLineSearch()) where {T}
     n = length(y)
     Jparams = JacobianParameters{T}(J!, F!, n)
-    linear_solver = getLinearSolver(y)
+    linear_solver = LinearSolver(y)
     NewtonSolver{T, typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(linesearch)}(x, y, F!, Jparams, linear_solver, linesearch)
 end
 

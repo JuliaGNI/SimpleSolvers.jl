@@ -78,16 +78,3 @@ get_solver_status(solver::NonlinearSolver{T}) where {T} = get_solver_status!(sol
                  :nls_converged => false)
             )
 
-function getLinearSolver(x::AbstractVector{T}; linear_solver = :julia) where {T}
-    n = length(x)
-
-    if linear_solver === nothing || linear_solver == :julia
-        linear_solver = LUSolver{T}(n)
-    elseif linear_solver == :lapack
-        linear_solver = LUSolverLAPACK{T}(BlasInt(n))
-    else
-        @assert typeof(linear_solver) <: LinearSolver{T}
-        @assert n == linear_solver.n
-    end
-    return linear_solver
-end
