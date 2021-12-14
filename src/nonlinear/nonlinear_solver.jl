@@ -60,9 +60,9 @@ function NonlinearSolverParameters(config::Options{T}) where {T}
         config.f_abstol,
         config.f_reltol,
         config.f_reltol,
-        config.f_atol_break,
-        config.f_atol_break,
-        config.f_atol_break
+        config.f_abstol_break,
+        config.f_abstol_break,
+        config.f_abstol_break
     )
 end
 
@@ -107,17 +107,13 @@ function check_solver_status(status::NonlinearSolverStatus, config::Options)
         throw(NonlinearSolverException("Detected NaN"))
     end
 
-    if status.rₐ > config.f_atol_break
-        throw(NonlinearSolverException("Absolute error ($(status.rₐ)) larger than allowed ($(params.atol_break))"))
+    if status.rₐ > config.f_abstol_break
+        throw(NonlinearSolverException("Absolute error ($(status.rₐ)) larger than allowed ($(config.f_abstol_break))"))
     end
 
-    # if status.rᵣ > params.rtol_break
-    #     throw(NonlinearSolverException("Relative error ($(status.rᵣ)) larger than allowed ($(params.rtol_break))"))
-    # end
-
-    # if status.rₛ > params.stol_break
-    #     throw(NonlinearSolverException("Succesive error ($(status.rₛ)) larger than allowed ($(params.stol_break))"))
-    # end
+    if status.rᵣ > config.f_reltol_break
+        throw(NonlinearSolverException("Relative error ($(status.rᵣ)) larger than allowed ($(config.f_reltol_break))"))
+    end
 end
 
 function get_solver_status!(status::NonlinearSolverStatus, config::Options, status_dict::Dict)
