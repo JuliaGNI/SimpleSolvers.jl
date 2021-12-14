@@ -67,7 +67,7 @@ function solve!(s::QuasiNewtonSolver{T}) where {T}
             s.F!(s.y, s.x)
             residual!(s.status, s.δx, s.x, s.y)
 
-            if check_solver_converged(s.status, s.config)
+            if assess_convergence(s.status, s.config)
                 warn_iteration_number(s.status, s.config)
                 break
             end
