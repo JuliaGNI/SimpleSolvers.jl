@@ -96,6 +96,7 @@ module SimpleSolvers
            get_solver_status, get_solver_status!,
            solve!
 
+    include("nonlinear/nonlinear_solver_status.jl")
     include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/abstract_newton_solver.jl")
     include("nonlinear/newton_solver.jl")
@@ -109,8 +110,8 @@ module SimpleSolvers
            HessianBFGS,
            HessianDFP
 
-    include("optimization/optimizer.jl")
     include("optimization/optimizer_status.jl")
+    include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
     include("optimization/quasi_newton_optimizer.jl")
