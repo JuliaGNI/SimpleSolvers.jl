@@ -44,7 +44,7 @@ function solver_step!(s::QuasiNewtonSolver{T}) where {T}
     s.cache.δx .= s.linear.b
 
     # x₁ = x₀ + δx
-    s.x₁ .= s.x₀ .+ s.δx
+    s.cache.x₁ .= s.cache.x₀ .+ s.cache.δx
     
     # apply line search
     solve!(s.x, s.y, s.J, s.cache.x₀, s.cache.x₁, s.linesearch)
