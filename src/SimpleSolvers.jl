@@ -4,12 +4,15 @@ module SimpleSolvers
     using LinearAlgebra
     using Printf
 
-    include("config.jl")
     include("utils.jl")
 
     export solve!
     export config, status
+    
 
+    export Options
+
+    include("base/options.jl")
 
     export GradientParameters,
            GradientParametersAD,
