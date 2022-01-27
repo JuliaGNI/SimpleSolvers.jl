@@ -3,12 +3,10 @@ import NLsolve: OnceDifferentiable, NewtonCache, newton_
 import LineSearches
 
 
-struct NLsolveNewton{T, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T}
-    x::Vector{T}
-    f::Vector{T}
+struct NLsolveNewton{T, AT, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T,AT}
+    x::AT
+    f::AT
     J::Matrix{T}
-
-    cache::CT
 
     F!::FT
     DF::DT
@@ -16,6 +14,7 @@ struct NLsolveNewton{T, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T}
     line_search::ST
     linear_solver::LT
 
+    cache::CT
     config::Options{T}
     status::NonlinearSolverStatus{T}
 
@@ -24,7 +23,7 @@ struct NLsolveNewton{T, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T}
 
         status = NonlinearSolverStatus{T}(length(x))
 
-        new{T,FT,DT,CT,ST,LT}(x, f, J, cache, F!, DF, line_search, linear_solver, config, status)
+        new{T,typeof(x),FT,DT,CT,ST,LT}(x, f, J, F!, DF, line_search, linear_solver, cache, config, status)
     end
 end
 

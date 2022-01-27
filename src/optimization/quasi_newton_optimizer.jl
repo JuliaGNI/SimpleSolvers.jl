@@ -1,26 +1,9 @@
 
-struct QuasiNewtonOptimizerCache{T, AT <: AbstractArray{T}}
-    x̄::AT
-    x::AT
-    δ::AT
-
-    function QuasiNewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
-        new{T,AT}(zero(x), zero(x), zero(x))
-    end
-end
-
-function update!(cache::QuasiNewtonOptimizerCache, status::OptimizerStatus)
-    copyto!(cache.x̄, status.x̄)
-    copyto!(cache.x, status.x)
-    copyto!(cache.δ, status.δ)
-end
-
-
 mutable struct QuasiNewtonOptimizer{XT, YT, OT <: MultivariateObjective, HT <: HessianParameters, TS <: LineSearch, AT <: AbstractVector{XT}} <: Optimizer{XT}
     objective::OT
     hessian::HT
     linesearch::TS
-    cache::QuasiNewtonOptimizerCache{XT,AT}
+    cache::NewtonOptimizerCache{XT,AT}
     config::Options{XT}
     status::OptimizerStatus{XT,YT,AT}
 
@@ -36,7 +19,7 @@ function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParame
     hessian = hessian(F, x)
 
     YT = typeof(F(x))
-    cache = QuasiNewtonOptimizerCache(x)
+    cache = NewtonOptimizerCache(x)
     status = OptimizerStatus{XT,YT,VT}(length(x))
 
     # create objective for linesearch algorithm

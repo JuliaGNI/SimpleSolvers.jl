@@ -1,24 +1,36 @@
 
-abstract type AbstractNewtonSolver{T} <: NonlinearSolver{T} end
 
-@define newton_solver_variables begin
-    x::Vector{T}
-    y::Vector{T}
-    J::Matrix{T}
-
+struct NewtonSolverCache{T, AT <: AbstractArray{T}}
     x₀::Vector{T}
     x₁::Vector{T}
+    δx::Vector{T}
+    
     y₀::Vector{T}
     y₁::Vector{T}
-    δx::Vector{T}
     δy::Vector{T}
+
+    function NewtonSolverCache(x::AT, y::AT) where {T, AT <: AbstractArray{T}}
+        new{T,AT}(zero(x), zero(x), zero(x),
+                  zero(y), zero(y), zero(y))
+    end
+end
+
+
+abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver{T} end
+
+
+@define newton_solver_variables begin
+    x::AT
+    y::AT
+    J::Matrix{T}
 
     F!::FT
     Jparams::TJ
 
     linear::TL
-    ls::TS
+    linesearch::TS
 
+    cache::NewtonSolverCache{T,AT}
     config::Options{T}
     status::NonlinearSolverStatus{T}
 end
