@@ -4,6 +4,8 @@ using SimpleSolvers
 using SimpleSolvers: initialize!, objective, solver_step!
 using Test
 
+include("optimizers_problems.jl")
+
 
 struct OptimizerTest{T} <: Optimizer{T} end
 
@@ -14,27 +16,6 @@ test_optim = OptimizerTest{Float64}()
 @test_throws ErrorException objective(test_optim)
 @test_throws ErrorException initialize!(test_optim)
 @test_throws ErrorException solver_step!(test_optim)
-
-
-function F(x)
-    # 1 + (x.^2)
-    y = one(eltype(x))
-    for _x in x
-        y += _x^2
-    end
-    return y
-end
-
-function ∇F!(g, x)
-    g .= 2 .* x
-end
-
-function H!(g, x)
-    g .= 0
-    for i in eachindex(x)
-        g[i,i] = 2
-    end
-end
 
 
 for optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
