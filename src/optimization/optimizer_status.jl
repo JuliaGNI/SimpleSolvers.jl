@@ -1,13 +1,16 @@
 
-mutable struct OptimizerStatus{XT,YT,VT}
+mutable struct OptimizerStatus{XT,YT,VT,OT}
+    config::Options{OT}
+
     i::Int  # iteration number
 
-    rxₐ::XT  # residual (absolute)
-    rxᵣ::XT  # residual (relative)
-    rfₐ::YT  # residual (absolute)
-    rfᵣ::YT  # residual (relative)
-    rgₐ::XT  # residual (absolute)
-    rgᵣ::XT  # residual (relative)
+    rxₐ::XT  # absolute change in x
+    rxᵣ::XT  # relative change in x
+    rfₐ::YT  # absolute change in f
+    rfᵣ::YT  # relative change in f
+    rgₐ::XT  # absolute change in g
+    rgᵣ::XT  # relative change in g
+    rg::XT   # residual of g
 
     x̄::VT    # previous solution
     x::VT    # current solution
@@ -26,16 +29,24 @@ mutable struct OptimizerStatus{XT,YT,VT}
     f_increased::Bool
 end
 
-OptimizerStatus{XT,YT,VT}(n) where {XT,YT,VT} = OptimizerStatus{XT,YT,VT}(
-    0, XT(NaN), XT(NaN), YT(NaN), YT(NaN), XT(NaN), XT(NaN),
+OptimizerStatus{XT,YT,VT}(config::Options{OT}, n) where {XT,YT,VT,OT} = OptimizerStatus{XT,YT,VT,OT}(
+    config,
+    0, XT(NaN), XT(NaN), YT(NaN), YT(NaN), XT(NaN), XT(NaN), XT(NaN),
     zeros(XT,n), zeros(XT,n), zeros(XT,n),
     YT(NaN), YT(NaN),
     zeros(XT,n), zeros(XT,n), zeros(XT,n),
     false, false, false, false)
 
-OptimizerStatus{T}(n) where {T} = OptimizerStatus{T,T,Vector{T}}(n)
+OptimizerStatus{T}(config, n) where {T} = OptimizerStatus{T,T,Vector{T}}(config,n)
+OptimizerStatus(config, x, y, g) = OptimizerStatus{eltype(x),typeof(y),typeof(g)}(config, length(x))
 
 solution(status::OptimizerStatus) = status.x
+
+x_abschange(status::OptimizerStatus) = status.rxₐ
+x_relchange(status::OptimizerStatus) = status.rxᵣ
+f_abschange(status::OptimizerStatus) = status.rfₐ
+f_relchange(status::OptimizerStatus) = status.rfᵣ
+g_residual(status::OptimizerStatus) = status.rg
 
 function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.i = 0
@@ -46,6 +57,7 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.rfᵣ = YT(NaN)
     status.rgₐ = XT(NaN)
     status.rgᵣ = XT(NaN)
+    status.rg  = XT(NaN)
 
     status.x̄ .= XT(NaN)
     status.x .= XT(NaN)
@@ -62,18 +74,27 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.f_increased = false
 end
 
-Base.show(io::IO, status::OptimizerStatus) = print(io,
-                        (@sprintf "    i=%4i" status.i),  ",   ",
-                        (@sprintf "rxₐ=%14.8e" status.rxₐ), ",   ",
-                        (@sprintf "rxᵣ=%14.8e" status.rxᵣ), ",   ",
-                        (@sprintf "ryₐ=%14.8e" status.rfₐ), ",   ",
-                        (@sprintf "ryᵣ=%14.8e" status.rfᵣ), ",   ",
-                        (@sprintf "rgₐ=%14.8e" status.rgₐ), ",   ",
-                        (@sprintf "rgᵣ=%14.8e" status.rgᵣ), ",   ",
-                    )
+function Base.show(io::IO, s::OptimizerStatus)
 
+    @printf io "\n"
+    @printf io " * Convergence measures\n"
+    @printf io "\n"
+    @printf io "    |x - x'|               = %.2e %s %.1e\n"  x_abschange(s) x_abschange(s) ≤ x_abstol(s.config) ? "≤" : "≰" x_abstol(s.config)
+    @printf io "    |x - x'|/|x'|          = %.2e %s %.1e\n"  x_relchange(s) x_relchange(s) ≤ x_reltol(s.config) ? "≤" : "≰" x_reltol(s.config)
+    @printf io "    |f(x) - f(x')|         = %.2e %s %.1e\n"  f_abschange(s) f_abschange(s) ≤ f_abstol(s.config) ? "≤" : "≰" f_abstol(s.config)
+    @printf io "    |f(x) - f(x')|/|f(x')| = %.2e %s %.1e\n"  f_relchange(s) f_relchange(s) ≤ f_reltol(s.config) ? "≤" : "≰" f_reltol(s.config)
+    @printf io "    |g(x)|                 = %.2e %s %.1e\n"  g_residual(s)  g_residual(s)  ≤ g_reltol(s.config) ? "≤" : "≰" g_reltol(s.config)
+    @printf io "\n"
+
+    @printf io " * Candidate solution\n"
+    @printf io "\n"
+    length(s.x) > 10 || @printf io  "    Final solution value:     [%s]\n" join([@sprintf "%e" x for x in s.x], ", ")
+    @printf io "    Final objective value:     %e\n" s.f
+    @printf io "\n"
+
+end
 function print_status(status::OptimizerStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(assess_convergence(status, config) && status.i ≤ config.max_iterations)) ||
+    if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && status.i ≤ config.max_iterations)) ||
         config.verbosity > 1
         println(status)
     end
@@ -175,6 +196,7 @@ function residual!(status::OptimizerStatus)
     status.rfₐ = norm(status.f̄ - status.f)
     status.rfᵣ = status.rfₐ / norm(status.f)
 
+    status.rg  = norm(status.g)
     status.rgₐ = norm(status.γ)
     status.rgᵣ = status.rgₐ / norm(status.g)
 end

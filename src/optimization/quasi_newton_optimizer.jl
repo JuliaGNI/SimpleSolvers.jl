@@ -20,7 +20,7 @@ function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParame
 
     YT = typeof(F(x))
     cache = NewtonOptimizerCache(x)
-    status = OptimizerStatus{XT,YT,VT}(length(x))
+    status = OptimizerStatus{XT,YT,VT}(config, length(x))
 
     # create objective for linesearch algorithm
     function ls_f(α)

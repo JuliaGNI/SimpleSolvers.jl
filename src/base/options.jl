@@ -114,3 +114,10 @@ function Base.show(io::IO, o::SimpleSolvers.Options)
         end
     end
 end
+
+x_abstol(o::Options) = o.x_abstol
+x_reltol(o::Options) = o.x_reltol
+f_abstol(o::Options) = o.f_abstol
+f_reltol(o::Options) = o.f_reltol
+g_abstol(o::Options) = o.g_abstol
+g_reltol(o::Options) = o.g_reltol
