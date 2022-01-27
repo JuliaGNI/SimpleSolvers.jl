@@ -25,7 +25,7 @@ function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParame
     # create objective for linesearch algorithm
     function ls_f(α)
         cache.x .= cache.x̄ .+ α .* cache.δ
-        value(objective, F(cache.x))
+        value(objective, cache.x)
     end
 
     ls_objective = UnivariateObjective(ls_f, 1.)
