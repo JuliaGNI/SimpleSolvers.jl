@@ -37,11 +37,11 @@ function H!(g, x)
 end
 
 
-for Optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
+for optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
     n = 1
     x = ones(n)
     y = zero(eltype(x))
-    nl = Optim(x, F)
+    nl = optim(x, F)
 
     @test config(nl) == nl.config
     @test status(nl) == nl.status
@@ -51,7 +51,7 @@ for Optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
     @test norm(nl.status.x) ≈ 0 atol=1E-7
 
     x = ones(n)
-    nl = Optim(x, F; ∇F! = ∇F!)
+    nl = optim(x, F; ∇F! = ∇F!)
     solve!(x, nl)
     # println(status(nl))
     @test norm(nl.status.x) ≈ 0 atol=1E-7
