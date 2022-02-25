@@ -11,11 +11,5 @@ LinesearchState(algorithm::Static, args...; kwargs...) = StaticState(algorithm.a
 
 Base.show(io::IO, ls::StaticState) = print(io, "Static")
 
-
 (ls::StaticState)(x) = ls.alpha * x
 (ls::StaticState)(x₀, x₁) = ls.alpha * x₁
-
-# solve!(x, f, g, x₀, x₁, ls::NoLinesearchState) = ls(x, x₀, x₁)
-# solve!(x, f, g, ls::NoLinesearchState) = ls(x)
-solve!(x₀, x₁, ls::StaticState) = ls(x₀, x₁)
-solve!(x, ls::StaticState) = ls(x)

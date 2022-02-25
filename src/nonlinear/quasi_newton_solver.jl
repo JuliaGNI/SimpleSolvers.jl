@@ -52,9 +52,6 @@ function solver_step!(s::QuasiNewtonSolver{T}) where {T}
     s.x .= s.cache.x₀ .+ α .* s.cache.δx
     # solve!(s.x, s.y, s.J, s.cache.x₀, s.cache.x₁, s.linesearch)
 
-    # x₁ = x₀ + δx
-    # s.x .= s.cache.x₀ .+ s.cache.δx
-    
     # compute residual
     s.F!(s.y, s.x)
     residual!(status(s), s.x, s.y)

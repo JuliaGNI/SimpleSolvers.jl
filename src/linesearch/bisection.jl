@@ -59,8 +59,3 @@ LinesearchState(algorithm::Bisection, objective::UnivariateObjective, x; kwargs.
 (ls::BisectionState)(objective, xmin, xmax) = bisection(objective, xmin, xmax; config = ls.config)
 (ls::BisectionState)(xmin, xmax) = bisection(ls.objective, xmin, xmax; config = ls.config)
 (ls::BisectionState)(x) = ls(bracket_minimum(ls.objective, x)...)
-
-# solve!(x, f, g, x₀, x₁, ls::BisectionState) = ls(x₀, x₁)
-# solve!(x, f, g, ls::BisectionState) = ls(x)
-solve!(x₀, x₁, ls::BisectionState) = ls(x₀, x₁)
-solve!(x, ls::BisectionState) = ls(x)

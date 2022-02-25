@@ -6,7 +6,12 @@ abstract type LinesearchState end
 
 LinesearchState(algorithm, f, x; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
 
-solve!(x, f, g, x₀, x₁, ls::LinesearchState) = error("solve!(x, f, g, x₀, x₁, ls::LinesearchState) not implemented for line search ", typeof(ls))
+solve!(x₀, x₁, ls::LinesearchState) = ls(x₀, x₁)
+solve!(x, ls::LinesearchState) = ls(x)
+
+# solve!(x, f, g, x₀, x₁, ls::LinesearchState) = ls(x₀, x₁)
+# solve!(x, f, g, ls::LinesearchState) = ls(x)
+# solve!(x, f, g, x₀, x₁, ls::LinesearchState) = error("solve!(x, f, g, x₀, x₁, ls::LinesearchState) not implemented for line search ", typeof(ls))
 
 
 struct Linesearch{ALG <: LinesearchMethod, OBJ <: UnivariateObjective, OPT <: Options, OST <: LinesearchState}
