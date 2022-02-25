@@ -1,11 +1,21 @@
 
-struct NoLineSearch <: LineSearch end
+struct StaticState{T} <: LinesearchState
+    alpha::T
+    StaticState(alpha::T = 1.0) where {T} = new{T}(alpha)
+end
 
-NoLineSearch(::Any, ::AbstractArray, ::AbstractArray) = NoLineSearch()
+StaticState(args...; alpha = 1.0, kwargs...) = StaticState(alpha)
+StaticState(::UnivariateObjective; alpha = 1.0, kwargs...) = StaticState(alpha)
 
-(ls::NoLineSearch)(x, x₀, x₁) where {T} = x .= x₁
+LinesearchState(algorithm::Static, args...; kwargs...) = StaticState(algorithm.alpha)
 
-(ls::NoLineSearch)(x, f, g, x₀, x₁) = ls(x, x₀, x₁)
+Base.show(io::IO, ls::StaticState) = print(io, "Static")
 
-solve!(x, f, g, x₀, x₁, ls::NoLineSearch) = ls(x, x₀, x₁)
-solve!(x, x₀, x₁, ls::NoLineSearch) = ls(x, x₀, x₁)
+
+(ls::StaticState)(x) = ls.alpha * x
+(ls::StaticState)(x₀, x₁) = ls.alpha * x₁
+
+# solve!(x, f, g, x₀, x₁, ls::NoLinesearchState) = ls(x, x₀, x₁)
+# solve!(x, f, g, ls::NoLinesearchState) = ls(x)
+solve!(x₀, x₁, ls::StaticState) = ls(x₀, x₁)
+solve!(x, ls::StaticState) = ls(x)

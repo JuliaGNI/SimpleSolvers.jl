@@ -1,6 +1,6 @@
 
 function F(x)
-    # 1 + (x.^2)
+    # 1 + sum(x.^2)
     y = one(eltype(x))
     for _x in x
         y += _x^2

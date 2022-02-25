@@ -1,14 +1,33 @@
 module SimpleSolvers
 
+    using Distances
     using ForwardDiff
     using LinearAlgebra
     using Printf
 
+    import Base.minimum
+    import Base.Callable
+
     include("utils.jl")
 
     export solve!
-    export config, status
+    export config, status, result
+    export solution, minimizer
     
+    export Newton, DFP, BFGS
+
+    include("base/methods.jl")
+
+    export UnivariateObjective,
+           MultivariateObjective
+
+    export value, value!, value!!,
+           derivative, derivative!, derivative!!,
+           gradient, gradient!, gradient!!,
+           hessian, hessian!, hessian!!,
+           d_calls, f_calls, g_calls, h_calls
+
+    include("base/objectives.jl")
 
     export Options
 
@@ -29,9 +48,9 @@ module SimpleSolvers
 
     include("base/gradient.jl")
 
-    export HessianParameters,
-           HessianParametersAD,
-           HessianParametersUser
+    export Hessian,
+           HessianAD,
+           HessianUser
 
     export compute_hessian,
            compute_hessian!,
@@ -56,17 +75,6 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    export UnivariateObjective,
-           MultivariateObjective
-
-    export value, value!, value!!,
-           derivative, derivative!, derivative!!,
-           gradient, gradient!, gradient!!,
-           hessian, hessian!, hessian!!,
-           d_calls, f_calls, g_calls, h_calls
-
-    include("base/objectives.jl")
-
     export LinearSolver, LUSolver, LUSolverLAPACK,
            factorize!
 
@@ -79,7 +87,7 @@ module SimpleSolvers
     include("bracketing/bracketing.jl")
     include("bracketing/bracket_minimum.jl")
 
-    export LineSearch, NoLineSearch
+    export Linesearch, Static
     export Armijo, armijo,
            ArmijoQuadratic, armijo_quadratic,
            Bisection, bisection
@@ -106,17 +114,17 @@ module SimpleSolvers
     include("nonlinear/nlsolve_newton.jl")
 
     export Optimizer,
-           QuasiNewtonOptimizer,
+           NewtonOptimizer,
            BFGSOptimizer,
            DFPOptimizer,
            HessianBFGS,
            HessianDFP
 
     include("optimization/optimizer_status.jl")
+    include("optimization/optimizer_result.jl")
     include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
-    include("optimization/abstract_newton_optimizer.jl")
     include("optimization/quasi_newton_optimizer.jl")
 
 end

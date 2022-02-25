@@ -4,7 +4,7 @@ using SimpleSolvers: initialize!, solver_step!
 using Test
 
 
-struct NonlinearSolverTest{T} <: NonlinearSolver{T} end
+struct NonlinearSolverTest{T} <: NonlinearSolver end
 
 test_solver = NonlinearSolverTest{Float64}()
 

@@ -15,8 +15,36 @@ struct NewtonSolverCache{T, AT <: AbstractArray{T}}
     end
 end
 
+function update!(cache::NewtonSolverCache, x::AbstractVector)
+    cache.x₀ .= x
+    cache.x₁ .= x
+    cache.δx .= 0
+    return cache
+end
 
-abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver{T} end
+function initialize!(cache::NewtonSolverCache, x::AbstractVector)
+    cache.x₀ .= eltype(x)(NaN)
+    cache.x₁ .= x
+    cache.δx .= eltype(x)(NaN)
+    cache.y₀ .= eltype(x)(NaN)
+    cache.y₁ .= eltype(x)(NaN)
+    cache.δy .= eltype(x)(NaN)
+    return cache
+end
+
+"create univariate objective for linesearch algorithm"
+function linesearch_objective(objective!, cache::NewtonSolverCache)
+    function ls_f(α)
+        cache.x₁ .= cache.x₀ .+ α .* cache.δx
+        objective!(cache.y₁, cache.x₁)
+        l2norm(cache.y₁)
+    end
+
+    UnivariateObjective(ls_f, 1.)
+end
+
+
+abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
 
 
 @define newton_solver_variables begin

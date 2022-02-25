@@ -1,7 +1,7 @@
 """
 Quadratic Armijo line search
 """
-struct ArmijoQuadratic{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT}
+struct ArmijoQuadraticState{T,DT,AT,FT} <: LinesearchState where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT}
 
     nmax::Int
     rmax::Int
@@ -17,14 +17,17 @@ struct ArmijoQuadratic{T,DT,AT,FT} <: LineSearch where {T <: Number, DT <: Numbe
     δy::AT
     y::AT
 
-    function ArmijoQuadratic(F!, x, y; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
+    function ArmijoQuadraticState(F!, x, y; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
                     λ₀::T=DEFAULT_ARMIJO_λ₀, σ₀::T=DEFAULT_ARMIJO_σ₀, σ₁::T=DEFAULT_ARMIJO_σ₁, ϵ::T=DEFAULT_ARMIJO_ϵ) where {T}
         new{T, eltype(y), typeof(y), typeof(F!)}(nmax, rmax, λ₀, σ₀, σ₁, ϵ, F!, zero(x), zero(y), zero(y))
     end
 end
 
 
-function (ls::ArmijoQuadratic)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
+LinesearchState(algorithm::ArmijoQuadratic, objective, x, y; kwargs...) = ArmijoQuadraticState(objective.F, x, y; kwargs...)
+
+
+function (ls::ArmijoQuadraticState)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
     local λ::T
     local λₜ::T
     local y₀norm::T
@@ -96,10 +99,10 @@ function (ls::ArmijoQuadratic)(x::AbstractArray{T}, f::AbstractArray{T}, g::Abst
 end
 
 
-solve!(x, f, g, x₀, x₁, ls::ArmijoQuadratic) = ls(x, f, g, x₀, x₁)
+solve!(x, f, g, x₀, x₁, ls::ArmijoQuadraticState) = ls(x, f, g, x₀, x₁)
 
 
 function armijo_quadratic(F, x, f, g, x₀, x₁; kwargs...)
-    ls = ArmijoQuadratic(F, x, f; kwargs...)
+    ls = ArmijoQuadraticState(F, x, f; kwargs...)
     ls(x, f, g, x₀, x₁)
 end

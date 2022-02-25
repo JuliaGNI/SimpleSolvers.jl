@@ -1,43 +1,69 @@
 
-struct HessianDFP{T} <: HessianParameters{T}
-    δ::Vector{T}
-    γ::Vector{T}
+struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
+    objective::OBJ
 
-    Q::Matrix{T}
+    x̄::VT    # previous solution
+    x::VT    # current solution
+    δ::VT    # difference of current and previous solution
 
-    T1::Matrix{T}
-    T2::Matrix{T}
-    γγ::Matrix{T}
-    δδ::Matrix{T}
+    ḡ::VT    # previous gradient
+    g::VT    # current gradient
+    γ::VT    # difference of current and previous gradient
 
-    function HessianDFP(x::Vector{T}) where {T}
-        Q = zeros(T, length(x), length(x))
+    Q::MT
+
+    T1::MT
+    T2::MT
+    γγ::MT
+    δδ::MT
+
+    function HessianDFP(objective::MultivariateObjective, x::AbstractVector{T}) where {T}
+        Q = alloc_h(x)
 
         T1 = zero(Q)
         T2 = zero(Q)
         γγ = zero(Q)
         δδ = zero(Q)
             
-        new{T}(zero(x), zero(x), Q, T1, T2, γγ, δδ)
+        new{T,typeof(x),typeof(Q),typeof(objective)}(objective, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, γγ, δδ)
     end
 end
 
-HessianDFP(F, x) = HessianDFP(x)
 
-initialize!(H::HessianDFP, ::Any) = H.Q .= Matrix(1.0I, size(H.Q)...)
+HessianDFP(F, x) = HessianDFP(MultivariateObjective(F, x), x)
 
-function update!(H::HessianDFP, status::OptimizerStatus)
+function initialize!(H::HessianDFP, x::AbstractVector)
+    H.Q .= Matrix(1.0I, size(H.Q)...)
+
+    H.x̄ .= eltype(x)(NaN)
+    H.δ .= eltype(x)(NaN)
+    H.ḡ .= eltype(x)(NaN)
+    H.γ .= eltype(x)(NaN)
+
+    H.x .= x
+    H.g .= gradient!(H.objective, x)
+
+    return H
+end
+
+function update!(H::HessianDFP, x::AbstractVector)
+    # copy previous data and compute new gradient
+    H.ḡ .= H.g
+    H.x̄ .= H.x
+    H.x .= x
+    H.g .= gradient!(H.objective, x)
+
     # δ = x - x̄
-    H.δ .= status.x .- status.x̄
+    H.δ .= H.x .- H.x̄
 
     # γ = g - ḡ
-    H.γ .= status.g .- status.ḡ
+    H.γ .= H.g .- H.ḡ
 
     # γQγ = γᵀQγ
     γQγ = dot(H.γ, H.Q, H.γ)
 
     # δγ = δᵀγ
-    δγ = status.δ ⋅ status.γ
+    δγ = H.δ ⋅ H.γ
 
     # DFP
     # Q = Q - ... + ...

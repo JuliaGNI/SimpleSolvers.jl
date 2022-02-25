@@ -7,33 +7,39 @@ using Test
 include("optimizers_problems.jl")
 
 
-struct OptimizerTest{T} <: Optimizer{T} end
+# struct OptimizerTest{T} <: Optimizer end
 
-test_optim = OptimizerTest{Float64}()
+# test_optim = OptimizerTest{Float64}()
 
-@test_throws ErrorException config(test_optim)
-@test_throws ErrorException status(test_optim)
-@test_throws ErrorException objective(test_optim)
-@test_throws ErrorException initialize!(test_optim)
-@test_throws ErrorException solver_step!(test_optim)
+# @test_throws ErrorException config(test_optim)
+# @test_throws ErrorException status(test_optim)
+# @test_throws ErrorException objective(test_optim)
+# @test_throws ErrorException initialize!(test_optim)
+# @test_throws ErrorException solver_step!(test_optim)
+
+# function test_optimizer(opt) end
 
 
-for optim in (QuasiNewtonOptimizer,BFGSOptimizer,DFPOptimizer)
-    n = 1
-    x = ones(n)
-    y = zero(eltype(x))
-    nl = optim(x, F)
+for method in (Newton(), BFGS(), DFP())
+    for linesearch in (Static(0.8), Bisection())
+        n = 1
+        x = ones(n)
+        y = zero(eltype(x))
+        opt = Optimizer(x, F; algorithm = method, linesearch = linesearch)
 
-    @test config(nl) == nl.config
-    @test status(nl) == nl.status
+        @test config(opt) == opt.config
+        @test status(opt) == opt.result.status
 
-    solve!(x, nl)
-    # println(status(nl))
-    @test norm(nl.status.x) ≈ 0 atol=1E-7
+        solve!(x, opt)
+        println(opt)
+        @test norm(minimizer(opt)) ≈ 0 atol=1E-7
+        @test norm(minimum(opt)) ≈ 1 atol=1E-7
 
-    x = ones(n)
-    nl = optim(x, F; ∇F! = ∇F!)
-    solve!(x, nl)
-    # println(status(nl))
-    @test norm(nl.status.x) ≈ 0 atol=1E-7
+        x = ones(n)
+        opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = linesearch)
+        solve!(x, opt)
+        println(opt)
+        @test norm(minimizer(opt)) ≈ 0 atol=1E-7
+        @test norm(minimum(opt)) ≈ 1 atol=1E-7
+    end
 end

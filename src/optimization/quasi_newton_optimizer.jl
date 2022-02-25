@@ -1,80 +1,110 @@
 
-mutable struct QuasiNewtonOptimizer{XT, YT, OT <: MultivariateObjective, HT <: HessianParameters, TS <: LineSearch, AT <: AbstractVector{XT}} <: Optimizer{XT}
-    objective::OT
-    hessian::HT
-    linesearch::TS
-    cache::NewtonOptimizerCache{XT,AT}
-    config::Options{XT}
-    status::OptimizerStatus{XT,YT,AT}
+struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
+    x̄::AT
+    x::AT
+    δ::AT
+    g::AT
 
-    function QuasiNewtonOptimizer{XT,YT,OT,HT,TS,AT}(objective, hessian, linesearch, cache, config, status) where {XT,YT,OT,HT,TS,AT}
-        new(objective, hessian, linesearch, cache, config, status)
+    function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
+        new{T,AT}(zero(x), zero(x), zero(x), zero(x))
     end
 end
 
-function QuasiNewtonOptimizer(x::VT, F; ∇F! = nothing, hessian = HessianParametersAD, linesearch = Bisection, config = Options()) where {XT, VT <: AbstractVector{XT}}
-    G = GradientParameters(∇F!, F, x)
+function update!(cache::NewtonOptimizerCache, x::AbstractVector)
+    cache.x̄ .= x
+    cache.x .= x
+    cache.δ .= 0
+    return cache
+end
 
-    objective = MultivariateObjective(F, G, x)
-    hessian = hessian(F, x)
+function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVector)
+    update!(cache, x)
+    cache.g .= g
+    return cache
+end
 
-    YT = typeof(F(x))
-    cache = NewtonOptimizerCache(x)
-    status = OptimizerStatus{XT,YT,VT}(config, length(x))
+function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
+    cache.x̄ .= eltype(x)(NaN)
+    cache.x .= x
+    cache.δ .= eltype(x)(NaN)
+    cache.g .= eltype(x)(NaN)
+    return cache
+end
 
-    # create objective for linesearch algorithm
+"create univariate objective for linesearch algorithm"
+function linesearch_objective(objective::MultivariateObjective, cache::NewtonOptimizerCache)
     function ls_f(α)
         cache.x .= cache.x̄ .+ α .* cache.δ
         value(objective, cache.x)
     end
 
-    ls_objective = UnivariateObjective(ls_f, 1.)
-
-    # create linesearch algorithm
-    ls = linesearch(ls_objective)
-
-    QuasiNewtonOptimizer{XT, YT, typeof(objective), typeof(hessian), typeof(ls), VT}(objective, hessian, ls, cache, config, status)
-end
-
-BFGSOptimizer(args...; kwargs...) = QuasiNewtonOptimizer(args...; hessian = HessianBFGS, kwargs...)
-DFPOptimizer(args...; kwargs...) = QuasiNewtonOptimizer(args...; hessian = HessianDFP, kwargs...)
-
-cache(s::QuasiNewtonOptimizer) = s.cache
-config(s::QuasiNewtonOptimizer) = s.config
-status(s::QuasiNewtonOptimizer) = s.status
-objective(s::QuasiNewtonOptimizer) = s.objective
-hessian(s::QuasiNewtonOptimizer) = s.hessian
-
-check_gradient(s::QuasiNewtonOptimizer) = check_gradient(gradient(objective(s)))
-print_gradient(s::QuasiNewtonOptimizer) = print_gradient(gradient(objective(s)))
-print_status(s::QuasiNewtonOptimizer) = print_status(status(s), config(s))
-
-assess_convergence(s::QuasiNewtonOptimizer) = assess_convergence(status(s), config(s))
-
-function initialize!(s::QuasiNewtonOptimizer{T}, x₀::Vector{T}) where {T}
-    clear!(objective(s))
-    value!(objective(s), x₀)
-    gradient!(objective(s), x₀)
-    initialize!(hessian(s), x₀)
-    initialize!(status(s), x₀, value(objective(s)), gradient(objective(s)))
+    UnivariateObjective(ls_f, 1.)
 end
 
 
-function solver_step!(s::QuasiNewtonOptimizer{T}) where {T}
-    # update Hessian
-    update!(hessian(s), status(s))
+struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: LinesearchState, NOC <: NewtonOptimizerCache} <: OptimizationAlgorithm
+    objective::OBJ
+    hessian::HES
+    linesearch::LS
+    cache::NOC
+
+    function NewtonOptimizerState(objective::OBJ, hessian::HES, linesearch::LS, cache::NOC) where {OBJ, HES, LS, NOC}
+        new{OBJ,HES,LS,NOC}(objective, hessian, linesearch, cache)
+    end
+end
+
+function NewtonOptimizerState(x::VT, objective::MultivariateObjective; hessian = HessianAD, linesearch = Bisection) where {XT, VT <: AbstractVector{XT}}
+    cache = NewtonOptimizerCache(x)
+    hess = hessian(objective, x)
+    ls = LinesearchState(linesearch, linesearch_objective(objective, cache), x)
+
+    NewtonOptimizerState(objective, hess, ls, cache)
+end
+
+# function NewtonOptimizerState(x::AbstractVector, objective::Function; kwargs...)
+#     NewtonOptimizerState(x, MultivariateObjective(); kwargs...)
+# end
+
+NewtonOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; kwargs...)
+BFGSOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianBFGS, kwargs...)
+DFPOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianDFP, kwargs...)
+
+OptimizerState(algorithm::Newton, objective, x, y; kwargs...) = NewtonOptimizerState(x, objective; kwargs...)
+OptimizerState(algorithm::BFGS, objective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianBFGS, kwargs...)
+OptimizerState(algorithm::DFP, objective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianDFP, kwargs...)
+
+objective(newton::NewtonOptimizerState) = newton.objective
+hessian(newton::NewtonOptimizerState) = newton.hessian
+cache(newton::NewtonOptimizerState) = newton.cache
+linesearch(newton::NewtonOptimizerState) = newton.linesearch
+
+
+function initialize!(newton::NewtonOptimizerState, x::AbstractVector)
+    initialize!(hessian(newton), x)
+    initialize!(cache(newton), x)
+end
+
+
+# function solver_step!(opt::Optimizer{<:Newton})
+function solver_step!(x, newton::NewtonOptimizerState)
+    # shortcuts
+    x̄ = cache(newton).x̄
+    δ = cache(newton).δ
+    g = cache(newton).g
 
     # update cache
-    update!(cache(s), status(s))
+    update!(cache(newton), x, gradient!(objective(newton), x))
+
+    # update Hessian
+    update!(hessian(newton), x)
 
     # solve H δx = - ∇f
-    ldiv!(s.cache.δ, hessian(s), s.status.g)
-    s.cache.δ .*= -1
+    ldiv!(δ, hessian(newton), g)
+    δ .*= -1
 
     # apply line search
-    α, f = s.linesearch(1.0)
-    # s.cache.x .= s.cache.x̄ .+ α .* s.cache.δ
+    α = newton.linesearch(1.0)
+    x .= x̄ .+ α .* δ
 
-    # compute gradient at new solution and update residual
-    residual!(status(s), s.cache.x, f, gradient!(objective(s), s.cache.x))
+    return x
 end

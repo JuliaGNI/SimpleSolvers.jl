@@ -5,14 +5,12 @@ x_abstol::Real = 1e-50,
 x_reltol::Real = 2eps(),
 f_abstol::Real = 1e-50,
 f_reltol::Real = 2eps(),
-g_abstol::Real = sqrt(eps()),
-g_reltol::Real = sqrt(eps()),
+g_restol::Real = sqrt(eps()),
 x_abstol_break::Real = Inf,
 x_reltol_break::Real = Inf,
 f_abstol_break::Real = Inf,
 f_reltol_break::Real = Inf,
-g_abstol_break::Real = Inf,
-g_reltol_break::Real = Inf,
+g_restol_break::Real = Inf,
 f_calls_limit::Int = 0,
 g_calls_limit::Int = 0,
 h_calls_limit::Int = 0,
@@ -32,14 +30,12 @@ struct Options{T}
     x_reltol::T
     f_abstol::T
     f_reltol::T
-    g_abstol::T
-    g_reltol::T
+    g_restol::T
     x_abstol_break::T
     x_reltol_break::T
     f_abstol_break::T
     f_reltol_break::T
-    g_abstol_break::T
-    g_reltol_break::T
+    g_restol_break::T
     f_calls_limit::Int
     g_calls_limit::Int
     h_calls_limit::Int
@@ -62,14 +58,12 @@ function Options(;
         x_reltol::Real = 2eps(),
         f_abstol::Real = 1e-50,
         f_reltol::Real = 2eps(),
-        g_abstol::Real = sqrt(eps()),
-        g_reltol::Real = sqrt(eps()),
+        g_restol::Real = sqrt(eps()),
         x_abstol_break::Real = Inf,
         x_reltol_break::Real = Inf,
         f_abstol_break::Real = Inf,
         f_reltol_break::Real = Inf,
-        g_abstol_break::Real = Inf,
-        g_reltol_break::Real = Inf,
+        g_restol_break::Real = Inf,
         f_calls_limit::Int = 0,
         g_calls_limit::Int = 0,
         h_calls_limit::Int = 0,
@@ -92,14 +86,14 @@ function Options(;
         x_abstol = x_tol
     end
     if !(g_tol === nothing)
-        g_abstol = g_tol
+        g_restol = g_tol
     end
     if !(f_tol === nothing)
         f_reltol = f_tol
     end
 
-    Options(promote(x_abstol, x_reltol, f_abstol, f_reltol, g_abstol, g_reltol,
-                    x_abstol_break, x_reltol_break, f_abstol_break, f_reltol_break, g_abstol_break, g_reltol_break)...,
+    Options(promote(x_abstol, x_reltol, f_abstol, f_reltol, g_restol,
+                    x_abstol_break, x_reltol_break, f_abstol_break, f_reltol_break, g_restol_break)...,
         f_calls_limit, g_calls_limit, h_calls_limit, allow_f_increases, min_iterations, max_iterations, warn_iterations,
         show_trace, store_trace, extended_trace, show_every, verbosity)
 end
@@ -119,5 +113,4 @@ x_abstol(o::Options) = o.x_abstol
 x_reltol(o::Options) = o.x_reltol
 f_abstol(o::Options) = o.f_abstol
 f_reltol(o::Options) = o.f_reltol
-g_abstol(o::Options) = o.g_abstol
-g_reltol(o::Options) = o.g_reltol
+g_restol(o::Options) = o.g_restol
