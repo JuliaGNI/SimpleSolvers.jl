@@ -11,8 +11,9 @@ module SimpleSolvers
     include("utils.jl")
 
     export solve!
-    export config, status, result
-    export solution, minimizer
+    export config, result, state, status
+    export algorithm, objective
+    export solution, minimizer, minimum
     
     export Newton, DFP, BFGS
 
