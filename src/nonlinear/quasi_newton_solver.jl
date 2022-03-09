@@ -19,7 +19,7 @@ function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = 
     Jparams = JacobianParameters{T}(J!, F!, n)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
-    ls = LinesearchState(linesearch, linesearch_objective(F!, cache), x)
+    ls = LinesearchState(linesearch, linesearch_objective(F!, cache))
 
     QuasiNewtonSolver{T, typeof(x), typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(ls)}(x, y, F!, Jparams, linear_solver, ls, cache, config, refactorize)
 end

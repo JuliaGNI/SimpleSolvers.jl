@@ -7,7 +7,7 @@ end
 StaticState(args...; alpha = 1.0, kwargs...) = StaticState(alpha)
 StaticState(::UnivariateObjective; alpha = 1.0, kwargs...) = StaticState(alpha)
 
-LinesearchState(algorithm::Static, args...; kwargs...) = StaticState(algorithm.alpha)
+LinesearchState(algorithm::Static, objective::UnivariateObjective; kwargs...) = StaticState(algorithm.alpha)
 
 Base.show(io::IO, ls::StaticState) = print(io, "Static")
 

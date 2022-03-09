@@ -4,7 +4,7 @@ const DEFAULT_LINESEARCH_rmax=100
 
 abstract type LinesearchState end
 
-LinesearchState(algorithm, f, x; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
+LinesearchState(algorithm, f::Callable, x; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
 
 solve!(x₀, x₁, ls::LinesearchState) = ls(x₀, x₁)
 solve!(x, ls::LinesearchState) = ls(x)
@@ -22,7 +22,7 @@ struct Linesearch{ALG <: LinesearchMethod, OBJ <: UnivariateObjective, OPT <: Op
 end
 
 function Linesearch(x, objective::UnivariateObjective; algorithm = Static(), config = Options())
-    state = LinesearchState(algorithm, objective, x)
+    state = LinesearchState(algorithm, objective)
     Linesearch{typeof(algorithm), typeof(objective), typeof(config), typeof(state)}(algorithm, objective, config, state)
 end
 

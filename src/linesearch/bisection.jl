@@ -54,7 +54,7 @@ end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection, objective::UnivariateObjective, x; kwargs...) = BisectionState(objective; kwargs...)
+LinesearchState(algorithm::Bisection, objective::UnivariateObjective; kwargs...) = BisectionState(objective; kwargs...)
 
 (ls::BisectionState)(objective, xmin, xmax) = bisection(objective, xmin, xmax; config = ls.config)
 (ls::BisectionState)(xmin, xmax) = bisection(ls.objective, xmin, xmax; config = ls.config)

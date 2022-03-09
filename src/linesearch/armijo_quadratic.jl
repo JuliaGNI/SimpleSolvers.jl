@@ -24,7 +24,7 @@ struct ArmijoQuadraticState{T,DT,AT,FT} <: LinesearchState where {T <: Number, D
 end
 
 
-LinesearchState(algorithm::ArmijoQuadratic, objective, x, y; kwargs...) = ArmijoQuadraticState(objective.F, x, y; kwargs...)
+LinesearchState(algorithm::ArmijoQuadratic, objective; kwargs...) = ArmijoQuadraticState(objective; kwargs...)
 
 
 function (ls::ArmijoQuadraticState)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
