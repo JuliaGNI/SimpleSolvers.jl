@@ -6,7 +6,11 @@ mutable struct OptimizerStatus{XT,YT}
     rxᵣ::XT  # relative change in x
     rfₐ::YT  # absolute change in f
     rfᵣ::YT  # relative change in f
+    rgₐ::YT  # absolute change in g
     rg::XT   # residual of g
+
+    Δf::YT    # change of function
+    Δf̃::YT
 
     x_converged::Bool
     f_converged::Bool
@@ -19,7 +23,7 @@ mutable struct OptimizerStatus{XT,YT}
 end
 
 OptimizerStatus{XT,YT}() where {XT,YT} = OptimizerStatus{XT,YT}(
-        0, XT(NaN), XT(NaN), YT(NaN), YT(NaN), XT(NaN),
+        0, XT(NaN), XT(NaN), YT(NaN), YT(NaN), XT(NaN), XT(NaN), YT(NaN), YT(NaN),
         false, false, false, false, true, true, true)
 
 OptimizerStatus{T}() where {T} = OptimizerStatus{T,T}()
@@ -35,6 +39,9 @@ x_abschange(status::OptimizerStatus) = status.rxₐ
 x_relchange(status::OptimizerStatus) = status.rxᵣ
 f_abschange(status::OptimizerStatus) = status.rfₐ
 f_relchange(status::OptimizerStatus) = status.rfᵣ
+f_change(status::OptimizerStatus) = status.Δf
+f_change_approx(status::OptimizerStatus) = status.Δf̃
+g_abschange(status::OptimizerStatus) = status.rgₐ
 g_residual(status::OptimizerStatus) = status.rg
 
 function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
@@ -44,7 +51,11 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.rxᵣ = XT(NaN)
     status.rfₐ = YT(NaN)
     status.rfᵣ = YT(NaN)
+    status.rgₐ = YT(NaN)
     status.rg  = XT(NaN)
+
+    status.Δf = YT(NaN)
+    status.Δf̃ = YT(NaN)
 
     status.x_converged = false
     status.f_converged = false
@@ -69,6 +80,7 @@ function Base.show(io::IO, s::OptimizerStatus)
     @printf io "    |x - x'|/|x'|          = %.2e\n"  x_relchange(s)
     @printf io "    |f(x) - f(x')|         = %.2e\n"  f_abschange(s)
     @printf io "    |f(x) - f(x')|/|f(x')| = %.2e\n"  f_relchange(s)
+    @printf io "    |g(x) - g(x')|         = %.2e\n"  g_abschange(s)
     @printf io "    |g(x)|                 = %.2e\n"  g_residual(s) 
     @printf io "\n"
 
@@ -91,11 +103,13 @@ function assess_convergence!(status::OptimizerStatus, config::Options)
     
     f_converged = f_abschange(status) ≤ f_abstol(config) ||
                   f_relchange(status) ≤ f_reltol(config)
+    
+    f_converged_strong = f_change(status) ≤ f_mindec(config) * f_change_approx(status)
 
     g_converged = g_residual(status) ≤ g_restol(config)
     
     status.x_converged = x_converged
-    status.f_converged = f_converged
+    status.f_converged = f_converged && f_converged_strong
     status.g_converged = g_converged
 
     # println(x_abschange(status))

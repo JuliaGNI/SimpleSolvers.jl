@@ -93,6 +93,7 @@ module SimpleSolvers
            ArmijoQuadratic, armijo_quadratic,
            Bisection, bisection
 
+    include("linesearch/linesearch_cache.jl")
     include("linesearch/linesearch.jl")
     include("linesearch/nolinesearch.jl")
     include("linesearch/armijo.jl")

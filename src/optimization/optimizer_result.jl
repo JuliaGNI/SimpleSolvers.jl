@@ -4,11 +4,12 @@ mutable struct OptimizerResult{XT, YT, VT <: AbstractArray{XT}, OST <: Optimizer
 
     x::VT    # current solution
     f::YT    # current function
+    g::VT    # current gradient
 end
 
 function OptimizerResult(x::VT, y::YT) where {XT, YT, VT <: AbstractVector{XT}}
     status = OptimizerStatus{XT,YT}()
-    result = OptimizerResult{XT,YT,VT,typeof(status)}(status, zero(x), zero(y))
+    result = OptimizerResult{XT,YT,VT,typeof(status)}(status, zero(x), zero(y), zero(x))
     clear!(result)
 end
 
@@ -24,6 +25,7 @@ function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
 
     result.x .= XT(NaN)
     result.f  = YT(NaN)
+    result.g .= XT(NaN)
 
     return result
 end
@@ -38,8 +40,12 @@ function residual!(result::OptimizerResult, x, f, g)
     status.rfₐ = norm(f - result.f)
     status.rfᵣ = status.rfₐ / norm(f)
 
+    status.rgₐ = norm(g - result.g)
     status.rg  = norm(g)
 
+    status.Δf  = f - result.f
+    status.Δf̃ = result.g ⋅ x - result.g ⋅ result.x
+    
     status.f_increased = abs(f) > abs(result.f)
 
     status.x_isnan = any(isnan, x)
@@ -55,6 +61,7 @@ function update!(result::OptimizerResult, x, f, g)
 
     result.x .= x
     result.f  = f
+    result.g .= g
 
     return result
 end

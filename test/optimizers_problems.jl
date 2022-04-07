@@ -18,4 +18,3 @@ function H!(g, x)
         g[i,i] = 2
     end
 end
-

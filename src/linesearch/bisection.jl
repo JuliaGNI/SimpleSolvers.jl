@@ -1,6 +1,6 @@
 
 
-function bisection(f, xmin::T, xmax::T; config = Options()) where {T}
+function bisection(f, xmin::T, xmax::T; config = Options()) where {T <: Number}
     local x₀ = xmin
     local x₁ = xmax
     local x  = zero(T)
@@ -13,9 +13,11 @@ function bisection(f, xmin::T, xmax::T; config = Options()) where {T}
 
     # y₀ * y₁ ≤ 0 || error("Either no or multiple real roots in [xmin,xmax]")
 
-    for _ in 1:config.max_iterations
+    for j in 1:config.max_iterations
         x = (x₀ + x₁) / 2
         y = f(x)
+
+        # println("j = ", j, " , x₀ = ", x₀, " , x₁ = ", x₁)
 
         !isapprox(y, zero(y), atol=config.f_abstol) || break
 
@@ -30,32 +32,43 @@ function bisection(f, xmin::T, xmax::T; config = Options()) where {T}
         !isapprox(x₁ - x₀, zero(x), atol=config.x_abstol) || break
     end
 
-    # println(j, " bisection iterations, λ=", λ, ", f(λ)=", fλ, ", ftol=", ftol, ", abs(b-a)=", abs(b-a), ", xtol=", xtol)
+    # println("α=", x, ", f(α)=", y, ", ftol=", config.f_abstol, ", abs(x₁-x₀)=", abs(x₁-x₀), ", xtol=", config.x_abstol)
 
     # i != ls.nmax || error("Max iteration number exceeded")
 
     return x
 end
 
-bisection(f, x; kwargs...) = BisectionState(f; kwargs...)(x)
+bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
 
 """
 simple bisection line search
 """
-mutable struct BisectionState{OBJ,OPT} <: LinesearchState where {OBJ, OPT}
+mutable struct BisectionState{OBJ,OPT,LSC} <: LinesearchState where {OBJ <: UnivariateObjective, OPT <: Options, LSC <: LinesearchCache}
     objective::OBJ
     config::OPT
+    cache::LSC
 
-    function BisectionState(objective; config = Options())
-        new{typeof(objective), typeof(config)}(objective, config)
+    function BisectionState(objective, config, cache)
+        new{typeof(objective), typeof(config), typeof(cache)}(objective, config, cache)
     end
+end
+
+function BisectionState(objective::MultivariateObjective; config = Options())
+    cache = LinesearchCache(objective.x_f)
+    ls_objective = linesearch_objective(objective, cache)
+    BisectionState(ls_objective, config, cache)
 end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection, objective::UnivariateObjective; kwargs...) = BisectionState(objective; kwargs...)
+LinesearchState(algorithm::Bisection, objective; kwargs...) = BisectionState(objective; kwargs...)
 
-(ls::BisectionState)(objective, xmin, xmax) = bisection(objective, xmin, xmax; config = ls.config)
-(ls::BisectionState)(xmin, xmax) = bisection(ls.objective, xmin, xmax; config = ls.config)
-(ls::BisectionState)(x) = ls(bracket_minimum(ls.objective, x)...)
+function (ls::BisectionState)(x::T, δ::T) where {T <: AbstractVector}
+    update!(ls.cache, x, δ)
+    α = bisection(ls.objective, 0., 1.; config = ls.config)
+    x .+= α .* δ
+end
+
+(ls::BisectionState)(x, δ, args...; kwargs...) = ls(x, δ)

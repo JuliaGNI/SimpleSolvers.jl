@@ -1,86 +1,82 @@
 
-const DEFAULT_ARMIJO_λ₀ = 1.0
+using Printf
+
+const DEFAULT_ARMIJO_α₀ = 1.0
 const DEFAULT_ARMIJO_σ₀ = 0.1
 const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_ϵ  = 1E-4
+const DEFAULT_ARMIJO_p  = 0.5
 
-struct ArmijoState{T,DT,AT,FT} <: LinesearchState where {T <: Number, DT <: Number, AT <: AbstractArray{DT}, FT}
+struct ArmijoState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: AbstractObjective, OPT <: Options, LSC <: LinesearchCache, T <: Number}
+    objective::OBJ
+    config::OPT
+    cache::LSC
 
-    nmax::Int
-    rmax::Int
-
-    λ₀::T
+    α₀::T
     ϵ::T
+    p::T
 
-    F!::FT
-
-    δx::AT
-    y₀::AT
-    y::AT
-
-    function ArmijoState(F!, x, y; nmax=DEFAULT_LINESEARCH_nmax, rmax=DEFAULT_LINESEARCH_rmax,
-                    λ₀::T=DEFAULT_ARMIJO_λ₀, ϵ::T=DEFAULT_ARMIJO_ϵ) where {T}
-        new{T, eltype(x), typeof(x), typeof(F!)}(nmax, rmax, λ₀, ϵ, F!, zero(x), zero(y), zero(y))
+    function ArmijoState(objective; config = Options(),
+                    α₀::T = DEFAULT_ARMIJO_α₀,
+                    ϵ::T = DEFAULT_ARMIJO_ϵ,
+                    p::T = DEFAULT_ARMIJO_p) where {T}
+        cache = LinesearchCache(objective.x_f)
+        new{typeof(objective), typeof(config), typeof(cache), T}(objective, config, cache, α₀, ϵ, p)
     end
 end
 
+function ArmijoState(F::Callable, x::Number = DEFAULT_ARMIJO_α₀; D = nothing, kwargs...)
+    objective = UnivariateObjective(F, D, x)
+    ArmijoState(objective; kwargs...)
+end
 
-LinesearchState(algorithm::Armijo, objective, x, y; kwargs...) = ArmijoState(objective.F, x, y; kwargs...)
+function ArmijoState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
+    objective = MultivariateObjective(F, D, x)
+    ArmijoState(objective; kwargs...)
+end
+
+Base.show(io::IO, ls::ArmijoState) = print(io, "Armijo")
+
+LinesearchState(algorithm::Armijo, objective; kwargs...) = ArmijoState(objective; kwargs...)
 
 
-function (ls::ArmijoState)(x::AbstractArray{T}, f::AbstractArray{T}, g::AbstractArray{T}, x₀::AbstractArray{T}, x₁::AbstractArray{T}) where {T}
-    local λ::T
-    local y₀norm::T
-    local y₁norm::T
+function (ls::ArmijoState{<:UnivariateObjective})(xmin::T, xmax::T) where {T <: Number}
+    local α = ls.α₀
+    local y = value!(ls.objective, α)
 
-    # set initial λ
-    λ = ls.λ₀
-
-    # δx = x₁ - x₀
-    ls.δx .= x₁ .- x₀
-
-    # compute norms of initial solution
-    y₀norm = l2norm(f)
-
-    for lsiter in 1:ls.nmax
-        # x₁ = x₀ + λ δx
-        x .= x₀ .+ λ .* ls.δx
-
-        for _ in 1:ls.rmax
-            try
-                # y = f(x)
-                ls.F!(ls.y, x)
-
-                break
-            catch DomainError
-                # in case the new function value results in some DomainError
-                # (e.g., for functions f(x) containing sqrt's or log's),
-                # decrease λ and retry
-
-                @warn("Armijo line search encountered Domain Error (lsiter=$lsiter, λ=$λ). Decreasing λ and trying again...")
-
-                λ /= 2
-            end
-        end
-
-        # compute norms of solution
-        y₁norm = l2norm(ls.y)
-
-        if y₁norm ≥ (one(T) - ls.ϵ * λ) * y₀norm
-            λ /= 2
+    for lsiter in 1:ls.config.max_iterations
+        if value!(ls.objective, α) ≥ (one(T) - ls.ϵ * α) * y
+            α *= ls.p
         else
             break
         end
     end
 
-    return x
+    return α
 end
 
+(ls::ArmijoState)(x::Number) = ls(bracket_minimum(ls.objective, x)...)
 
-solve!(x, f, g, x₀, x₁, ls::ArmijoState) = ls(x, f, g, x₀, x₁)
+function (ls::ArmijoState{<:MultivariateObjective})(x::T, δ::T) where {T <: AbstractVector}
+    update!(ls.cache, x, δ, gradient!(ls.objective, x))
 
+    local α = ls.α₀
+    local limit = value!(ls.objective, x) + ls.ϵ * α * ls.cache.g' * δ
 
-function armijo(F, x, f, g, x₀, x₁; kwargs...)
-    ls = ArmijoState(F, x, f; kwargs...)
-    ls(x, f, g, x₀, x₁)
+    ls.cache.x .= x .+ α .* δ
+
+    for lsiter in 1:ls.config.max_iterations
+        if value!(ls.objective, ls.cache.x) > limit
+            α *= ls.p
+            ls.cache.x .= x .+ α .* δ
+        else
+            break
+        end
+    end
+
+    x .+= α .* δ
 end
+
+(ls::ArmijoState)(x, δ, args...; kwargs...) = ls(x, δ)
+
+armijo(f, x, δx; kwargs...) = ArmijoState(f, x; kwargs...)(x, δx)

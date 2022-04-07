@@ -42,13 +42,8 @@ function solver_step!(s::NewtonSolver{T}) where {T}
     # δx = b
     s.cache.δx .= s.linear.b
 
-    # x₁ = x₀ + δx
-    s.cache.x₁ .= s.cache.x₀ .+ s.cache.δx
-    
     # apply line search
-    α = s.linesearch(1.0)
-    s.x .= s.cache.x₀ .+ α .* s.cache.δx
-    # solve!(s.x, s.y, s.J, s.cache.x₀, s.cache.x₁, s.linesearch)
+    s.linesearch(s.x, s.cache.δx)
 
     # compute residual
     s.F!(s.y, s.x)

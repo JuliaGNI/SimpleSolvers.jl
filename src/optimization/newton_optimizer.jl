@@ -31,16 +31,6 @@ function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
     return cache
 end
 
-"create univariate objective for linesearch algorithm"
-function linesearch_objective(objective::MultivariateObjective, cache::NewtonOptimizerCache)
-    function ls_f(α)
-        cache.x .= cache.x̄ .+ α .* cache.δ
-        value(objective, cache.x)
-    end
-
-    UnivariateObjective(ls_f, 1.)
-end
-
 
 struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: LinesearchState, NOC <: NewtonOptimizerCache} <: OptimizationAlgorithm
     objective::OBJ
@@ -56,7 +46,7 @@ end
 function NewtonOptimizerState(x::VT, objective::MultivariateObjective; hessian = HessianAD, linesearch = Bisection) where {XT, VT <: AbstractVector{XT}}
     cache = NewtonOptimizerCache(x)
     hess = hessian(objective, x)
-    ls = LinesearchState(linesearch, linesearch_objective(objective, cache))
+    ls = LinesearchState(linesearch, objective)
 
     NewtonOptimizerState(objective, hess, ls, cache)
 end
@@ -103,8 +93,7 @@ function solver_step!(x, newton::NewtonOptimizerState)
     δ .*= -1
 
     # apply line search
-    α = newton.linesearch(1.0)
-    x .= x̄ .+ α .* δ
+    newton.linesearch(x, δ)
 
     return x
 end

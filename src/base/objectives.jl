@@ -152,6 +152,7 @@ function MultivariateObjective(F, x::AbstractArray; kwargs...)
     MultivariateObjective(F, G, x; kwargs...)
 end
 
+MultivariateObjective(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateObjective(F, x; kwargs...)
 
 """
 Evaluates the objective value at `x`.
