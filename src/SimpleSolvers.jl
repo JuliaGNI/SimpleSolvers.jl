@@ -89,9 +89,9 @@ module SimpleSolvers
     include("bracketing/bracket_minimum.jl")
 
     export Linesearch, Static
-    export Armijo, armijo,
-           ArmijoQuadratic, armijo_quadratic,
-           Bisection, bisection
+    export Backtracking, backtracking,
+           Bisection, bisection,
+           Quadratic, quadratic
 
     include("linesearch/linesearch_cache.jl")
     include("linesearch/linesearch.jl")

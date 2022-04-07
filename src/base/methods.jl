@@ -15,9 +15,9 @@ struct Newton <: NewtonMethod end
 struct DFP <: NewtonMethod end
 struct BFGS <: NewtonMethod end
 
+struct Backtracking <: LinesearchMethod end
 struct Bisection <: LinesearchMethod end
-struct Armijo <: LinesearchMethod end
-struct ArmijoQuadratic <: LinesearchMethod end
+struct Quadratic <: LinesearchMethod end
 
 struct Static{T} <: LinesearchMethod
     alpha::T
@@ -30,6 +30,6 @@ Base.show(io::IO, alg::DFP) = print(io, "DFP")
 Base.show(io::IO, alg::BFGS) = print(io, "BFGS")
 
 Base.show(io::IO, alg::Static) = print(io, "Static")
+Base.show(io::IO, alg::Backtracking) = print(io, "Backtracking")
 Base.show(io::IO, alg::Bisection) = print(io, "Bisection")
-Base.show(io::IO, alg::Armijo) = print(io, "Armijo")
-Base.show(io::IO, alg::ArmijoQuadratic) = print(io, "Armijo (quadratic)")
+Base.show(io::IO, alg::Quadratic) = print(io, "Quadratic Polynomial")

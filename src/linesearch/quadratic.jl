@@ -1,7 +1,7 @@
 """
-Quadratic Armijo line search
+Quadratic Polynomial line search
 """
-struct ArmijoQuadraticState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: MultivariateObjective, OPT <: Options, LSC <: LinesearchCache, T <: Number}
+struct QuadraticState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: MultivariateObjective, OPT <: Options, LSC <: LinesearchCache, T <: Number}
     objective::OBJ
     config::OPT
     cache::LSC
@@ -11,24 +11,24 @@ struct ArmijoQuadraticState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: Mult
     σ₁::T
     ϵ::T
 
-    function ArmijoQuadraticState(objective::MultivariateObjective; config = Options(),
+    function QuadraticState(objective::MultivariateObjective; config = Options(),
                     α₀::T=DEFAULT_ARMIJO_α₀, σ₀::T=DEFAULT_ARMIJO_σ₀, σ₁::T=DEFAULT_ARMIJO_σ₁, ϵ::T=DEFAULT_ARMIJO_ϵ) where {T}
         cache = LinesearchCache(objective.x_f)
         new{typeof(objective), typeof(config), typeof(cache), T}(objective, config, cache, α₀, σ₀, σ₁, ϵ)
     end
 end
 
-function ArmijoQuadraticState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
+function QuadraticState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
     objective = MultivariateObjective(F, D, x)
-    ArmijoQuadraticState(objective; kwargs...)
+    QuadraticState(objective; kwargs...)
 end
 
-Base.show(io::IO, ls::ArmijoQuadraticState) = print(io, "Armijo (quadratic)")
+Base.show(io::IO, ls::QuadraticState) = print(io, "Polynomial quadratic")
 
-LinesearchState(algorithm::ArmijoQuadratic, objective; kwargs...) = ArmijoQuadraticState(objective; kwargs...)
+LinesearchState(algorithm::Quadratic, objective; kwargs...) = QuadraticState(objective; kwargs...)
 
 
-function (ls::ArmijoQuadraticState)(x::T, δ::T) where {T <: AbstractVector}
+function (ls::QuadraticState)(x::T, δ::T) where {T <: AbstractVector}
     update!(ls.cache, x, δ, gradient!(ls.objective, x))
 
     local α::T = ls.α₀
@@ -76,6 +76,6 @@ function (ls::ArmijoQuadraticState)(x::T, δ::T) where {T <: AbstractVector}
     return α
 end
 
-(ls::ArmijoQuadraticState)(x, δ, args...; kwargs...) = ls(x, δ)
+(ls::QuadraticState)(x, δ, args...; kwargs...) = ls(x, δ)
 
-armijo_quadratic(f, x, δx; kwargs...) = ArmijoQuadraticState(f, x; kwargs...)(x, δx)
+quadratic(f, x, δx; kwargs...) = QuadraticState(f, x; kwargs...)(x, δx)

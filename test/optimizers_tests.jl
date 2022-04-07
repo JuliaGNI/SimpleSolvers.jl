@@ -21,7 +21,7 @@ include("optimizers_problems.jl")
 
 
 for method in (Newton(), BFGS(), DFP())
-    for linesearch in (Static(0.8), Bisection(), Armijo())
+    for linesearch in (Static(0.8), Backtracking(), Bisection())
         n = 1
         x = ones(n)
         opt = Optimizer(x, F; algorithm = method, linesearch = linesearch)

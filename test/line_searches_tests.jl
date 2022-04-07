@@ -128,14 +128,11 @@ end
 end
 
 
-@testset "$(rpad("Armijo",80))" begin
+@testset "$(rpad("Backtracking",80))" begin
 
-#     # TODO Test scalars!
-        
-    # for Solver in (Armijo,ArmijoQuadratic,ArmijoCubic)
-    for (lsalg,lsfunc) in ((Armijo, armijo),)
-    # for (lsalg,lsfunc) in ((Armijo, armijo),
-    #                     (ArmijoQuadratic, armijo_quadratic))
+    for (lsalg,lsfunc) in ((Backtracking, backtracking),)
+    # for (lsalg,lsfunc) in ((Backtracking, backtracking)
+    #                     (Quadratic, quadratic))
 
         x₀ = [-3.0]
         x₁ = [+3.0]

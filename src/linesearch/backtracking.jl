@@ -7,7 +7,7 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_ϵ  = 1E-4
 const DEFAULT_ARMIJO_p  = 0.5
 
-struct ArmijoState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: AbstractObjective, OPT <: Options, LSC <: LinesearchCache, T <: Number}
+struct BacktrackingState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: AbstractObjective, OPT <: Options, LSC <: LinesearchCache, T <: Number}
     objective::OBJ
     config::OPT
     cache::LSC
@@ -16,7 +16,7 @@ struct ArmijoState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: AbstractObjec
     ϵ::T
     p::T
 
-    function ArmijoState(objective; config = Options(),
+    function BacktrackingState(objective; config = Options(),
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     ϵ::T = DEFAULT_ARMIJO_ϵ,
                     p::T = DEFAULT_ARMIJO_p) where {T}
@@ -25,22 +25,22 @@ struct ArmijoState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: AbstractObjec
     end
 end
 
-function ArmijoState(F::Callable, x::Number = DEFAULT_ARMIJO_α₀; D = nothing, kwargs...)
+function BacktrackingState(F::Callable, x::Number = DEFAULT_ARMIJO_α₀; D = nothing, kwargs...)
     objective = UnivariateObjective(F, D, x)
-    ArmijoState(objective; kwargs...)
+    BacktrackingState(objective; kwargs...)
 end
 
-function ArmijoState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
+function BacktrackingState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
     objective = MultivariateObjective(F, D, x)
-    ArmijoState(objective; kwargs...)
+    BacktrackingState(objective; kwargs...)
 end
 
-Base.show(io::IO, ls::ArmijoState) = print(io, "Armijo")
+Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking")
 
-LinesearchState(algorithm::Armijo, objective; kwargs...) = ArmijoState(objective; kwargs...)
+LinesearchState(algorithm::Backtracking, objective; kwargs...) = BacktrackingState(objective; kwargs...)
 
 
-function (ls::ArmijoState{<:UnivariateObjective})(xmin::T, xmax::T) where {T <: Number}
+function (ls::BacktrackingState{<:UnivariateObjective})(xmin::T, xmax::T) where {T <: Number}
     local α = ls.α₀
     local y = value!(ls.objective, α)
 
@@ -55,9 +55,9 @@ function (ls::ArmijoState{<:UnivariateObjective})(xmin::T, xmax::T) where {T <: 
     return α
 end
 
-(ls::ArmijoState)(x::Number) = ls(bracket_minimum(ls.objective, x)...)
+(ls::BacktrackingState)(x::Number) = ls(bracket_minimum(ls.objective, x)...)
 
-function (ls::ArmijoState{<:MultivariateObjective})(x::T, δ::T) where {T <: AbstractVector}
+function (ls::BacktrackingState{<:MultivariateObjective})(x::T, δ::T) where {T <: AbstractVector}
     update!(ls.cache, x, δ, gradient!(ls.objective, x))
 
     local α = ls.α₀
@@ -77,6 +77,6 @@ function (ls::ArmijoState{<:MultivariateObjective})(x::T, δ::T) where {T <: Abs
     x .+= α .* δ
 end
 
-(ls::ArmijoState)(x, δ, args...; kwargs...) = ls(x, δ)
+(ls::BacktrackingState)(x, δ, args...; kwargs...) = ls(x, δ)
 
-armijo(f, x, δx; kwargs...) = ArmijoState(f, x; kwargs...)(x, δx)
+backtracking(f, x, δx; kwargs...) = BacktrackingState(f, x; kwargs...)(x, δx)
