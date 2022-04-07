@@ -95,10 +95,10 @@ module SimpleSolvers
 
     include("linesearch/linesearch_cache.jl")
     include("linesearch/linesearch.jl")
-    include("linesearch/nolinesearch.jl")
-    include("linesearch/armijo.jl")
-    include("linesearch/armijo_quadratic.jl")
+    include("linesearch/static.jl")
+    include("linesearch/backtracking.jl")
     include("linesearch/bisection.jl")
+    include("linesearch/quadratic.jl")
 
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
