@@ -118,3 +118,5 @@ f_abstol(o::Options) = o.f_abstol
 f_reltol(o::Options) = o.f_reltol
 f_mindec(o::Options) = o.f_mindec
 g_restol(o::Options) = o.g_restol
+
+verbosity(o::Options) = o.verbosity

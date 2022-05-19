@@ -87,8 +87,8 @@ function Base.show(io::IO, s::OptimizerStatus)
 end
 
 function print_status(status::OptimizerStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && status.i ≤ config.max_iterations)) ||
-        config.verbosity > 1
+    if (verbosity(config) ≥ 1 && !(assess_convergence!(status, config) && status.i ≤ config.max_iterations)) ||
+        verbosity(config) > 1
         println(status)
     end
 end
