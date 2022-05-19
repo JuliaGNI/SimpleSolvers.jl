@@ -105,6 +105,7 @@ function solve!(x, opt::Optimizer)
     end
 
     warn_iteration_number(status(opt), config(opt))
+    print_status(status(opt), config(opt))
 
     return x
 end
