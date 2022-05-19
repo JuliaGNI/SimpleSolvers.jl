@@ -30,21 +30,15 @@ function solver_step!(s::QuasiNewtonSolver{T}) where {T}
     # compute Jacobian and factorize
     if mod(s.status.i-1, s.refactorize) == 0
         compute_jacobian!(s)
-        s.linear.A .= s.cache.J
-        factorize!(s.linear)
+        factorize!(s.linear, s.cache.J)
     end
 
     # copy previous solution
     s.cache.x₀ .= x
 
-    # b = - y₀
-    s.linear.b .= -y
-
     # solve J δx = -f(x)
-    solve!(s.linear)
-
-    # δx = b
-    δ .= s.linear.b
+    rmul!(y, -1)
+    ldiv!(δ, s.linear, y)
 
     # apply line search
     α = s.linesearch()

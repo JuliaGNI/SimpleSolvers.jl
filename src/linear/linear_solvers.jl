@@ -2,7 +2,7 @@
 abstract type LinearSolver{T} end
 
 factorize!(s::LinearSolver) = error("factorize! not implemented for $(typeof(s))")
-solve!(s::LinearSolver) = error("solve! not implemented for $(typeof(s))")
+LinearAlgebra.ldiv!(s::LinearSolver) = error("ldiv! not implemented for $(typeof(s))")
 
 function LinearSolver(x::AbstractVector{T}; linear_solver = :julia) where {T}
     n = length(x)
@@ -17,4 +17,3 @@ function LinearSolver(x::AbstractVector{T}; linear_solver = :julia) where {T}
     end
     return linear_solver
 end
-

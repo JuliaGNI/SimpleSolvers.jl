@@ -2,110 +2,94 @@
 mutable struct LUSolver{T} <: LinearSolver{T}
     n::Int
     A::Matrix{T}
-    b::Vector{T}
-    x::Vector{T}
     pivots::Vector{Int}
     perms::Vector{Int}
     info::Int
-
-    LUSolver{T}(n) where {T} = new(n, zeros(T, n, n), zeros(T, n), zeros(T, n), zeros(Int, n), zeros(Int, n), 0)
 end
 
-function LUSolver(A::Matrix{T}) where {T}
+function LUSolver(A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
-    lu = LUSolver{eltype(A)}(n)
-    lu.A .= A
-    lu
+    lu = LUSolver{T}(n, zero(A), zeros(Int, n), zeros(Int, n), 0)
+    factorize!(lu, A)
 end
 
-function LUSolver(A::Matrix{T}, b::Vector{T}) where {T}
-    n = checksquare(A)
-    @assert n == length(b)
-    lu = LUSolver{eltype(A)}(n)
-    lu.A .= A
-    lu.b .= b
-    lu
-end
+LUSolver{T}(n::Int) where {T} = LUSolver(zeros(T, n, n))
 
-function factorize!(lu::LUSolver{T}, pivot=true) where {T}
-    A = lu.A
+function factorize!(lu::LUSolver{T}, A::AbstractMatrix{T}, pivot=true) where {T}
+    copy!(lu.A, A)
+    
+    @inbounds for i in eachindex(lu.perms)
+        lu.perms[i] = i
+    end
 
-    begin
-        @inbounds for i in eachindex(lu.perms)
-            lu.perms[i] = i
-        end
-
-        @inbounds for k = 1:lu.n
-            # find index max
-            kp = k
-            if pivot
-                amax = real(zero(T))
-                for i = k:lu.n
-                    absi = abs(A[i,k])
-                    if absi > amax
-                        kp = i
-                        amax = absi
-                    end
-                end
-            end
-            lu.pivots[k] = kp
-            lu.perms[k], lu.perms[kp] = lu.perms[kp], lu.perms[k]
-
-            if A[kp,k] != 0
-                if k != kp
-                    # Interchange
-                    for i = 1:lu.n
-                        tmp = A[k,i]
-                        A[k,i] = A[kp,i]
-                        A[kp,i] = tmp
-                    end
-                end
-                # Scale first column
-                Akkinv = inv(A[k,k])
-                for i = k+1:lu.n
-                    A[i,k] *= Akkinv
-                end
-            elseif lu.info == 0
-                lu.info = k
-            end
-            # Update the rest
-            for j = k+1:lu.n
-                for i = k+1:lu.n
-                    A[i,j] -= A[i,k]*A[k,j]
+    @inbounds for k in 1:lu.n
+        # find index max
+        kp = k
+        if pivot
+            amax = real(zero(T))
+            for i in k:lu.n
+                absi = abs(lu.A[i,k])
+                if absi > amax
+                    kp = i
+                    amax = absi
                 end
             end
         end
+        lu.pivots[k] = kp
+        lu.perms[k], lu.perms[kp] = lu.perms[kp], lu.perms[k]
 
-        lu.info
+        if lu.A[kp,k] != 0
+            if k != kp
+                # Interchange
+                for i in 1:lu.n
+                    tmp = lu.A[k,i]
+                    lu.A[k,i] = lu.A[kp,i]
+                    lu.A[kp,i] = tmp
+                end
+            end
+            # Scale first column
+            Akkinv = inv(lu.A[k,k])
+            for i in k+1:lu.n
+                lu.A[i,k] *= Akkinv
+            end
+        elseif lu.info == 0
+            lu.info = k
+        end
+        # Update the rest
+        for j in k+1:lu.n
+            for i in k+1:lu.n
+                lu.A[i,j] -= lu.A[i,k] * lu.A[k,j]
+            end
+        end
     end
+
+    return lu
 end
 
-function solve!(lu::LUSolver{T}) where {T}
-    local s::T
+function LinearAlgebra.ldiv!(x::AbstractVector{T}, lu::LUSolver{T}, b::AbstractVector{T}) where {T}
+    @assert axes(x,1) == axes(b,1) == axes(lu.A,1) == axes(lu.A,2)
 
-    @inbounds for i = 1:lu.n
-        lu.x[i] = lu.b[lu.perms[i]]
+    @inbounds for i in 1:lu.n
+        x[i] = b[lu.perms[i]]
     end
 
-    @inbounds for i = 2:lu.n
-        s = 0
-        for j = 1:i-1
-            s += lu.A[i,j] * lu.x[j]
+    @inbounds for i in 2:lu.n
+        s = zero(T)
+        for j in 1:i-1
+            s += lu.A[i,j] * x[j]
         end
-        lu.x[i] -= s
+        x[i] -= s
     end
 
-    lu.x[lu.n] /= lu.A[lu.n,lu.n]
-    @inbounds for i = lu.n-1:-1:1
-        s = 0
-        for j = i+1:lu.n
-            s += lu.A[i,j] * lu.x[j]
+    x[lu.n] /= lu.A[lu.n,lu.n]
+    @inbounds for i in lu.n-1:-1:1
+        s = zero(T)
+        for j in i+1:lu.n
+            s += lu.A[i,j] * x[j]
         end
-        lu.x[i] -= s
-        lu.x[i] /= lu.A[i,i]
+        x[i] -= s
+        x[i] /= lu.A[i,i]
     end
 
-    lu.b .= lu.x
-
-    lu.x
+    return x
 end

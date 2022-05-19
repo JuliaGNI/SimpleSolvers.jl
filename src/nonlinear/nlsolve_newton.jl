@@ -44,11 +44,8 @@ end
 
 
 function linsolve!(s::NLsolveNewton, x, A, b)
-    copyto!(s.linear_solver.A, A)
-    copyto!(s.linear_solver.b, b)
-    factorize!(s.linear_solver)
-    solve!(s.linear_solver)
-    copyto!(x, s.linear_solver.b)
+    factorize!(s.linear_solver, A)
+    ldiv!(x, s.linear_solver, b)
 end
 
 function solve!(x, s::NLsolveNewton)
