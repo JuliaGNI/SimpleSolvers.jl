@@ -52,12 +52,12 @@ function linsolve!(s::NLsolveNewton, x, A, b)
 end
 
 function solve!(x, s::NLsolveNewton)
-    res=newton_(s.DF, x, s.config.x_abstol, s.config.f_abstol, s.config.max_iterations, false, false, false,
-                s.line_search, (x, A, b) -> linsolve!(s, x, A, b), s.cache)
+    res = newton_(s.DF, x, s.config.x_abstol, s.config.f_abstol, s.config.max_iterations, false, false, false,
+                  s.line_search, (x, A, b) -> linsolve!(s, x, A, b), s.cache)
 
     copyto!(x, res.zero)
 
-    s.status.i  = res.iterations
+    s.status.i = res.iterations
     s.status.rfₐ = res.residual_norm
 
     return x

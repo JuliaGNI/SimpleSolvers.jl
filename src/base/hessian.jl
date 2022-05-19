@@ -1,11 +1,11 @@
 
-abstract type HessianParameters{T} end
+abstract type Hessian{T} end
 
-initialize!(::HessianParameters) = nothing
+initialize!(::Hessian) = nothing
 
-compute_hessian!(h::AbstractMatrix, x::AbstractVector, hessian::HessianParameters) = hessian(h,x)
+compute_hessian!(h::AbstractMatrix, x::AbstractVector, hessian::Hessian) = hessian(h,x)
 
-function compute_hessian(x, hessian::HessianParameters)
+function compute_hessian(x, hessian::Hessian)
     h = alloc_h(x)
     hessian(h,x)
     return h
@@ -25,78 +25,81 @@ function print_hessian(H::AbstractMatrix)
 end
 
 
-struct HessianParametersUser{T, HT} <: HessianParameters{T}
+struct HessianUser{T, HT} <: Hessian{T}
     H!::HT
 end
 
-HessianParametersUser(H!::HT, ::AbstractVector{T}) where {T,HT} = HessianParametersUser{T,HT}(H!)
+HessianUser(H!::HT, ::AbstractVector{T}) where {T,HT} = HessianUser{T,HT}(H!)
 
-function (hes::HessianParametersUser{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+function (hes::HessianUser{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     hes.H!(H, x)
 end
 
 
-struct HessianParametersAD{T, FT, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: HessianParameters{T}
+struct HessianAD{T, FT, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
     H::HT
     Hconfig::CT
 
-    function HessianParametersAD{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
+    function HessianAD{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
         new{T, FT, HT, CT}(F, H, Hconfig)
     end
 end
 
-function HessianParametersAD(F::FT, x::AbstractVector{T}) where {T, FT}
+function HessianAD(F::Callable, x::AbstractVector{T}) where {T}
     Hconfig = ForwardDiff.HessianConfig(F, x)
-    HessianParametersAD{T}(F, alloc_h(x), Hconfig)
+    HessianAD{T}(F, alloc_h(x), Hconfig)
 end
 
-HessianParametersAD{T}(F, nx::Int) where {T} = HessianParametersAD{T}(F, zeros(T, nx))
+HessianAD(F::MultivariateObjective, x) = HessianAD(F.F, x)
 
-function (hes::HessianParametersAD{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+HessianAD{T}(F, nx::Int) where {T} = HessianAD{T}(F, zeros(T, nx))
+
+function (hes::HessianAD{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
 end
 
-function (hes::HessianParametersAD{T})(x::AbstractVector{T}) where {T}
+function (hes::HessianAD{T})(x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(hes.H, hes.F, x, hes.Hconfig)
 end
 
 function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT) where {T, FT}
-    hes = HessianParametersAD(F, x)
+    hes = HessianAD(F, x)
     hes(H,x)
 end
 
-initialize!(H::HessianParametersAD, x) = H(x)
-update!(H::HessianParametersAD, status) = H(status.x)
+initialize!(H::HessianAD, x) = H(x)
+update!(H::HessianAD, x::AbstractVector) = H(x)
 
-Base.inv(H::HessianParametersAD) = inv(H.H)
+Base.inv(H::HessianAD) = inv(H.H)
 
-Base.:\(H::HessianParametersAD, b) = H.H \ b
+Base.:\(H::HessianAD, b) = H.H \ b
 
-LinearAlgebra.ldiv!(x, H::HessianParametersAD, b) = x .= H \ b
+LinearAlgebra.ldiv!(x, H::HessianAD, b) = x .= H \ b
+# LinearAlgebra.ldiv!(x, H::HessianAD, b) = LinearAlgebra.ldiv!(x, H.H, b)
+# TODO: Make this work!
 
 
-
-function HessianParameters(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
+function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
-        Hparams = HessianParametersAD(ForH, x)
+        Hparams = HessianAD(ForH, x)
     else
-        Hparams = HessianParametersUser(ForH, x)
+        Hparams = HessianUser(ForH, x)
     end
     return Hparams
 end
 
-HessianParameters(H!, F, x::AbstractVector; kwargs...) where {T} = HessianParameters(H!, nx; mode = :user, kwargs...)
+Hessian(H!, F, x::AbstractVector; kwargs...) where {T} = Hessian(H!, nx; mode = :user, kwargs...)
 
-HessianParameters(H!::Nothing, F, x::AbstractVector; kwargs...) where {T} = HessianParameters(F, nx;  mode = :autodiff, kwargs...)
+Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) where {T} = Hessian(F, nx;  mode = :autodiff, kwargs...)
 
-HessianParameters{T}(ForH, nx::Int; kwargs...) where {T} = HessianParameters(ForH, zeros(T,nx); kwargs...)
+Hessian{T}(ForH, nx::Int; kwargs...) where {T} = Hessian(ForH, zeros(T,nx); kwargs...)
 
-HessianParameters{T}(H!, F, nx::Int; kwargs...) where {T} = HessianParameters(H!, nx; kwargs...)
+Hessian{T}(H!, F, nx::Int; kwargs...) where {T} = Hessian(H!, nx; kwargs...)
 
-HessianParameters{T}(H!::Nothing, F, nx::Int; kwargs...) where {T} = HessianParameters(F, nx; kwargs...)
+Hessian{T}(H!::Nothing, F, nx::Int; kwargs...) where {T} = Hessian(F, nx; kwargs...)
 
 function compute_hessian!(h::AbstractMatrix, x::AbstractVector, ForH; kwargs...)
-    hessian = HessianParameters(ForH, x; kwargs...)
+    hessian = Hessian(ForH, x; kwargs...)
     hessian(h,x)
 end

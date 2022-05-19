@@ -17,16 +17,18 @@ mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractObjective
     d_calls::Int
 end
 
-function UnivariateObjective(F, D, x::Number;
+function UnivariateObjective(F::Callable, D::Callable, x::Number;
                              f::Real = alloc_f(x),
                              d::Number = alloc_d(x))
     UnivariateObjective(F, D, f, d, alloc_x(x), alloc_x(x), 0, 0)
 end
 
-function UnivariateObjective(F, x::Number; kwargs...)
+function UnivariateObjective(F::Callable, x::Number; kwargs...)
     D = (x) -> ForwardDiff.derivative(F,x)
     UnivariateObjective(F, D, x; kwargs...)
 end
+
+UnivariateObjective(F::Callable, D::Nothing, x::Number; kwargs...) = UnivariateObjective(F, x; kwargs...)
 
 
 """
@@ -150,6 +152,7 @@ function MultivariateObjective(F, x::AbstractArray; kwargs...)
     MultivariateObjective(F, G, x; kwargs...)
 end
 
+MultivariateObjective(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateObjective(F, x; kwargs...)
 
 """
 Evaluates the objective value at `x`.
@@ -165,7 +168,7 @@ value(obj::MultivariateObjective) = obj.f
 
 """
 Force (re-)evaluation of the objective at `x`.
-Returns `f(x)` and stores the value in `obj.F`
+Returns `f(x)` and stores the value in `obj.f`
 """
 function value!!(obj::MultivariateObjective, x)
     copyto!(obj.x_f, x)

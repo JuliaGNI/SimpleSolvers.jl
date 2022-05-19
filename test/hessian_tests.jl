@@ -24,11 +24,11 @@ end
 H!(h,x)
 
 
-HPAD = HessianParameters{T}(F, n; mode = :autodiff)
-HPUS = HessianParameters{T}(H!, n; mode = :user)
+HPAD = Hessian{T}(F, n; mode = :autodiff)
+HPUS = Hessian{T}(H!, n; mode = :user)
 
-@test typeof(HPAD) <: HessianParametersAD
-@test typeof(HPUS) <: HessianParametersUser
+@test typeof(HPAD) <: HessianAD
+@test typeof(HPUS) <: HessianUser
 
 
 function test_hessian(h1, h2, atol)

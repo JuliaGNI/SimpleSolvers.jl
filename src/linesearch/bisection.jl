@@ -1,26 +1,6 @@
 
 
-const DEFAULT_BISECTION_xtol = 2eps()
-const DEFAULT_BISECTION_ftol = 2eps()
-
-"""
-simple bisection line search
-"""
-mutable struct Bisection{XT,YT,FT} <: LineSearch where {XT <: Number, YT <: Number, FT}
-
-    nmax::Int
-    xtol::XT
-    ftol::YT
-
-    f::FT
-
-    function Bisection(f; nmax=DEFAULT_LINESEARCH_nmax, xtol::XT=DEFAULT_BISECTION_xtol, ftol::YT=DEFAULT_BISECTION_ftol) where {XT,YT}
-        new{XT, YT, typeof(f)}(nmax, xtol, ftol, f)
-    end
-end
-
-
-function (ls::Bisection)(f, xmin::T, xmax::T) where {T}
+function bisection(f, xmin::T, xmax::T; config = Options()) where {T <: Number}
     local x₀ = xmin
     local x₁ = xmax
     local x  = zero(T)
@@ -33,11 +13,13 @@ function (ls::Bisection)(f, xmin::T, xmax::T) where {T}
 
     # y₀ * y₁ ≤ 0 || error("Either no or multiple real roots in [xmin,xmax]")
 
-    for _ in 1:ls.nmax
+    for j in 1:config.max_iterations
         x = (x₀ + x₁) / 2
         y = f(x)
 
-        !isapprox(y, zero(y), atol=ls.ftol) || break
+        # println("j = ", j, " , x₀ = ", x₀, " , x₁ = ", x₁)
+
+        !isapprox(y, zero(y), atol=config.f_abstol) || break
 
         if y₀ * y > 0
             x₀ = x  # Root is in the right half of [x₀,x₁].
@@ -47,23 +29,45 @@ function (ls::Bisection)(f, xmin::T, xmax::T) where {T}
             y₁ = y
         end
 
-        !isapprox(x₁ - x₀, zero(x), atol=ls.xtol) || break
+        !isapprox(x₁ - x₀, zero(x), atol=config.x_abstol) || break
     end
 
-    # println(j, " bisection iterations, λ=", λ, ", f(λ)=", fλ, ", ftol=", ftol, ", abs(b-a)=", abs(b-a), ", xtol=", xtol)
+    # println("α=", x, ", f(α)=", y, ", ftol=", config.f_abstol, ", abs(x₁-x₀)=", abs(x₁-x₀), ", xtol=", config.x_abstol)
 
     # i != ls.nmax || error("Max iteration number exceeded")
 
-    return x, y
+    return x
 end
 
-(ls::Bisection)(xmin, xmax) = ls(ls.f, xmin, xmax)
-(ls::Bisection)(x) = ls(bracket_minimum(ls.f, x)...)
-            
-solve!(x, f, g, x₀, x₁, ls::Bisection) = ls(x₀, x₁)
-solve!(x₀, x₁, ls::Bisection) = ls(x₀, x₁)
-solve!(x, f, g, ls::Bisection) = ls(x)
-solve!(x, ls::Bisection) = ls(x)
+bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
-bisection(f, x₀, x₁; kwargs...) = Bisection(f; kwargs...)(x₀, x₁)
-bisection(f, x; kwargs...) = Bisection(f; kwargs...)(x)
+
+"""
+simple bisection line search
+"""
+mutable struct BisectionState{OBJ,OPT} <: LinesearchState where {OBJ <: UnivariateObjective, OPT <: Options}
+    objective::OBJ
+    config::OPT
+
+    function BisectionState(objective, config)
+        new{typeof(objective), typeof(config)}(objective, config)
+    end
+end
+
+function BisectionState(objective::UnivariateObjective; config = Options())
+    BisectionState(objective, config)
+end
+
+function BisectionState(objective::MultivariateObjective; config = Options())
+    cache = LinesearchCache(objective.x_f)
+    ls_objective = linesearch_objective(objective, cache)
+    BisectionState(ls_objective, config)
+end
+
+Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
+
+LinesearchState(algorithm::Bisection, objective; kwargs...) = BisectionState(objective; kwargs...)
+
+function (ls::BisectionState)()
+    bisection(ls.objective, 0., 1.; config = ls.config)
+end
