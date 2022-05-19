@@ -11,4 +11,6 @@ LinesearchState(algorithm::Static, objective::AbstractObjective; kwargs...) = St
 
 Base.show(io::IO, ls::StaticState) = print(io, "Static")
 
-(ls::StaticState)(x, δx) = x .+= ls.alpha .* δx
+(ls::StaticState)() = ls.alpha
+
+(ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.alpha .* δx

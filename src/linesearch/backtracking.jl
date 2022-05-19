@@ -4,13 +4,11 @@ using Printf
 const DEFAULT_ARMIJO_α₀ = 1.0
 const DEFAULT_ARMIJO_σ₀ = 0.1
 const DEFAULT_ARMIJO_σ₁ = 0.5
-const DEFAULT_ARMIJO_ϵ  = 1E-4
 const DEFAULT_ARMIJO_p  = 0.5
 
-struct BacktrackingState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: AbstractObjective, OPT <: Options, LSC <: LinesearchCache, T <: Number}
+struct BacktrackingState{OBJ,OPT,T} <: LinesearchState where {OBJ <: AbstractObjective, OPT <: Options, T <: Number}
     objective::OBJ
     config::OPT
-    cache::LSC
 
     α₀::T
     ϵ::T
@@ -18,10 +16,9 @@ struct BacktrackingState{OBJ,OPT,LSC,T} <: LinesearchState where {OBJ <: Abstrac
 
     function BacktrackingState(objective; config = Options(),
                     α₀::T = DEFAULT_ARMIJO_α₀,
-                    ϵ::T = DEFAULT_ARMIJO_ϵ,
+                    ϵ::T = DEFAULT_WOLFE_ϵ,
                     p::T = DEFAULT_ARMIJO_p) where {T}
-        cache = LinesearchCache(objective.x_f)
-        new{typeof(objective), typeof(config), typeof(cache), T}(objective, config, cache, α₀, ϵ, p)
+        new{typeof(objective), typeof(config), T}(objective, config, α₀, ϵ, p)
     end
 end
 
@@ -40,12 +37,13 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking")
 LinesearchState(algorithm::Backtracking, objective; kwargs...) = BacktrackingState(objective; kwargs...)
 
 
-function (ls::BacktrackingState{<:UnivariateObjective})(xmin::T, xmax::T) where {T <: Number}
+function (ls::BacktrackingState{<:UnivariateObjective})()
     local α = ls.α₀
-    local y = value!(ls.objective, α)
+    local y₀ = value!(ls.objective, zero(α))
+    local d₀ = derivative!(ls.objective, zero(α))
 
-    for lsiter in 1:ls.config.max_iterations
-        if value!(ls.objective, α) ≥ (one(T) - ls.ϵ * α) * y
+    for _ in 1:ls.config.max_iterations
+        if value!(ls.objective, α) ≥ y₀ + ls.ϵ * α * d₀
             α *= ls.p
         else
             break
@@ -55,28 +53,4 @@ function (ls::BacktrackingState{<:UnivariateObjective})(xmin::T, xmax::T) where 
     return α
 end
 
-(ls::BacktrackingState)(x::Number) = ls(bracket_minimum(ls.objective, x)...)
-
-function (ls::BacktrackingState{<:MultivariateObjective})(x::T, δ::T) where {T <: AbstractVector}
-    update!(ls.cache, x, δ, gradient!(ls.objective, x))
-
-    local α = ls.α₀
-    local limit = value!(ls.objective, x) + ls.ϵ * α * ls.cache.g' * δ
-
-    ls.cache.x .= x .+ α .* δ
-
-    for lsiter in 1:ls.config.max_iterations
-        if value!(ls.objective, ls.cache.x) > limit
-            α *= ls.p
-            ls.cache.x .= x .+ α .* δ
-        else
-            break
-        end
-    end
-
-    x .+= α .* δ
-end
-
-(ls::BacktrackingState)(x, δ, args...; kwargs...) = ls(x, δ)
-
-backtracking(f, x, δx; kwargs...) = BacktrackingState(f, x; kwargs...)(x, δx)
+backtracking(f, x; kwargs...) = BacktrackingState(f, x; kwargs...)()

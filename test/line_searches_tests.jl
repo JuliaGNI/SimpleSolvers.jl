@@ -87,116 +87,229 @@ end
     @test x2 ≈ -1  atol=2eps()
 
 
-    x₀ = [-3.0]
-    x₁ = [+0.5]
-    xₛ = [-1.0]
-    δx = x₁ .- x₀
-    x  = copy(x₀)
+    # x₀ = [-3.0]
+    # x₁ = [+0.5]
+    # xₛ = [-1.0]
+    # δx = x₁ .- x₀
+    # x  = copy(x₀)
 
-    x_abstol = zero(eltype(x))
-    f_abstol = zero(F(x))
+    # x_abstol = zero(eltype(x))
+    # f_abstol = zero(F(x))
 
-    ls = Linesearch(x, F; algorithm = Bisection(), config = Options(x_abstol = x_abstol))
+    # ls = Linesearch(x, F; algorithm = Bisection(), config = Options(x_abstol = x_abstol))
 
-    x1 = copy(x₀)
-    x2 = copy(x₀)
-    x3 = copy(x₀)
+    # x1 = copy(x₀)
+    # x2 = copy(x₀)
+    # x3 = copy(x₀)
 
-    ls(x1, δx)
-    solve!(x2, δx, ls)
-    solve!(x3, δx, ls.state)
+    # ls(x1, δx)
+    # solve!(x2, δx, ls)
+    # solve!(x3, δx, ls.state)
 
-    @test x1 ≈ xₛ  atol=∛(2eps())
-    @test x2 ≈ xₛ  atol=∛(2eps())
-    @test x3 ≈ xₛ  atol=∛(2eps())
+    # @test x1 ≈ xₛ  atol=∛(2eps())
+    # @test x2 ≈ xₛ  atol=∛(2eps())
+    # @test x3 ≈ xₛ  atol=∛(2eps())
 
 
-    ls = Linesearch(x, F; algorithm = Bisection(), config = Options(f_abstol = f_abstol))
+    # ls = Linesearch(x, F; algorithm = Bisection(), config = Options(f_abstol = f_abstol))
 
-    x1 = copy(x₀)
-    x2 = copy(x₀)
-    x3 = copy(x₀)
+    # x1 = copy(x₀)
+    # x2 = copy(x₀)
+    # x3 = copy(x₀)
 
-    ls(x1, δx)
-    solve!(x2, δx, ls)
-    solve!(x3, δx, ls.state)
+    # ls(x1, δx)
+    # solve!(x2, δx, ls)
+    # solve!(x3, δx, ls.state)
 
-    @test x1 ≈ xₛ  atol=2eps()
-    @test x2 ≈ xₛ  atol=2eps()
-    @test x3 ≈ xₛ  atol=2eps()
+    # @test x1 ≈ xₛ  atol=2eps()
+    # @test x2 ≈ xₛ  atol=2eps()
+    # @test x3 ≈ xₛ  atol=2eps()
 
 end
 
 
 @testset "$(rpad("Backtracking",80))" begin
 
-    for (lsalg,lsfunc) in ((Backtracking, backtracking),)
-    # for (lsalg,lsfunc) in ((Backtracking, backtracking)
-    #                     (Quadratic, quadratic))
+    x₀ = -3.0
+    x₁ = +3.0
+    xₛ =  0.0
+    δx = x₁ .- x₀
 
-        x₀ = [-3.0]
-        x₁ = [+3.0]
-        xₛ = [ 0.0]
-        δx = x₁ .- x₀
-        x  = copy(x₀)
+    _f = α -> f(x₀ + α * δx)
+    _d = α -> g(x₀ + α * δx)
 
-        x1 = copy(x₀)
-        x2 = copy(x₀)
-        x3 = copy(x₀)
+    ls = Linesearch(x₀, _f; D = _d, algorithm = Backtracking(), config = Options(x_abstol = zero(x₀)))
+
+    α1 = ls()
+    # solve!(x2, δx, ls)
+    α2 = backtracking(_f, x₀; config = Options(x_abstol = zero(x₀)))
+    α3 = backtracking(_f, x₀; D = _d, config = Options(x_abstol = zero(x₀)))
+
+    x1 = x₀ + α1 * δx
+    x2 = x₀ + α2 * δx
+    x3 = x₀ + α3 * δx
+
+    @test x1 ≈ xₛ  atol=∛(2eps())
+    @test x2 ≈ xₛ  atol=∛(2eps())
+    @test x3 ≈ xₛ  atol=∛(2eps())
+
+
+
+    # x₀ = [-3.0]
+    # x₁ = [+3.0]
+    # xₛ = [ 0.0]
+    # δx = x₁ .- x₀
+    # x  = copy(x₀)
+
+    # x1 = copy(x₀)
+    # x2 = copy(x₀)
+    # x3 = copy(x₀)
+
+    # ls = Linesearch(x, F; algorithm = Backtracking(), config = Options(x_abstol = zero(eltype(x))))
+
+    # ls(x1, δx)
+    # solve!(x2, δx, ls)
+    # backtracking(F, x3, δx; config = Options(x_abstol = zero(eltype(x))))
+
+    # @test x1 ≈ xₛ  atol=∛(2eps())
+    # @test x2 ≈ xₛ  atol=∛(2eps())
+    # @test x3 ≈ xₛ  atol=∛(2eps())
     
-        ls = Linesearch(x, F; algorithm = lsalg(), config = Options(x_abstol = zero(eltype(x))))
 
-        ls(x1, δx)
-        solve!(x2, δx, ls)
-        lsfunc(F, x3, δx; config = Options(x_abstol = zero(eltype(x))))
+    # n = 1
+    # x₀ = -0.5*ones(n)
+    # x₁ = +1.0*ones(n)
+    # x  = copy(x₀)
+    # f  = zeros(n)
+    # g  = zeros(n,n)
+    # ls = Solver(F!, x, f)
+    
+    # F!(f,x)
+    # J!(g,x)
 
-        @test x1 ≈ xₛ  atol=∛(2eps())
-        @test x2 ≈ xₛ  atol=∛(2eps())
-        @test x3 ≈ xₛ  atol=∛(2eps())
+    # solve!(x, f, g, x₀, x₁, ls)
+
+    # F!(f,x)
+
+    # @test x ≈ zero(x) atol=4E-1
+    # @test f ≈ zero(f) atol=8E-2
+
+    # @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == SFunc(F!, x, f, g, x₀, x₁)
+
+
+    # n = 3
+    # x₀ = -ones(n)
+    # x₁ = +ones(n)
+    # x  = copy(x₀)
+    # f  = zeros(n)
+    # g  = zeros(n,n)
+    # ls = Solver(F!, x, f)
+    
+    # F!(f,x)
+    # J!(g,x)
+
+    # solve!(x, f, g, x₀, x₁, ls)
+
+    # F!(f,x)
+
+    # @test x == zero(x)
+    # @test f == zero(f)
+
+    # @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == SFunc(F!, x, f, g, x₀, x₁)
+
+end
+
+
+@testset "$(rpad("Polynomial Linesearch",80))" begin
+
+
+    x₀ = -3.0
+    x₁ = +3.0
+    xₛ =  0.0
+    δx = x₁ .- x₀
+
+    _f = α -> f(x₀ + α * δx)
+    _d = α -> g(x₀ + α * δx)
+
+    ls = Linesearch(x₀, _f; D = _d, algorithm = Quadratic(), config = Options(x_abstol = zero(x₀)), σ₀=0.5, σ₁=0.8)
+
+    α1 = ls()
+    # solve!(x2, δx, ls)
+    α2 = quadratic(_f, x₀; config = Options(x_abstol = zero(x₀)), σ₀=0.5, σ₁=0.8)
+    α3 = quadratic(_f, x₀; D = _d, config = Options(x_abstol = zero(x₀)), σ₀=0.5, σ₁=0.8)
+
+    x1 = x₀ + α1 * δx
+    x2 = x₀ + α2 * δx
+    x3 = x₀ + α3 * δx
+
+    @test x1 ≈ xₛ  atol=∛(2eps())
+    @test x2 ≈ xₛ  atol=∛(2eps())
+    @test x3 ≈ xₛ  atol=∛(2eps())
+
+
+
+
+    # x₀ = [-3.0]
+    # x₁ = [+3.0]
+    # xₛ = [ 0.0]
+    # δx = x₁ .- x₀
+    # x  = copy(x₀)
+
+    # x1 = copy(x₀)
+    # x2 = copy(x₀)
+    # x3 = copy(x₀)
+
+    # ls = Linesearch(x, F; algorithm = Quadratic(), config = Options(x_abstol = zero(eltype(x))))
+
+    # ls(x1, δx)
+    # solve!(x2, δx, ls)
+    # quadratic(F, x3, δx; config = Options(x_abstol = zero(eltype(x))))
+
+    # @test x1 ≈ xₛ  atol=∛(2eps())
+    # @test x2 ≈ xₛ  atol=∛(2eps())
+    # @test x3 ≈ xₛ  atol=∛(2eps())
     
 
-#         n = 1
-#         x₀ = -0.5*ones(n)
-#         x₁ = +1.0*ones(n)
-#         x  = copy(x₀)
-#         f  = zeros(n)
-#         g  = zeros(n,n)
-#         ls = Solver(F!, x, f)
-        
-#         F!(f,x)
-#         J!(g,x)
+    # n = 1
+    # x₀ = -0.5*ones(n)
+    # x₁ = +1.0*ones(n)
+    # x  = copy(x₀)
+    # f  = zeros(n)
+    # g  = zeros(n,n)
+    # ls = Solver(F!, x, f)
+    
+    # F!(f,x)
+    # J!(g,x)
 
-#         solve!(x, f, g, x₀, x₁, ls)
+    # solve!(x, f, g, x₀, x₁, ls)
 
-#         F!(f,x)
+    # F!(f,x)
 
-#         @test x ≈ zero(x) atol=4E-1
-#         @test f ≈ zero(f) atol=8E-2
+    # @test x ≈ zero(x) atol=4E-1
+    # @test f ≈ zero(f) atol=8E-2
 
-#         @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == SFunc(F!, x, f, g, x₀, x₁)
+    # @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == SFunc(F!, x, f, g, x₀, x₁)
 
 
-#         n = 3
-#         x₀ = -ones(n)
-#         x₁ = +ones(n)
-#         x  = copy(x₀)
-#         f  = zeros(n)
-#         g  = zeros(n,n)
-#         ls = Solver(F!, x, f)
-        
-#         F!(f,x)
-#         J!(g,x)
+    # n = 3
+    # x₀ = -ones(n)
+    # x₁ = +ones(n)
+    # x  = copy(x₀)
+    # f  = zeros(n)
+    # g  = zeros(n,n)
+    # ls = Solver(F!, x, f)
+    
+    # F!(f,x)
+    # J!(g,x)
 
-#         solve!(x, f, g, x₀, x₁, ls)
+    # solve!(x, f, g, x₀, x₁, ls)
 
-#         F!(f,x)
+    # F!(f,x)
 
-#         @test x == zero(x)
-#         @test f == zero(f)
+    # @test x == zero(x)
+    # @test f == zero(f)
 
-#         @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == SFunc(F!, x, f, g, x₀, x₁)
-
-    end
+    # @test solve!(x, f, g, x₀, x₁, ls) == ls(x, f, g, x₀, x₁) == SFunc(F!, x, f, g, x₀, x₁)
 
 end
 

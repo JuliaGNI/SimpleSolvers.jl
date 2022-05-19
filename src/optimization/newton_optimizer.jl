@@ -31,6 +31,21 @@ function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
     return cache
 end
 
+"create univariate objective for linesearch algorithm"
+function linesearch_objective(objective::MultivariateObjective, cache::NewtonOptimizerCache{T}) where {T}
+    function f(α)
+        cache.x .= cache.x̄ .+ α .* cache.δ
+        value(objective, cache.x)
+    end
+
+    function d(α)
+        cache.x .= cache.x̄ .+ α .* cache.δ
+        dot(gradient!(objective, cache.x), cache.δ)
+    end
+
+    UnivariateObjective(f, d, one(T))
+end
+
 
 struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: LinesearchState, NOC <: NewtonOptimizerCache} <: OptimizationAlgorithm
     objective::OBJ
@@ -46,14 +61,10 @@ end
 function NewtonOptimizerState(x::VT, objective::MultivariateObjective; hessian = HessianAD, linesearch = Bisection) where {XT, VT <: AbstractVector{XT}}
     cache = NewtonOptimizerCache(x)
     hess = hessian(objective, x)
-    ls = LinesearchState(linesearch, objective)
+    ls = LinesearchState(linesearch, linesearch_objective(objective, cache))
 
     NewtonOptimizerState(objective, hess, ls, cache)
 end
-
-# function NewtonOptimizerState(x::AbstractVector, objective::Function; kwargs...)
-#     NewtonOptimizerState(x, MultivariateObjective(); kwargs...)
-# end
 
 NewtonOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; kwargs...)
 BFGSOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianBFGS, kwargs...)
@@ -78,7 +89,7 @@ end
 # function solver_step!(opt::Optimizer{<:Newton})
 function solver_step!(x, newton::NewtonOptimizerState)
     # shortcuts
-    x̄ = cache(newton).x̄
+    # x̄ = cache(newton).x̄
     δ = cache(newton).δ
     g = cache(newton).g
 
@@ -90,10 +101,10 @@ function solver_step!(x, newton::NewtonOptimizerState)
 
     # solve H δx = - ∇f
     ldiv!(δ, hessian(newton), g)
-    δ .*= -1
+    rmul!(δ, -1)
 
     # apply line search
-    newton.linesearch(x, δ)
+    α = newton.linesearch()
 
-    return x
+    x .+= α .* δ
 end

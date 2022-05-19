@@ -45,30 +45,29 @@ bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwar
 """
 simple bisection line search
 """
-mutable struct BisectionState{OBJ,OPT,LSC} <: LinesearchState where {OBJ <: UnivariateObjective, OPT <: Options, LSC <: LinesearchCache}
+mutable struct BisectionState{OBJ,OPT} <: LinesearchState where {OBJ <: UnivariateObjective, OPT <: Options}
     objective::OBJ
     config::OPT
-    cache::LSC
 
-    function BisectionState(objective, config, cache)
-        new{typeof(objective), typeof(config), typeof(cache)}(objective, config, cache)
+    function BisectionState(objective, config)
+        new{typeof(objective), typeof(config)}(objective, config)
     end
+end
+
+function BisectionState(objective::UnivariateObjective; config = Options())
+    BisectionState(objective, config)
 end
 
 function BisectionState(objective::MultivariateObjective; config = Options())
     cache = LinesearchCache(objective.x_f)
     ls_objective = linesearch_objective(objective, cache)
-    BisectionState(ls_objective, config, cache)
+    BisectionState(ls_objective, config)
 end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
 LinesearchState(algorithm::Bisection, objective; kwargs...) = BisectionState(objective; kwargs...)
 
-function (ls::BisectionState)(x::T, δ::T) where {T <: AbstractVector}
-    update!(ls.cache, x, δ)
-    α = bisection(ls.objective, 0., 1.; config = ls.config)
-    x .+= α .* δ
+function (ls::BisectionState)()
+    bisection(ls.objective, 0., 1.; config = ls.config)
 end
-
-(ls::BisectionState)(x, δ, args...; kwargs...) = ls(x, δ)

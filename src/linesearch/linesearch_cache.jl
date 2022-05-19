@@ -16,6 +16,7 @@ function update!(cache::LinesearchCache, x̄::AbstractVector, δ::AbstractVector
     cache.δ .= δ
     return cache
 end
+
 function update!(cache::LinesearchCache, x̄::AbstractVector, δ::AbstractVector, g::AbstractVector)
     update!(cache, x̄, δ)
     cache.g .= g
@@ -31,11 +32,16 @@ function initialize!(cache::LinesearchCache, x::AbstractVector)
 end
 
 "create univariate objective for linesearch algorithm"
-function linesearch_objective(objective::MultivariateObjective, cache::LinesearchCache)
+function linesearch_objective(objective::MultivariateObjective, cache::LinesearchCache{T}) where {T}
     function f(α)
         cache.x .= cache.x̄ .+ α .* cache.δ
         value(objective, cache.x)
     end
 
-    UnivariateObjective(f, 1.)
+    function d(α)
+        cache.x .= cache.x̄ .+ α .* cache.δ
+        dot(gradient!(objective, cache.x), cache.δ)
+    end
+
+    UnivariateObjective(f, d, one(T))
 end

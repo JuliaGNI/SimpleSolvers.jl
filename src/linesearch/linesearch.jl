@@ -2,6 +2,8 @@
 const DEFAULT_LINESEARCH_nmax=100
 const DEFAULT_LINESEARCH_rmax=100
 
+const DEFAULT_WOLFE_ϵ  = 1E-4
+
 abstract type LinesearchState end
 
 LinesearchState(algorithm, f::Callable, x::Number; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
@@ -21,8 +23,8 @@ struct Linesearch{ALG <: LinesearchMethod, OBJ <: AbstractObjective, OPT <: Opti
     end
 end
 
-function Linesearch(x, objective::AbstractObjective; algorithm = Static(), config = Options())
-    state = LinesearchState(algorithm, objective)
+function Linesearch(x, objective::AbstractObjective; algorithm = Static(), config = Options(), kwargs...)
+    state = LinesearchState(algorithm, objective; kwargs...)
     Linesearch(algorithm, objective, config, state)
 end
 

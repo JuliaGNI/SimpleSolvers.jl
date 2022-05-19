@@ -19,9 +19,8 @@ include("optimizers_problems.jl")
 
 # function test_optimizer(opt) end
 
-
 for method in (Newton(), BFGS(), DFP())
-    for linesearch in (Static(0.8), Backtracking(), Bisection())
+    for linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
         n = 1
         x = ones(n)
         opt = Optimizer(x, F; algorithm = method, linesearch = linesearch)
@@ -30,14 +29,14 @@ for method in (Newton(), BFGS(), DFP())
         @test status(opt) == opt.result.status
 
         solve!(x, opt)
-        println(opt)
+        # println(opt)
         @test norm(minimizer(opt)) ≈ 0 atol=1E-7
         @test norm(minimum(opt)) ≈ F(0) atol=1E-7
 
         x = ones(n)
         opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = linesearch)
         solve!(x, opt)
-        println(opt)
+        # println(opt)
         @test norm(minimizer(opt)) ≈ 0 atol=1E-7
         @test norm(minimum(opt)) ≈ F(0) atol=1E-7
     end

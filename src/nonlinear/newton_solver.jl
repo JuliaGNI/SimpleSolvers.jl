@@ -3,11 +3,9 @@ struct NewtonSolver{T, AT, FT, TJ, TL, TS <: LinesearchState} <: AbstractNewtonS
     @newton_solver_variables
 
     function NewtonSolver{T,AT,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, linesearch, cache, config) where {T,AT,FT,TJ,TL,TS}
-        J  = zero(linear_solver.A)
-
         status = NonlinearSolverStatus{T}(length(x))
 
-        new(x, y, J, F!, Jparams, linear_solver, linesearch, cache, config, status)
+        new(x, y, F!, Jparams, linear_solver, linesearch, cache, config, status)
     end
 end
 
@@ -16,7 +14,7 @@ function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = nothi
     Jparams = JacobianParameters{T}(J!, F!, n)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
-    ls = LinesearchState(linesearch, linesearch_objective(F!, cache))
+    ls = LinesearchState(linesearch, linesearch_objective(F!, Jparams, cache))
     NewtonSolver{T, typeof(x), typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(ls)}(x, y, F!, Jparams, linear_solver, ls, cache, config)
 end
 
@@ -25,7 +23,7 @@ function solver_step!(s::NewtonSolver{T}) where {T}
     compute_jacobian!(s)
 
     # copy Jacobian into linear solver
-    s.linear.A .= s.J
+    s.linear.A .= s.cache.J
 
     # factorize linear solver
     factorize!(s.linear)
@@ -43,7 +41,8 @@ function solver_step!(s::NewtonSolver{T}) where {T}
     s.cache.δx .= s.linear.b
 
     # apply line search
-    s.linesearch(s.x, s.cache.δx)
+    α = s.linesearch()
+    s.x .+= α .* s.cache.δx
 
     # compute residual
     s.F!(s.y, s.x)
