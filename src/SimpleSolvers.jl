@@ -93,7 +93,6 @@ module SimpleSolvers
            Bisection, bisection,
            Quadratic, quadratic
 
-    include("linesearch/linesearch_cache.jl")
     include("linesearch/linesearch.jl")
     include("linesearch/static.jl")
     include("linesearch/backtracking.jl")
