@@ -19,32 +19,29 @@ function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = nothi
 end
 
 function solver_step!(s::NewtonSolver{T}) where {T}
+    # shortcuts
+    x = s.x
+    y = s.y
+    δ = s.cache.δx
+
     # compute Jacobian
     compute_jacobian!(s)
 
-    # copy Jacobian into linear solver
-    s.linear.A .= s.cache.J
-
     # factorize linear solver
-    factorize!(s.linear)
+    factorize!(s.linear, s.cache.J)
 
     # copy previous solution
-    s.cache.x₀ .= s.x
-
-    # b = - y₀
-    s.linear.b .= -s.y
+    s.cache.x₀ .= x
 
     # solve J δx = -f(x)
-    solve!(s.linear)
-
-    # δx = b
-    s.cache.δx .= s.linear.b
+    rmul!(y, -1)
+    ldiv!(δ, s.linear, y)
 
     # apply line search
     α = s.linesearch()
-    s.x .+= α .* s.cache.δx
+    x .+= α .* δ
 
     # compute residual
-    s.F!(s.y, s.x)
-    residual!(status(s), s.x, s.y)
+    s.F!(y, x)
+    residual!(status(s), x, y)
 end
