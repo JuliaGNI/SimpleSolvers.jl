@@ -115,6 +115,7 @@ module SimpleSolvers
     include("nonlinear/nlsolve_newton.jl")
 
     export Optimizer,
+           OptimizationAlgorithm,
            NewtonOptimizer,
            BFGSOptimizer,
            DFPOptimizer,

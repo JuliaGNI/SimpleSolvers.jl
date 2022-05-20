@@ -4,11 +4,17 @@ const SOLUTION_MAX_PRINT_LENGTH = 10
 
 abstract type OptimizationAlgorithm end
 
-solver_step!(alg::OptimizationAlgorithm) = error("solver_step! not implemented for $(typeof(alg))")
-hessian(alg::OptimizationAlgorithm, args...) = error("hessian not implemented for $(typeof(alg))")
-linesearch(alg::OptimizationAlgorithm, args...) = error("linesearch not implemented for $(typeof(alg))")
-update!(::OptimizerResult, alg::OptimizationAlgorithm) = error("update! not implemented for $(typeof(alg))")
-OptimizerState(alg::OptimizationAlgorithm, args...) = error("OptimizerState not implemented for $(typeof(alg))")
+gradient(alg::OptimizationAlgorithm) = error("gradient not implemented for $(typeof(alg))")
+hessian(alg::OptimizationAlgorithm) = error("hessian not implemented for $(typeof(alg))")
+linesearch(alg::OptimizationAlgorithm) = error("linesearch not implemented for $(typeof(alg))")
+objective(alg::OptimizationAlgorithm) = error("objective not implemented for $(typeof(alg))")
+
+initialize!(alg::OptimizationAlgorithm, ::AbstractVector) = error("initialize! not implemented for $(typeof(alg))")
+update!(alg::OptimizationAlgorithm, ::AbstractVector) = error("update! not implemented for $(typeof(alg))")
+solver_step!(::AbstractVector, alg::OptimizationAlgorithm) = error("solver_step! not implemented for $(typeof(alg))")
+
+OptimizerState(alg::OptimizationAlgorithm, args...; kwargs...) = error("OptimizerState not implemented for $(typeof(alg))")
+
 
 struct Optimizer{ALG <: NonlinearMethod,
                  OBJ <: MultivariateObjective,
