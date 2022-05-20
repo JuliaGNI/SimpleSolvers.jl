@@ -28,7 +28,7 @@ struct Optimizer{ALG <: NonlinearMethod,
     state::AST
 end
 
-function Optimizer(x::VT, objective::MultivariateObjective; algorithm = BFGS(), linesearch = Bisection(), config = Options()) where {XT, VT <: AbstractVector{XT}}
+function Optimizer(x::VT, objective::MultivariateObjective; algorithm = BFGS(), linesearch = Backtracking(), config = Options()) where {XT, VT <: AbstractVector{XT}}
     y = value(objective, x)
     result = OptimizerResult(x, y)
     astate = OptimizerState(algorithm, objective, x, y; linesearch = linesearch)
