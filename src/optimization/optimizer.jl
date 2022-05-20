@@ -1,19 +1,45 @@
 
 const SOLUTION_MAX_PRINT_LENGTH = 10
 
+"""
+An `OptimizationAlgorithm` is a datastructe that is used to dispatch on different algorithms.
 
+It needs to implement three important methods,
+```
+initialize!(alg::OptimizationAlgorithm, ::AbstractVector)
+update!(alg::OptimizationAlgorithm, ::AbstractVector)
+solver_step!(::AbstractVector, alg::OptimizationAlgorithm)
+```
+that initialize and update the state of the algorithm and perform an actual optimization step.
+
+Further the following convenience methods should be implemented,
+```
+objective(alg::OptimizationAlgorithm)
+gradient(alg::OptimizationAlgorithm)
+hessian(alg::OptimizationAlgorithm)
+linesearch(alg::OptimizationAlgorithm)
+```
+which return the objective to optimize, its gradient and (approximate) Hessian as well as the
+linesearch algorithm used in conjunction with the optimization algorithm if any.
+"""
 abstract type OptimizationAlgorithm end
 
-gradient(alg::OptimizationAlgorithm) = error("gradient not implemented for $(typeof(alg))")
-hessian(alg::OptimizationAlgorithm) = error("hessian not implemented for $(typeof(alg))")
-linesearch(alg::OptimizationAlgorithm) = error("linesearch not implemented for $(typeof(alg))")
-objective(alg::OptimizationAlgorithm) = error("objective not implemented for $(typeof(alg))")
-
-initialize!(alg::OptimizationAlgorithm, ::AbstractVector) = error("initialize! not implemented for $(typeof(alg))")
-update!(alg::OptimizationAlgorithm, ::AbstractVector) = error("update! not implemented for $(typeof(alg))")
-solver_step!(::AbstractVector, alg::OptimizationAlgorithm) = error("solver_step! not implemented for $(typeof(alg))")
-
 OptimizerState(alg::OptimizationAlgorithm, args...; kwargs...) = error("OptimizerState not implemented for $(typeof(alg))")
+
+"""
+Verifies if an object implements the [`OptimizationAlgorithm`](@ref) interface.
+"""
+function isaOptimizationAlgorithm(alg)
+    x = rand(3)
+
+    applicable(gradient, alg) &&
+    applicable(hessian, alg) &&
+    applicable(linesearch, alg) &&
+    applicable(objective, alg) &&
+    applicable(initialize!, alg, x) &&
+    applicable(update!, alg, x) &&
+    applicable(solver_step!, x, alg)
+end
 
 
 struct Optimizer{ALG <: NonlinearMethod,

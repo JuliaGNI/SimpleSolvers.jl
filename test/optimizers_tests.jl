@@ -11,15 +11,21 @@ struct OptimizerTest{T} <: OptimizationAlgorithm end
 
 test_optim = OptimizerTest{Float64}()
 test_x = zeros(3)
+test_obj = MultivariateObjective(F, test_x)
 
-@test_throws ErrorException gradient(test_optim)
-@test_throws ErrorException hessian(test_optim)
-@test_throws ErrorException linesearch(test_optim)
-@test_throws ErrorException objective(test_optim)
+@test_throws MethodError gradient(test_optim)
+@test_throws MethodError hessian(test_optim)
+@test_throws MethodError linesearch(test_optim)
+@test_throws MethodError objective(test_optim)
 
-@test_throws ErrorException initialize!(test_optim, test_x)
-@test_throws ErrorException update!(test_optim, test_x)
-@test_throws ErrorException solver_step!(test_x, test_optim)
+@test_throws MethodError initialize!(test_optim, test_x)
+@test_throws MethodError update!(test_optim, test_x)
+@test_throws MethodError solver_step!(test_x, test_optim)
+
+@test isaOptimizationAlgorithm(test_optim) == false
+@test isaOptimizationAlgorithm(NewtonOptimizer(test_x, test_obj)) == true
+@test isaOptimizationAlgorithm(BFGSOptimizer(test_x, test_obj)) == true
+@test isaOptimizationAlgorithm(DFPOptimizer(test_x, test_obj)) == true
 
 
 for method in (Newton(), BFGS(), DFP())
