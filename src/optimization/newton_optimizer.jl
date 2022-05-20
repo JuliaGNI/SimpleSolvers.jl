@@ -4,9 +4,10 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     x::AT
     δ::AT
     g::AT
+    rhs::AT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
-        new{T,AT}(zero(x), zero(x), zero(x), zero(x))
+        new{T,AT}(zero(x), zero(x), zero(x), zero(x), zero(x))
     end
 end
 
@@ -20,6 +21,7 @@ end
 function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVector)
     update!(cache, x)
     cache.g .= g
+    cache.rhs .= -g
     return cache
 end
 
@@ -28,6 +30,7 @@ function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
     cache.x .= x
     cache.δ .= eltype(x)(NaN)
     cache.g .= eltype(x)(NaN)
+    cache.rhs .= eltype(x)(NaN)
     return cache
 end
 
@@ -74,37 +77,38 @@ OptimizerState(algorithm::Newton, objective, x, y; kwargs...) = NewtonOptimizerS
 OptimizerState(algorithm::BFGS, objective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianBFGS, kwargs...)
 OptimizerState(algorithm::DFP, objective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianDFP, kwargs...)
 
-objective(newton::NewtonOptimizerState) = newton.objective
-hessian(newton::NewtonOptimizerState) = newton.hessian
 cache(newton::NewtonOptimizerState) = newton.cache
+direction(newton::NewtonOptimizerState) = cache(newton).δ
+gradient(newton::NewtonOptimizerState) = newton.cache.g
+hessian(newton::NewtonOptimizerState) = newton.hessian
 linesearch(newton::NewtonOptimizerState) = newton.linesearch
+objective(newton::NewtonOptimizerState) = newton.objective
+rhs(newton::NewtonOptimizerState) = newton.cache.rhs
 
 
 function initialize!(newton::NewtonOptimizerState, x::AbstractVector)
-    initialize!(hessian(newton), x)
     initialize!(cache(newton), x)
+    initialize!(hessian(newton), x)
 end
 
-
-# function solver_step!(opt::Optimizer{<:Newton})
-function solver_step!(x, newton::NewtonOptimizerState)
-    # shortcuts
-    # x̄ = cache(newton).x̄
-    δ = cache(newton).δ
-    g = cache(newton).g
-
-    # update cache
+function update!(newton::NewtonOptimizerState, x::AbstractVector)
     update!(cache(newton), x, gradient!(objective(newton), x))
-
-    # update Hessian
     update!(hessian(newton), x)
+end
+
+function solver_step!(x::AbstractVector, newton::NewtonOptimizerState)
+    # shortcut for Newton direction
+    δ = direction(newton)
+
+    # update cache and Hessian
+    update!(newton, x)
 
     # solve H δx = - ∇f
-    ldiv!(δ, hessian(newton), g)
-    rmul!(δ, -1)
+    ldiv!(δ, hessian(newton), rhs(newton))
 
     # apply line search
     α = newton.linesearch()
 
-    x .+= α .* δ
+    # compute new minimizer
+    x .= x .+ α .* δ
 end
