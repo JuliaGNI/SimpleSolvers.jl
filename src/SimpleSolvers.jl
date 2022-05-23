@@ -34,10 +34,10 @@ module SimpleSolvers
 
     include("base/options.jl")
 
-    export GradientParameters,
-           GradientParametersAD,
-           GradientParametersFD,
-           GradientParametersUser
+    export Gradient,
+           GradientAutodiff,
+           GradientFiniteDifferences,
+           GradientFunction
            
     export compute_gradient,
            compute_gradient!,

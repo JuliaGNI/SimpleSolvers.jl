@@ -148,7 +148,7 @@ function MultivariateObjective(F, G,
 end
 
 function MultivariateObjective(F, x::AbstractArray; kwargs...)
-    G = GradientParametersAD(F, x)
+    G = GradientAutodiff(F, x)
     MultivariateObjective(F, G, x; kwargs...)
 end
 

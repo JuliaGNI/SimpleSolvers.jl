@@ -21,13 +21,13 @@ function ∇F!(g::Vector, x::Vector)
 end
 
 
-∇PAD = GradientParameters{T}(F, n; mode = :autodiff, diff_type = :forward)
-∇PFD = GradientParameters{T}(F, n; mode = :autodiff, diff_type = :finite)
-∇PUS = GradientParameters{T}(∇F!, n; mode = :user)
+∇PAD = Gradient{T}(F, n; mode = :autodiff, diff_type = :forward)
+∇PFD = Gradient{T}(F, n; mode = :autodiff, diff_type = :finite)
+∇PUS = Gradient{T}(∇F!, n; mode = :user)
 
-@test typeof(∇PAD) <: GradientParametersAD
-@test typeof(∇PFD) <: GradientParametersFD
-@test typeof(∇PUS) <: GradientParametersUser
+@test typeof(∇PAD) <: GradientAutodiff
+@test typeof(∇PFD) <: GradientFiniteDifferences
+@test typeof(∇PUS) <: GradientFunction
 
 
 function test_grad(g1, g2, atol)
