@@ -25,66 +25,66 @@ function print_hessian(H::AbstractMatrix)
 end
 
 
-struct HessianUser{T, HT} <: Hessian{T}
+struct HessianFunction{T, HT} <: Hessian{T}
     H!::HT
 end
 
-HessianUser(H!::HT, ::AbstractVector{T}) where {T,HT} = HessianUser{T,HT}(H!)
+HessianFunction(H!::HT, ::AbstractVector{T}) where {T,HT} = HessianFunction{T,HT}(H!)
 
-function (hes::HessianUser{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+function (hes::HessianFunction{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     hes.H!(H, x)
 end
 
 
-struct HessianAD{T, FT, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
+struct HessianAutodiff{T, FT, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
     H::HT
     Hconfig::CT
 
-    function HessianAD{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
+    function HessianAutodiff{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
         new{T, FT, HT, CT}(F, H, Hconfig)
     end
 end
 
-function HessianAD(F::Callable, x::AbstractVector{T}) where {T}
+function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
     Hconfig = ForwardDiff.HessianConfig(F, x)
-    HessianAD{T}(F, alloc_h(x), Hconfig)
+    HessianAutodiff{T}(F, alloc_h(x), Hconfig)
 end
 
-HessianAD(F::MultivariateObjective, x) = HessianAD(F.F, x)
+HessianAutodiff(F::MultivariateObjective, x) = HessianAutodiff(F.F, x)
 
-HessianAD{T}(F, nx::Int) where {T} = HessianAD{T}(F, zeros(T, nx))
+HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff{T}(F, zeros(T, nx))
 
-function (hes::HessianAD{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+function (hes::HessianAutodiff{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
 end
 
-function (hes::HessianAD{T})(x::AbstractVector{T}) where {T}
+function (hes::HessianAutodiff{T})(x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(hes.H, hes.F, x, hes.Hconfig)
 end
 
 function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT) where {T, FT}
-    hes = HessianAD(F, x)
+    hes = HessianAutodiff(F, x)
     hes(H,x)
 end
 
-initialize!(H::HessianAD, x) = H(x)
-update!(H::HessianAD, x::AbstractVector) = H(x)
+initialize!(H::HessianAutodiff, x) = H(x)
+update!(H::HessianAutodiff, x::AbstractVector) = H(x)
 
-Base.inv(H::HessianAD) = inv(H.H)
+Base.inv(H::HessianAutodiff) = inv(H.H)
 
-Base.:\(H::HessianAD, b) = H.H \ b
+Base.:\(H::HessianAutodiff, b) = H.H \ b
 
-LinearAlgebra.ldiv!(x, H::HessianAD, b) = x .= H \ b
+LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
 # LinearAlgebra.ldiv!(x, H::HessianAD, b) = LinearAlgebra.ldiv!(x, H.H, b)
 # TODO: Make this work!
 
 
 function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
-        Hparams = HessianAD(ForH, x)
+        Hparams = HessianAutodiff(ForH, x)
     else
-        Hparams = HessianUser(ForH, x)
+        Hparams = HessianFunction(ForH, x)
     end
     return Hparams
 end

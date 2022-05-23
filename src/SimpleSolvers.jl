@@ -50,8 +50,8 @@ module SimpleSolvers
     include("base/gradient.jl")
 
     export Hessian,
-           HessianAD,
-           HessianUser
+           HessianAutodiff,
+           HessianFunction
 
     export compute_hessian,
            compute_hessian!,
