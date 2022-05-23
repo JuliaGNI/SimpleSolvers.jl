@@ -62,10 +62,10 @@ module SimpleSolvers
 
     include("base/hessian.jl")
 
-    export JacobianParameters,
-           JacobianParametersAD,
-           JacobianParametersFD,
-           JacobianParametersUser
+    export Jacobian,
+           JacobianAutodiff,
+           JacobianFiniteDifferences,
+           JacobianFunction
 
     export compute_jacobian!,
            compute_jacobian_ad!,
