@@ -27,8 +27,8 @@ H!(h,x)
 HPAD = Hessian{T}(F, n; mode = :autodiff)
 HPUS = Hessian{T}(H!, n; mode = :user)
 
-@test typeof(HPAD) <: HessianAD
-@test typeof(HPUS) <: HessianUser
+@test typeof(HPAD) <: HessianAutodiff
+@test typeof(HPUS) <: HessianFunction
 
 
 function test_hessian(h1, h2, atol)

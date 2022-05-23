@@ -21,13 +21,13 @@ function J!(g::Matrix, x::Vector)
 end
 
 
-JPAD = JacobianParameters{T}(F!, n; mode = :autodiff, diff_type = :forward)
-JPFD = JacobianParameters{T}(F!, n; mode = :autodiff, diff_type = :finite)
-JPUS = JacobianParameters{T}(J!, n; mode = :user)
+JPAD = Jacobian{T}(F!, n; mode = :autodiff, diff_type = :forward)
+JPFD = Jacobian{T}(F!, n; mode = :autodiff, diff_type = :finite)
+JPUS = Jacobian{T}(J!, n; mode = :user)
 
-@test typeof(JPAD) <: JacobianParametersAD
-@test typeof(JPFD) <: JacobianParametersFD
-@test typeof(JPUS) <: JacobianParametersUser
+@test typeof(JPAD) <: JacobianAutodiff
+@test typeof(JPFD) <: JacobianFiniteDifferences
+@test typeof(JPUS) <: JacobianFunction
 
 
 function test_jac(j1, j2, atol)

@@ -63,7 +63,7 @@ function Optimizer(x::VT, objective::MultivariateObjective; algorithm = BFGS(), 
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)
-    G = GradientParameters(∇F!, F, x)
+    G = Gradient(∇F!, F, x)
     objective = MultivariateObjective(F, G, x)
     Optimizer(x, objective; kwargs...)
 end

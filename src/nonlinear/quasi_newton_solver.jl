@@ -13,7 +13,7 @@ end
 
 function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = nothing, linesearch = Backtracking(), config = Options(), refactorize=5) where {T}
     n = length(y)
-    Jparams = JacobianParameters{T}(J!, F!, n)
+    Jparams = Jacobian{T}(J!, F!, n)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch, linesearch_objective(F!, Jparams, cache))

@@ -34,10 +34,10 @@ module SimpleSolvers
 
     include("base/options.jl")
 
-    export GradientParameters,
-           GradientParametersAD,
-           GradientParametersFD,
-           GradientParametersUser
+    export Gradient,
+           GradientAutodiff,
+           GradientFiniteDifferences,
+           GradientFunction
            
     export compute_gradient,
            compute_gradient!,
@@ -50,8 +50,8 @@ module SimpleSolvers
     include("base/gradient.jl")
 
     export Hessian,
-           HessianAD,
-           HessianUser
+           HessianAutodiff,
+           HessianFunction
 
     export compute_hessian,
            compute_hessian!,
@@ -62,10 +62,10 @@ module SimpleSolvers
 
     include("base/hessian.jl")
 
-    export JacobianParameters,
-           JacobianParametersAD,
-           JacobianParametersFD,
-           JacobianParametersUser
+    export Jacobian,
+           JacobianAutodiff,
+           JacobianFiniteDifferences,
+           JacobianFunction
 
     export compute_jacobian!,
            compute_jacobian_ad!,

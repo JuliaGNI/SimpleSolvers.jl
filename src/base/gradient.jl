@@ -2,11 +2,11 @@
 const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
 
 
-abstract type GradientParameters{T} end
+abstract type Gradient{T} end
 
-compute_gradient!(g::AbstractVector, x::AbstractVector, grad::GradientParameters) = grad(g,x)
+compute_gradient!(g::AbstractVector, x::AbstractVector, grad::Gradient) = grad(g,x)
 
-function compute_gradient(x, grad::GradientParameters)
+function compute_gradient(x, grad::Gradient)
     g = alloc_g(x)
     grad(g,x)
     return g
@@ -25,53 +25,53 @@ function print_gradient(g::AbstractVector)
 end
 
 
-struct GradientParametersUser{T, ∇T} <: GradientParameters{T}
+struct GradientFunction{T, ∇T} <: Gradient{T}
     ∇F!::∇T
 end
 
-function (grad::GradientParametersUser{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
+function (grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
     grad.∇F!(g, x)
 end
 
 
-struct GradientParametersAD{T, FT, ∇T <: ForwardDiff.GradientConfig} <: GradientParameters{T}
+struct GradientAutodiff{T, FT, ∇T <: ForwardDiff.GradientConfig} <: Gradient{T}
     F::FT
     ∇config::∇T
 
-    function GradientParametersAD(F::FT, x::VT) where {T, FT, VT <: AbstractVector{T}}
+    function GradientAutodiff(F::FT, x::VT) where {T, FT, VT <: AbstractVector{T}}
         ∇config = ForwardDiff.GradientConfig(F, x)
         new{T, FT, typeof(∇config)}(F, ∇config)
     end
 end
 
-function GradientParametersAD{T}(F::FT, nx::Int) where {T, FT}
-    GradientParametersAD(F, zeros(T, nx))
+function GradientAutodiff{T}(F::FT, nx::Int) where {T, FT}
+    GradientAutodiff(F, zeros(T, nx))
 end
 
-function (grad::GradientParametersAD{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
+function (grad::GradientAutodiff{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.gradient!(g, grad.F, x, grad.∇config)
 end
 
 function compute_gradient_ad!(g::AbstractVector{T}, x::AbstractVector{T}, F) where {T}
-    grad = GradientParametersAD{T}(F, length(x))
+    grad = GradientAutodiff{T}(F, length(x))
     grad(g,x)
 end
 
 
-struct GradientParametersFD{T, FT} <: GradientParameters{T}
+struct GradientFiniteDifferences{T, FT} <: Gradient{T}
     ϵ::T
     F::FT
     e::Vector{T}
     tx::Vector{T}
 end
 
-function GradientParametersFD{T}(F::FT, nx::Int; ϵ=DEFAULT_GRADIENT_ϵ) where {T, FT}
+function GradientFiniteDifferences{T}(F::FT, nx::Int; ϵ=DEFAULT_GRADIENT_ϵ) where {T, FT}
     e  = zeros(T, nx)
     tx = zeros(T, nx)
-    GradientParametersFD{T,FT}(ϵ, F, e, tx)
+    GradientFiniteDifferences{T,FT}(ϵ, F, e, tx)
 end
 
-function (grad::GradientParametersFD{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
+function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
     local ϵⱼ::T
 
     for j in eachindex(x,g)
@@ -87,33 +87,33 @@ function (grad::GradientParametersFD{T})(g::AbstractVector{T}, x::AbstractVector
 end
 
 function compute_gradient_fd!(g::AbstractVector{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
-    grad = GradientParametersFD{T}(F, length(x); kwargs...)
+    grad = GradientFiniteDifferences{T}(F, length(x); kwargs...)
     grad(g,x)
 end
 
 
-function GradientParameters{T}(ForG, nx::Int; mode = :autodiff, diff_type = :forward, kwargs...) where {T}
+function Gradient{T}(ForG, nx::Int; mode = :autodiff, diff_type = :forward, kwargs...) where {T}
     if mode == :autodiff
         if diff_type == :forward
-            Gparams = GradientParametersAD{T}(ForG, nx)
+            Gparams = GradientAutodiff{T}(ForG, nx)
         else
-            Gparams = GradientParametersFD{T}(ForG, nx; kwargs...)
+            Gparams = GradientFiniteDifferences{T}(ForG, nx; kwargs...)
         end
     else
-        Gparams = GradientParametersUser{T, typeof(ForG)}(ForG)
+        Gparams = GradientFunction{T, typeof(ForG)}(ForG)
     end
     return Gparams
 end
 
-GradientParameters{T}(∇F!, F, nx::Int; kwargs...) where {T} = GradientParameters{T}(∇F!, nx; mode = :user, kwargs...)
+Gradient{T}(∇F!, F, nx::Int; kwargs...) where {T} = Gradient{T}(∇F!, nx; mode = :user, kwargs...)
 
-GradientParameters{T}(∇F!::Nothing, F, nx::Int; kwargs...) where {T} = GradientParameters{T}(F, nx;  mode = :autodiff, kwargs...)
+Gradient{T}(∇F!::Nothing, F, nx::Int; kwargs...) where {T} = Gradient{T}(F, nx;  mode = :autodiff, kwargs...)
 
-GradientParameters(∇F!, F, x::AbstractVector{T}; kwargs...) where {T} = GradientParameters{T}(∇F!, F, length(x); kwargs...)
+Gradient(∇F!, F, x::AbstractVector{T}; kwargs...) where {T} = Gradient{T}(∇F!, F, length(x); kwargs...)
 
-GradientParameters(F, x::AbstractVector{T}; kwargs...) where {T} = GradientParameters{T}(F, length(x); kwargs...)
+Gradient(F, x::AbstractVector{T}; kwargs...) where {T} = Gradient{T}(F, length(x); kwargs...)
 
 function compute_gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG; kwargs...) where {T}
-    grad = GradientParameters{T}(ForG, length(x); kwargs...)
+    grad = Gradient{T}(ForG, length(x); kwargs...)
     grad(g,x)
 end
