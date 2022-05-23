@@ -4,10 +4,10 @@ struct QuasiNewtonSolver{T, AT, FT, TJ, TL, TS <: LinesearchState} <: AbstractNe
 
     refactorize::Int
 
-    function QuasiNewtonSolver{T,AT,FT,TJ,TL,TS}(x, y, F!, Jparams, linear_solver, linesearch, cache, config, refactorize) where {T,AT,FT,TJ,TL,TS}
-        status = NonlinearSolverStatus{T}(length(x))
+    function QuasiNewtonSolver{T,AT,FT,TJ,TL,TS}(x, F!, Jparams, linear_solver, linesearch, cache, config, refactorize) where {T,AT,FT,TJ,TL,TS}
+        status = NonlinearSolverStatus{T}(F!, length(x))
 
-        new(x, y, F!, Jparams, linear_solver, linesearch, cache, config, status, refactorize)
+        new(F!, Jparams, linear_solver, linesearch, cache, config, status, refactorize)
     end
 end
 
@@ -18,33 +18,31 @@ function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = 
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch, linesearch_objective(F!, Jparams, cache))
 
-    QuasiNewtonSolver{T, typeof(x), typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(ls)}(x, y, F!, Jparams, linear_solver, ls, cache, config, refactorize)
+    QuasiNewtonSolver{T, typeof(x), typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(ls)}(x, F!, Jparams, linear_solver, ls, cache, config, refactorize)
 end
 
-function solver_step!(s::QuasiNewtonSolver{T}) where {T}
+function solver_step!(x, s::QuasiNewtonSolver{T}) where {T}
     # shortcuts
-    x = s.x
-    y = s.y
+    rhs = s.cache.rhs
     δ = s.cache.δx
+
+    # update Newton solver cache
+    update!(s, x)
 
     # compute Jacobian and factorize
     if mod(s.status.i-1, s.refactorize) == 0
-        compute_jacobian!(s)
+        compute_jacobian!(s, x)
         factorize!(s.linear, s.cache.J)
     end
 
-    # copy previous solution
-    s.cache.x₀ .= x
+    # compute RHS
+    s.F!(rhs, x)
+    rmul!(rhs, -1)
 
     # solve J δx = -f(x)
-    rmul!(y, -1)
-    ldiv!(δ, s.linear, y)
+    ldiv!(δ, s.linear, rhs)
 
     # apply line search
     α = s.linesearch()
     x .+= α .* δ
-
-    # compute residual
-    s.F!(y, x)
-    residual!(status(s), x, y)
 end

@@ -1,20 +1,17 @@
 
 
-struct NewtonSolverCache{T, AT <: AbstractArray{T}}
-    x₀::Vector{T}
-    x₁::Vector{T}
-    δx::Vector{T}
-    
-    y₀::Vector{T}
-    y₁::Vector{T}
-    δy::Vector{T}
+struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
+    x₀::AT
+    x₁::AT
+    δx::AT
 
-    J::Matrix{T}
+    rhs::AT
+    y::AT
+    J::JT
 
     function NewtonSolverCache(x::AT, y::AT) where {T, AT <: AbstractArray{T}}
-        new{T,AT}(zero(x), zero(x), zero(x),
-                  zero(y), zero(y), zero(y),
-                  alloc_j(x,y))
+        J = alloc_j(x,y)
+        new{T, AT, typeof(J)}(zero(x), zero(x), zero(x), zero(y), zero(y), J)
     end
 end
 
@@ -29,9 +26,11 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
     cache.x₀ .= eltype(x)(NaN)
     cache.x₁ .= x
     cache.δx .= eltype(x)(NaN)
-    cache.y₀ .= eltype(x)(NaN)
-    cache.y₁ .= eltype(x)(NaN)
-    cache.δy .= eltype(x)(NaN)
+
+    cache.rhs .= eltype(x)(NaN)
+    cache.y .= eltype(x)(NaN)
+    cache.J .= eltype(x)(NaN)
+
     return cache
 end
 
@@ -39,15 +38,15 @@ end
 function linesearch_objective(objective!, jacobian!, cache::NewtonSolverCache{T}) where {T}
     function f(α)
         cache.x₁ .= cache.x₀ .+ α .* cache.δx
-        objective!(cache.y₁, cache.x₁)
-        l2norm(cache.y₁)
+        objective!(cache.y, cache.x₁)
+        l2norm(cache.y)
     end
 
     function d(α)
         cache.x₁ .= cache.x₀ .+ α .* cache.δx
-        objective!(cache.y₁, cache.x₁)
+        objective!(cache.y, cache.x₁)
         jacobian!(cache.J, cache.x₁)
-        -2*dot(cache.y₁, cache.J, cache.δx)
+        -2*dot(cache.y, cache.J, cache.δx)
     end
 
     UnivariateObjective(f, d, one(T))
@@ -58,11 +57,8 @@ abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
 
 
 @define newton_solver_variables begin
-    x::AT
-    y::AT
-
     F!::FT
-    Jparams::TJ
+    J!::TJ
 
     linear::TL
     linesearch::TS
@@ -72,15 +68,13 @@ abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
     status::NonlinearSolverStatus{T}
 end
 
+cache(solver::AbstractNewtonSolver) = solver.cache
 config(solver::AbstractNewtonSolver) = solver.config
 status(solver::AbstractNewtonSolver) = solver.status
 
-compute_jacobian!(s::AbstractNewtonSolver) = compute_jacobian!(s.cache.J, s.x, s.Jparams)
+compute_jacobian!(s::AbstractNewtonSolver, x) = compute_jacobian!(s.cache.J, x, s.J!)
 check_jacobian(s::AbstractNewtonSolver) = check_jacobian(s.J)
 print_jacobian(s::AbstractNewtonSolver) = print_jacobian(s.J)
 
-function initialize!(s::AbstractNewtonSolver{T}, x₀::Vector{T}) where {T}
-    copyto!(s.x, x₀)
-    s.F!(s.y, s.x)
-    initialize!(status(s), s.x, s.y)
-end
+initialize!(s::AbstractNewtonSolver, x₀::AbstractArray) = initialize!(status(s), x₀)
+update!(s::AbstractNewtonSolver, x₀::AbstractArray) = update!(cache(s), x₀)
