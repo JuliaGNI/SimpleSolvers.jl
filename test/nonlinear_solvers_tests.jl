@@ -48,15 +48,15 @@ for (Solver, kwarguments) in (
 
     solve!(x, nl)
     # println(status(nl))
-    for x in nl.x
-        @test x ≈ 0 atol=1E-7
+    for _x in x
+        @test _x ≈ 0 atol=1E-7
     end
 
     x = ones(n)
     nl = Solver(x, y, F!; J! = J!, kwarguments...)
     solve!(x, nl)
     # println(status(nl))
-    for x in nl.x
-        @test x ≈ 0 atol=1E-7
+    for _x in x
+        @test _x ≈ 0 atol=1E-7
     end
 end

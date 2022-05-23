@@ -1,5 +1,7 @@
 
-mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
+mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
+    system::ST    # system of nonlinear equations
+
     i::Int        # iteration number
 
     rxₐ::XT       # residual (absolute)
@@ -20,13 +22,14 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     g_converged::Bool
     f_increased::Bool
 
-    NonlinearSolverStatus{T}(n) where {T} = new{T,T,Vector{T},Vector{T}}(
-        0, 0, 0, 0, 0,
+    NonlinearSolverStatus{T}(system::ST, n) where {T,ST} = new{T,T,Vector{T},Vector{T},ST}(
+        system, 0, 0, 0, 0, 0,
         zeros(T,n), zeros(T,n), zeros(T,n),
         zeros(T,n), zeros(T,n), zeros(T,n),
         false, false, false, false)
 end
 
+system(status::NonlinearSolverStatus) = status.system
 solution(status::NonlinearSolverStatus) = status.x
 
 function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
@@ -143,7 +146,6 @@ function residual_successive!(status::NonlinearSolverStatus{T}, δx::Vector{T}, 
     status.rₛ = norm(δx) / norm(x)
 end
 
-
 function residual!(status::NonlinearSolverStatus)
     status.rxₐ = norm(status.δ)
     status.rxᵣ = status.rxₐ / norm(status.x)
@@ -152,26 +154,24 @@ function residual!(status::NonlinearSolverStatus)
 end
 
 
-function residual!(status::NonlinearSolverStatus, x, f)
-    copyto!(status.x, x)
-    copyto!(status.f, f)
-
-    status.δ .= status.x - status.x̄
-    status.γ .= status.f - status.f̄
-
-    residual!(status)
-end
-
-function initialize!(status::NonlinearSolverStatus, x, f)
+function initialize!(status::NonlinearSolverStatus, x)
     clear!(status)
-    status.x̄ .= status.x .= x
-    status.f̄ .= status.f .= f
-    status.δ .= 0
-    status.γ .= 0
+    copyto!(status.x, x)
+    status.system(status.f, x)
 end
 
 function next_iteration!(status::NonlinearSolverStatus)
     increase_iteration_number!(status)
     status.x̄ .= status.x
     status.f̄ .= status.f
+    status.δ .= 0
+    status.γ .= 0
+end
+
+function update!(status::NonlinearSolverStatus, x)
+    copyto!(status.x, x)
+    status.system(status.f, x)
+
+    status.δ .= status.x - status.x̄
+    status.γ .= status.f - status.f̄
 end

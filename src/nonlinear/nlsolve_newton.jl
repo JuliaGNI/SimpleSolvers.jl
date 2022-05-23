@@ -21,7 +21,7 @@ struct NLsolveNewton{T, AT, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T,AT}
     function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, J::AbstractMatrix{T},
                     F!::FT, DF::DT, cache::CT, line_search::ST, linear_solver::LT, config = Options()) where {T,FT,DT,CT,ST,LT}
 
-        status = NonlinearSolverStatus{T}(length(x))
+        status = NonlinearSolverStatus{T}(F!, length(x))
 
         new{T,typeof(x),FT,DT,CT,ST,LT}(x, f, J, F!, DF, line_search, linear_solver, cache, config, status)
     end

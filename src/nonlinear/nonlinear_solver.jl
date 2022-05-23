@@ -5,7 +5,7 @@ abstract type NonlinearSolver end
 
 config(s::NonlinearSolver) = error("config not implemented for $(typeof(s))")
 status(s::NonlinearSolver) = error("status not implemented for $(typeof(s))")
-initialize!(s::NonlinearSolver, x₀::AbstractArray) = error("initialize! not implemented for $(typeof(s))")
+initialize!(s::NonlinearSolver, ::AbstractArray) = error("initialize! not implemented for $(typeof(s))")
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
 
@@ -14,13 +14,12 @@ function solve!(x, s::NonlinearSolver)
 
     while !meets_stopping_criteria(status(s), config(s))
         next_iteration!(status(s))
-        solver_step!(s)
-        # residual!(status(s))
+        solver_step!(x, s)
+        update!(status(s), x)
+        residual!(status(s))
     end
 
     warn_iteration_number(status(s), config(s))
-
-    copyto!(x, solution(status(s)))
 
     return x
 end
