@@ -13,4 +13,4 @@ Base.show(io::IO, ls::StaticState) = print(io, "Static")
 
 (ls::StaticState)() = ls.alpha
 
-(ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.alpha .* δx
+# (ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.alpha .* δx

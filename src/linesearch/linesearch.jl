@@ -7,10 +7,10 @@ const DEFAULT_WOLFE_ϵ  = 1E-4
 abstract type LinesearchState end
 
 LinesearchState(algorithm, f::Callable, x::Number; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
-LinesearchState(algorithm, f::Callable, x::AbstractVector; kwargs...) = LinesearchState(algorithm, MultivariateObjective(f, x); kwargs...)
+# LinesearchState(algorithm, f::Callable, x::AbstractVector; kwargs...) = LinesearchState(algorithm, MultivariateObjective(f, x); kwargs...)
 
-solve!(x, δx, ls::LinesearchState) = ls(x, δx)
-solve!(x, δx, g, ls::LinesearchState) = ls(x, δx, g)
+# solve!(x, δx, ls::LinesearchState) = ls(x, δx)
+# solve!(x, δx, g, ls::LinesearchState) = ls(x, δx, g)
 
 struct Linesearch{ALG <: LinesearchMethod, OBJ <: AbstractObjective, OPT <: Options, OST <: LinesearchState}
     algorithm::ALG
@@ -33,10 +33,10 @@ function Linesearch(x::Number, F::Callable; D = nothing, kwargs...)
     Linesearch(x, objective; kwargs...)
 end
 
-function Linesearch(x::AbstractVector, F::Callable; D = nothing, kwargs...)
-    objective = MultivariateObjective(F, D, x)
-    Linesearch(x, objective; kwargs...)
-end
+# function Linesearch(x::AbstractVector, F::Callable; D = nothing, kwargs...)
+#     objective = MultivariateObjective(F, D, x)
+#     Linesearch(x, objective; kwargs...)
+# end
 
 
 (ls::Linesearch)(args...) = ls.state(args...)

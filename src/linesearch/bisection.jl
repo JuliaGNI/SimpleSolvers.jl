@@ -58,11 +58,11 @@ function BisectionState(objective::UnivariateObjective; config = Options())
     BisectionState(objective, config)
 end
 
-function BisectionState(objective::MultivariateObjective; config = Options())
-    cache = LinesearchCache(objective.x_f)
-    ls_objective = linesearch_objective(objective, cache)
-    BisectionState(ls_objective, config)
-end
+# function BisectionState(objective::MultivariateObjective; config = Options())
+#     cache = LinesearchCache(objective.x_f)
+#     ls_objective = linesearch_objective(objective, cache)
+#     BisectionState(ls_objective, config)
+# end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 

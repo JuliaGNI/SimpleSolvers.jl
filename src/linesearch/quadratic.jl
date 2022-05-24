@@ -19,10 +19,10 @@ struct QuadraticState{OBJ,OPT,T} <: LinesearchState where {OBJ <: AbstractObject
     end
 end
 
-function QuadraticState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
-    objective = MultivariateObjective(F, D, x)
-    QuadraticState(objective; kwargs...)
-end
+# function QuadraticState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
+#     objective = MultivariateObjective(F, D, x)
+#     QuadraticState(objective; kwargs...)
+# end
 
 function QuadraticState(F::Callable, x::Number; D = nothing, kwargs...)
     objective = UnivariateObjective(F, D, x)

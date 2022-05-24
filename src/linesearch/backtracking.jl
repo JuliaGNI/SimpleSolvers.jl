@@ -27,10 +27,10 @@ function BacktrackingState(F::Callable, x::Number = DEFAULT_ARMIJO_α₀; D = no
     BacktrackingState(objective; kwargs...)
 end
 
-function BacktrackingState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
-    objective = MultivariateObjective(F, D, x)
-    BacktrackingState(objective; kwargs...)
-end
+# function BacktrackingState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
+#     objective = MultivariateObjective(F, D, x)
+#     BacktrackingState(objective; kwargs...)
+# end
 
 Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking")
 
