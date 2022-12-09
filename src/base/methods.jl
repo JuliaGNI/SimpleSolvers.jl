@@ -9,6 +9,7 @@ abstract type DirectMethod <: LinearMethod end
 abstract type IterativeMethod <: LinearMethod end
 
 abstract type NewtonMethod <: NonlinearMethod end
+abstract type PicardMethod <: NonlinearMethod end
 abstract type LinesearchMethod <: NonlinearMethod end
 
 struct Newton <: NewtonMethod end
