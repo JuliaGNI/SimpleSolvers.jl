@@ -15,7 +15,12 @@ module SimpleSolvers
     export algorithm, objective
     export solution, minimizer, minimum
     
-    export Newton, DFP, BFGS
+    export SolverMethod
+    export BracketingMethod
+    export LinearMethod, DirectMethod, IterativeMethod
+    export NonlinearMethod, PicardMethod, LinesearchMethod
+
+    export NewtonMethod, Newton, DFP, BFGS
 
     include("base/methods.jl")
 
