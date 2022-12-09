@@ -1,9 +1,9 @@
 
-abstract type Method end
+abstract type SolverMethod end
 
-abstract type BracketingMethod <: Method end
-abstract type LinearMethod <: Method end
-abstract type NonlinearMethod <: Method end
+abstract type BracketingMethod <: SolverMethod end
+abstract type LinearMethod <: SolverMethod end
+abstract type NonlinearMethod <: SolverMethod end
 
 abstract type DirectMethod <: LinearMethod end
 abstract type IterativeMethod <: LinearMethod end
