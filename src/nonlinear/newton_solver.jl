@@ -2,20 +2,20 @@
 struct NewtonSolver{T, AT, FT, TJ, TL, TS <: LinesearchState} <: AbstractNewtonSolver{T,AT}
     @newton_solver_variables
 
-    function NewtonSolver{T,AT,FT,TJ,TL,TS}(x, F!, Jparams, linear_solver, linesearch, cache, config) where {T,AT,FT,TJ,TL,TS}
+    function NewtonSolver{T,AT,FT,TJ,TL,TS}(x, F!, jacobian, linear_solver, linesearch, cache, config) where {T,AT,FT,TJ,TL,TS}
         status = NonlinearSolverStatus{T}(F!, length(x))
 
-        new(F!, Jparams, linear_solver, linesearch, cache, config, status)
+        new(F!, jacobian, linear_solver, linesearch, cache, config, status)
     end
 end
 
 function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = nothing, linesearch = Backtracking(), config = Options()) where {T}
     n = length(y)
-    Jparams = Jacobian{T}(J!, F!, n)
+    jacobian = Jacobian{T}(J!, F!, n)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
-    ls = LinesearchState(linesearch, linesearch_objective(F!, Jparams, cache))
-    NewtonSolver{T, typeof(x), typeof(F!), typeof(Jparams), typeof(linear_solver), typeof(ls)}(x, F!, Jparams, linear_solver, ls, cache, config)
+    ls = LinesearchState(linesearch, linesearch_objective(F!, jacobian, cache))
+    NewtonSolver{T, typeof(x), typeof(F!), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, F!, jacobian, linear_solver, ls, cache, config)
 end
 
 function solver_step!(x, s::NewtonSolver{T}) where {T}

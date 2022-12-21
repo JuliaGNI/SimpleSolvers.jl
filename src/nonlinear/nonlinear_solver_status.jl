@@ -11,7 +11,7 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
 
     x::AXT        # initial solution
     x̄::AXT        # previous solution
-    δ::AXT        # 
+    δ::AXT        # change in solution
 
     f::AYT        # initial function
     f̄::AYT        # previous function
@@ -22,8 +22,8 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
     g_converged::Bool
     f_increased::Bool
 
-    NonlinearSolverStatus{T}(system::ST, n) where {T,ST} = new{T,T,Vector{T},Vector{T},ST}(
-        system, 0, 0, 0, 0, 0,
+    NonlinearSolverStatus{T}(system::ST, n::Int) where {T,ST} = new{T,T,Vector{T},Vector{T},ST}(
+        system, 0, zero(T), zero(T), zero(T), zero(T),
         zeros(T,n), zeros(T,n), zeros(T,n),
         zeros(T,n), zeros(T,n), zeros(T,n),
         false, false, false, false)
@@ -126,8 +126,9 @@ end
 
 function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
     if config.warn_iterations > 0 && status.i ≥ config.warn_iterations
-        println("WARNING: Solver took ", status.i, " iterations.")
+        @warn "Solver took $(status.i) iterations."
     end
+    nothing
 end
 
 
@@ -151,6 +152,7 @@ function residual!(status::NonlinearSolverStatus)
     status.rxᵣ = status.rxₐ / norm(status.x)
     status.rfₐ = norm(status.γ)
     status.rfᵣ = status.rfₐ / norm(status.f)
+    nothing
 end
 
 
@@ -158,6 +160,8 @@ function initialize!(status::NonlinearSolverStatus, x)
     clear!(status)
     copyto!(status.x, x)
     status.system(status.f, x)
+    
+    return status
 end
 
 function next_iteration!(status::NonlinearSolverStatus)
@@ -166,6 +170,8 @@ function next_iteration!(status::NonlinearSolverStatus)
     status.f̄ .= status.f
     status.δ .= 0
     status.γ .= 0
+    
+    return status
 end
 
 function update!(status::NonlinearSolverStatus, x)
@@ -174,4 +180,6 @@ function update!(status::NonlinearSolverStatus, x)
 
     status.δ .= status.x - status.x̄
     status.γ .= status.f - status.f̄
+    
+    return status
 end

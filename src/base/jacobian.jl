@@ -128,7 +128,7 @@ Jacobian{T}(J!::Nothing, F!, nx, ny; kwargs...) where {T} = Jacobian{T}(F!, nx, 
 
 Jacobian{T}(J!, F!, n; kwargs...) where {T} = Jacobian{T}(J!, F!, n, n; kwargs...)
 
-function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ; kwargs...) where {T}
+function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable; kwargs...) where {T}
     jacobian = Jacobian{T}(ForJ, size(j,1), size(j,2); kwargs...)
     jacobian(j,x)
 end

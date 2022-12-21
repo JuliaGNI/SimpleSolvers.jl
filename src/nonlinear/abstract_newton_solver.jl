@@ -58,7 +58,8 @@ abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
 
 @define newton_solver_variables begin
     F!::FT
-    J!::TJ
+
+    jacobian::TJ
 
     linear::TL
     linesearch::TS
@@ -72,9 +73,9 @@ cache(solver::AbstractNewtonSolver) = solver.cache
 config(solver::AbstractNewtonSolver) = solver.config
 status(solver::AbstractNewtonSolver) = solver.status
 
-compute_jacobian!(s::AbstractNewtonSolver, x) = compute_jacobian!(s.cache.J, x, s.J!)
-check_jacobian(s::AbstractNewtonSolver) = check_jacobian(s.J)
-print_jacobian(s::AbstractNewtonSolver) = print_jacobian(s.J)
+compute_jacobian!(s::AbstractNewtonSolver, x) = s.jacobian(s.cache.J, x)
+check_jacobian(s::AbstractNewtonSolver) = check_jacobian(s.jacobian)
+print_jacobian(s::AbstractNewtonSolver) = print_jacobian(s.jacobian)
 
 initialize!(s::AbstractNewtonSolver, x₀::AbstractArray) = initialize!(status(s), x₀)
 update!(s::AbstractNewtonSolver, x₀::AbstractArray) = update!(cache(s), x₀)
