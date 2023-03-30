@@ -6,8 +6,11 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
 
     rxₐ::XT       # residual (absolute)
     rxᵣ::XT       # residual (relative)
+    rxₛ::XT       # residual (successive)
+
     rfₐ::YT       # residual (absolute)
     rfᵣ::YT       # residual (relative)
+    rfₛ::YT       # residual (successive)
 
     x::AXT        # initial solution
     x̄::AXT        # previous solution
@@ -23,7 +26,9 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
     f_increased::Bool
 
     NonlinearSolverStatus{T}(system::ST, n::Int) where {T,ST} = new{T,T,Vector{T},Vector{T},ST}(
-        system, 0, zero(T), zero(T), zero(T), zero(T),
+        system, 0, 
+        zero(T), zero(T), zero(T),
+        zero(T), zero(T), zero(T),
         zeros(T,n), zeros(T,n), zeros(T,n),
         zeros(T,n), zeros(T,n), zeros(T,n),
         false, false, false, false)
@@ -37,8 +42,11 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
 
     status.rxₐ = XT(NaN)
     status.rxᵣ = XT(NaN)
+    status.rxₛ = XT(NaN)
+    
     status.rfₐ = YT(NaN)
     status.rfᵣ = YT(NaN)
+    status.rfₛ = YT(NaN)
 
     status.x̄ .= XT(NaN)
     status.x .= XT(NaN)
@@ -73,10 +81,12 @@ isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_conv
 
 function assess_convergence!(status::NonlinearSolverStatus, config::Options)
     x_converged = status.rxₐ ≤ config.x_abstol ||
-                  status.rxᵣ ≤ config.x_reltol
+                  status.rxᵣ ≤ config.x_reltol ||
+                  status.rxₛ ≤ config.x_suctol
     
     f_converged = status.rfₐ ≤ config.f_abstol ||
-                  status.rfᵣ ≤ config.f_reltol
+                  status.rfᵣ ≤ config.f_reltol ||
+                  status.rfₛ ≤ config.f_suctol
 
     status.x_converged = x_converged
     status.f_converged = f_converged
@@ -148,10 +158,14 @@ function residual_successive!(status::NonlinearSolverStatus{T}, δx::Vector{T}, 
 end
 
 function residual!(status::NonlinearSolverStatus)
-    status.rxₐ = norm(status.δ)
+    status.rxₐ = norm(status.x)
     status.rxᵣ = status.rxₐ / norm(status.x)
-    status.rfₐ = norm(status.γ)
+    status.rxₛ = norm(status.δ)
+
+    status.rfₐ = norm(status.f)
     status.rfᵣ = status.rfₐ / norm(status.f)
+    status.rfₛ = norm(status.γ)
+
     nothing
 end
 
