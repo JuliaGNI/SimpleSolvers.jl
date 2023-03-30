@@ -29,8 +29,10 @@ verbosity::Int = 1
 struct Options{T}
     x_abstol::T
     x_reltol::T
+    x_suctol::T
     f_abstol::T
     f_reltol::T
+    f_suctol::T
     f_mindec::T
     g_restol::T
     x_abstol_break::T
@@ -56,10 +58,12 @@ function Options(;
         x_tol = nothing,
         f_tol = nothing,
         g_tol = nothing,
-        x_abstol::Real = 1e-50,
+        x_abstol::Real = -Inf,
         x_reltol::Real = 2eps(),
+        x_suctol::Real = -Inf,
         f_abstol::Real = 1e-50,
         f_reltol::Real = 2eps(),
+        f_suctol::Real = -Inf,
         f_mindec::Real = 1e-4,
         g_restol::Real = sqrt(eps()),
         x_abstol_break::Real = Inf,
@@ -95,7 +99,7 @@ function Options(;
         f_reltol = f_tol
     end
 
-    Options(promote(x_abstol, x_reltol, f_abstol, f_reltol, f_mindec, g_restol,
+    Options(promote(x_abstol, x_reltol, x_suctol, f_abstol, f_reltol, f_suctol, f_mindec, g_restol,
                     x_abstol_break, x_reltol_break, f_abstol_break, f_reltol_break, g_restol_break)...,
         f_calls_limit, g_calls_limit, h_calls_limit, allow_f_increases, min_iterations, max_iterations, warn_iterations,
         show_trace, store_trace, extended_trace, show_every, verbosity)
@@ -114,8 +118,10 @@ end
 
 x_abstol(o::Options) = o.x_abstol
 x_reltol(o::Options) = o.x_reltol
+x_suctol(o::Options) = o.x_suctol
 f_abstol(o::Options) = o.f_abstol
 f_reltol(o::Options) = o.f_reltol
+f_suctol(o::Options) = o.f_suctol
 f_mindec(o::Options) = o.f_mindec
 g_restol(o::Options) = o.g_restol
 
