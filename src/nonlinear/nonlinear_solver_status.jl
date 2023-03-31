@@ -142,29 +142,14 @@ function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
 end
 
 
-function residual_absolute!(status::NonlinearSolverStatus{T}, y::Vector{T}) where {T}
-    @assert length(y) == length(status.y₀)
-    status.rₐ = maxnorm(y)
-end
-
-function residual_relative!(status::NonlinearSolverStatus{T}, y::Vector{T}) where {T}
-    @assert length(y) == length(status.yₚ)
-    status.rᵣ = norm(y .- status.yₚ) / norm(status.yₚ)
-end
-
-function residual_successive!(status::NonlinearSolverStatus{T}, δx::Vector{T}, x::Vector{T}) where {T}
-    @assert length(δx) == length(x)
-    status.rₛ = norm(δx) / norm(x)
-end
-
 function residual!(status::NonlinearSolverStatus)
     status.rxₐ = norm(status.x)
     status.rxᵣ = status.rxₐ / norm(status.x)
-    status.rxₛ = norm(status.δ)
+    status.rxₛ = norm(status.δ / status.x)
 
     status.rfₐ = norm(status.f)
     status.rfᵣ = status.rfₐ / norm(status.f)
-    status.rfₛ = norm(status.γ)
+    status.rfₛ = norm(status.γ / status.f)
 
     nothing
 end
