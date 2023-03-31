@@ -5,12 +5,11 @@ struct StaticState{T} <: LinesearchState
 end
 
 StaticState(args...; alpha = 1.0, kwargs...) = StaticState(alpha)
-StaticState(::AbstractObjective; alpha = 1.0, kwargs...) = StaticState(alpha)
 
-LinesearchState(algorithm::Static, objective::AbstractObjective; kwargs...) = StaticState(algorithm.alpha)
+LinesearchState(algorithm::Static; kwargs...) = StaticState(algorithm.alpha)
 
-Base.show(io::IO, ls::StaticState) = print(io, "Static")
+Base.show(io::IO, ls::StaticState) = print(io, "Static Linesearch")
 
-(ls::StaticState)() = ls.alpha
+(ls::StaticState)(args...) = ls.alpha
 
 # (ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.alpha .* δx

@@ -45,17 +45,16 @@ bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwar
 """
 simple bisection line search
 """
-mutable struct BisectionState{OBJ,OPT} <: LinesearchState where {OBJ <: UnivariateObjective, OPT <: Options}
-    objective::OBJ
+mutable struct BisectionState{OPT} <: LinesearchState where {OPT <: Options}
     config::OPT
 
-    function BisectionState(objective, config)
-        new{typeof(objective), typeof(config)}(objective, config)
+    function BisectionState(config)
+        new{typeof(config)}(config)
     end
 end
 
-function BisectionState(objective::UnivariateObjective; config = Options())
-    BisectionState(objective, config)
+function BisectionState(; config = Options())
+    BisectionState(config)
 end
 
 # function BisectionState(objective::MultivariateObjective; config = Options())
@@ -66,8 +65,8 @@ end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection, objective; kwargs...) = BisectionState(objective; kwargs...)
+LinesearchState(algorithm::Bisection; kwargs...) = BisectionState(; kwargs...)
 
-function (ls::BisectionState)()
-    bisection(ls.objective, 0., 1.; config = ls.config)
+function (ls::BisectionState)(obj::AbstractUnivariateObjective)
+    bisection(obj, 0., 1.; config = ls.config)
 end

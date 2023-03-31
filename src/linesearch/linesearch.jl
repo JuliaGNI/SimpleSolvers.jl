@@ -6,32 +6,32 @@ const DEFAULT_WOLFE_ϵ  = 1E-4
 
 abstract type LinesearchState end
 
-LinesearchState(algorithm, f::Callable, x::Number; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
+# LinesearchState(algorithm, f::Callable, x::Number; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, x); kwargs...)
+# LinesearchState(algorithm, f::Callable, g::Callable, x::Number; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, g, x); kwargs...)
 # LinesearchState(algorithm, f::Callable, x::AbstractVector; kwargs...) = LinesearchState(algorithm, MultivariateObjective(f, x); kwargs...)
 
 # solve!(x, δx, ls::LinesearchState) = ls(x, δx)
 # solve!(x, δx, g, ls::LinesearchState) = ls(x, δx, g)
 
-struct Linesearch{ALG <: LinesearchMethod, OBJ <: AbstractObjective, OPT <: Options, OST <: LinesearchState}
+struct Linesearch{ALG <: LinesearchMethod, OPT <: Options, OST <: LinesearchState}
     algorithm::ALG
-    objective::OBJ
     config::OPT
     state::OST
 
-    function Linesearch(algorithm, objective, config, state)
-        new{typeof(algorithm), typeof(objective), typeof(config), typeof(state)}(algorithm, objective, config, state)
+    function Linesearch(algorithm, config, state)
+        new{typeof(algorithm), typeof(config), typeof(state)}(algorithm, config, state)
     end
 end
 
-function Linesearch(x, objective::AbstractObjective; algorithm = Static(), config = Options(), kwargs...)
-    state = LinesearchState(algorithm, objective; kwargs...)
-    Linesearch(algorithm, objective, config, state)
+function Linesearch(; algorithm = Static(), config = Options(), kwargs...)
+    state = LinesearchState(algorithm; kwargs...)
+    Linesearch(algorithm, config, state)
 end
 
-function Linesearch(x::Number, F::Callable; D = nothing, kwargs...)
-    objective = UnivariateObjective(F, D, x)
-    Linesearch(x, objective; kwargs...)
-end
+# function Linesearch(x::Number, F::Callable; D = nothing, kwargs...)
+#     objective = UnivariateObjective(F, D, x)
+#     Linesearch(x, objective; kwargs...)
+# end
 
 # function Linesearch(x::AbstractVector, F::Callable; D = nothing, kwargs...)
 #     objective = MultivariateObjective(F, D, x)
@@ -40,5 +40,7 @@ end
 
 
 (ls::Linesearch)(args...) = ls.state(args...)
+(ls::Linesearch)(f::Callable, args...; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), args...; kwargs...)
+(ls::Linesearch)(f::Callable, g::Callable, args...; kwargs...) = ls(TemporaryUnivariateObjective(f, g), args...; kwargs...)
 
-solve!(x, δx, ls::Linesearch) = solve!(x, δx, ls.state)
+# solve!(x, δx, ls::Linesearch) = solve!(x, δx, ls.state)

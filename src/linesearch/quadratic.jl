@@ -1,8 +1,7 @@
 """
 Quadratic Polynomial line search
 """
-struct QuadraticState{OBJ,OPT,T} <: LinesearchState where {OBJ <: AbstractObjective, OPT <: Options, T <: Number}
-    objective::OBJ
+struct QuadraticState{OPT,T} <: LinesearchState where {OPT <: Options, T <: Number}
     config::OPT
 
     α₀::T
@@ -10,32 +9,20 @@ struct QuadraticState{OBJ,OPT,T} <: LinesearchState where {OBJ <: AbstractObject
     σ₁::T
     ϵ::T
 
-    function QuadraticState(objective; config = Options(),
+    function QuadraticState(; config = Options(),
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     σ₀::T = DEFAULT_ARMIJO_σ₀,
                     σ₁::T = DEFAULT_ARMIJO_σ₁,
                     ϵ::T = DEFAULT_WOLFE_ϵ) where {T}
-        new{typeof(objective), typeof(config), T}(objective, config, α₀, σ₀, σ₁, ϵ)
+        new{typeof(config), T}(config, α₀, σ₀, σ₁, ϵ)
     end
-end
-
-# function QuadraticState(F::Callable, x::AbstractVector; D = nothing, kwargs...)
-#     objective = MultivariateObjective(F, D, x)
-#     QuadraticState(objective; kwargs...)
-# end
-
-function QuadraticState(F::Callable, x::Number; D = nothing, kwargs...)
-    objective = UnivariateObjective(F, D, x)
-    QuadraticState(objective; kwargs...)
 end
 
 Base.show(io::IO, ls::QuadraticState) = print(io, "Polynomial quadratic")
 
-LinesearchState(algorithm::Quadratic, objective; kwargs...) = QuadraticState(objective; kwargs...)
+LinesearchState(algorithm::Quadratic; kwargs...) = QuadraticState(; kwargs...)
 
-function (ls::QuadraticState{<:UnivariateObjective})()
-    T = typeof(ls.α₀)
-    local α::T = ls.α₀
+function (ls::QuadraticState)(obj::AbstractUnivariateObjective, α::T = ls.α₀) where {T}
     local αₜ::T
     local y₁::T
     local p₀::T
@@ -45,14 +32,14 @@ function (ls::QuadraticState{<:UnivariateObjective})()
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
     # p₀ = f(x₀)    # value of initial solution
     # p₁ = f'(x₀)   # derivative of initial solution
-    y₀ = value!(ls.objective, zero(α))
-    d₀ = derivative!(ls.objective, zero(α))
+    y₀ = value!(obj, zero(α))
+    d₀ = derivative!(obj, zero(α))
     p₀ = y₀
     p₁ = d₀
     
     for _ in 1:ls.config.max_iterations
         # compute value of new solution
-        y₁ = value!(ls.objective, α)
+        y₁ = value!(obj, α)
 
         if y₁ ≥ y₀ + ls.ϵ * α * d₀
             # determine nonconstant coefficient of polynomial p(α) = p₀ + p₁α + p₂α²
@@ -76,4 +63,5 @@ function (ls::QuadraticState{<:UnivariateObjective})()
     return α
 end
 
-quadratic(f, x; kwargs...) = QuadraticState(f, x; kwargs...)()
+quadratic(o::AbstractUnivariateObjective, args...; kwargs...) = QuadraticState(; kwargs...)(o, args...)
+quadratic(f::Callable, g::Callable, args...; kwargs...) = QuadraticState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)
