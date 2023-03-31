@@ -25,6 +25,7 @@ module SimpleSolvers
     include("base/methods.jl")
 
     export UnivariateObjective,
+           TemporaryUnivariateObjective,
            MultivariateObjective
 
     export value, value!, value!!,

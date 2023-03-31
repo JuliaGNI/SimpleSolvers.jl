@@ -13,19 +13,20 @@ z = d(x)
 
 obj1 = UnivariateObjective(f, x)
 obj2 = UnivariateObjective(f, d, x)
+obj3 = TemporaryUnivariateObjective(f, d, x)
 
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 0
 
-@test value(obj1, x) == value(obj2, x) == y
+@test value(obj1, x) == value(obj2, x) == value(obj3, x) == y
 @test f_calls(obj1) == f_calls(obj2) == 1
 @test d_calls(obj1) == d_calls(obj2) == 0
 
-@test value!(obj1, x) == value!(obj2, x) == y
+@test value!(obj1, x) == value!(obj2, x) == value!(obj3, x) == y
 @test f_calls(obj1) == f_calls(obj2) == 2
 @test d_calls(obj1) == d_calls(obj2) == 0
 
-@test value!(obj1, x) == value!(obj2, x) == y
+@test value!(obj1, x) == value!(obj2, x) == value!(obj3, x) == y
 @test f_calls(obj1) == f_calls(obj2) == 2
 @test d_calls(obj1) == d_calls(obj2) == 0
 
@@ -33,7 +34,11 @@ obj2 = UnivariateObjective(f, d, x)
 @test f_calls(obj1) == f_calls(obj2) == 3
 @test d_calls(obj1) == d_calls(obj2) == 0
 
-@test value!(obj1, 2x) == value!(obj2, 2x)
+@test value!(obj1, 2x) == value!(obj2, 2x) == value!(obj3, 2x)
+@test f_calls(obj1) == f_calls(obj2) == 4
+@test d_calls(obj1) == d_calls(obj2) == 0
+
+@test obj1(2x) == obj2(2x) == obj3(2x)
 @test f_calls(obj1) == f_calls(obj2) == 4
 @test d_calls(obj1) == d_calls(obj2) == 0
 
@@ -43,15 +48,15 @@ SimpleSolvers.clear!(obj2)
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 0
 
-@test derivative(obj1, x) == derivative(obj2, x) == z
+@test derivative(obj1, x) == derivative(obj2, x) == derivative(obj3, x) == z
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 1
 
-@test derivative!(obj1, x) == derivative!(obj2, x) == z
+@test derivative!(obj1, x) == derivative!(obj2, x) == derivative!(obj3, x) == z
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 2
 
-@test derivative!(obj1, x) == derivative!(obj2, x) == z
+@test derivative!(obj1, x) == derivative!(obj2, x) == derivative!(obj3, x) == z
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 2
 
@@ -59,7 +64,7 @@ SimpleSolvers.clear!(obj2)
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 3
 
-@test derivative!(obj1, 2x) == derivative!(obj2, 2x)
+@test derivative!(obj1, 2x) == derivative!(obj2, 2x) == derivative!(obj3, 2x)
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 4
 
@@ -107,6 +112,10 @@ obj2 = MultivariateObjective(F, G!, x)
 @test g_calls(obj1) == g_calls(obj2) == 0
 
 @test value!(obj1, 2x) == value!(obj2, 2x)
+@test f_calls(obj1) == f_calls(obj2) == 4
+@test g_calls(obj1) == g_calls(obj2) == 0
+
+@test obj1(2x) == obj2(2x)
 @test f_calls(obj1) == f_calls(obj2) == 4
 @test g_calls(obj1) == g_calls(obj2) == 0
 

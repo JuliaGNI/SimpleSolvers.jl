@@ -1,9 +1,10 @@
 
 abstract type AbstractObjective end
+abstract type AbstractUnivariateObjective <: AbstractObjective end
 
 clear!(::Function) = nothing
 
-mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractObjective
+mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractUnivariateObjective
     F::TF     # objective
     D::TD     # derivative of objective
 
@@ -29,7 +30,6 @@ function UnivariateObjective(F::Callable, x::Number; kwargs...)
 end
 
 UnivariateObjective(F::Callable, D::Nothing, x::Number; kwargs...) = UnivariateObjective(F, x; kwargs...)
-
 
 """
 Evaluates the objective value at `x`.
@@ -123,6 +123,23 @@ function clear!(obj::UnivariateObjective)
     _clear_d!(obj)
     nothing
 end
+
+
+
+struct TemporaryUnivariateObjective{TF, TD} <: AbstractUnivariateObjective
+    F::TF     # objective
+    D::TD     # derivative of objective
+end
+
+TemporaryUnivariateObjective(f, d, x) = TemporaryUnivariateObjective(f, d)
+
+value(obj::TemporaryUnivariateObjective, x) = obj.F(x)
+derivative(obj::TemporaryUnivariateObjective, x) = obj.D(x)
+
+value!(obj::TemporaryUnivariateObjective, x) = value(obj, x)
+derivative!(obj::TemporaryUnivariateObjective, x) = derivative(obj, x)
+
+(obj::TemporaryUnivariateObjective)(x) = value(obj, x)
 
 
 
