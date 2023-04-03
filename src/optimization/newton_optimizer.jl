@@ -50,23 +50,25 @@ function linesearch_objective(objective::MultivariateObjective, cache::NewtonOpt
 end
 
 
-struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: LinesearchState, NOC <: NewtonOptimizerCache} <: OptimizationAlgorithm
+struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: LinesearchState, LSO, NOC <: NewtonOptimizerCache} <: OptimizationAlgorithm
     objective::OBJ
     hessian::HES
     linesearch::LS
+    ls_objective::LSO
     cache::NOC
 
-    function NewtonOptimizerState(objective::OBJ, hessian::HES, linesearch::LS, cache::NOC) where {OBJ, HES, LS, NOC}
-        new{OBJ,HES,LS,NOC}(objective, hessian, linesearch, cache)
+    function NewtonOptimizerState(objective::OBJ, hessian::HES, linesearch::LS, ls_objetive::LSO, cache::NOC) where {OBJ, HES, LS, LSO, NOC}
+        new{OBJ,HES,LS,LSO,NOC}(objective, hessian, linesearch, ls_objetive, cache)
     end
 end
 
 function NewtonOptimizerState(x::VT, objective::MultivariateObjective; hessian = HessianAutodiff, linesearch = Backtracking()) where {XT, VT <: AbstractVector{XT}}
     cache = NewtonOptimizerCache(x)
     hess = hessian(objective, x)
-    ls = LinesearchState(linesearch, linesearch_objective(objective, cache))
+    ls = LinesearchState(linesearch)
+    lso = linesearch_objective(objective, cache)
 
-    NewtonOptimizerState(objective, hess, ls, cache)
+    NewtonOptimizerState(objective, hess, ls, lso, cache)
 end
 
 NewtonOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; kwargs...)
@@ -107,7 +109,7 @@ function solver_step!(x::AbstractVector, newton::NewtonOptimizerState)
     ldiv!(δ, hessian(newton), rhs(newton))
 
     # apply line search
-    α = newton.linesearch()
+    α = newton.linesearch(newton.ls_objective)
 
     # compute new minimizer
     x .= x .+ α .* δ

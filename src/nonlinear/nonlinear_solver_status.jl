@@ -1,7 +1,5 @@
 
-mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
-    system::ST    # system of nonlinear equations
-
+mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     i::Int        # iteration number
 
     rxₐ::XT       # residual (absolute)
@@ -25,8 +23,8 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
     g_converged::Bool
     f_increased::Bool
 
-    NonlinearSolverStatus{T}(system::ST, n::Int) where {T,ST} = new{T,T,Vector{T},Vector{T},ST}(
-        system, 0, 
+    NonlinearSolverStatus{T}(n::Int) where {T} = new{T,T,Vector{T},Vector{T}}(
+        0, 
         zero(T), zero(T), zero(T),
         zero(T), zero(T), zero(T),
         zeros(T,n), zeros(T,n), zeros(T,n),
@@ -34,7 +32,6 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT,ST}
         false, false, false, false)
 end
 
-system(status::NonlinearSolverStatus) = status.system
 solution(status::NonlinearSolverStatus) = status.x
 
 function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
@@ -155,10 +152,20 @@ function residual!(status::NonlinearSolverStatus)
 end
 
 
-function initialize!(status::NonlinearSolverStatus, x)
+function initialize!(status::NonlinearSolverStatus, x, f)
     clear!(status)
     copyto!(status.x, x)
-    status.system(status.f, x)
+    f(status.f, x)
+    
+    return status
+end
+
+function update!(status::NonlinearSolverStatus, x, f)
+    copyto!(status.x, x)
+    f(status.f, x)
+
+    status.δ .= status.x - status.x̄
+    status.γ .= status.f - status.f̄
     
     return status
 end
@@ -169,16 +176,6 @@ function next_iteration!(status::NonlinearSolverStatus)
     status.f̄ .= status.f
     status.δ .= 0
     status.γ .= 0
-    
-    return status
-end
-
-function update!(status::NonlinearSolverStatus, x)
-    copyto!(status.x, x)
-    status.system(status.f, x)
-
-    status.δ .= status.x - status.x̄
-    status.γ .= status.f - status.f̄
     
     return status
 end

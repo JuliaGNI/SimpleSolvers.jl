@@ -46,7 +46,7 @@ for (Solver, kwarguments) in (
     @test config(nl) == nl.config
     @test status(nl) == nl.status
 
-    solve!(x, nl)
+    solve!(x, F!, nl)
     # println(status(nl))
     for _x in x
         @test _x ≈ 0 atol=1E-7
@@ -54,7 +54,7 @@ for (Solver, kwarguments) in (
 
     x = ones(n)
     nl = Solver(x, y, F!; J! = J!, kwarguments...)
-    solve!(x, nl)
+    solve!(x, F!, J!, nl)
     # println(status(nl))
     for _x in x
         @test _x ≈ 0 atol=1E-7

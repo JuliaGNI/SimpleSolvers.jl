@@ -9,13 +9,13 @@ initialize!(s::NonlinearSolver, ::AbstractArray) = error("initialize! not implem
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
 
-function solve!(x, s::NonlinearSolver)
-    initialize!(s, x)
+function solve!(x, f, forj, s::NonlinearSolver)
+    initialize!(s, x, f)
 
     while !meets_stopping_criteria(status(s), config(s))
         next_iteration!(status(s))
-        solver_step!(x, s)
-        update!(status(s), x)
+        solver_step!(x, f, forj, s)
+        update!(status(s), x, f)
         residual!(status(s))
     end
 
@@ -23,6 +23,8 @@ function solve!(x, s::NonlinearSolver)
 
     return x
 end
+
+solve!(x, f, s::NonlinearSolver) = solve!(x, f, f, s)
 
 
 struct NonlinearSolverException <: Exception
