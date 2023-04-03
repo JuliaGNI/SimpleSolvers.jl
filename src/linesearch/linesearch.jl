@@ -10,6 +10,12 @@ abstract type LinesearchState end
 # LinesearchState(algorithm, f::Callable, g::Callable, x::Number; kwargs...) = LinesearchState(algorithm, UnivariateObjective(f, g, x); kwargs...)
 # LinesearchState(algorithm, f::Callable, x::AbstractVector; kwargs...) = LinesearchState(algorithm, MultivariateObjective(f, x); kwargs...)
 
+(ls::LinesearchState)(f::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, missing); kwargs...)
+(ls::LinesearchState)(f::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), x; kwargs...)
+(ls::LinesearchState)(f::Callable, g::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, g); kwargs...)
+(ls::LinesearchState)(f::Callable, g::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, g), x; kwargs...)
+
+
 # solve!(x, δx, ls::LinesearchState) = ls(x, δx)
 # solve!(x, δx, g, ls::LinesearchState) = ls(x, δx, g)
 
@@ -39,8 +45,8 @@ end
 # end
 
 
-(ls::Linesearch)(args...) = ls.state(args...)
-(ls::Linesearch)(f::Callable, args...; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), args...; kwargs...)
-(ls::Linesearch)(f::Callable, g::Callable, args...; kwargs...) = ls(TemporaryUnivariateObjective(f, g), args...; kwargs...)
+(ls::Linesearch)(args...; kwargs...) = ls.state(args...; kwargs...)
+# (ls::Linesearch)(f::Callable, args...; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), args...; kwargs...)
+# (ls::Linesearch)(f::Callable, g::Callable, args...; kwargs...) = ls(TemporaryUnivariateObjective(f, g), args...; kwargs...)
 
 # solve!(x, δx, ls::Linesearch) = solve!(x, δx, ls.state)

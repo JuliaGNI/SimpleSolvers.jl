@@ -10,6 +10,7 @@ LinesearchState(algorithm::Static; kwargs...) = StaticState(algorithm.alpha)
 
 Base.show(io::IO, ls::StaticState) = print(io, "Static Linesearch")
 
-(ls::StaticState)(args...) = ls.alpha
+(ls::StaticState)(x::Number = 0) = ls.alpha
+(ls::StaticState)(o::AbstractUnivariateObjective, x::Number = 0) = ls.alpha
 
 # (ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.alpha .* δx
