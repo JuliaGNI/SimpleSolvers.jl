@@ -51,7 +51,7 @@ function JacobianAutodiff{T}(nx::Int, ny::Int) where {T}
     JacobianAutodiff(tx, ty)
 end
 
-JacobianAutodiff{T}(F!, n) where {T} = JacobianAutodiff{T}(F!, n, n)
+JacobianAutodiff{T}(n) where {T} = JacobianAutodiff{T}(n, n)
 
 function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, f::Callable) where {T}
     ForwardDiff.jacobian!(J, f, jac.ty, x, jac.Jconfig)
