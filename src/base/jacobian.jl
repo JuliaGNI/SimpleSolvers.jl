@@ -111,7 +111,7 @@ Jacobian{T}(n::Int; kwargs...) where {T} = Jacobian{T}(n, n; kwargs...)
 
 Jacobian{T}(J!::Callable, F!, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :user, kwargs...)
 
-Jacobian{T}(J!::Nothing, F!, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :autodiff, kwargs...)
+Jacobian{T}(J!::Union{Nothing,Missing}, F!, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :autodiff, kwargs...)
 
 Jacobian{T}(J!, F!, n; kwargs...) where {T} = Jacobian{T}(J!, F!, n, n; kwargs...)
 
