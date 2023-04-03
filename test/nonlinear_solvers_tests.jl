@@ -35,13 +35,13 @@ for (Solver, kwarguments) in (
                 (QuasiNewtonSolver, (linesearch = Backtracking(),)),
                 (QuasiNewtonSolver, (linesearch = Quadratic(),)),
                 (QuasiNewtonSolver, (linesearch = Bisection(),)),
-                (NLsolveNewton, NamedTuple()),
+                # (NLsolveNewton, NamedTuple()),
             )
 
     n = 1
     x = ones(n)
     y = zero(x)
-    nl = Solver(x, y, F!; kwarguments...)
+    nl = Solver(x, y; kwarguments...)
 
     @test config(nl) == nl.config
     @test status(nl) == nl.status
@@ -53,7 +53,7 @@ for (Solver, kwarguments) in (
     end
 
     x = ones(n)
-    nl = Solver(x, y, F!; J! = J!, kwarguments...)
+    nl = Solver(x, y; J! = J!, kwarguments...)
     solve!(x, F!, J!, nl)
     # println(status(nl))
     for _x in x

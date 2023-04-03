@@ -109,11 +109,11 @@ end
 
 Jacobian{T}(n::Int; kwargs...) where {T} = Jacobian{T}(n, n; kwargs...)
 
-Jacobian{T}(J!::Callable, F!, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :user, kwargs...)
+Jacobian{T}(J!::Callable, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :user, kwargs...)
 
-Jacobian{T}(J!::Union{Nothing,Missing}, F!, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :autodiff, kwargs...)
+Jacobian{T}(J!::Union{Nothing,Missing}, nx, ny; kwargs...) where {T} = Jacobian{T}(nx, ny; mode = :autodiff, kwargs...)
 
-Jacobian{T}(J!, F!, n; kwargs...) where {T} = Jacobian{T}(J!, F!, n, n; kwargs...)
+Jacobian{T}(J!, n; kwargs...) where {T} = Jacobian{T}(J!, n, n; kwargs...)
 
 function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable; kwargs...) where {T}
     jacobian = Jacobian{T}(size(j,1), size(j,2); kwargs...)

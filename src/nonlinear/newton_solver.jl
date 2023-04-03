@@ -8,9 +8,9 @@ struct NewtonSolver{T, AT, TJ, TL, TS <: LinesearchState} <: AbstractNewtonSolve
     end
 end
 
-function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}, F!; J! = missing, linesearch = Backtracking(), config = Options()) where {T}
+function NewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}; J! = missing, linesearch = Backtracking(), config = Options()) where {T}
     n = length(y)
-    jacobian = Jacobian{T}(J!, F!, n)
+    jacobian = Jacobian{T}(J!, n)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch)

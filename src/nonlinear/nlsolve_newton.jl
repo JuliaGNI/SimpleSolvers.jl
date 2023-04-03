@@ -28,12 +28,12 @@ struct NLsolveNewton{T, AT, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T,AT}
 end
 
 
-function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function; J!::Union{Function,Nothing}=nothing, mode = :autodiff, diff_type = :forward) where {T}
+function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function; J!::Union{Callable,Nothing,Missing} = nothing, mode = :autodiff, diff_type = :forward) where {T}
     linear_solver = LinearSolver(x)
 
     df = linear_solver.A
 
-    if J! === nothing || mode == :autodiff
+    if J! === nothing || ismissing(J!) || mode == :autodiff
         DF = OnceDifferentiable(F!, x, f, df; autodiff=diff_type, inplace=true)
     else
         DF = OnceDifferentiable(F!, J!, x, f, df; inplace=true)
