@@ -105,6 +105,38 @@ function Options(;
         show_trace, store_trace, extended_trace, show_every, verbosity)
 end
 
+Base.convert(::Type{Options{T}}, opt::Options{T}) where {T} = opt
+
+function Base.convert(::Type{Options{T}}, opt) where {T}
+    Options(
+        T(opt.x_abstol),
+        T(opt.x_reltol),
+        T(opt.x_suctol),
+        T(opt.f_abstol),
+        T(opt.f_reltol),
+        T(opt.f_suctol),
+        T(opt.f_mindec),
+        T(opt.g_restol),
+        T(opt.x_abstol_break),
+        T(opt.x_reltol_break),
+        T(opt.f_abstol_break),
+        T(opt.f_reltol_break),
+        T(opt.g_restol_break),
+        opt.f_calls_limit,
+        opt.g_calls_limit,
+        opt.h_calls_limit,
+        opt.allow_f_increases,
+        opt.min_iterations,
+        opt.max_iterations,
+        opt.warn_iterations,
+        opt.show_trace,
+        opt.store_trace,
+        opt.extended_trace,
+        opt.show_every,
+        opt.verbosity,
+    )
+end
+
 function Base.show(io::IO, o::SimpleSolvers.Options)
     for k in fieldnames(typeof(o))
         v = getfield(o, k)
