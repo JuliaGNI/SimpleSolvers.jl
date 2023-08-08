@@ -9,11 +9,11 @@ struct QuadraticState{OPT,T} <: LinesearchState where {OPT <: Options, T <: Numb
     σ₁::T
     ϵ::T
 
-    function QuadraticState(; config = Options(),
-                    α₀::T = DEFAULT_ARMIJO_α₀,
-                    σ₀::T = DEFAULT_ARMIJO_σ₀,
-                    σ₁::T = DEFAULT_ARMIJO_σ₁,
-                    ϵ::T = DEFAULT_WOLFE_ϵ) where {T}
+    function QuadraticState(T = Float64; config = Options(T),
+                    α₀ = DEFAULT_ARMIJO_α₀,
+                    σ₀ = DEFAULT_ARMIJO_σ₀,
+                    σ₁ = DEFAULT_ARMIJO_σ₁,
+                    ϵ = DEFAULT_WOLFE_ϵ)
         new{typeof(config), T}(config, α₀, σ₀, σ₁, ϵ)
     end
 end

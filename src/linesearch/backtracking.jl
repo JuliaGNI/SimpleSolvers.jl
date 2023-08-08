@@ -13,10 +13,10 @@ struct BacktrackingState{OPT,T} <: LinesearchState where {OPT <: Options, T <: N
     ϵ::T
     p::T
 
-    function BacktrackingState(; config = Options(),
-                    α₀::T = DEFAULT_ARMIJO_α₀,
-                    ϵ::T = DEFAULT_WOLFE_ϵ,
-                    p::T = DEFAULT_ARMIJO_p) where {T}
+    function BacktrackingState(T = Float64; config = Options(T),
+                    α₀ = DEFAULT_ARMIJO_α₀,
+                    ϵ = DEFAULT_WOLFE_ϵ,
+                    p = DEFAULT_ARMIJO_p)
         new{typeof(config), T}(config, α₀, ϵ, p)
     end
 end

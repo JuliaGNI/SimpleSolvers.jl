@@ -1,6 +1,6 @@
 
 
-function bisection(f, xmin::T, xmax::T; config = Options()) where {T <: Number}
+function bisection(f, xmin::T, xmax::T; config = Options(T)) where {T <: Number}
     local x₀ = xmin
     local x₁ = xmax
     local x  = zero(T)
@@ -48,12 +48,12 @@ simple bisection line search
 mutable struct BisectionState{OPT} <: LinesearchState where {OPT <: Options}
     config::OPT
 
-    function BisectionState(config)
+    function BisectionState(config::Options)
         new{typeof(config)}(config)
     end
 end
 
-function BisectionState(; config = Options())
+function BisectionState(T = Float64; config = Options(T))
     BisectionState(config)
 end
 

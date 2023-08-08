@@ -29,7 +29,7 @@ struct Linesearch{ALG <: LinesearchMethod, OPT <: Options, OST <: LinesearchStat
     end
 end
 
-function Linesearch(; algorithm = Static(), config = Options(), kwargs...)
+function Linesearch(T = Float64; algorithm = Static(), config = Options(T), kwargs...)
     state = LinesearchState(algorithm; kwargs...)
     Linesearch(algorithm, config, state)
 end
