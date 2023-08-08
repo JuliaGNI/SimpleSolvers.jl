@@ -9,44 +9,52 @@ include("optimizers_problems.jl")
 
 struct OptimizerTest{T} <: OptimizationAlgorithm end
 
-test_optim = OptimizerTest{Float64}()
-test_x = zeros(3)
-test_obj = MultivariateObjective(F, test_x)
 
-@test_throws MethodError gradient(test_optim)
-@test_throws MethodError hessian(test_optim)
-@test_throws MethodError linesearch(test_optim)
-@test_throws MethodError objective(test_optim)
+for DT in (Float32, Float64)
 
-@test_throws MethodError initialize!(test_optim, test_x)
-@test_throws MethodError update!(test_optim, test_x)
-@test_throws MethodError solver_step!(test_x, test_optim)
+    test_optim = OptimizerTest{DT}()
+    test_x = zeros(DT, 3)
+    test_obj = MultivariateObjective(F, test_x)
 
-@test isaOptimizationAlgorithm(test_optim) == false
-@test isaOptimizationAlgorithm(NewtonOptimizer(test_x, test_obj)) == true
-@test isaOptimizationAlgorithm(BFGSOptimizer(test_x, test_obj)) == true
-@test isaOptimizationAlgorithm(DFPOptimizer(test_x, test_obj)) == true
+    @test_throws MethodError gradient(test_optim)
+    @test_throws MethodError hessian(test_optim)
+    @test_throws MethodError linesearch(test_optim)
+    @test_throws MethodError objective(test_optim)
+
+    @test_throws MethodError initialize!(test_optim, test_x)
+    @test_throws MethodError update!(test_optim, test_x)
+    @test_throws MethodError solver_step!(test_x, test_optim)
+
+    @test isaOptimizationAlgorithm(test_optim) == false
+    @test isaOptimizationAlgorithm(NewtonOptimizer(test_x, test_obj)) == true
+    @test isaOptimizationAlgorithm(BFGSOptimizer(test_x, test_obj)) == true
+    @test isaOptimizationAlgorithm(DFPOptimizer(test_x, test_obj)) == true
 
 
-for method in (Newton(), BFGS(), DFP())
-    for linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
-        n = 1
-        x = ones(n)
-        opt = Optimizer(x, F; algorithm = method, linesearch = linesearch)
+    for method in (Newton(), BFGS(), DFP())
+        for linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
+            println(method)
+            println(linesearch)
 
-        @test config(opt) == opt.config
-        @test status(opt) == opt.result.status
+            n = 1
+            x = ones(DT, n)
+            opt = Optimizer(x, F; algorithm = method, linesearch = linesearch)
 
-        solve!(x, opt)
-        # println(opt)
-        @test norm(minimizer(opt)) ≈ 0 atol=1E-7
-        @test norm(minimum(opt)) ≈ F(0) atol=1E-7
+            @test config(opt) == opt.config
+            @test status(opt) == opt.result.status
 
-        x = ones(n)
-        opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = linesearch)
-        solve!(x, opt)
-        # println(opt)
-        @test norm(minimizer(opt)) ≈ 0 atol=1E-7
-        @test norm(minimum(opt)) ≈ F(0) atol=1E-7
+            solve!(x, opt)
+            # println(opt)
+            @test norm(minimizer(opt)) ≈ 0 atol=sqrt(eps(DT))
+            @test norm(minimum(opt)) ≈ F(0) atol=sqrt(eps(DT))
+
+            x = ones(DT, n)
+            opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = linesearch)
+            solve!(x, opt)
+            # println(opt)
+            @test norm(minimizer(opt)) ≈ 0 atol=sqrt(eps(DT))
+            @test norm(minimum(opt)) ≈ F(0) atol=sqrt(eps(DT))
+        end
     end
+
 end
