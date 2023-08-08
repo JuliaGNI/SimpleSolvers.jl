@@ -10,7 +10,7 @@ struct QuasiNewtonSolver{T, AT, TJ, TL, TS <: LinesearchState} <: AbstractNewton
     end
 end
 
-function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}; J! = missing, linesearch = Backtracking(), config = Options(), refactorize=5) where {T}
+function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}; J! = missing, linesearch = Backtracking(), config = Options(T), refactorize=5) where {T}
     n = length(y)
     jacobian = Jacobian{T}(J!, n)
     cache = NewtonSolverCache(x, y)
