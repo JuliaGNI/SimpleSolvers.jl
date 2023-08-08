@@ -54,18 +54,18 @@ struct Options{T}
     verbosity::Int
 end
 
-function Options(;
+function Options(T = Float64;
         x_tol = nothing,
         f_tol = nothing,
         g_tol = nothing,
         x_abstol::Real = -Inf,
-        x_reltol::Real = 2eps(),
-        x_suctol::Real = 2eps(),
+        x_reltol::Real = 2eps(T),
+        x_suctol::Real = 2eps(T),
         f_abstol::Real = 1e-50,
-        f_reltol::Real = 2eps(),
-        f_suctol::Real = 2eps(),
+        f_reltol::Real = 2eps(T),
+        f_suctol::Real = 2eps(T),
         f_mindec::Real = 1e-4,
-        g_restol::Real = sqrt(eps()),
+        g_restol::Real = sqrt(eps(T)),
         x_abstol_break::Real = Inf,
         x_reltol_break::Real = Inf,
         f_abstol_break::Real = Inf,
@@ -99,7 +99,7 @@ function Options(;
         f_reltol = f_tol
     end
 
-    Options(promote(x_abstol, x_reltol, x_suctol, f_abstol, f_reltol, f_suctol, f_mindec, g_restol,
+    Options{T}(promote(x_abstol, x_reltol, x_suctol, f_abstol, f_reltol, f_suctol, f_mindec, g_restol,
                     x_abstol_break, x_reltol_break, f_abstol_break, f_reltol_break, g_restol_break)...,
         f_calls_limit, g_calls_limit, h_calls_limit, allow_f_increases, min_iterations, max_iterations, warn_iterations,
         show_trace, store_trace, extended_trace, show_every, verbosity)
