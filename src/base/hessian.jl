@@ -89,9 +89,9 @@ function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where 
     return Hparams
 end
 
-Hessian(H!, F, x::AbstractVector; kwargs...) where {T} = Hessian(H!, nx; mode = :user, kwargs...)
+Hessian(H!, F, x::AbstractVector; kwargs...) = Hessian(H!, nx; mode = :user, kwargs...)
 
-Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) where {T} = Hessian(F, nx;  mode = :autodiff, kwargs...)
+Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) = Hessian(F, nx;  mode = :autodiff, kwargs...)
 
 Hessian{T}(ForH, nx::Int; kwargs...) where {T} = Hessian(ForH, zeros(T,nx); kwargs...)
 
