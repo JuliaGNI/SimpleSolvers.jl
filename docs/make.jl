@@ -17,5 +17,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/JuliaGNI/SimpleSolvers.jl",
+    repo   = "github.com/JuliaGNI/SimpleSolvers.jl",
+    devurl = "latest",
+    devbranch = "main",
 )
