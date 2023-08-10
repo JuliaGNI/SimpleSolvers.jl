@@ -1,7 +1,7 @@
 # SimpleSolvers
 
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaGNI.github.io/SimpleSolvers.jl/stable)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://JuliaGNI.github.io/SimpleSolvers.jl/dev)
+[![Latest](https://img.shields.io/badge/docs-latest-blue.svg)](https://JuliaGNI.github.io/SimpleSolvers.jl/latest)
 [![PkgEval Status](https://juliaci.github.io/NanosoldierReports/pkgeval_badges/S/SimpleSolvers.svg)](https://juliaci.github.io/NanosoldierReports/pkgeval_badges/S/SimpleSolvers.html)
 [![Build Status](https://github.com/JuliaGNI/SimpleSolvers.jl/workflows/CI/badge.svg)](https://github.com/JuliaGNI/SimpleSolvers.jl/actions)
 [![Coverage](https://codecov.io/gh/JuliaGNI/SimpleSolvers.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/JuliaGNI/SimpleSolvers.jl)
