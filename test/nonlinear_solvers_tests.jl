@@ -38,25 +38,27 @@ for (Solver, kwarguments) in (
                 # (NLsolveNewton, NamedTuple()),
             )
 
-    n = 1
-    x = ones(n)
-    y = zero(x)
-    nl = Solver(x, y; kwarguments...)
+    for T in (Float64, Float32)
+        n = 1
+        x = ones(T, n)
+        y = zero(x)
+        nl = Solver(x, y; kwarguments...)
 
-    @test config(nl) == nl.config
-    @test status(nl) == nl.status
+        @test config(nl) == nl.config
+        @test status(nl) == nl.status
 
-    solve!(x, F!, nl)
-    # println(status(nl))
-    for _x in x
-        @test _x ≈ 0 atol=1E-7
-    end
+        solve!(x, F!, nl)
+        # println(status(nl))
+        for _x in x
+            @test _x ≈ 0 atol=1E-7
+        end
 
-    x = ones(n)
-    nl = Solver(x, y; J! = J!, kwarguments...)
-    solve!(x, F!, J!, nl)
-    # println(status(nl))
-    for _x in x
-        @test _x ≈ 0 atol=1E-7
+        x = ones(T, n)
+        nl = Solver(x, y; J! = J!, kwarguments...)
+        solve!(x, F!, J!, nl)
+        # println(status(nl))
+        for _x in x
+            @test _x ≈ 0 atol=1E-7
+        end
     end
 end

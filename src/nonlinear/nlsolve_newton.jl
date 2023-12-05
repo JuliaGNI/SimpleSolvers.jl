@@ -3,10 +3,10 @@ import NLsolve: OnceDifferentiable, NewtonCache, newton_
 import LineSearches
 
 
-struct NLsolveNewton{T, AT, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T,AT}
+struct NLsolveNewton{T, AT, JT, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T,AT}
     x::AT
     f::AT
-    J::Matrix{T}
+    J::JT
 
     F!::FT
     DF::DT
@@ -18,12 +18,15 @@ struct NLsolveNewton{T, AT, FT, DT, CT, ST, LT} <: AbstractNewtonSolver{T,AT}
     config::Options{T}
     status::NonlinearSolverStatus{T}
 
-    function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, J::AbstractMatrix{T},
-                    F!::FT, DF::DT, cache::CT, line_search::ST, linear_solver::LT, config = Options()) where {T,FT,DT,CT,ST,LT}
+    function NLsolveNewton(x::AT, f::AT, J::JT, F!::FT, DF::DT, cache::CT,
+            line_search::ST, linear_solver::LT, config = Options()) where {
+                T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}, FT, DT, CT, ST, LT
+            }
 
         status = NonlinearSolverStatus{T}(length(x))
+        options = Options(T, config)
 
-        new{T,typeof(x),FT,DT,CT,ST,LT}(x, f, J, F!, DF, line_search, linear_solver, cache, config, status)
+        new{T,AT,JT,FT,DT,CT,ST,LT}(x, f, J, F!, DF, line_search, linear_solver, cache, options, status)
     end
 end
 

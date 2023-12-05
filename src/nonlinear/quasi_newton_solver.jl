@@ -10,14 +10,14 @@ struct QuasiNewtonSolver{T, AT, TJ, TL, TS <: LinesearchState} <: AbstractNewton
     end
 end
 
-function QuasiNewtonSolver(x::AbstractVector{T}, y::AbstractVector{T}; J! = missing, linesearch = Backtracking(), config = Options(), refactorize=5) where {T}
+function QuasiNewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking(), config = Options(), refactorize=5) where {T, AT <: AbstractVector{T}}
     n = length(y)
     jacobian = Jacobian{T}(J!, n)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch)
-
-    QuasiNewtonSolver{T, typeof(x), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, config, refactorize)
+    options = Options(T, config)
+    QuasiNewtonSolver{T, AT, typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options, refactorize)
 end
 
 function solver_step!(x, f, forj, s::QuasiNewtonSolver{T}) where {T}

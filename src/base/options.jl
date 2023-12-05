@@ -105,6 +105,42 @@ function Options(;
         show_trace, store_trace, extended_trace, show_every, verbosity)
 end
 
+function Options(T, options)
+
+    floatopts = (
+        options.x_abstol,
+        options.x_reltol,
+        options.x_suctol,
+        options.f_abstol,
+        options.f_reltol,
+        options.f_suctol,
+        options.f_mindec,
+        options.g_restol,
+        options.x_abstol_break,
+        options.x_reltol_break,
+        options.f_abstol_break,
+        options.f_reltol_break,
+        options.g_restol_break,
+    )
+
+    nonfloats = (
+        options.f_calls_limit,
+        options.g_calls_limit,
+        options.h_calls_limit,
+        options.allow_f_increases,
+        options.min_iterations,
+        options.max_iterations,
+        options.warn_iterations,
+        options.show_trace,
+        options.store_trace,
+        options.extended_trace,
+        options.show_every,
+        options.verbosity,
+    )
+
+    Options(map(x -> convert(T, x), floatopts)..., nonfloats...)
+end
+
 function Base.show(io::IO, o::SimpleSolvers.Options)
     for k in fieldnames(typeof(o))
         v = getfield(o, k)

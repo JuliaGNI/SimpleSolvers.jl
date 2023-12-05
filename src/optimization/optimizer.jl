@@ -58,8 +58,8 @@ function Optimizer(x::VT, objective::MultivariateObjective; algorithm = BFGS(), 
     y = value(objective, x)
     result = OptimizerResult(x, y)
     astate = OptimizerState(algorithm, objective, x, y; linesearch = linesearch)
-
-    Optimizer{typeof(algorithm), typeof(objective), typeof(config), typeof(result), typeof(astate)}(algorithm, objective, config, result, astate)
+    options = Options(XT, config)
+    Optimizer{typeof(algorithm), typeof(objective), typeof(options), typeof(result), typeof(astate)}(algorithm, objective, options, result, astate)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)
