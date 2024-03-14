@@ -1,7 +1,7 @@
 
 using Printf
 
-abstract type NonlinearSolver end
+abstract type NonlinearSolver <: AbstractSolver end
 
 config(s::NonlinearSolver) = error("config not implemented for $(typeof(s))")
 status(s::NonlinearSolver) = error("status not implemented for $(typeof(s))")

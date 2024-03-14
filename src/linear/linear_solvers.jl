@@ -1,5 +1,5 @@
 
-abstract type LinearSolver{T} end
+abstract type LinearSolver{T} <: AbstractSolver end
 
 factorize!(s::LinearSolver) = error("factorize! not implemented for $(typeof(s))")
 LinearAlgebra.ldiv!(s::LinearSolver) = error("ldiv! not implemented for $(typeof(s))")
