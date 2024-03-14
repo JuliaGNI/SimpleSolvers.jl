@@ -1,6 +1,4 @@
 
-abstract type SolverMethod end
-
 abstract type BracketingMethod <: SolverMethod end
 abstract type LinearMethod <: SolverMethod end
 abstract type NonlinearMethod <: SolverMethod end
