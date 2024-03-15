@@ -8,6 +8,7 @@ module SimpleSolvers
     import Base.minimum
     import Base.Callable
     import GeometricBase: AbstractSolver, SolverMethod
+    import GeometricBase: value
 
     include("utils.jl")
 
