@@ -22,3 +22,12 @@ If you use SimpleSolvers.jl in your work, please consider citing it by
   doi={10.5281/zenodo.4317189}
 }
 ```
+
+
+## Development
+
+We are using git hooks, e.g., to enforce that all tests pass before pushing.
+In order to activate these hooks, the following command must be executed once:
+```
+git config core.hooksPath .githooks
+```
