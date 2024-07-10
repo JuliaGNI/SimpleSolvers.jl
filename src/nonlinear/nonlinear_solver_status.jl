@@ -13,10 +13,12 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     x::AXT        # initial solution
     x̄::AXT        # previous solution
     δ::AXT        # change in solution
+    x̃::AXT        # temporary variable similar to x
 
     f::AYT        # initial function
     f̄::AYT        # previous function
     γ::AYT        # initial function
+    f̃::AYT        # temporary variable similar to f
 
     x_converged::Bool
     f_converged::Bool
@@ -27,8 +29,8 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
         0, 
         zero(T), zero(T), zero(T),
         zero(T), zero(T), zero(T),
-        zeros(T,n), zeros(T,n), zeros(T,n),
-        zeros(T,n), zeros(T,n), zeros(T,n),
+        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n),
+        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n),
         false, false, false, false)
 end
 
@@ -48,10 +50,12 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.x̄ .= XT(NaN)
     status.x .= XT(NaN)
     status.δ .= XT(NaN)
+    status.x̃ .= XT(NaN)
 
     status.f̄ .= YT(NaN)
     status.f .= YT(NaN)
     status.γ .= YT(NaN)
+    status.f̃ .= YT(NaN)
 
     status.x_converged = false
     status.f_converged = false
@@ -142,11 +146,13 @@ end
 function residual!(status::NonlinearSolverStatus)
     status.rxₐ = norm(status.x)
     status.rxᵣ = status.rxₐ / norm(status.x)
-    status.rxₛ = norm(status.δ / status.x)
+    status.x̃  .= status.δ ./ status.x
+    status.rxₛ = norm(status.x̃)
 
     status.rfₐ = norm(status.f)
     status.rfᵣ = status.rfₐ / norm(status.f)
-    status.rfₛ = norm(status.γ / status.f)
+    status.f̃  .= status.γ ./ status.f
+    status.rfₛ = norm(status.f̃)
 
     nothing
 end
