@@ -60,11 +60,11 @@ abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
     jacobian::TJ
 
     linear::TL
-    linesearch::TS
+    linesearch::TLS
 
     cache::NewtonSolverCache{T,AT,JT}
     config::Options{T}
-    status::NonlinearSolverStatus{T}
+    status::TST
 end
 
 cache(solver::AbstractNewtonSolver) = solver.cache

@@ -1,12 +1,12 @@
 
-struct QuasiNewtonSolver{T, AT, JT, TJ, TL, TS <: LinesearchState} <: AbstractNewtonSolver{T,AT}
+struct QuasiNewtonSolver{T, AT, JT, TJ, TL, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: AbstractNewtonSolver{T,AT}
     @newton_solver_variables
 
     refactorize::Int
 
     function QuasiNewtonSolver{T,AT,JT,TJ,TL,TS}(x, jacobian, linear_solver, linesearch, cache, config, refactorize) where {T,AT,JT,TJ,TL,TS}
         status = NonlinearSolverStatus{T}(length(x))
-        new(jacobian, linear_solver, linesearch, cache, config, status, refactorize)
+        new{T,AT,JT,TJ,TL,TS, typeof(status)}(jacobian, linear_solver, linesearch, cache, config, status, refactorize)
     end
 end
 
