@@ -1,7 +1,7 @@
 """
 Configurable options with defaults (values 0 and NaN indicate unlimited):
 ```
-x_abstol::Real = 1e-50,
+x_abstol::Real = -Inf,
 x_reltol::Real = 2eps(),
 f_abstol::Real = 1e-50,
 f_reltol::Real = 2eps(),
