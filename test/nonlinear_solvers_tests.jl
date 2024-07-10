@@ -15,13 +15,13 @@ test_solver = NonlinearSolverTest{Float64}()
 
 
 function F!(f, x)
-    f .= x.^2
+    f .= tan.(x)
 end
 
 function J!(g, x)
     g .= 0
     for i in eachindex(x)
-        g[i,i] = 2x[i]
+        g[i,i] = sec(x[i])^2
     end
 end
 
@@ -50,7 +50,7 @@ for (Solver, kwarguments) in (
         solve!(x, F!, nl)
         # println(status(nl))
         for _x in x
-            @test _x ≈ 0 atol=1E-7
+            @test _x ≈ 0 atol = eps(T)
         end
 
         x = ones(T, n)
@@ -58,7 +58,7 @@ for (Solver, kwarguments) in (
         solve!(x, F!, J!, nl)
         # println(status(nl))
         for _x in x
-            @test _x ≈ 0 atol=1E-7
+            @test _x ≈ 0 atol = eps(T)
         end
     end
 end
