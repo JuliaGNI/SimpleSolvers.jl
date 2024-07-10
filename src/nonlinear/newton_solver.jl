@@ -18,7 +18,7 @@ function NewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking(), c
     NewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options)
 end
 
-function solver_step!(x, f, forj, s::NewtonSolver{T}) where {T}
+function solver_step!(x, f, forj, s::NewtonSolver)
     # shortcuts
     rhs = s.cache.rhs
     δ = s.cache.δx

@@ -20,7 +20,7 @@ function QuasiNewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking
     QuasiNewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options, refactorize)
 end
 
-function solver_step!(x, f, forj, s::QuasiNewtonSolver{T}) where {T}
+function solver_step!(x, f, forj, s::QuasiNewtonSolver)
     # shortcuts
     rhs = s.cache.rhs
     δ = s.cache.δx

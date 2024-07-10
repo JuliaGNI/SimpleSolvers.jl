@@ -35,7 +35,7 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
 end
 
 "create univariate objective for linesearch algorithm"
-function linesearch_objective(objective!, jacobian!, cache::NewtonSolverCache{T}) where {T}
+function linesearch_objective(objective!, jacobian!, cache::NewtonSolverCache)
     function f(α)
         cache.x₁ .= cache.x₀ .+ α .* cache.δx
         objective!(cache.y, cache.x₁)
