@@ -164,8 +164,8 @@ function update!(status::NonlinearSolverStatus, x, f)
     copyto!(status.x, x)
     f(status.f, x)
 
-    status.δ .= status.x - status.x̄
-    status.γ .= status.f - status.f̄
+    status.δ .= status.x .- status.x̄
+    status.γ .= status.f .- status.f̄
     
     return status
 end
