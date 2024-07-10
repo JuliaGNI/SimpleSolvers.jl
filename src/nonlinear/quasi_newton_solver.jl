@@ -1,10 +1,10 @@
 
-struct QuasiNewtonSolver{T, AT, TJ, TL, TS <: LinesearchState} <: AbstractNewtonSolver{T,AT}
+struct QuasiNewtonSolver{T, AT, JT, TJ, TL, TS <: LinesearchState} <: AbstractNewtonSolver{T,AT}
     @newton_solver_variables
 
     refactorize::Int
 
-    function QuasiNewtonSolver{T,AT,TJ,TL,TS}(x, jacobian, linear_solver, linesearch, cache, config, refactorize) where {T,AT,TJ,TL,TS}
+    function QuasiNewtonSolver{T,AT,JT,TJ,TL,TS}(x, jacobian, linear_solver, linesearch, cache, config, refactorize) where {T,AT,JT,TJ,TL,TS}
         status = NonlinearSolverStatus{T}(length(x))
         new(jacobian, linear_solver, linesearch, cache, config, status, refactorize)
     end
@@ -17,7 +17,7 @@ function QuasiNewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch)
     options = Options(T, config)
-    QuasiNewtonSolver{T, AT, typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options, refactorize)
+    QuasiNewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options, refactorize)
 end
 
 function solver_step!(x, f, forj, s::QuasiNewtonSolver{T}) where {T}

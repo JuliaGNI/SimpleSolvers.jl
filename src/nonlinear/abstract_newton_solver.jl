@@ -62,7 +62,7 @@ abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
     linear::TL
     linesearch::TS
 
-    cache::NewtonSolverCache{T,AT}
+    cache::NewtonSolverCache{T,AT,JT}
     config::Options{T}
     status::NonlinearSolverStatus{T}
 end
