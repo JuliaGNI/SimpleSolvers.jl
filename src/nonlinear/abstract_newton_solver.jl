@@ -71,6 +71,8 @@ cache(solver::AbstractNewtonSolver) = solver.cache
 config(solver::AbstractNewtonSolver) = solver.config
 status(solver::AbstractNewtonSolver) = solver.status
 jacobian(solver::AbstractNewtonSolver) = solver.jacobian
+linearsolver(solver::AbstractNewtonSolver) = solver.linear
+linesearch(solver::AbstractNewtonSolver) = solver.linesearch
 
 compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable) = compute_jacobian!(s, x, f, missing)
 compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable, ::Missing) = s.jacobian(s.cache.J, x, f)

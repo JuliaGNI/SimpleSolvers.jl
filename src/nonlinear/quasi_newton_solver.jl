@@ -22,16 +22,16 @@ end
 
 function solver_step!(x, f, forj, s::QuasiNewtonSolver)
     # shortcuts
-    rhs = s.cache.rhs
-    δ = s.cache.δx
+    rhs = cache(s).rhs
+    δ = cache(s).δx
 
     # update Newton solver cache
     update!(s, x)
 
     # compute Jacobian and factorize
-    if mod(s.status.i-1, s.refactorize) == 0
+    if mod(status(s).i-1, s.refactorize) == 0
         compute_jacobian!(s, x, forj)
-        factorize!(s.linear, s.cache.J)
+        factorize!(linearsolver(s), cache(s).J)
     end
 
     # compute RHS
@@ -39,7 +39,7 @@ function solver_step!(x, f, forj, s::QuasiNewtonSolver)
     rmul!(rhs, -1)
 
     # solve J δx = -f(x)
-    ldiv!(δ, s.linear, rhs)
+    ldiv!(δ, linearsolver(s), rhs)
 
     # apply line search
     α = s.linesearch(linesearch_objective(f, jacobian(s), cache(s)))
