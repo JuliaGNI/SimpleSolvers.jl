@@ -26,6 +26,20 @@ module SimpleSolvers
 
     include("base/methods.jl")
 
+    export Gradient,
+           GradientAutodiff,
+           GradientFiniteDifferences,
+           GradientFunction
+           
+    export compute_gradient,
+           compute_gradient!,
+           compute_gradient_ad!,
+           compute_gradient_fd!
+
+    export check_gradient
+    
+    include("base/gradient.jl")
+
     export UnivariateObjective,
            TemporaryUnivariateObjective,
            MultivariateObjective
@@ -41,21 +55,6 @@ module SimpleSolvers
     export Options
 
     include("base/options.jl")
-
-    export Gradient,
-           GradientAutodiff,
-           GradientFiniteDifferences,
-           GradientFunction
-           
-    export compute_gradient,
-           compute_gradient!,
-           compute_gradient_ad!,
-           compute_gradient_fd!
-
-    export check_gradient,
-           print_gradient
-
-    include("base/gradient.jl")
 
     export Hessian,
            HessianAutodiff,
