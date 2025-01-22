@@ -8,7 +8,7 @@ const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
 """
     Gradient
 
-Abstract type that contains a functor that computes the gradient of a function (in-place).
+Abstract type. `strcut`s that are derived from this need an assoicated functor that computes the gradient of a function (in-place).
 
 # Implementation
 
@@ -78,7 +78,7 @@ minimum(|Gradient|):          0.9
 maximum(|Gradient|):          3.0
 ```
 """
-function check_gradient(g::AbstractVector; digits = 5)
+function check_gradient(g::AbstractVector; digits::Integer = 5)
     println("norm(Gradient):               ", round(norm(g); digits=digits))
     println("minimum(|Gradient|):          ", round(minimum(abs.(g)); digits=digits))
     println("maximum(|Gradient|):          ", round(maximum(abs.(g)); digits=digits))
@@ -173,7 +173,7 @@ function gradient_ad!(g::AbstractVector{T}, x::AbstractVector{T}, F::Callable) w
     grad(g,x)
 end
 
-"""
+@doc raw"""
     GradientAutodiff <: Gradient
 
 A `struct` that realizes [`Gradient`](@ref) by using finite differences.
