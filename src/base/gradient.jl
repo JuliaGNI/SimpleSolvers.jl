@@ -174,7 +174,7 @@ function gradient_ad!(g::AbstractVector{T}, x::AbstractVector{T}, F::Callable) w
 end
 
 @doc raw"""
-    GradientAutodiff <: Gradient
+    GradientFiniteDifferences <: Gradient
 
 A `struct` that realizes [`Gradient`](@ref) by using finite differences.
 
