@@ -1,36 +1,128 @@
+"""
+    DEFAULT_JACOBIAN_ϵ
 
+A constant used for computing the finite difference Jacobian.
+"""
 const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
 
+"""
+    Jacobian
 
+Abstract type. `strcut`s that are derived from this need an assoicated functor that computes the Jacobian of a function (in-place).
+
+# Implementation
+
+When a custom `Jacobian` is implemented, a functor is needed:
+
+```julia
+function (j::Jacobian)(g::AbstractMatrix, x::AbstractVector) end
+```
+This functor can also be called with [`compute_jacobian!`](@ref).
+
+# Examples
+
+Examples include:
+- [`JacobianFunction`](@ref)
+- [`JacobianAutodiff`](@ref)
+- [`JacobianFiniteDifferences`](@ref)
+"""
 abstract type Jacobian{T} end
 
+"""
+    compute_jacobian!(j, x, jacobian::Jacobian)
+
+Apply the [`Jacobian`](@ref) and store the result in `j`.
+"""
 compute_jacobian!(j::AbstractMatrix, x::AbstractVector, jacobian::Jacobian) = jacobian(j,x)
 
-function check_jacobian(J::AbstractMatrix)
-    println("Condition Number of Jacobian: ", cond(J))
-    println("Determinant of Jacobian:      ", det(J))
-    println("minimum(|Jacobian|):          ", minimum(abs.(J)))
-    println("maximum(|Jacobian|):          ", maximum(abs.(J)))
+"""
+    check_jacobian(J)
+
+Check the condition number, determinant, max and min value of the [`Jacobian`](@ref) `J`.
+
+```jldoctest
+using SimpleSolvers
+
+J = [1. √2.; √2. 3.]
+SimpleSolvers.check_jacobian(J)
+
+# output
+
+Condition Number of Jacobian: 13.9282
+Determinant of Jacobian:      1.0
+minimum(|Jacobian|):          1.0
+maximum(|Jacobian|):          3.0
+```
+"""
+function check_jacobian(J::AbstractMatrix; digits = 5)
+    println("Condition Number of Jacobian: ", round(cond(J); digits=digits))
+    println("Determinant of Jacobian:      ", round(det(J); digits=digits))
+    println("minimum(|Jacobian|):          ", round(minimum(abs.(J)); digits=digits))
+    println("maximum(|Jacobian|):          ", round(maximum(abs.(J)); digits=digits))
     println()
 end
 
-function print_jacobian(J::AbstractMatrix)
-    display(J)
-    println()
+# function print_jacobian(J::AbstractMatrix)
+#     display(J)
+#     println()
+# end
+
+"""
+    JacobianFunction <: Jacobian
+
+A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function.
+
+# Keys
+
+The `struct` stores:
+- `DF!`: a function that can be applied in place.
+
+# Functor
+
+The functor does:
+
+```julia
+jac(g, x) = jac.DF!(g, x)
+```
+"""
+struct JacobianFunction{T, JT <: Callable} <: Jacobian{T}
+    DF!::JT
 end
 
+JacobianFunction(DF!::Callable, ::AbstractArray{T}) where {T} = JacobianFunction{T, typeof(DF!)}(DF!)
 
-struct JacobianFunction{T} <: Jacobian{T}
+function (jac::JacobianFunction{T})(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+    jac.DF!(j, x)
 end
 
-JacobianFunction(::AbstractArray{T}) where {T} = JacobianFunction{T}()
+"""
+    JacobianAutodiff <: Jacobian
 
-function (::JacobianFunction{T})(j::AbstractMatrix{T}, x::AbstractVector{T}, jac::Callable) where {T}
-    jac(j, x)
-end
+A `struct` that realizes [`Jacobian`](@ref) by using `ForwardDiff`.
 
+# Keys
 
-struct JacobianAutodiff{T, JT <: ForwardDiff.JacobianConfig, YT <: AbstractVector{T}} <: Jacobian{T}
+The `struct` stores:
+- `F`: a function that has to be differentiated.
+- `Jconfig`: result of applying `ForwardDiff.JacobianConfig`.
+
+# Constructors
+
+```julia
+JacobianAutodiff(F, x::AbstractVector)
+JacobianAutodiff(F, nx::Integer)
+```
+
+# Functor
+
+The functor does:
+
+```julia
+jac(J, x) = ForwardDiff.jacobian!(J, jac.ty, x, grad.Jconfig)
+```
+"""
+struct JacobianAutodiff{T, F <: Callable, JT <: ForwardDiff.JacobianConfig, YT <: AbstractVector{T}} <: Jacobian{T}
+    F::FT
     Jconfig::JT
     ty::YT
 
