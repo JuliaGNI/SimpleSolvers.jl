@@ -105,7 +105,33 @@ function (hes::HessianFunction{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) w
     hes.H!(H, x)
 end
 
+"""
+    HessianAutodiff <: Hessian
 
+A `struct` that realizes [`Hessian`](@ref) by using `ForwardDiff`.
+
+# Keys
+
+The `struct` stores:
+- `F`: a function that has to be differentiated.
+- `H`: a matrix in which the (updated) [`Hessian`](@ref) is stored. 
+- `Hconfig`: result of applying `ForwardDiff.HessianConfig`.
+
+# Constructors
+
+```julia
+HessianAutodiff(F, x::AbstractVector)
+HessianAutodiff(F, nx::Integer)
+```
+
+# Functor
+
+The functor does:
+
+```julia
+hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
+```
+"""
 struct HessianAutodiff{T, FT, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
     H::HT
@@ -133,12 +159,28 @@ function (hes::HessianAutodiff{T})(x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(hes.H, hes.F, x, hes.Hconfig)
 end
 
-function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT) where {T, FT}
-    hes = HessianAutodiff(F, x)
-    hes(H,x)
-end
+"""
+    initialize!(H, x)
 
+Initialize a [`HessianAutodiff`](@ref) object `H`.
+
+# Implementation
+
+Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
+"""
 initialize!(H::HessianAutodiff, x) = H(x)
+
+"""
+    update!(H, x)
+
+Update a [`HessianAutodiff`](@ref) object `H`.
+
+This is identical to [`initialize!`](@ref).
+
+# Implementation
+
+Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
+"""
 update!(H::HessianAutodiff, x::AbstractVector) = H(x)
 
 Base.inv(H::HessianAutodiff) = inv(H.H)
@@ -149,14 +191,12 @@ LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
 # LinearAlgebra.ldiv!(x, H::HessianAD, b) = LinearAlgebra.ldiv!(x, H.H, b)
 # TODO: Make this work!
 
-
 function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
-        Hparams = HessianAutodiff(ForH, x)
+        return HessianAutodiff(ForH, x)
     else
-        Hparams = HessianFunction(ForH, x)
+        return HessianFunction(ForH, x)
     end
-    return Hparams
 end
 
 Hessian(H!, F, x::AbstractVector; kwargs...) = Hessian(H!, nx; mode = :user, kwargs...)
@@ -169,7 +209,31 @@ Hessian{T}(H!, F, nx::Int; kwargs...) where {T} = Hessian(H!, nx; kwargs...)
 
 Hessian{T}(H!::Nothing, F, nx::Int; kwargs...) where {T} = Hessian(F, nx; kwargs...)
 
+"""
+    compute_hessian!(h, x, ForH)
+
+Compute the hessian of function `ForH` at `x` and store it in `h`.
+
+# Implementation
+
+Internally this allocates a [`Hessian`](@ref) object.
+"""
 function compute_hessian!(h::AbstractMatrix, x::AbstractVector, ForH; kwargs...)
     hessian = Hessian(ForH, x; kwargs...)
     hessian(h,x)
+end
+
+"""
+    compute_hessian_ad!(g, x, F)
+
+Build a [`HessianAutodiff`](@ref) object based on `F` and apply it to `x`. The result is stored in `H`.
+
+Also see [`gradient_ad!`](@ref) for the [`Gradient`](@ref) version.
+
+# Implementation
+
+This is using [`compute_hessian!`](@ref) with the keyword `mode` set to `autodiff`.
+"""
+function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
+    compute_hessian!(h, x, F; mode = :autodiff, kwargs...)
 end
