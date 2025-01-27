@@ -218,9 +218,9 @@ Compute the hessian of function `ForH` at `x` and store it in `h`.
 
 Internally this allocates a [`Hessian`](@ref) object.
 """
-function compute_hessian!(h::AbstractMatrix, x::AbstractVector, ForH; kwargs...)
+function compute_hessian!(H::AbstractMatrix, x::AbstractVector, ForH; kwargs...)
     hessian = Hessian(ForH, x; kwargs...)
-    hessian(h,x)
+    hessian(H, x)
 end
 
 """
@@ -235,5 +235,5 @@ Also see [`gradient_ad!`](@ref) for the [`Gradient`](@ref) version.
 This is using [`compute_hessian!`](@ref) with the keyword `mode` set to `autodiff`.
 """
 function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
-    compute_hessian!(h, x, F; mode = :autodiff, kwargs...)
+    compute_hessian!(H, x, F; mode = :autodiff, kwargs...)
 end

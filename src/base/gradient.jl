@@ -44,6 +44,13 @@ grad(g, x)
 gradient!(g::AbstractVector, x::AbstractVector, grad::Gradient) = grad(g,x)
 
 """
+    compute_gradient!
+
+Alias for [`gradient!`](@ref). Will probably be deprecated.
+"""
+const compute_gradient! = gradient!
+
+"""
     gradient(x, grad)
 
 Apply `grad` to `x` and return the result. 
@@ -111,6 +118,15 @@ grad(g, x) = grad.∇F!(g, x)
 """
 struct GradientFunction{T, ∇T} <: Gradient{T}
     ∇F!::∇T
+end
+
+function GradientFunction(DF!::Callable, ::AbstractArray{T}) where {T}
+    GradientFunction{T, typeof(DF!)}(DF!)
+end
+
+function GradientFunction{T}(DF!::Callable, nx::Integer) where T
+    x = zeros(T, nx)
+    GradientFunction(DF!, x)
 end
 
 function (grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
@@ -189,7 +205,7 @@ The `struct` stores:
 # Constructor(s)
     
 ```julia
-GradientFiniteDifferences(F, nx::Integer; ϵ)
+GradientFiniteDifferences{T}(F, nx::Integer; ϵ)
 ```
 
 By default for `ϵ` is [`DEFAULT_GRADIENT_ϵ`](@ref).
@@ -221,7 +237,7 @@ end
 function GradientFiniteDifferences{T}(F::FT, nx::Int; ϵ=DEFAULT_GRADIENT_ϵ) where {T, FT}
     e  = zeros(T, nx)
     tx = zeros(T, nx)
-    GradientFiniteDifferences{T,FT}(ϵ, F, e, tx)
+    GradientFiniteDifferences{T,FT}(F, ϵ, e, tx)
 end
 
 function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
@@ -251,17 +267,14 @@ function gradient_fd!(g::AbstractVector{T}, x::AbstractVector{T}, F::FT; kwargs.
     grad(g,x)
 end
 
-function Gradient{T}(ForG, nx::Int; mode = :autodiff, diff_type = :forward, kwargs...) where {T}
+function Gradient{T}(ForG, nx::Int; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
-        if diff_type == :forward
-            Gparams = GradientAutodiff{T}(ForG, nx)
-        else
-            Gparams = GradientFiniteDifferences{T}(ForG, nx; kwargs...)
-        end
+        return GradientAutodiff{T}(ForG, nx)
+    elseif mode == :finite
+        return GradientFiniteDifferences{T}(ForG, nx; kwargs...)
     else
-        Gparams = GradientFunction{T, typeof(ForG)}(ForG)
+        return GradientFunction{T, typeof(ForG)}(ForG)
     end
-    return Gparams
 end
 
 Gradient{T}(∇F!, F, nx::Int; kwargs...) where {T} = Gradient{T}(∇F!, nx; mode = :user, kwargs...)
