@@ -180,7 +180,7 @@ end
 
 Similar to [`value!!`](@ref), but fo the derivative part (see [`UnivariateObjective`](@ref)).
 """
-function derivative!(obj::UnivariateObjective, x::Union{Number, AbstractArray{<:Number}})
+function derivative!(obj::UnivariateObjective, x::Number)
     if x != obj.x_d
         derivative!!(obj, x)
     end
@@ -219,13 +219,13 @@ struct TemporaryUnivariateObjective{TF, TD} <: AbstractUnivariateObjective
     D::TD
 end
 
-TemporaryUnivariateObjective(f, d, x::Union{Number, AbstractArray{<:Number}}) = TemporaryUnivariateObjective(f, d)
+TemporaryUnivariateObjective(f, d, x::Number) = TemporaryUnivariateObjective(f, d)
 
-value(obj::TemporaryUnivariateObjective, x::Union{Number, AbstractArray{<:Number}}) = obj.F(x)
-derivative(obj::TemporaryUnivariateObjective, x::Union{Number, AbstractArray{<:Number}}) = obj.D(x)
+value(obj::TemporaryUnivariateObjective, x::Number) = obj.F(x)
+derivative(obj::TemporaryUnivariateObjective, x::Number) = obj.D(x)
 
-value!(obj::TemporaryUnivariateObjective, x) = value(obj, x)
-derivative!(obj::TemporaryUnivariateObjective, x) = derivative(obj, x)
+value!(obj::TemporaryUnivariateObjective, x::Number) = value(obj, x)
+derivative!(obj::TemporaryUnivariateObjective, x::Number) = derivative(obj, x)
 
 """
     MultivariateObjective <: AbstractObjective
