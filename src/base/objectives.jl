@@ -146,39 +146,38 @@ function value!(obj::AbstractObjective, x::Union{Number, AbstractArray{<:Number}
     value(obj)
 end
 
-
 """
     derivative(obj::AbstractObjective, x)
 
 Similar to [`value`](@ref), but for the derivative part (see [`UnivariateObjective`](@ref)).
 """
-function derivative(obj::AbstractObjective, x::Union{Number, AbstractArray{<:Number}})
+function derivative(obj::UnivariateObjective, x::Number)
     obj.d_calls += 1
     obj.D(x)
 end
 
-derivative(obj::AbstractObjective) = obj.d
+derivative(obj::UnivariateObjective) = obj.d
 
 """
     derivative!!(obj::AbstractObjective, x)
 
 Similar to [`value!!`](@ref), but fo the derivative part (see [`UnivariateObjective`](@ref)).
 """
-function derivative!!(obj::AbstractObjective, x::Number)
-    obj.x_f = x
-    obj.f = derivative(obj, x)
+function derivative!!(obj::UnivariateObjective, x::Number)
+    obj.x_d = x
+    obj.d = derivative(obj, x)
     derivative(obj)
 end
-function derivative!!(obj::AbstractObjective, x::AbstractArray{<:Number})
-    obj.x_f .= x
-    obj.f = derivative(obj, x)
-    derivative(obj)
-end
+# function derivative!!(obj::AbstractObjective, x::AbstractArray{<:Number})
+#     obj.x_d .= x
+#     obj.d = derivative(obj, x)
+#     derivative(obj)
+# end
 
 """
     derivative!(obj, x)
 
-Similar to [`value!!`](@ref), but fo the derivative part (see [`UnivariateObjective`](@ref)).
+Similar to [`value!`](@ref), but fo the derivative part (see [`UnivariateObjective`](@ref)).
 """
 function derivative!(obj::UnivariateObjective, x::Number)
     if x != obj.x_d
@@ -203,7 +202,7 @@ function _clear_d!(obj::UnivariateObjective)
     nothing
 end
 
-function clear!(obj::AbstractObjective)
+function clear!(obj::AbstractUnivariateObjective)
     _clear_f!(obj)
     _clear_d!(obj)
     nothing
@@ -222,10 +221,18 @@ end
 TemporaryUnivariateObjective(f, d, x::Number) = TemporaryUnivariateObjective(f, d)
 
 value(obj::TemporaryUnivariateObjective, x::Number) = obj.F(x)
+value(obj::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
 derivative(obj::TemporaryUnivariateObjective, x::Number) = obj.D(x)
 
-value!(obj::TemporaryUnivariateObjective, x::Number) = value(obj, x)
-derivative!(obj::TemporaryUnivariateObjective, x::Number) = derivative(obj, x)
+function value!(obj::TemporaryUnivariateObjective, x::Number)
+    @warn "Calling value! on a TemporaryUnivariateObjective just calls value."
+    value(obj, x)
+end
+
+function derivative!(obj::TemporaryUnivariateObjective, x::Number)
+    @warn "Calling derivative! on a TemporaryUnivariateObjective just calls derivative."
+    derivative(obj, x)
+end
 
 """
     MultivariateObjective <: AbstractObjective
@@ -238,7 +245,7 @@ The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
 If `MultivariateObjective` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
 """
-mutable struct MultivariateObjective{TF, TG <: Gradient, Tf, Tg, Tx} <: AbstractObjective
+mutable struct MultivariateObjective{TF <: Callable, TG <: Gradient, Tf, Tg, Tx} <: AbstractObjective
     F::TF
     G::TG
 
@@ -252,14 +259,21 @@ mutable struct MultivariateObjective{TF, TG <: Gradient, Tf, Tg, Tx} <: Abstract
     g_calls::Int
 end
 
-function MultivariateObjective(F, G,
+function MultivariateObjective(F::Callable, G::Gradient,
                                x::AbstractArray{<:Number};
-                               f::Number = alloc_f(x),
-                               g::AbstractArray{<:Number} = alloc_g(x))
+                               f::Number=alloc_f(x),
+                               g::AbstractArray{<:Number}=alloc_g(x))
     MultivariateObjective(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
 end
 
-function MultivariateObjective(F, x::AbstractArray; kwargs...)
+function MultivariateObjective(F::Callable, G!::Callable,
+                               x::AbstractArray{<:Number};
+                               f::Number=alloc_f(x),
+                               g::AbstractArray{<:Number}=alloc_g(x))
+    MultivariateObjective(F, GradientFunction(G!, x), x; f = f, g = g)
+end
+
+function MultivariateObjective(F::Callable, x::AbstractArray; kwargs...)
     G = GradientAutodiff(F, x)
     MultivariateObjective(F, G, x; kwargs...)
 end
@@ -315,6 +329,12 @@ function _clear_g!(obj::MultivariateObjective)
     obj.g_calls = 0
     obj.g .= eltype(obj.g)(NaN)
     obj.x_g .= eltype(obj.x_g)(NaN)
+    nothing
+end
+
+function clear!(obj::MultivariateObjective)
+    _clear_f!(obj)
+    _clear_g!(obj)
     nothing
 end
 
