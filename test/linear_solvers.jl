@@ -1,8 +1,6 @@
-
 using LinearAlgebra: ldiv!
 using SimpleSolvers
 using Test
-
 
 struct LinearSolverTest{T} <: LinearSolver{T} end
 
