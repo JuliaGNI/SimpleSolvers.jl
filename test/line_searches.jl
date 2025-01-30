@@ -1,4 +1,3 @@
-
 using SimpleSolvers
 using SimpleSolvers: LinesearchState, StaticState
 using Test

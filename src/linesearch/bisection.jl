@@ -1,6 +1,11 @@
+"""
+    bisection(f, xmin, xmax; config)
 
+Perform bisection of `f` in the interval [`xmin`, `xmax`] with [`Options`](@ref) `config`.
 
-function bisection(f, xmin::T, xmax::T; config = Options()) where {T <: Number}
+The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is [`F_ABSTOL`](@ref) by default).
+"""
+function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <: Number}
     local x₀ = xmin
     local x₁ = xmax
     local x  = zero(T)
@@ -36,32 +41,33 @@ function bisection(f, xmin::T, xmax::T; config = Options()) where {T <: Number}
 
     # i != ls.nmax || error("Max iteration number exceeded")
 
-    return x
+    x
 end
 
 bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
 
 """
-simple bisection line search
+    BisectionState <: LinesearchState
+
+Corresponding [`LinesearchState`](@ref) to [`Bisection`](@ref).
+
+See [`bisection`](@ref) for the implementation of the algorithm.
+
+# Constructors
+
+```julia
+BisectionState(options)
+BisectionState(; options)
+```
 """
 mutable struct BisectionState{OPT} <: LinesearchState where {OPT <: Options}
     config::OPT
-
-    function BisectionState(config)
-        new{typeof(config)}(config)
-    end
 end
 
 function BisectionState(; config = Options())
     BisectionState(config)
 end
-
-# function BisectionState(objective::MultivariateObjective; config = Options())
-#     cache = LinesearchCache(objective.x_f)
-#     ls_objective = linesearch_objective(objective, cache)
-#     BisectionState(ls_objective, config)
-# end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 

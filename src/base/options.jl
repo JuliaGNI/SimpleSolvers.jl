@@ -4,7 +4,7 @@ const X_ABSTOL::Real = -Inf
 const X_RELTOL::Real = 2eps()
 "succesive tolerance for `x"
 const X_SUCTOL::Real = 2eps()
-"absolute tolerance for the function value."
+"Absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref)."
 const F_ABSTOL::Real = 1e-50
 "relative tolerance for the function value."
 const F_RELTOL::Real = 2eps()
@@ -25,6 +25,7 @@ const G_CALLS_LIMIT::Int = 0
 const H_CALLS_LIMIT::Int = 0
 const ALLOW_F_INCREASES::Bool = true
 const MIN_ITERATIONS::Int = 0
+"The maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`BacktrackingState`](@ref)."
 const MAX_ITERATIONS::Int = 1_000
 const WARN_ITERATIONS::Int = 1_000
 const SHOW_TRACE::Bool = false
