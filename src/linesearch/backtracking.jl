@@ -5,7 +5,7 @@ const DEFAULT_ARMIJO_σ₀ = 0.1
 const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_p  = 0.5
 
-"""
+@doc raw"""
     BacktrackingState <: LinesearchState
 
 Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
@@ -15,8 +15,8 @@ Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
 The keys are:
 - `config::`[`Options`](@ref)
 - `α₀`: 
-- `ϵ`: 
-- `p`:
+- `ϵ=$(DEFAULT_WOLFE_ϵ)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the objective. Also see [`DEFAULT_WOLFE_ϵ`](@ref).
+- `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
 # Functor
 
@@ -25,6 +25,22 @@ The functor is used the following way:
 ```julia
 ls(obj, α = ls.α₀)
 ```
+
+# Implementation
+
+The algorithm starts by setting:
+
+```math
+x_0 \gets 0,
+y_0 \gets f(x_0),
+d_0 \gets f'(x_0),
+\alpha \gets \alpha_0,
+```
+where ``f`` is the *univariate objective* (of type [`AbstractUnivariateObjective`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
+```math
+    f(\alpha) < y_0 + \epsilon \cdot \alpha \cdot d_0,
+```
+where ``\epsilon`` is stored in `ls`.
 """
 struct BacktrackingState{OPT,T} <: LinesearchState where {OPT <: Options, T <: Number}
     config::OPT

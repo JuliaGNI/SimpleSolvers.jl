@@ -1,6 +1,15 @@
 const DEFAULT_LINESEARCH_NMAX=100
 const DEFAULT_LINESEARCH_RMAX=100
 
+@doc raw"""
+    const DEFAULT_WOLFE_ϵ
+
+A constant ``\epsilon`` on which a finite difference approximation of the derivative of the objective is computed. This is then used in the following stopping criterion:
+
+```math
+\frac{f(\alpha) - f(\alpha_0)}{\epsilon} < \alpha\cdot{}f'(\alpha_0).
+```
+"""
 const DEFAULT_WOLFE_ϵ  = 1E-4
 
 """
@@ -22,7 +31,7 @@ ls(obj::AbstractUnivariateObjective, x; kwargs...)
 Additionaly the following function needs to be extended:
 
 ```julia
-LinesearchState(algorithm::LinesearchState; kwargs...)
+LinesearchState(algorithm::LinesearchMethod; kwargs...)
 ```
 
 # Functors
@@ -38,7 +47,7 @@ ls(f::Callable, g::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjec
 """
 abstract type LinesearchState end
 
-LinesearchState(algorithm::LinesearchState; kwags...) = error("LinesearchState not implemented for algorithm $(typeof(algorithm)).")
+LinesearchState(algorithm::LinesearchMethod; kwags...) = error("LinesearchState not implemented for algorithm $(typeof(algorithm)).")
 
 (ls::LinesearchState)(f::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, missing); kwargs...)
 (ls::LinesearchState)(f::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), x; kwargs...)

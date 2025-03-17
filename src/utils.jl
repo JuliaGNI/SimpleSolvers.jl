@@ -8,6 +8,56 @@ macro define(name, definition)
 end
 
 
+"""
+    alloc_x(x)
+
+Allocate `NaN`s of the size of `x`.
+"""
+alloc_x
+
+"""
+    alloc_f(x)
+
+Allocate `NaN`s of the size the size of `f` (evaluated at `x`).
+"""
+alloc_f
+
+"""
+    alloc_d(x)
+
+Allocate `NaN`s of the size of the derivative of `f` (with respect to `x`).
+
+This is used in combination with a [`AbstractUnivariateObjective`](@ref).
+"""
+alloc_d
+
+"""
+    alloc_g(x)
+
+Allocate `NaN`s of the size of the gradient of `f` (with respect to `x`).
+
+This is used in combination with a [`MultivariateObjective`](@ref).
+"""
+alloc_g
+
+"""
+    alloc_h(x)
+
+Allocate `NaN`s of the size of the Hessian of `f` (with respect to `x`).
+
+This is used in combination with a [`MultivariateObjective`](@ref).
+"""
+alloc_h
+
+"""
+    alloc_j(x)
+
+Allocate `NaN`s of the size of the Jacobian of `f` (with respect to `x`).
+
+This is used in combination with a [`MultivariateObjective`](@ref).
+"""
+alloc_j
+
 alloc_x(x::Number) = typeof(x)(NaN)
 alloc_f(x::Number) = real(typeof(x))(NaN)
 alloc_d(x::Number) = typeof(x)(NaN)

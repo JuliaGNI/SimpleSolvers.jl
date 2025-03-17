@@ -6,7 +6,7 @@ See these examples for specific information on linesearch algorithms.
 
 # Extended help
 
-A `LinesearchMethod` always goes together with a [`LinesearchState`](@ref) and each of those [`LineasearchState`](@ref)s has a functor implemented:
+A `LinesearchMethod` always goes together with a [`LinesearchState`](@ref) and each of those [`LinesearchState`](@ref)s has a functor implemented:
 
 ```julia
 ls(obj, α)
@@ -15,7 +15,7 @@ where obj is a [`AbstractUnivariateObjective`](@ref) and `α` is an initial *ste
 """
 abstract type LinesearchMethod <: NonlinearMethod end
 
-"""
+@doc raw"""
     Backtracking <: LinesearchMethod
 
 The *backtracking* method.
@@ -30,9 +30,9 @@ Backtracking()
 
 The backtracking algorithm starts by setting ``y_0 \gets f(0)`` and ``d_0 \gets \nabla_0f``.
 
-The algorithm is the executed by calling the functor of [`BacktrackingState`](@ref).
+The algorithm is executed by calling the functor of [`BacktrackingState`](@ref).
 
-The following is then repeated until the stopping criteration is satisfied or `config.max_iterations` ([`MAX_ITERATIONS`](@ref) by default) is reached:
+The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` ([`MAX_ITERATIONS`](@ref) by default) is reached:
 
 ```julia
 if value!(obj, α) ≥ y₀ + ls.ϵ * α * d₀
@@ -65,7 +65,7 @@ Bisection()
 
 # Extended help
 
-The bisection algorithm starts with an interval and successively disects it into smaller intervals until a root is found.
+The bisection algorithm starts with an interval and successively bisects it into smaller intervals until a root is found.
 See [`bisection`](@ref).
 """
 struct Bisection <: LinesearchMethod end

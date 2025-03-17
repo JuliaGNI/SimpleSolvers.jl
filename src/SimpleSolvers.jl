@@ -100,8 +100,8 @@ module SimpleSolvers
            Bisection, bisection,
            Quadratic, quadratic
 
-    include("linesearch/linesearch.jl")
     include("linesearch/methods.jl")
+    include("linesearch/linesearch.jl")
     include("linesearch/static.jl")
     include("linesearch/backtracking.jl")
     include("linesearch/bisection.jl")
