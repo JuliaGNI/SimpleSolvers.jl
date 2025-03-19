@@ -6,6 +6,17 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_p  = 0.5
 
 @doc raw"""
+    const DEFAULT_WOLFE_ϵ
+
+A constant ``\epsilon`` on which a finite difference approximation of the derivative of the objective is computed. This is then used in the following stopping criterion:
+
+```math
+\frac{f(\alpha) - f(\alpha_0)}{\epsilon} < \alpha\cdot{}f'(\alpha_0).
+```
+"""
+const DEFAULT_WOLFE_ϵ  = 1E-4
+
+@doc raw"""
     BacktrackingState <: LinesearchState
 
 Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
@@ -76,6 +87,7 @@ function (ls::BacktrackingState)(obj::AbstractUnivariateObjective, α = ls.α₀
 
     α
 end
+
 
 backtracking(o::AbstractUnivariateObjective, args...; kwargs...) = BacktrackingState(; kwargs...)(o, args...)
 backtracking(f::Callable, g::Callable, args...; kwargs...) = BacktrackingState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)

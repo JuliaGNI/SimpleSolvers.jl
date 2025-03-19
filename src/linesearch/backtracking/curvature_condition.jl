@@ -1,0 +1,3 @@
+mutable struct CurvatureCondition 
+
+end

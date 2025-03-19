@@ -1,16 +1,5 @@
 const DEFAULT_LINESEARCH_NMAX=100
-const DEFAULT_LINESEARCH_RMAX=100
-
-@doc raw"""
-    const DEFAULT_WOLFE_ϵ
-
-A constant ``\epsilon`` on which a finite difference approximation of the derivative of the objective is computed. This is then used in the following stopping criterion:
-
-```math
-\frac{f(\alpha) - f(\alpha_0)}{\epsilon} < \alpha\cdot{}f'(\alpha_0).
-```
-"""
-const DEFAULT_WOLFE_ϵ  = 1E-4
+const DEFAULT_LINESEARCH_RMAX=100cod
 
 """
     LinesearchState
