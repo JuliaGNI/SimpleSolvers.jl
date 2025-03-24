@@ -8,24 +8,22 @@ status(s::NonlinearSolver) = error("status not implemented for $(typeof(s))")
 initialize!(s::NonlinearSolver, ::AbstractArray) = error("initialize! not implemented for $(typeof(s))")
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
-
-function solve!(x, f, forj, s::NonlinearSolver)
+function solve!(x, f, jacobian!, s::NonlinearSolver)
     initialize!(s, x, f)
 
     while !meets_stopping_criteria(status(s), config(s))
         next_iteration!(status(s))
-        solver_step!(x, f, forj, s)
+        solver_step!(x, f, jacobian!, s)
         update!(status(s), x, f)
         residual!(status(s))
     end
 
     warn_iteration_number(status(s), config(s))
 
-    return x
+    x
 end
 
 solve!(x, f, s::NonlinearSolver) = solve!(x, f, f, s)
-
 
 struct NonlinearSolverException <: Exception
     msg::String

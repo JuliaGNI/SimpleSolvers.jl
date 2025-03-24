@@ -10,9 +10,9 @@ struct QuasiNewtonSolver{T, AT, JT, TJ, TL, TLS <: LinesearchState, TST <: Nonli
     end
 end
 
-function QuasiNewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking(), config = Options(), refactorize=5) where {T, AT <: AbstractVector{T}}
+function QuasiNewtonSolver(x::AT, y::AT; F = missing, DF! = missing, linesearch = Backtracking(), config = Options(), refactorize=5) where {T, AT <: AbstractVector{T}}
     n = length(y)
-    jacobian = Jacobian{T}(J!, n)
+    jacobian = ismissing(F) ? (ismissing(DF!) ? error("F and DF! are both missing.") : Jacobian{T}(DF!, n; mode = :function)) : Jacobian{T}(F, n; mode = :autodiff)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch)

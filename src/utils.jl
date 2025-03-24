@@ -50,11 +50,25 @@ This is used in combination with a [`MultivariateObjective`](@ref).
 alloc_h
 
 """
-    alloc_j(x)
+    alloc_j(x, f)
 
 Allocate `NaN`s of the size of the Jacobian of `f` (with respect to `x`).
 
 This is used in combination with a [`MultivariateObjective`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: alloc_j)
+x = rand(3)
+fₓ = rand(2)
+alloc_j(x, fₓ)
+
+# output
+
+2×3 Matrix{Float64}:
+ NaN  NaN  NaN
+ NaN  NaN  NaN
+```
 """
 alloc_j
 

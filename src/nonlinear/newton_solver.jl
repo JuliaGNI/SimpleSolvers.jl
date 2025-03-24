@@ -1,4 +1,3 @@
-
 struct NewtonSolver{T, AT, JT, TJ, TL, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: AbstractNewtonSolver{T,AT}
     @newton_solver_variables
 
@@ -8,9 +7,10 @@ struct NewtonSolver{T, AT, JT, TJ, TL, TLS <: LinesearchState, TST <: NonlinearS
     end
 end
 
-function NewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking(), config = Options()) where {T, AT <: AbstractVector{T}}
+function NewtonSolver(x::AT, y::AT; F = missing, DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff) where {T, AT <: AbstractVector{T}}
     n = length(y)
-    jacobian = Jacobian{T}(J!, n)
+    !ismissing(F) || !ismissing(DF!) || error("You have to either provide F or DF!.")
+    jacobian = (ismissing(DF!) && !ismissing(F)) ? Jacobian{T}(F, n; mode = mode) : Jacobian{T}(DF!, n; mode = :function)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
     ls = LinesearchState(linesearch)
@@ -18,7 +18,12 @@ function NewtonSolver(x::AT, y::AT; J! = missing, linesearch = Backtracking(), c
     NewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options)
 end
 
-function solver_step!(x, f, forj, s::NewtonSolver)
+"""
+    solver_step!(x, f, jacobian!, s)
+
+Compute one Newton step for `f` based on the Jacobian `jacobian!`.
+"""
+function solver_step!(x, f, jacobian!, s::NewtonSolver)
     # shortcuts
     rhs = cache(s).rhs
     δ = cache(s).δx
@@ -27,7 +32,7 @@ function solver_step!(x, f, forj, s::NewtonSolver)
     update!(s, x)
 
     # compute Jacobian
-    compute_jacobian!(s, x, forj)
+    compute_jacobian!(s, x, jacobian!)
 
     # factorize linear solver
     factorize!(linearsolver(s), cache(s).J)

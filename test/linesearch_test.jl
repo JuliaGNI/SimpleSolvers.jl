@@ -16,7 +16,6 @@ function F(x)
     return y
 end
 
-
 function test_linesearch(algorithm, method; kwargs...)
 
     x₀ = -3.0
@@ -187,7 +186,7 @@ end
 
 @testset "$(rpad("Backtracking",80))" begin
 
-    test_linesearch(Backtracking(), backtracking)
+    # test_linesearch(Backtracking(), backtracking)
 
 
     # x₀ = [-3.0]

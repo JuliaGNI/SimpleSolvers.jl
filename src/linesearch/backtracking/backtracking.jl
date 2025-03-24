@@ -53,7 +53,7 @@ where ``f`` is the *univariate objective* (of type [`AbstractUnivariateObjective
 ```
 where ``\epsilon`` is stored in `ls`.
 """
-struct BacktrackingState{OPT,T} <: LinesearchState where {OPT <: Options, T <: Number}
+struct BacktrackingState{OPT <: Options, T <: Number} <: LinesearchState
     config::OPT
     α₀::T
     ϵ::T
@@ -74,14 +74,16 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = 
 LinesearchState(algorithm::Backtracking; kwargs...) = BacktrackingState(; kwargs...)
 
 function (ls::BacktrackingState)(obj::AbstractUnivariateObjective, α = ls.α₀)
-    local y₀ = value!(obj, zero(α))
-    local d₀ = derivative!(obj, zero(α))
+    local x₀ = zero(α)
+    local y₀ = value!(obj, x₀)
+    local d₀ = derivative!(obj, x₀)
 
+    scd = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, -d₀, obj)
     for _ in 1:ls.config.max_iterations
-        if value!(obj, α) ≥ y₀ + ls.ϵ * α * d₀
-            α *= ls.p
-        else
+        if scd(α)
             break
+        else
+            α *= ls.p
         end
     end
 

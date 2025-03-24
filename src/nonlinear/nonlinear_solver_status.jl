@@ -1,4 +1,3 @@
-
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     i::Int        # iteration number
 
@@ -17,7 +16,7 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
 
     f::AYT        # initial function
     f̄::AYT        # previous function
-    γ::AYT        # initial function
+    γ::AYT        # records change in f
     f̃::AYT        # temporary variable similar to f
 
     x_converged::Bool
@@ -27,15 +26,16 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
 
     NonlinearSolverStatus{T}(n::Int) where {T} = new{T,T,Vector{T},Vector{T}}(
         0, 
-        zero(T), zero(T), zero(T),
-        zero(T), zero(T), zero(T),
-        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n),
-        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n),
+        zero(T), zero(T), zero(T), # residuals for x
+        zero(T), zero(T), zero(T), # residuals for f
+        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for x
+        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
         false, false, false, false)
 end
 
 solution(status::NonlinearSolverStatus) = status.x
 
+# why do we initialize with zero but clear to NaN??
 function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.i = 0
 
@@ -69,6 +69,13 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
                         (@sprintf "rfₐ=%14.8e" status.rfₐ), ",   ",
                         (@sprintf "rfᵣ=%14.8e" status.rfᵣ))
 
+@doc raw"""
+    print_status(status, config)
+
+Print the solver staus if:
+1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `status.i > config.max_iterations`
+2. `config.verbosity > 1`.
+"""
 function print_status(status::NonlinearSolverStatus, config::Options)
     if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && status.i ≤ config.max_iterations)) ||
         config.verbosity > 1
@@ -76,6 +83,23 @@ function print_status(status::NonlinearSolverStatus, config::Options)
     end
 end
 
+"""
+    increase_iteration_number!(status)
+
+Increase iteration number of `status`.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus, increase_iteration_number!)
+status = NonlinearSolverStatus{Float64}(5)
+increase_iteration_number!(status)
+status.i
+
+# output
+
+1
+```
+"""
 increase_iteration_number!(status::NonlinearSolverStatus) = status.i += 1
 
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
@@ -94,7 +118,7 @@ function assess_convergence!(status::NonlinearSolverStatus, config::Options)
 
     status.f_increased = norm(status.f) > norm(status.f̄)
 
-    return isconverged(status)
+    isconverged(status)
 end
 
 function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
@@ -107,7 +131,7 @@ function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
       status.rxᵣ > config.x_reltol_break ||
       status.rfₐ > config.f_abstol_break ||
       status.rfᵣ > config.f_reltol_break ||
-      any(isnan, status.x) ||
+      any(isnan, solution(status)) ||
       any(isnan, status.f)
 end
 
@@ -134,7 +158,6 @@ end
 #     return status_dict
 # end
 
-
 function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
     if config.warn_iterations > 0 && status.i ≥ config.warn_iterations
         @warn "Solver took $(status.i) iterations."
@@ -142,11 +165,10 @@ function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
     nothing
 end
 
-
 function residual!(status::NonlinearSolverStatus)
-    status.rxₐ = norm(status.x)
-    status.rxᵣ = status.rxₐ / norm(status.x)
-    status.x̃  .= status.δ ./ status.x
+    status.rxₐ = norm(solution(status))
+    status.rxᵣ = status.rxₐ / norm(solution(status))
+    status.x̃  .= status.δ ./ solution(status)
     status.rxₛ = norm(status.x̃)
 
     status.rfₐ = norm(status.f)
@@ -157,31 +179,48 @@ function residual!(status::NonlinearSolverStatus)
     nothing
 end
 
+"""
+    initialize!(status, x, f)
 
-function initialize!(status::NonlinearSolverStatus, x, f)
+Clear `status` and initialize it based on `x` and the function `f`.
+"""
+function initialize!(status::NonlinearSolverStatus, x, f::Callable)
     clear!(status)
-    copyto!(status.x, x)
+    copyto!(solution(status), x)
     f(status.f, x)
     
-    return status
+    status
 end
 
-function update!(status::NonlinearSolverStatus, x, f)
-    copyto!(status.x, x)
+"""
+    update!(status, x, f)
+
+Update `status` based on `x` and the function `f`.
+
+The new `x` and `x̄` stored in `status` are used to compute `δ`.
+The new `f` and `f̄` stored in `status` are used to compute `γ`.
+"""
+function update!(status::NonlinearSolverStatus, x, f::Callable)
+    copyto!(solution(status), x)
     f(status.f, x)
 
-    status.δ .= status.x .- status.x̄
+    status.δ .= solution(status) .- status.x̄
     status.γ .= status.f .- status.f̄
     
-    return status
+    status
 end
 
+"""
+    next_iteration!(status)
+
+Call [`increase_iteration_number!`](@ref), set `x̄` and `f̄` to `x` and `f` respectively and `δ` as well as `γ` to 0.
+"""
 function next_iteration!(status::NonlinearSolverStatus)
     increase_iteration_number!(status)
-    status.x̄ .= status.x
+    status.x̄ .= solution(status)
     status.f̄ .= status.f
     status.δ .= 0
     status.γ .= 0
     
-    return status
+    status
 end

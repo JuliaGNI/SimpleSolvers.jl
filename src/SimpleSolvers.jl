@@ -104,7 +104,7 @@ module SimpleSolvers
     include("linesearch/linesearch.jl")
     include("linesearch/static.jl")
     include("linesearch/backtracking/backtracking.jl")
-    include("linesearch/condition.jl")
+    include("linesearch/backtracking/condition.jl")
     include("linesearch/backtracking/sufficient_decrease_condition.jl")
     include("linesearch/backtracking/curvature_condition.jl")
     include("linesearch/bisection.jl")

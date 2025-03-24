@@ -1,7 +1,5 @@
-
 import NLsolve: OnceDifferentiable, NewtonCache, newton_
 import LineSearches
-
 
 struct NLsolveNewton{T, AT, JT, FT, DT, CT, LST, LT, TST} <: AbstractNewtonSolver{T,AT}
     x::AT

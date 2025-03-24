@@ -29,16 +29,16 @@ test_obj = MultivariateObjective(F, test_x)
 
 
 for method in (Newton(), BFGS(), DFP())
-    for linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
+    for _linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
         for T in (Float64, Float32)
             n = 1
             x = ones(T, n)
-            opt = Optimizer(x, F; algorithm = method, linesearch = linesearch)
+            opt = Optimizer(x, F; algorithm = method, linesearch = _linesearch)
 
             @test config(opt) == opt.config
             @test status(opt) == opt.result.status
 
-            if !(method == BFGS() && linesearch == Quadratic() && T == Float32)
+            if !(method == BFGS() && _linesearch == Quadratic() && T == Float32)
                 # TODO: Investigate why this combination always fails.
 
                 solve!(x, opt)
@@ -47,7 +47,7 @@ for method in (Newton(), BFGS(), DFP())
                 @test norm(minimum(opt)) ≈ F(0) atol=1E-7
 
                 x = ones(T, n)
-                opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = linesearch)
+                opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = _linesearch)
                 solve!(x, opt)
                 # println(opt)
                 @test norm(minimizer(opt)) ≈ 0 atol=1E-7

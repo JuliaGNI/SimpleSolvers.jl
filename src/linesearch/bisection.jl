@@ -44,8 +44,9 @@ function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <
     x
 end
 
-bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
+bisection(obj::AbstractObjective, xmin::T, xmax::T; config = Options()) where {T <: Number} = bisection(obj.F, xmin, xmax; config = config)
 
+bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
 """
     BisectionState <: LinesearchState

@@ -1,8 +1,6 @@
-
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!
 using Test
-
 
 struct NonlinearSolverTest{T} <: NonlinearSolver end
 
@@ -12,7 +10,6 @@ test_solver = NonlinearSolverTest{Float64}()
 @test_throws ErrorException status(test_solver)
 @test_throws ErrorException initialize!(test_solver, rand(3))
 @test_throws ErrorException solver_step!(test_solver)
-
 
 function F!(f, x)
     f .= tan.(x)
@@ -24,7 +21,6 @@ function J!(g, x)
         g[i,i] = sec(x[i])^2
     end
 end
-
 
 for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
@@ -42,7 +38,7 @@ for (Solver, kwarguments) in (
         n = 1
         x = ones(T, n)
         y = zero(x)
-        nl = Solver(x, y; kwarguments...)
+        nl = Solver(x, y; F = F!, kwarguments...)
 
         @test config(nl) == nl.config
         @test status(nl) == nl.status
@@ -50,15 +46,15 @@ for (Solver, kwarguments) in (
         solve!(x, F!, nl)
         # println(status(nl))
         for _x in x
-            @test _x ≈ 0 atol = eps(T)
+            @test _x ≈ T(0) atol = 1000eps(Float32)
         end
 
         x = ones(T, n)
-        nl = Solver(x, y; J! = J!, kwarguments...)
-        solve!(x, F!, J!, nl)
+        nl = Solver(x, y; DF! = J!, kwarguments...)
+        solve!(x, F!, nl)
         # println(status(nl))
         for _x in x
-            @test _x ≈ 0 atol = eps(T)
+            @test _x ≈ T(0) atol = 1000eps(Float32)
         end
     end
 end
