@@ -23,6 +23,8 @@ makedocs(;
         "Home" => "index.md",
         "Linesearch" => ["linesearch/linesearch.md",
                          "Backtracking" => "linesearch/backtracking.md"],
+        "Optimizers" => ["optimizers/optimizers.md"],
+        "Hessians" => "hessians.md",
         "References" => "references.md",
     ],
 )
