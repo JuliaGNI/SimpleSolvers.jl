@@ -14,7 +14,7 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
 Distances = "0.10"
-ForwardDiff = "0.10"
+ForwardDiff = "0.10, 1"
 GeometricBase = "0.10"
 LineSearches = "7"
 NLsolve = "4"
