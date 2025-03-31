@@ -12,11 +12,11 @@ function compute_new_iterate(xₖ::VT, αₖ::T, ∇ₖf::TVT) where {T, VT, TVT
     error("Not implemented for $(VT).")
 end
 
+function compute_new_iterate(xₖ::VT, αₖ::T, ∇ₖf::TVT)::VT where {T <: Number, VT <: Union{T, AbstractArray{T}}, TVT <: Union{T, AbstractArray{T}}}
+    xₖ + αₖ * ∇ₖf
+end
+
 function compute_new_iterate(xₖ::VT, αₖ::T₁, ∇ₖf::TVT)::VT where {T₁ <: Number, T <: Number, VT <: Union{T, AbstractArray{T}}, TVT <: Union{T, AbstractArray{T}}}
     @warn "Your are computing with mixed precisions ($(T₁) and $(T)). This is probably not on purpose."
     compute_new_iterate(xₖ, T(αₖ), ∇ₖf)
-end
-
-function compute_new_iterate(xₖ::VT, αₖ::T, ∇ₖf::TVT)::VT where {T <: Number, VT <: Union{T, AbstractArray{T}}, TVT <: Union{T, AbstractArray{T}}}
-    xₖ + αₖ * ∇ₖf
 end

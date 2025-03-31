@@ -41,7 +41,7 @@ Internally this calls [`compute_hessian!`](@ref).
 """
 function compute_hessian(x, hessian::Hessian)
     h = alloc_h(x)
-    compute_hessian!(h,x)
+    compute_hessian!(h, x, hessian)
     h
 end
 
@@ -193,9 +193,13 @@ LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
 
 function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
-        return HessianAutodiff(ForH, x)
+        HessianAutodiff(ForH, x)
+    elseif mode == :function
+        HessianFunction(ForH, x)
+    elseif mode == :BFGS
+        HessianBFGS(ForH, x)
     else
-        return HessianFunction(ForH, x)
+        error("Hessian for mode $(mode) not defined!")
     end
 end
 
@@ -203,7 +207,7 @@ Hessian(H!, F, x::AbstractVector; kwargs...) = Hessian(H!, nx; mode = :user, kwa
 
 Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) = Hessian(F, nx;  mode = :autodiff, kwargs...)
 
-Hessian{T}(ForH, nx::Int; kwargs...) where {T} = Hessian(ForH, zeros(T,nx); kwargs...)
+Hessian{T}(ForH, nx::Int; kwargs...) where {T} = Hessian(ForH, zeros(T, nx); kwargs...)
 
 Hessian{T}(H!, F, nx::Int; kwargs...) where {T} = Hessian(H!, nx; kwargs...)
 

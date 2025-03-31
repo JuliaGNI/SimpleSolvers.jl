@@ -1,4 +1,3 @@
-
 struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
     objective::OBJ
 
@@ -44,7 +43,7 @@ function initialize!(H::HessianBFGS, x::AbstractVector)
     H.x .= x
     H.g .= gradient!(H.objective, x)
 
-    return H
+    H
 end
 
 function update!(H::HessianBFGS, x::AbstractVector)

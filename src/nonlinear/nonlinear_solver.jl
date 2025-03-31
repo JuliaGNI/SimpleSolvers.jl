@@ -1,4 +1,3 @@
-
 using Printf
 
 abstract type NonlinearSolver <: AbstractSolver end
@@ -41,4 +40,3 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 #                  :nls_stol => zero(T),
 #                  :nls_converged => false)
 #             )
-

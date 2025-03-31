@@ -1,4 +1,10 @@
+"""
+    OptimizerStatus
 
+Stores residuals (relative and absolute) and various convergence properties.
+
+See [`OptimizerResult`](@ref).
+"""
 mutable struct OptimizerStatus{XT,YT}
     i::Int  # iteration number
 
@@ -122,6 +128,26 @@ function assess_convergence!(status::OptimizerStatus, config::Options)
     return isconverged(status)
 end
 
+@doc raw"""
+    meets_stopping_criteria(status, config)
+
+Check if the optimizer has converged.
+
+# Implementation
+
+`meets_stopping_criteria` first calls [`assess_convergence!`](@ref) and then checks if one of the following is true:
+- `converged` (the output of [`assess_convergence!`](@ref)) is `true` and `status.i` ``\geq`` `config.min_iterations`,
+- if `config.allow_f_increases` is `false`: `status.f_increased` is `true`,
+- `status.i` ``\geq`` `config.max_iterations`,
+- `status.rxₐ` ``>`` `config.x_abstol_break`
+- `status.rxᵣ` ``>`` `config.x_reltol_break`
+- `status.rfₐ` ``>`` `config.f_abstol_break`
+- `status.rfᵣ` ``>`` `config.f_reltol_break`
+- `status.rg`  ``>`` `config.g_restol_break`
+- `status.x_isnan`
+- `status.f_isnan`
+- `status.g_isnan`
+"""
 function meets_stopping_criteria(status::OptimizerStatus, config::Options)
     converged = assess_convergence!(status, config)
 
@@ -137,6 +163,10 @@ function meets_stopping_criteria(status::OptimizerStatus, config::Options)
     # println(status.f_isnan)
     # println(status.g_isnan)
 
+    if status.x_isnan || status.f_isnan || status.g_isnan
+        error("x, f or g in the OptimizerStatus you provided are NaNs.")
+    end
+
     ( converged && status.i ≥ config.min_iterations ) ||
     ( status.f_increased && !config.allow_f_increases ) ||
       status.i ≥ config.max_iterations ||
@@ -144,10 +174,7 @@ function meets_stopping_criteria(status::OptimizerStatus, config::Options)
       status.rxᵣ > config.x_reltol_break ||
       status.rfₐ > config.f_abstol_break ||
       status.rfᵣ > config.f_reltol_break ||
-      status.rg  > config.g_restol_break ||
-      status.x_isnan ||
-      status.f_isnan ||
-      status.g_isnan
+      status.rg  > config.g_restol_break 
 end
 
 

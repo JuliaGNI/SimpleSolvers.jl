@@ -67,11 +67,6 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
     cache
 end
 
-@doc raw"""
-    linesearch_objective(objective!, jacobian!, cache)
-
-Create [`TemporaryUnivariateObjective`](@ref) for linesearch algorithm. The variable on which this objective depends is ``\alpha``.
-"""
 function linesearch_objective(objective!, jacobian!, cache::NewtonSolverCache)
     function f(α)
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)

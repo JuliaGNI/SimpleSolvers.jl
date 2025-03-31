@@ -9,7 +9,7 @@ import Random # hide
 Random.seed!(123) # hide
 
 x = rand(3)
-obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.)), x)
+obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.)) ^ 2, x)
 bt = Backtracking()
 config = Options()
 alg = Newton()
@@ -29,10 +29,11 @@ state = OptimizationAlgorithm(alg, obj, x; linesearch = bt)
 The call above is equivalent to 
 
 ```@example optimizer
-using SimpleSolvers: NewtonOptimizerCache, NewtonOptimizerState, LinesearchState, linesearch_objective
+using SimpleSolvers: NewtonOptimizerCache, NewtonOptimizerState, LinesearchState, linesearch_objective, initialize!
 
 cache = NewtonOptimizerCache(x)
 hess = Hessian(obj, x; mode = :autodiff)
+initialize!(hess, x)
 ls = LinesearchState(bt)
 lso = linesearch_objective(obj, cache)
 
@@ -54,7 +55,7 @@ x₀ = copy(x)
 solve!(x, opt)
 ```
 
-Internally [`solve!`](@ref) repeatedly calls [`solver_step!`](@ref) and [`update!`](@ref).
+Internally [`solve!`](@ref) repeatedly calls [`solver_step!`](@ref) (and [`update!`](@ref)) until [`meets_stopping_criteria`](@ref) is satisfied.
 
 ```@example optimizer
 using SimpleSolvers: solver_step!

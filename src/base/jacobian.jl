@@ -8,7 +8,7 @@ const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
 """
     Jacobian
 
-Abstract type. `strcut`s that are derived from this need an assoicated functor that computes the Jacobian of a function (in-place).
+Abstract type. `struct`s that are derived from this need an associated functor that computes the Jacobian of a function (in-place).
 
 # Implementation
 

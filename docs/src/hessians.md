@@ -6,7 +6,7 @@ Hessians are a crucial ingredient in [`NewtonSolver`](@ref)s and [`NewtonOptimiz
 using SimpleSolvers
 
 x = rand(3)
-obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.)), x)
+obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.))  ^ 2, x)
 hes = HessianAutodiff(obj, x)
 ```
 

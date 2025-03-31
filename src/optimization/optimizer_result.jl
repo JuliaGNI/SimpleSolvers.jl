@@ -1,4 +1,9 @@
+"""
+    OptimizerResult
 
+Stores an [`OptimizerStatus`](@ref) as well as `x`, `f` and `g` (as keys).
+[`OptimizerStatus`](@ref) stores all other information (apart form `x` ,`f` and `g`); i.e. residuals etc.
+"""
 mutable struct OptimizerResult{XT, YT, VT <: AbstractArray{XT}, OST <: OptimizerStatus{XT,YT}}
     status::OST   # iteration number, residuals and convergence info
 
@@ -27,9 +32,8 @@ function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
     result.f  = YT(NaN)
     result.g .= XT(NaN)
 
-    return result
+    result
 end
-
 
 function residual!(result::OptimizerResult, x, f, g)
     status = result.status
@@ -52,9 +56,8 @@ function residual!(result::OptimizerResult, x, f, g)
     status.f_isnan = any(isnan, f)
     status.g_isnan = any(isnan, g)
 
-    return status
+    status
 end
-
 
 function update!(result::OptimizerResult, x, f, g)
     residual!(result, x, f, g)

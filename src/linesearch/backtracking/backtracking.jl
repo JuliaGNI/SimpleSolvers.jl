@@ -78,18 +78,18 @@ function (ls::BacktrackingState)(obj::AbstractUnivariateObjective, α = ls.α₀
     local y₀ = value!(obj, x₀)
     local d₀ = derivative!(obj, x₀)
 
-    scd = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, -d₀, obj)
+    sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, d₀, obj)
     for _ in 1:ls.config.max_iterations
-        if scd(α)
+        if sdc(α)
             break
         else
+            print(α)
             α *= ls.p
         end
     end
 
     α
 end
-
 
 backtracking(o::AbstractUnivariateObjective, args...; kwargs...) = BacktrackingState(; kwargs...)(o, args...)
 backtracking(f::Callable, g::Callable, args...; kwargs...) = BacktrackingState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)

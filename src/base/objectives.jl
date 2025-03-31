@@ -65,8 +65,10 @@ end
 
 function UnivariateObjective(F::Callable, D::Callable, x::Number;
                              f::Real = alloc_f(x),
-                             d::Number = alloc_d(x))
-    UnivariateObjective(F, D, f, d, alloc_x(x), alloc_x(x), 0, 0)
+                             d::Number = alloc_d(x),
+                             x_d::Number = alloc_x(x),
+                             x_f::Number = alloc_x(x))
+    UnivariateObjective(F, D, f, d, x_d, x_f, 0, 0)
 end
 
 function UnivariateObjective(F::Callable, x::Number; kwargs...)

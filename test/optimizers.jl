@@ -1,4 +1,3 @@
-
 using LinearAlgebra
 using SimpleSolvers
 using SimpleSolvers: gradient, hessian, linesearch, objective, initialize!, update!, solver_step!
