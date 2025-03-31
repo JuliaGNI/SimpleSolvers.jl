@@ -109,7 +109,7 @@ struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: 
     end
 end
 
-function NewtonOptimizerState(x::VT, objective::MultivariateObjective; mode = :autodiff, linesearch = Backtracking(), hesssian = Hessian(objective, x; mode = mode)) where {XT, VT <: AbstractVector{XT}}
+function NewtonOptimizerState(x::VT, objective::MultivariateObjective; mode = :autodiff, linesearch = Backtracking(), hessian = Hessian(objective, x; mode = mode)) where {XT, VT <: AbstractVector{XT}}
     cache = NewtonOptimizerCache(x, objective)
     initialize!(hessian, x)
     initialize!(cache, x, objective, hessian)
