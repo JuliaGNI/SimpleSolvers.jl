@@ -131,6 +131,11 @@ function update!(opt::Optimizer, x::AbstractVector)
     update!(result(opt), x, value!(objective(opt), x), gradient!(objective(opt), x))
 end
 
+"""
+    solve!(x, opt)
+
+
+"""
 function solve!(x, opt::Optimizer)
     # initialize!(opt, x)
 

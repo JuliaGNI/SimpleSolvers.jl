@@ -1,6 +1,6 @@
 # Optimizers
 
-An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`MultivariateObjective`](@ref), the [`OptimizerResult`](@ref) and a [`NonlinearMethod`](@ref). Its purposes are:
+An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`MultivariateObjective`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
 
 ```@example optimizer
 using SimpleSolvers
@@ -18,7 +18,7 @@ opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config)
 
 ## Optimization Algorithm
 
-Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizationAlgorithm`](@ref) and [`OptimizerResult`](@ref). [`SimpleSolvers.OptimizationAlgorithm`](@ref) in turn calls [`SimpleSolvers.LinesearchState`](@ref) and [`Hessian`](@ref):
+Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizationAlgorithm`](@ref) and [`SimpleSolvers.OptimizerResult`](@ref). [`SimpleSolvers.OptimizationAlgorithm`](@ref) in turn calls [`SimpleSolvers.LinesearchState`](@ref) and [`Hessian`](@ref):
 
 ```@example optimizer
 using SimpleSolvers: OptimizationAlgorithm
@@ -40,7 +40,7 @@ lso = linesearch_objective(obj, cache)
 NewtonOptimizerState(obj, hess, ls, lso, cache)
 ```
 
-Note that we use a separate objective here that only depends on ``\alpha`` (i.e. the step length for a single iteration) via [`linesearch_objective`](@ref).
+Note that we use a separate objective here that only depends on ``\alpha`` (i.e. the step length for a single iteration) via [`SimpleSolvers.linesearch_objective`](@ref).
 
 Also note that:
 
@@ -55,7 +55,7 @@ x₀ = copy(x)
 solve!(x, opt)
 ```
 
-Internally [`solve!`](@ref) repeatedly calls [`solver_step!`](@ref) (and [`update!`](@ref)) until [`meets_stopping_criteria`](@ref) is satisfied.
+Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solver_step!`](@ref) (and [`SimpleSolvers.update!`](@ref)) until [`SimpleSolvers.meets_stopping_criteria`](@ref) is satisfied.
 
 ```@example optimizer
 using SimpleSolvers: solver_step!
@@ -63,7 +63,7 @@ using SimpleSolvers: solver_step!
 solver_step!(x, state)
 ```
 
-The function [`solver_step!`](@ref) in turn does the following:
+The function [`SimpleSolvers.solver_step!`](@ref) in turn does the following:
 
 ```julia
 update!(state, x)
@@ -73,7 +73,7 @@ ls = linesearch(state)
 x .= x .+ α .* direction(state)
 ```
 
-Calling an instance of [`LinesearchState`](@ref) (in this case [`BacktrackingState`](@ref)) on an [`AbstractUnivariateObjective`](@ref) in turn does:
+Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.AbstractUnivariateObjective`](@ref) in turn does:
 
 ```julia
 α *= ls.p
@@ -88,6 +88,7 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 `sdc` is first allocated as:
 
 ```@example optimizer
+using SimpleSolvers: SufficientDecreaseCondition # hide
 α = ls.α₀
 x₀ = zero(α)
 y₀ = value!(lso, x₀)

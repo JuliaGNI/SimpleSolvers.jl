@@ -103,6 +103,11 @@ increase_iteration_number!(status::OptimizerStatus) = status.i += 1
 
 isconverged(status::OptimizerStatus) = status.x_converged || status.f_converged || status.g_converged
 
+"""
+    assess_convergence!(status, config)
+
+Checks if the optimizer converged.
+"""
 function assess_convergence!(status::OptimizerStatus, config::Options)
     x_converged = x_abschange(status) ≤ x_abstol(config) ||
                   x_relchange(status) ≤ x_reltol(config)

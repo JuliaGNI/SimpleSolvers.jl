@@ -1,3 +1,8 @@
+"""
+    NewtonSolver
+
+A struct that comprises all Newton solvers. Those typically differ in the way the Jacobian is computed.
+"""
 struct NewtonSolver{T, AT, JT, TJ, TL, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: AbstractNewtonSolver{T,AT}
     @newton_solver_variables
 

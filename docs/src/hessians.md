@@ -1,9 +1,10 @@
 # Hessians
 
-Hessians are a crucial ingredient in [`NewtonSolver`](@ref)s and [`NewtonOptimizerState`](@ref)s.
+Hessians are a crucial ingredient in [`NewtonSolver`](@ref)s and [`SimpleSolvers.NewtonOptimizerState`](@ref)s.
 
 ```@example hessian
 using SimpleSolvers
+using LinearAlgebra: norm
 
 x = rand(3)
 obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.))  ^ 2, x)
@@ -48,7 +49,7 @@ For computational reasons we save the inverse of the Hessian, it can be accessed
 inv(hes)
 ```
 
-Similarly to [`HessianAutodiff`](@ref) we can call [`update!`](@ref):
+Similarly to [`HessianAutodiff`](@ref) we can call [`SimpleSolvers.update!`](@ref):
 
 ```@example hessian
 using SimpleSolvers: update!
