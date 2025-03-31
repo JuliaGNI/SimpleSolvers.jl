@@ -196,6 +196,9 @@ function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where 
         HessianAutodiff(ForH, x)
     elseif mode == :function
         HessianFunction(ForH, x)
+    elseif mode == :user
+        @warn "Use the label :function instead of :user!"
+        HessianFunction(ForH, x)
     elseif mode == :BFGS
         HessianBFGS(ForH, x)
     else
