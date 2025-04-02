@@ -23,7 +23,12 @@ Examples include:
 """
 abstract type Hessian{T} end
 
-initialize!(::Hessian) = nothing
+"""
+    initialize!(hessian, x)
+
+See e.g. [`initialize!(::HessianAutodiff, ::AbstractVector)`](@ref).
+"""
+initialize!(hes::Hessian, ::AbstractVector) = error("initialize! not defined for Hessian of type $(typeof(hes)).")
 
 """
     compute_hessian!(h, x, hessian)
@@ -76,6 +81,13 @@ end
 #     display(H)
 #     println()
 # end
+
+"""
+    update!(hessian, x)
+
+Update the [`Hessian`](@ref) based on the vector `x`. For an explicit example see e.g. [`update!(::HessianAutodiff)`](@ref).
+"""
+update!(::HT, ::AbstractVector) where {HT <: Hessian} = error("update! not defined for $(HT).")
 
 """
     HessianFunction <: Hessian
@@ -168,7 +180,10 @@ Initialize a [`HessianAutodiff`](@ref) object `H`.
 
 Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
 """
-initialize!(H::HessianAutodiff, x) = H(x)
+function initialize!(H::HessianAutodiff, x::AbstractVector)
+    H.H .= alloc_h(x)
+    H
+end
 
 """
     update!(H, x)

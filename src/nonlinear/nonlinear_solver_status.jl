@@ -184,7 +184,7 @@ end
 
 Clear `status` and initialize it based on `x` and the function `f`.
 """
-function initialize!(status::NonlinearSolverStatus, x, f::Callable)
+function initialize!(status::NonlinearSolverStatus, x::AbstractVector, f::Callable)
     clear!(status)
     copyto!(solution(status), x)
     f(status.f, x)
@@ -200,7 +200,7 @@ Update `status` based on `x` and the function `f`.
 The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
 """
-function update!(status::NonlinearSolverStatus, x, f::Callable)
+function update!(status::NonlinearSolverStatus, x::AbstractVector, f::Callable)
     copyto!(solution(status), x)
     f(status.f, x)
 

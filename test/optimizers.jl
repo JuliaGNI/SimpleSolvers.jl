@@ -5,7 +5,6 @@ using Test
 
 include("optimizers_problems.jl")
 
-
 struct OptimizerTest{T} <: OptimizationAlgorithm end
 
 test_optim = OptimizerTest{Float64}()
@@ -25,7 +24,6 @@ test_obj = MultivariateObjective(F, test_x)
 @test isaOptimizationAlgorithm(NewtonOptimizer(test_x, test_obj)) == true
 @test isaOptimizationAlgorithm(BFGSOptimizer(test_x, test_obj)) == true
 @test isaOptimizationAlgorithm(DFPOptimizer(test_x, test_obj)) == true
-
 
 for method in (Newton(), BFGS(), DFP())
     for _linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())

@@ -59,7 +59,10 @@ function residual!(result::OptimizerResult, x, f, g)
     status
 end
 
-function update!(result::OptimizerResult, x, f, g)
+"""
+    update!(result, s, f, g)
+"""
+function update!(result::OptimizerResult, x::AbstractVector, f::Number, g::AbstractVector)
     residual!(result, x, f, g)
 
     result.x .= x
@@ -69,7 +72,7 @@ function update!(result::OptimizerResult, x, f, g)
     return result
 end
 
-function initialize!(result::OptimizerResult, x, f, g)
+function initialize!(result::OptimizerResult, x::AbstractVector, f::Number, g::AbstractVector)
     clear!(result)
     update!(result, x, f, g)
 end

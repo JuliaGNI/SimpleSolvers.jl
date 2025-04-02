@@ -3,11 +3,11 @@
 
 # Keys
 
-- `x̄`
-- `x`: current iterate
-- `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian.
-- `g`: gradient value
-- `rhs`
+- `x̄`: the previous iterate,
+- `x`: current iterate,
+- `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
+- `g`: gradient value,
+- `rhs`: the right hand side used to compute the update.
 """
 struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     x̄::AT
@@ -17,7 +17,8 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     rhs::AT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
-        new{T,AT}(zero(x), zero(x), zero(x), zero(x), zero(x))
+        cache = new{T,AT}(similar(x), x, similar(x), similar(x), similar(x))
+        initialize!(cache)
     end
 
     function NewtonOptimizerCache(x::AT, objective::MultivariateObjective) where {T <: Number, AT <: AbstractArray{T}}
@@ -26,10 +27,39 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     end
 end
 
+"""
+    rhs(cache)
+
+Return the right hand side of an instance of [`NewtonOptimizerCache`](@ref)
+"""
 rhs(cache::NewtonOptimizerCache) = cache.rhs
+"""
+    gradient(::NewtonOptimizerCache)
+
+Return the stored gradient (array) of an instance of [`NewtonOptimizerCache`](@ref)
+"""
 gradient(cache::NewtonOptimizerCache) = cache.g
+"""
+    direction(::NewtonOptimizerCache)
+
+Return the direction of the gradient step (i.e. `δ`) of an instance of [`NewtonOptimizerCache`](@ref).
+"""
 direction(cache::NewtonOptimizerCache) = cache.δ
 
+@doc raw"""
+    update!(cache::NewtonOptimizerCache, x)
+
+Update an instance of [`NewtonOptimizerCache`](@ref) based on `x`.
+
+This sets:
+```math
+\bar{x}^\mathtt{cache} \gets x,
+x^\mathtt{cache} \gets x,
+\deta \gets 0.
+```
+
+Also see [`update(::NewtonSolverCache, ::AbstractVector)`](@ref) and [`update!(::NewtonOptimizerCache, ::AbstractVector, ::AbstractVector)`](@ref). 
+"""
 function update!(cache::NewtonOptimizerCache, x::AbstractVector)
     cache.x̄ .= x
     cache.x .= x
@@ -45,11 +75,11 @@ function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVect
 end
 
 function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
-    cache.x̄ .= eltype(x)(NaN)
+    cache.x̄ .= alloc_x(x)
     cache.x .= x
-    cache.δ .= eltype(x)(NaN)
-    cache.g .= eltype(x)(NaN)
-    cache.rhs .= eltype(x)(NaN)
+    cache.δ .= alloc_x(x)
+    cache.g .= alloc_g(x)
+    cache.rhs .= alloc_g(x)
     cache
 end
 

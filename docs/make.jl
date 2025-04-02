@@ -25,6 +25,8 @@ makedocs(;
                          "Backtracking" => "linesearch/backtracking.md"],
         "Optimizers" => ["optimizers/optimizers.md"],
         "Hessians" => "hessians.md",
+        "Updates" => "update.md",
+        "Initialization" => "initialize.md",
         "References" => "references.md",
     ],
 )

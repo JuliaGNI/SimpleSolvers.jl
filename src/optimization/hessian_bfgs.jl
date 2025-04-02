@@ -1,3 +1,6 @@
+"""
+    HessianBFGS <: Hessian
+"""
 struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
     objective::OBJ
 

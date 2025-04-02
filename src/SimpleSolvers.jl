@@ -130,6 +130,7 @@ module SimpleSolvers
            NewtonOptimizer,
            BFGSOptimizer,
            DFPOptimizer,
+           HessianAutodiff,
            HessianBFGS,
            HessianDFP
 

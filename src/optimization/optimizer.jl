@@ -136,7 +136,7 @@ end
 
 
 """
-function solve!(x, opt::Optimizer)
+function solve!(x::AbstractVector, opt::Optimizer)
     # initialize!(opt, x)
 
     while !meets_stopping_criteria(opt)
