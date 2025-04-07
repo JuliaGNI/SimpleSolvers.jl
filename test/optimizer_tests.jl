@@ -2,6 +2,8 @@ using LinearAlgebra
 using SimpleSolvers
 using SimpleSolvers: gradient, hessian, linesearch, objective, initialize!, update!, solver_step!
 using Test
+using Random
+Random.seed!(123)
 
 include("optimizers_problems.jl")
 
@@ -16,14 +18,15 @@ test_obj = MultivariateObjective(F, test_x)
 @test_throws MethodError linesearch(test_optim)
 @test_throws MethodError objective(test_optim)
 
-@test_throws MethodError initialize!(test_optim, test_x)
+# test if the correct error is thrown when calling `initialize!` on an `OptimizationAlgorithm`.
+@test_throws ErrorException initialize!(test_optim, test_x)
 @test_throws MethodError update!(test_optim, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)
 
 @test isaOptimizationAlgorithm(test_optim) == false
-@test isaOptimizationAlgorithm(NewtonOptimizer(test_x, test_obj)) == true
-@test isaOptimizationAlgorithm(BFGSOptimizer(test_x, test_obj)) == true
-@test isaOptimizationAlgorithm(DFPOptimizer(test_x, test_obj)) == true
+@test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj)) == true
+@test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj; hessian = HessianBFGS(test_obj, test_x))) == true
+@test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj; hessian = HessianDFP(test_obj, test_x))) == true
 
 for method in (Newton(), BFGS(), DFP())
     for _linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
@@ -38,6 +41,8 @@ for method in (Newton(), BFGS(), DFP())
             if !(method == BFGS() && _linesearch == Quadratic() && T == Float32)
                 # TODO: Investigate why this combination always fails.
 
+                update!(opt, rand(T, length(x)))
+                update!(opt, rand(T, length(x)))
                 solve!(x, opt)
                 # println(opt)
                 @test norm(minimizer(opt)) ≈ 0 atol=1E-7
@@ -45,6 +50,9 @@ for method in (Newton(), BFGS(), DFP())
 
                 x = ones(T, n)
                 opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = _linesearch)
+                update!(opt, rand(T, length(x)))
+                update!(opt, rand(T, length(x)))
+
                 solve!(x, opt)
                 # println(opt)
                 @test norm(minimizer(opt)) ≈ 0 atol=1E-7
