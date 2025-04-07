@@ -34,11 +34,7 @@ OptimizerStatus{XT,YT}() where {XT,YT} = OptimizerStatus{XT,YT}(
 
 OptimizerStatus{T}() where {T} = OptimizerStatus{T,T}()
 
-function OptimizerStatus(x, y)
-    XT = typeof(norm(x))
-    YT = typeof(norm(y))
-    OptimizerStatus{XT,YT}()
-end
+OptimizerStatus(::AbstractArray{T₁}, ::AbstractArray{T₂}) where {T₁, T₂} = OptimizerStatus{T₁, T₂}()
 
 iterations(status::OptimizerStatus) = status.i
 x_abschange(status::OptimizerStatus) = status.rxₐ
@@ -50,6 +46,11 @@ f_change_approx(status::OptimizerStatus) = status.Δf̃
 g_abschange(status::OptimizerStatus) = status.rgₐ
 g_residual(status::OptimizerStatus) = status.rg
 
+"""
+    clear!(obj)
+
+Similar to [`initialize!`](@ref).
+"""
 function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.i = 0
 
@@ -71,6 +72,37 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.x_isnan = true
     status.f_isnan = true
     status.g_isnan = true
+
+    status
+end
+
+"""
+    residual!(status, x, x̄, f, f̄, g, ḡ)
+
+Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) and current iterates (`x`, `f`, `g`).
+"""
+function residual!(status::OS, x::XT, x̄::XT, f::FT, f̄::FT, g::GT, ḡ::GT)::OS where {OS <: OptimizerStatus, XT, FT, GT}
+    Δx = x - x̄
+    status.rxₐ = norm(Δx)
+    status.rxᵣ = status.rxₐ / norm(x)
+
+    status.Δf  = f - f̄
+    status.Δf̃ = ḡ ⋅ Δx
+
+    status.rfₐ = norm(status.Δf)
+    status.rfᵣ = status.rfₐ / norm(f)
+
+    Δg = g - ḡ
+    status.rgₐ = norm(Δg)
+    status.rg  = norm(g)
+    
+    status.f_increased = abs(f) > abs(f̄)
+
+    status.x_isnan = any(isnan, x)
+    status.f_isnan = any(isnan, f)
+    status.g_isnan = any(isnan, g)
+
+    status
 end
 
 function Base.show(io::IO, s::OptimizerStatus)

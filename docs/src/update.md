@@ -4,16 +4,19 @@ One of the most central objects in `SimpleSolvers` are [`SimpleSolvers.update!`]
 - [`SimpleSolvers.update!(::Hessian, ::AbstractVector)`](@ref): this routine exists for most [`Hessian`](@ref)s, i.e. for [`HessianFunction`](@ref), [`HessianAutodiff`](@ref), [`HessianBFGS`](@ref) and [`HessianDFP`](@ref),
 - [`SimpleSolvers.update!(::SimpleSolvers.NewtonSolverCache, ::AbstractVector)`](@ref),
 - [`SimpleSolvers.update!(::SimpleSolvers.NonlinearSolverStatus, ::AbstractVector, ::Base.Callable)`](@ref),
-- [`SimpleSolvers.update!(::SimpleSolvers.NewtonOptimizerCache, ::AbstractVector)`](@ref) and [`SimpleSolvers.update!(::SimpleSolvers.NewtonOptimizerCache, ::AbstractVector, ::AbstractVector)`](@ref),
+- [`SimpleSolvers.update!(::SimpleSolvers.NewtonOptimizerCache, ::AbstractVector, ::AbstractVector, ::Hessian)`](@ref),
+- [`SimpleSolvers.update!(::SimpleSolvers.NewtonOptimizerState, ::AbstractVector)`](@ref).
 - [`SimpleSolvers.update!(::SimpleSolvers.OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 
-So [`SimpleSolvers.update!`](@ref) always takes an object that has to be updated and a single vector in the simplest case. For some methods more arguments need to be provided. If we look at the case of the [Hessian](@ref "Hessians"), we store a matrix ``H`` that has to be updated in every iteration. We first initialize the matrix:
+So [`SimpleSolvers.update!`](@ref) always takes an object that has to be updated and a single vector in the simplest case. For some methods more arguments need to be provided. If we look at the case of the [Hessian](@ref "Hessians"), we store a matrix ``H`` that has to be updated in every iteration. We first initialize the matrix[^1]:
 
-```@example hessian_update
+[^1]: The constructor uses the function [`SimpleSolvers.initialize!`](@ref).
+
+```@example update
 using SimpleSolvers # hide
 using SimpleSolvers: update! # hide
 using LinearAlgebra: norm # hide
-f = x -> norm(x .^ 3)
+f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 x = [1., 0., 0.]
 hes = Hessian(f, x)
 hes.H
@@ -21,10 +24,73 @@ hes.H
 
 And then update:
 
-```@example hessian_update
+```@example update
 update!(hes, x)
 
 hes.H
 ```
 
-We also note that [`update!`](@ref) always returns the first input argument.
+In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) we have to 
+
+```@example update
+using SimpleSolvers: initialize!, NewtonOptimizerCache # hide
+grad = GradientAutodiff(f, x)
+g = gradient(x, grad)
+cache = NewtonOptimizerCache(x)
+update!(cache, x, g, hes)
+```
+
+!!! info
+    We note that when calling `update!` on the `NewtonOptimizerCache`, the Hessian `hes` is not automatically updated! This has to be done manually.
+
+!!! info
+    Calling `update!` on the `NewtonOptimizerCache` updates everything except `x` as this in general requires another line search!
+
+In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSolvers.NewtonOptimizerCache`](@ref) separately we can use [`SimpleSolvers.NewtonOptimizerState`](@ref):
+
+```@example update
+using SimpleSolvers: NewtonOptimizerState # hide
+obj = MultivariateObjective(f, x)
+state = NewtonOptimizerState(x, obj)
+update!(state, x)
+```
+
+We also show how to update an instance of [`SimpleSolvers.OptimizerResult`](@ref):
+
+```@example update
+using SimpleSolvers: OptimizerResult # hide
+
+result = OptimizerResult(x, f(x))
+
+update!(result, x, f(x), g)
+```
+
+Note that the residuals are still `NaN`s here. In order to get proper values for these we have to *perform two updating steps*:
+
+```@example update
+x₂ = [.9, 0., 0.]
+g .= gradient(x₂, grad)
+update!(result, x₂, f(x₂), g)
+```
+
+!!! warn
+    `NewtonOptimizerCache`, `OptimizerResult` and `NewtonOptimizerState` (through `MultivariateObjective`) all store things that are somewhat similar, for example `x`. This may make it somewhat difficult to keep track of all the things that happen during optimization.
+
+An [`Optimizer`](@ref) stores a [`MultivariateObjective`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizationAlgorithm`](@ref) (and therefore the [`MultivariateObjective`](@ref) again). We also give an example:
+
+```@example update
+opt = Optimizer(x, obj)
+
+update!(opt, x)
+```
+
+Equivalent to calling [`SimpleSolvers.update!`](@ref) on [`SimpleSolvers.OptimizerResult`](@ref), the diagnostics cannot be computed with only one iterations; we have to compute a second one:
+
+```@example update
+x₂ = [.9, 0., 0.]
+update!(opt, x₂)
+```
+
+We note that simply calling [`SimpleSolvers.update!`](@ref) on an instance of [`SimpleSolvers.Optimizer`](@ref) is not enough to perform a complete iteration since the computation of a new ``x`` requires a [line search](@ref "Line Search") procedure in general.
+
+We also note that [`SimpleSolvers.update!`](@ref) always returns the first input argument.

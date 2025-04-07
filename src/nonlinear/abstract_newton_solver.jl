@@ -24,9 +24,11 @@ struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
     y::AT
     J::JT
 
-    function NewtonSolverCache(x::AT, y::AT) where {T, AT <: AbstractArray{T}}
-        J = alloc_j(x,y)
-        new{T, AT, typeof(J)}(zero(x), zero(x), zero(x), zero(y), zero(y), J)
+    function NewtonSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
+        J = alloc_j(x, y)
+        c = new{T,AT,typeof(J)}(zero(x), zero(x), zero(x), zero(y), zero(y), J)
+        initialize!(c, fill!(similar(x), NaN))
+        c
     end
 end
 
@@ -67,7 +69,7 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
     cache
 end
 
-function linesearch_objective(objective!, jacobian!, cache::NewtonSolverCache)
+function linesearch_objective(objective!::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache)
     function f(α)
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
         objective!(cache.y, cache.x₁)

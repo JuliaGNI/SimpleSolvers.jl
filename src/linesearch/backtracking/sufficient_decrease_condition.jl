@@ -29,7 +29,7 @@ function (sdc::SufficientDecreaseCondition{T, VT})(xₖ₊₁::VT, αₖ::T) whe
     fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 end
 
-function (bc::SufficientDecreaseCondition{T})(αₖ::T₁) where {T, T₁ <: Number}
+function (sdc::SufficientDecreaseCondition{T})(αₖ::T₁) where {T, T₁ <: Number}
     T != T₁ ? (@warn "You are computing with mixed precision ($(T) and $(T₁)). This is probably not intended.") : nothing
-    bc(compute_new_iterate(bc.xₖ, αₖ, bc.gradₖ), T(αₖ))
+    sdc(compute_new_iterate(sdc.xₖ, αₖ, sdc.pₖ), T(αₖ))
 end

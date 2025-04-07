@@ -76,11 +76,11 @@ alloc_x(x::Number) = typeof(x)(NaN)
 alloc_f(x::Number) = real(typeof(x))(NaN)
 alloc_d(x::Number) = typeof(x)(NaN)
 
-alloc_x(x::AbstractArray) = eltype(x)(NaN) .* x
-alloc_f(x::AbstractArray) = real(eltype(x))(NaN)
-alloc_g(x::AbstractArray) = eltype(x)(NaN) .* x
-alloc_h(x::AbstractArray) = eltype(x)(NaN) .* x*x'
-alloc_j(x::AbstractArray, f::AbstractArray) = eltype(x)(NaN) .* vec(f) .* vec(x)'
+alloc_x(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
+alloc_f(::AbstractArray{T}) where {T <: Number} = real(T)(NaN)
+alloc_g(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
+alloc_h(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x*x'
+alloc_j(x::AbstractArray{T}, f::AbstractArray{T}) where {T <: Number} = T(NaN) .* vec(f) .* vec(x)'
 
 
 function L2norm(x)

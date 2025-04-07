@@ -59,8 +59,8 @@ end
 function Optimizer(x::VT, objective::MultivariateObjective; algorithm::NewtonMethod = BFGS(), linesearch = Backtracking(), config = Options()) where {T, VT <: AbstractVector{T}}
     y = value(objective, x)
     result = OptimizerResult(x, y)
-    g = gradient(objective, x)
-    initialize!(result, x, y, g)
+    # rag = gradient(objective, x)
+    clear!(result)
     astate = OptimizationAlgorithm(algorithm, objective, x; linesearch = linesearch)
     options = Options(T, config)
     Optimizer{typeof(algorithm), typeof(objective), typeof(options), typeof(result), typeof(astate)}(algorithm, objective, options, result, astate)
@@ -122,13 +122,16 @@ meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), c
 
 function initialize!(opt::Optimizer, x::AbstractVector)
     clear!(objective(opt))
-    initialize!(result(opt), x, value!(objective(opt), x), gradient!(objective(opt), x))
+    clear!(result(opt))
     initialize!(state(opt), x)
 end
 
 "compute objective and gradient at new solution and update result"
 function update!(opt::Optimizer, x::AbstractVector)
     update!(result(opt), x, value!(objective(opt), x), gradient!(objective(opt), x))
+    update!(state(opt), x)
+
+    opt
 end
 
 """
@@ -141,7 +144,7 @@ function solve!(x::AbstractVector, opt::Optimizer)
 
     while !meets_stopping_criteria(opt)
         @info "new iteration"
-        next_iteration!(result(opt))
+        increase_iteration_number!(result(opt))
         solver_step!(x, state(opt))
         update!(opt, x)
     end

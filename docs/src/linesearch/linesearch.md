@@ -1,8 +1,8 @@
-# Linesearch 
+# Line Search 
 
 This page is largely a summary of [nocedal2006numerical; Chapter 3](@cite). We summarize this reference by omitting proofs, but also aim to extend it to manifolds.
 
-A linesearch method has the goal of minimizing an objective (either a [`UnivariateObjective`](@ref) or a [`MultivariateObjective`](@ref)) approximately, based on a *search direction*[^1].
+A line search method has the goal of minimizing an objective (either a [`UnivariateObjective`](@ref) or a [`MultivariateObjective`](@ref)) approximately, based on a *search direction*[^1].
 
 [^1]: in [nocedal2006numerical](@cite) a *search direction* is called a **descent direction**.
 

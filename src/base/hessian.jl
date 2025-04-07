@@ -196,7 +196,10 @@ This is identical to [`initialize!`](@ref).
 
 Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
 """
-update!(H::HessianAutodiff, x::AbstractVector) = H(x)
+function update!(H::HessianAutodiff, x::AbstractVector)
+    H(x)
+    H
+end
 
 Base.inv(H::HessianAutodiff) = inv(H.H)
 

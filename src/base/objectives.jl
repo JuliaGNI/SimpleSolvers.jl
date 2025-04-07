@@ -204,6 +204,11 @@ function _clear_d!(obj::UnivariateObjective)
     nothing
 end
 
+"""
+    clear!(obj)
+
+Similar to [`initialize!`](@ref), but return `nothing`.
+"""
 function clear!(obj::AbstractUnivariateObjective)
     _clear_f!(obj)
     _clear_d!(obj)
@@ -334,6 +339,11 @@ function _clear_g!(obj::MultivariateObjective)
     nothing
 end
 
+"""
+    clear!(obj)
+
+Similar to [`initialize!`](@ref), but return `nothing`.
+"""
 function clear!(obj::MultivariateObjective)
     _clear_f!(obj)
     _clear_g!(obj)

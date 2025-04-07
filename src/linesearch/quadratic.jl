@@ -18,7 +18,7 @@ struct QuadraticState{OPT,T} <: LinesearchState where {OPT <: Options, T <: Numb
     end
 end
 
-Base.show(io::IO, ls::QuadraticState) = print(io, "Polynomial quadratic")
+Base.show(io::IO, ::QuadraticState) = print(io, "Polynomial quadratic")
 
 LinesearchState(algorithm::Quadratic; kwargs...) = QuadraticState(; kwargs...)
 

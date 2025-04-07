@@ -166,15 +166,15 @@ function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
 end
 
 function residual!(status::NonlinearSolverStatus)
-    status.rxₐ = norm(solution(status))
-    status.rxᵣ = status.rxₐ / norm(solution(status))
-    status.x̃  .= status.δ ./ solution(status)
-    status.rxₛ = norm(status.x̃)
+    status.rxₐ = norm(status.δ)
+    status.rxᵣ = status.rxₐ / norm(status.x)
+    status.x̃ .= status.δ ./ status.x
+    status.rxₛ = norm(status.δ)
 
     status.rfₐ = norm(status.f)
-    status.rfᵣ = status.rfₐ / norm(status.f)
-    status.f̃  .= status.γ ./ status.f
-    status.rfₛ = norm(status.f̃)
+    status.rfᵣ = norm(status.f) / norm(status.f₀)
+    status.f̃ .= status.γ ./ status.f
+    status.rfₛ = norm(status.γ)
 
     nothing
 end

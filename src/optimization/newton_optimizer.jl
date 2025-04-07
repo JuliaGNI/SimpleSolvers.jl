@@ -8,6 +8,8 @@
 - `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
 - `g`: gradient value,
 - `rhs`: the right hand side used to compute the update.
+
+To understand how these are used in practice see e.g. [`linesearch_objective`](@ref).
 """
 struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     x̄::AT
@@ -17,13 +19,15 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     rhs::AT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
-        cache = new{T,AT}(similar(x), x, similar(x), similar(x), similar(x))
-        initialize!(cache)
+        cache = new{T,AT}(similar(x), similar(x), similar(x), similar(x), similar(x))
+        initialize!(cache, x)
+        cache
     end
 
+    # we probably don't need this constructor
     function NewtonOptimizerCache(x::AT, objective::MultivariateObjective) where {T <: Number, AT <: AbstractArray{T}}
         g = gradient!(objective, x)
-        new{T, AT}(x, x, zero(x), g, -g)
+        new{T, AT}(copy(x), copy(x), zero(x), g, -g)
     end
 end
 
@@ -46,24 +50,10 @@ Return the direction of the gradient step (i.e. `δ`) of an instance of [`Newton
 """
 direction(cache::NewtonOptimizerCache) = cache.δ
 
-@doc raw"""
-    update!(cache::NewtonOptimizerCache, x)
-
-Update an instance of [`NewtonOptimizerCache`](@ref) based on `x`.
-
-This sets:
-```math
-\bar{x}^\mathtt{cache} \gets x,
-x^\mathtt{cache} \gets x,
-\deta \gets 0.
-```
-
-Also see [`update(::NewtonSolverCache, ::AbstractVector)`](@ref) and [`update!(::NewtonOptimizerCache, ::AbstractVector, ::AbstractVector)`](@ref). 
-"""
 function update!(cache::NewtonOptimizerCache, x::AbstractVector)
     cache.x̄ .= x
     cache.x .= x
-    cache.δ .= 0
+    direction(cache) .= 0
     cache
 end
 
@@ -74,43 +64,85 @@ function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVect
     cache
 end
 
+@doc raw"""
+    update!(cache::NewtonOptimizerCache, x, g, hes)
+
+Update an instance of [`NewtonOptimizerCache`](@ref) based on `x`.
+
+This sets:
+```math
+\bar{x}^\mathtt{cache} \gets x,
+x^\mathtt{cache} \gets x,
+g^\mathtt{cache} \gets g,
+\mathrm{rhs}^\mathtt{cache} \gets -g,
+\delta^\mathtt{cache} \gets H^{-1}\mathrm{rhs}^\mathtt{cache},
+```
+where we wrote ``H`` for the Hessian (i.e. the input argument `hes`). 
+
+Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref). 
+
+# Implementation
+
+The multiplication by the inverse of ``H`` is done with `LinearAlgebra.ldiv!`.
+"""
+function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVector, hes::Hessian)
+    update!(cache, x, g)
+    ldiv!(direction(cache), hes, rhs(cache))
+    cache
+end
+
 function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
     cache.x̄ .= alloc_x(x)
-    cache.x .= x
+    cache.x .= copy(x)
     cache.δ .= alloc_x(x)
     cache.g .= alloc_g(x)
     cache.rhs .= alloc_g(x)
     cache
 end
 
-function initialize!(cache::NewtonOptimizerCache, x::AbstractVector, objective::MultivariateObjective, hes::Hessian)
-    cache.x̄ .= x
-    cache.x .= x
-    gradient(cache) .= gradient!(objective, x)
-    rhs(cache) .= -gradient(cache)
-    ldiv!(cache.δ, hes, gradient(cache))
-    cache
-end
-
 @doc raw"""
-    linesearch_objective(objective!, jacobian!, cache)
+    linesearch_objective(objective, cache)
 
 Create [`TemporaryUnivariateObjective`](@ref) for linesearch algorithm. The variable on which this objective depends is ``\alpha``.
 
 # Example
 
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerCache, linesearch_objective, update!)
+x = [1., 0., 0.]
+f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
+obj = MultivariateObjective(f, x)
+gradient!(obj, x)
+value!(obj, x)
+cache = NewtonOptimizerCache(x)
+update!(cache, x)
+x₂ = [.9, 0., 0.]
+update!(cache, x₂)
+ls_obj = linesearch_objective(obj, cache)
+α = .1
+(ls_obj.F(α), ls_obj.D(α))
+
+# output
+
+(0.5265000000000001, 1.7030250000000005)
+```
+
+In the example above we have to apply [`update!`](@ref) twice on the instance of [`NewtonOptimizerCache`](@ref) because it needs to store the current *and* the previous iterate.
+
+# Implementation
+
+Calling the function and derivative stored in the [`TemporaryUnivariateObjective`](@ref) created with `linesearch_objective` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
 function linesearch_objective(objective::MultivariateObjective, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
-        x = cache.x̄ .+ α .* direction(cache)
-        objective.F(x)
+        cache.x .= cache.x̄ .+ α .* direction(cache)
+        objective.F(cache.x)
     end
 
     function d(α)
-        x = cache.x̄ .+ α .* direction(cache)
+        cache.x .= cache.x̄ .+ α .* direction(cache)
         gradient!(objective, cache.x̄)
-        g = objective.g
-        dot(gradient!(objective, x), g)
+        cache.g .= objective.g
+        dot(gradient!(objective, cache.x), cache.g)
     end
 
     UnivariateObjective(f, d, f(zero(T)), d(zero(T)), zero(T), zero(T), 0, 0)
@@ -123,7 +155,7 @@ end
 
 - `objective::`[`MultivariateObjective`](@ref)
 - `hessian::`[`Hessian`](@ref)
-- `linesearch::`[`LinesearchState`]
+- `linesearch::`[`LinesearchState`](@ref)
 - `ls_objective`
 - `cache::`[`NewtonOptimizerCache`](@ref)
 """
@@ -142,22 +174,22 @@ end
 function NewtonOptimizerState(x::VT, objective::MultivariateObjective; mode = :autodiff, linesearch = Backtracking(), hessian = Hessian(objective, x; mode = mode)) where {XT, VT <: AbstractVector{XT}}
     cache = NewtonOptimizerCache(x, objective)
     initialize!(hessian, x)
-    initialize!(cache, x, objective, hessian)
+    initialize!(cache, x)
     ls = LinesearchState(linesearch)
     lso = linesearch_objective(objective, cache)
 
     NewtonOptimizerState(objective, hessian, ls, lso, cache)
 end
 
-NewtonOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; kwargs...)
-BFGSOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianBFGS, kwargs...)
-DFPOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianDFP, kwargs...)
+# NewtonOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; kwargs...)
+# BFGSOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianBFGS, kwargs...)
+# DFPOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianDFP, kwargs...)
 
 OptimizationAlgorithm(algorithm::NMT, objective::AbstractObjective, x, y; kwargs...) where {NMT <: NewtonMethod} = error("OptimizationAlgorithm has to be extended to algorithm $(NMT).")
 OptimizationAlgorithm(algorithm::NewtonMethod, objective::AbstractObjective, x; kwargs...) = OptimizationAlgorithm(algorithm, objective, x, objective(x); kwargs...)
 OptimizationAlgorithm(algorithm::Newton, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; kwargs...)
-OptimizationAlgorithm(algorithm::BFGS, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianBFGS, kwargs...)
-OptimizationAlgorithm(algorithm::DFP, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianDFP, kwargs...)
+OptimizationAlgorithm(algorithm::BFGS, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianBFGS(objective, x), kwargs...)
+OptimizationAlgorithm(algorithm::DFP, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianDFP(objective, x), kwargs...)
 
 cache(newton::NewtonOptimizerState) = newton.cache
 direction(newton::NewtonOptimizerState) = cache(newton).δ
@@ -172,12 +204,25 @@ function initialize!(newton::NewtonOptimizerState, x::AbstractVector)
     initialize!(cache(newton), x)
 end
 
+"""
+    update!(newton::NewtonOptimizerState, x)
+
+Update an instance of [`NewtonOptimizerState`](@ref) based on `x`.
+"""
 function update!(newton::NewtonOptimizerState, x::AbstractVector)
-    update!(cache(newton), x, gradient!(objective(newton), x))
+    obj = objective(newton)
     update!(hessian(newton), x)
+    update!(cache(newton), x, gradient!(obj, x), hessian(newton))
 end
 
-function solver_step!(x::AbstractVector, newton::NewtonOptimizerState)
+"""
+    solver_step!(x, newton)
+
+Compute a full iterate for an instance of [`NewtonOptimizerState`](@ref) `newton`.
+
+This also performs a line search.
+"""
+function solver_step!(x::VT, newton::NewtonOptimizerState)::VT where {VT <: AbstractVector}
     # update cache and Hessian
     update!(newton, x)
 

@@ -1,10 +1,11 @@
+
 """
     OptimizerResult
 
 Stores an [`OptimizerStatus`](@ref) as well as `x`, `f` and `g` (as keys).
 [`OptimizerStatus`](@ref) stores all other information (apart form `x` ,`f` and `g`); i.e. residuals etc.
 """
-mutable struct OptimizerResult{XT, YT, VT <: AbstractArray{XT}, OST <: OptimizerStatus{XT,YT}}
+mutable struct OptimizerResult{T, YT, VT <: AbstractArray{T}, OST <: OptimizerStatus{T,YT}}
     status::OST   # iteration number, residuals and convergence info
 
     x::VT    # current solution
@@ -24,9 +25,22 @@ solution(result::OptimizerResult) = result.x
 minimizer(result::OptimizerResult) = result.x
 Base.minimum(result::OptimizerResult) = result.f
 
+"""
+    residual!(result, x, f, g)
+"""
+function residual!(result::OR, x::VT, f::YT, g::VT)::OR where {XT, VT <: AbstractArray{XT}, YT, OST <: OptimizerStatus{XT, YT}, OR <: OptimizerResult{XT, YT, VT, OST}}
+    residual!(result.status, x, result.x, f, result.f, g, result.g)
+    
+    result
+end
 
+"""
+    clear!(obj)
+
+Similar to [`initialize!`](@ref).
+"""
 function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
-    clear!(result.status)
+    clear!(status(result))
 
     result.x .= XT(NaN)
     result.f  = YT(NaN)
@@ -35,48 +49,20 @@ function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
     result
 end
 
-function residual!(result::OptimizerResult, x, f, g)
-    status = result.status
-
-    status.rxₐ = sqeuclidean(x, result.x)
-    status.rxᵣ = status.rxₐ / norm(x)
-
-    status.rfₐ = norm(f - result.f)
-    status.rfᵣ = status.rfₐ / norm(f)
-
-    status.rgₐ = norm(g - result.g)
-    status.rg  = norm(g)
-
-    status.Δf  = f - result.f
-    status.Δf̃ = result.g ⋅ x - result.g ⋅ result.x
-    
-    status.f_increased = abs(f) > abs(result.f)
-
-    status.x_isnan = any(isnan, x)
-    status.f_isnan = any(isnan, f)
-    status.g_isnan = any(isnan, g)
-
-    status
-end
-
 """
-    update!(result, s, f, g)
+    update!(result, x, f, g)
 """
 function update!(result::OptimizerResult, x::AbstractVector, f::Number, g::AbstractVector)
+    increase_iteration_number!(result)
     residual!(result, x, f, g)
 
     result.x .= x
     result.f  = f
     result.g .= g
 
-    return result
+    result
 end
 
-function initialize!(result::OptimizerResult, x::AbstractVector, f::Number, g::AbstractVector)
-    clear!(result)
-    update!(result, x, f, g)
-end
-
-function next_iteration!(result::OptimizerResult)
+function increase_iteration_number!(result::OptimizerResult)
     increase_iteration_number!(status(result))
 end

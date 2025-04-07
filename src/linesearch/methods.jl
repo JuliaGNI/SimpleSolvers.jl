@@ -105,6 +105,7 @@ Keys include:
 """
 struct Static{T<:Number} <: LinesearchMethod
     α::T
+    
     Static(α::T = 1.0) where {T} = new{T}(α)
 end
 
