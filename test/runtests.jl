@@ -7,5 +7,5 @@ using SafeTestsets
 @safetestset "Multivariate objectives                                                         " begin include("multivariate_objectives.jl") end
 @safetestset "Linear Solvers                                                                  " begin include("linear_solvers.jl") end
 @safetestset "Line Searches                                                                   " begin include("linesearch_test.jl") end
-@safetestset "Nonlinear Solvers                                                               " begin include("nonlinear_solvers.jl") end
+@safetestset "Nonlinear Solvers                                                               " begin include("nonlinear_solver_tests.jl") end
 @safetestset "Optimizers                                                                      " begin include("optimizer_tests.jl") end
