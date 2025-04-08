@@ -106,7 +106,7 @@ We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem
 
 [^1]: Also compare this to the case of the [static line search](@ref static_example).
 
-```@example backtracking
+```@example sdc
 using SimpleSolvers # hide
 
 x = [1., 0., 0.]
@@ -119,7 +119,7 @@ nothing # hide
 
 `SimpleSolvers` contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`SimpleSolvers.TemporaryUnivariateObjective`](@ref) that only depends on ``\alpha``:
 
-```@example backtracking
+```@example sdc
 using SimpleSolvers: linesearch_objective, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 
@@ -136,16 +136,17 @@ We now use this to compute a *backtracking line search*[^2]:
 
 [^2]: We also note the use of the [`SimpleSolvers.LinesearchState`](@ref) constructor here, which has to be used together with a [`SimpleSolvers.LinesearchMethod`](@ref).
 
-```@example backtracking
+```@example sdc
 ls = LinesearchState(sl)
 α = 1.
 αₜ = ls(ls_obj, α)
 ```
 
-```@example backtracking
+And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:
+```@example sdc
 using SimpleSolvers: SufficientDecreaseCondition # hide
 derivative!(ls_obj, α)
-sdc = SufficientDecreaseCondition(c₁, α, ls_obj.f, ls_obj.d, -ls_obj.d, ls_obj)
+sdc = SufficientDecreaseCondition(c₁, α, ls_obj.F(α), ls_obj.D(α), -ls_obj.D(α), ls_obj)
 sdc(αₜ)
 ```
 

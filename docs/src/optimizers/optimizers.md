@@ -9,7 +9,7 @@ import Random # hide
 Random.seed!(123) # hide
 
 x = rand(3)
-obj = MultivariateObjective(x -> norm(x - [0., 0., 1.]) ^ 2, x)
+obj = MultivariateObjective(x -> sum((x - [0., 0., 1.]) .^ 2), x)
 bt = Backtracking()
 config = Options()
 alg = Newton()
@@ -35,6 +35,8 @@ cache = NewtonOptimizerCache(x)
 hess = Hessian(obj, x; mode = :autodiff)
 initialize!(hess, x)
 ls = LinesearchState(bt)
+value!(obj, x)
+gradient!(obj, x)
 lso = linesearch_objective(obj, cache)
 
 NewtonOptimizerState(obj, hess, ls, lso, cache)
@@ -52,6 +54,7 @@ If we want to use the [`Optimizer`](@ref) we can call:
 
 ```@example optimizer
 x₀ = copy(x)
+update!(opt, rand(3))
 update!(opt, rand(3))
 
 solve!(x, opt)

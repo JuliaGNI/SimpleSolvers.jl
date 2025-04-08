@@ -114,16 +114,18 @@ obj = MultivariateObjective(f, x)
 gradient!(obj, x)
 value!(obj, x)
 cache = NewtonOptimizerCache(x)
-update!(cache, x)
+update!(cache, x, obj.g)
 x₂ = [.9, 0., 0.]
-update!(cache, x₂)
+gradient!(obj, x₂)
+value!(obj, x₂)
+update!(cache, x₂, obj.g)
 ls_obj = linesearch_objective(obj, cache)
 α = .1
 (ls_obj.F(α), ls_obj.D(α))
 
 # output
 
-(0.5265000000000001, 1.7030250000000005)
+(0.5265000000000001, -1.7030250000000005)
 ```
 
 In the example above we have to apply [`update!`](@ref) twice on the instance of [`NewtonOptimizerCache`](@ref) because it needs to store the current *and* the previous iterate.

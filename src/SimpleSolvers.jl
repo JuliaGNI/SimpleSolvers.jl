@@ -112,7 +112,7 @@ module SimpleSolvers
     include("linesearch/quadratic.jl")
 
     export NonlinearSolver, NonlinearSolverException,
-           AbstractNewtonSolver, NLsolveNewton, NewtonSolver, QuasiNewtonSolver,
+           AbstractNewtonSolver, NewtonSolver, QuasiNewtonSolver,
            residual_initial!, residual_absolute!, residual_relative!,
            assess_convergence, assess_convergence!,
            print_status, check_solver_status,

@@ -3,6 +3,7 @@
 This page is largely a summary of [nocedal2006numerical; Chapter 3](@cite). We summarize this reference by omitting proofs, but also aim to extend it to manifolds.
 
 A line search method has the goal of minimizing an objective (either a [`UnivariateObjective`](@ref) or a [`MultivariateObjective`](@ref)) approximately, based on a *search direction*[^1].
+
 [^1]: in [nocedal2006numerical](@cite) a *search direction* is called a **descent direction**.
 
 !!! info "Definition"
@@ -19,9 +20,11 @@ A line search is therefore a *sub-optimization problem* in a nonlinear optimizer
 ```
 where ``p_k`` is the search direction.
 
-For line search methods we have to (i) find a search direction ``p_k`` and (ii) find an appropriate step size ``\alpha_k``. We then update ``x_k`` based on these quantities:
+For line search methods we have to (i) find a search direction ``p_k`` and (ii) find an appropriate step size ``\alpha_k = \mathrm{argmin}_{\alpha}f(\alpha)``. We then update ``x_k`` based on these quantities:
 
 ```math
     x_{k+1} \gets R_{x_k}(\alpha_k{}p_k),
 ```
 where ``R_{x_k}:T_{x_k}\mathcal{M}\to\mathcal{M}`` is a retraction at ``x_k.``
+
+`SimpleSolvers` also contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`TemporaryUnivariateObjective`](@ref) that realizes the function ``f`` described above. 
