@@ -78,7 +78,7 @@ function (ls::BacktrackingState)(obj::AbstractUnivariateObjective, α = ls.α₀
     local y₀ = value!(obj, x₀)
     local d₀ = derivative!(obj, x₀)
 
-    sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, d₀, obj)
+    sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, -d₀, obj)
     for _ in 1:ls.config.max_iterations
         if sdc(α)
             break

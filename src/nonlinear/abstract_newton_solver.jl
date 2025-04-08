@@ -69,7 +69,7 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
     cache
 end
 
-function linesearch_objective(objective!::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache)
+function linesearch_objective(objective!::Callable, jacobian!::Jacobian, cache::NewtonSolverCache)
     function f(α)
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
         objective!(cache.y, cache.x₁)
@@ -80,11 +80,13 @@ function linesearch_objective(objective!::AbstractObjective, jacobian!::Jacobian
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
         objective!(cache.y, cache.x₁)
         jacobian!(cache.J, cache.x₁, objective!)
-        -2*dot(cache.y, cache.J, cache.δx)
+        2*dot(cache.y, cache.J, cache.δx)
     end
 
     TemporaryUnivariateObjective(f, d)
 end
+
+linesearch_objective(objective!::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache) = linesearch_objective(objective!.F, jacobian!, cache)
 
 abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
 

@@ -42,7 +42,7 @@ function solver_step!(x, f, jacobian!, s::NewtonSolver)
     # factorize linear solver
     factorize!(linearsolver(s), cache(s).J)
 
-    # compute RHS
+    # compute RHS (f is an in-place function)
     f(rhs, x)
     rmul!(rhs, -1)
 

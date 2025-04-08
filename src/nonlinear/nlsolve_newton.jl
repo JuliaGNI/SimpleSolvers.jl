@@ -1,5 +1,4 @@
 import NLsolve: OnceDifferentiable, NewtonCache, newton_
-import LineSearches
 
 struct NLsolveNewton{T, AT, JT, FT, DT, CT, LST, LT, TST} <: AbstractNewtonSolver{T,AT}
     x::AT
@@ -40,7 +39,7 @@ function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function;
         DF = OnceDifferentiable(F!, J!, x, f, df; inplace=true)
     end
 
-    NLsolveNewton(x, f, df, F!, DF, NewtonCache(DF), LineSearches.Static(), linear_solver)
+    NLsolveNewton(x, f, df, F!, DF, NewtonCache(DF), Static(), linear_solver)
 end
 
 

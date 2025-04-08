@@ -188,18 +188,6 @@ Check if the optimizer has converged.
 function meets_stopping_criteria(status::OptimizerStatus, config::Options)
     converged = assess_convergence!(status, config)
 
-    # println(converged && status.i ≥ config.min_iterations )
-    # println(status.f_increased && !config.allow_f_increases )
-    # println(status.i ≥ config.max_iterations)
-    # println(status.rxₐ > config.x_abstol_break)
-    # println(status.rxᵣ > config.x_reltol_break)
-    # println(status.rfₐ > config.f_abstol_break)
-    # println(status.rfᵣ > config.f_reltol_break)
-    # println(status.rg  > config.g_restol_break)
-    # println(status.x_isnan)
-    # println(status.f_isnan)
-    # println(status.g_isnan)
-
     if status.x_isnan || status.f_isnan || status.g_isnan
         error("x, f or g in the OptimizerStatus you provided are NaNs.")
     end
@@ -211,7 +199,7 @@ function meets_stopping_criteria(status::OptimizerStatus, config::Options)
       status.rxᵣ > config.x_reltol_break ||
       status.rfₐ > config.f_abstol_break ||
       status.rfᵣ > config.f_reltol_break ||
-      status.rg  > config.g_restol_break 
+      status.rg  > config.g_restol_break
 end
 
 

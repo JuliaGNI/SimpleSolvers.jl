@@ -106,7 +106,7 @@ We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem
 
 [^1]: Also compare this to the case of the [static line search](@ref static_example).
 
-```@example static
+```@example backtracking
 using SimpleSolvers # hide
 
 x = [1., 0., 0.]
@@ -119,7 +119,7 @@ nothing # hide
 
 `SimpleSolvers` contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`SimpleSolvers.TemporaryUnivariateObjective`](@ref) that only depends on ``\alpha``:
 
-```@example static
+```@example backtracking
 using SimpleSolvers: linesearch_objective, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 
@@ -132,14 +132,21 @@ ls_obj = linesearch_objective(obj, cache)
 nothing # hide
 ```
 
-We now use this to compute a *static line search*[^2]:
+We now use this to compute a *backtracking line search*[^2]:
 
 [^2]: We also note the use of the [`SimpleSolvers.LinesearchState`](@ref) constructor here, which has to be used together with a [`SimpleSolvers.LinesearchMethod`](@ref).
 
-```@example static
+```@example backtracking
 ls = LinesearchState(sl)
-α = 100.
-ls(ls_obj, α)
+α = 1.
+αₜ = ls(ls_obj, α)
+```
+
+```@example backtracking
+using SimpleSolvers: SufficientDecreaseCondition # hide
+derivative!(ls_obj, α)
+sdc = SufficientDecreaseCondition(c₁, α, ls_obj.f, ls_obj.d, -ls_obj.d, ls_obj)
+sdc(αₜ)
 ```
 
 !!! info

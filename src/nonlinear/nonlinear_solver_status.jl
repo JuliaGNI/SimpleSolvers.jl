@@ -172,7 +172,8 @@ function residual!(status::NonlinearSolverStatus)
     status.rxₛ = norm(status.δ)
 
     status.rfₐ = norm(status.f)
-    status.rfᵣ = norm(status.f) / norm(status.f₀)
+    @warn "In order to compute the relative residual for f, we have to store f₀, the initial f. This is not done at the moment."
+    status.rfᵣ = norm(status.f) / norm(status.f̃)
     status.f̃ .= status.γ ./ status.f
     status.rfₛ = norm(status.γ)
 

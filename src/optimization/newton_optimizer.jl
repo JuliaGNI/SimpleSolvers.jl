@@ -134,18 +134,18 @@ Calling the function and derivative stored in the [`TemporaryUnivariateObjective
 """
 function linesearch_objective(objective::MultivariateObjective, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
-        cache.x .= cache.x̄ .+ α .* direction(cache)
+        cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
         objective.F(cache.x)
     end
 
     function d(α)
-        cache.x .= cache.x̄ .+ α .* direction(cache)
-        gradient!(objective, cache.x̄)
+        cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
+        gradient!(objective, cache.x)
         cache.g .= objective.g
-        dot(gradient!(objective, cache.x), cache.g)
+        dot(gradient!(objective, cache.x), cache.rhs)
     end
 
-    UnivariateObjective(f, d, f(zero(T)), d(zero(T)), zero(T), zero(T), 0, 0)
+    TemporaryUnivariateObjective(f, d)
 end
 
 """
@@ -234,5 +234,5 @@ function solver_step!(x::VT, newton::NewtonOptimizerState)::VT where {VT <: Abst
     α = linesearch(newton)(newton.ls_objective)
 
     # compute new minimizer
-    x .= x .+ α .* direction(newton)
+    x .= compute_new_iterate(x, α, direction(newton))
 end

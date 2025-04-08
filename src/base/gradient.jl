@@ -27,7 +27,10 @@ Examples include:
 - [`GradientFiniteDifferences`](@ref)
 """
 abstract type Gradient{T} end
-(::Gradient)(::AbstractVector, ::AbstractVector) = error("Functor not implemented.")
+
+function (::Gradient{T₁})(::AbstractVector{T₂}, ::AbstractVector{T₃}) where {T₁, T₂, T₃}
+    (T₁ == T₂ == T₃) ? error("Functor not implemented.") : error("Types $(T₁), $(T₂), $(T₃) in Gradient functor must be the same.")
+end
 
 """
     gradient!(g, x, grad)
