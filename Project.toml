@@ -19,7 +19,6 @@ GeometricBase = "0.10"
 NLsolve = "4"
 Random = "1"
 SafeTestsets = "0.1.0"
-Test = "1.11.0"
 julia = "1.6"
 
 [extras]
