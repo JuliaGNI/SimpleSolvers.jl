@@ -3,7 +3,6 @@
 This page is largely a summary of [nocedal2006numerical; Chapter 3](@cite). We summarize this reference by omitting proofs, but also aim to extend it to manifolds.
 
 A line search method has the goal of minimizing an objective (either a [`UnivariateObjective`](@ref) or a [`MultivariateObjective`](@ref)) approximately, based on a *search direction*[^1].
-
 [^1]: in [nocedal2006numerical](@cite) a *search direction* is called a **descent direction**.
 
 !!! info "Definition"
@@ -13,6 +12,12 @@ A line search method has the goal of minimizing an objective (either a [`Univari
     ```
     where ``g_{x_k}:T_{x_k}\mathcal{M}\times{}T_{x_k}\mathcal{M}\to\mathbb{R}`` is a Riemannian metric.
 
+A line search is therefore a *sub-optimization problem* in a nonlinear optimizer (or solver) in which we want to find an ``\alpha`` that minimizes:
+
+```math
+    \min_\alpha{}f(\alpha) = \min_\alpha{}F(x_k + \alpha{}p_k),
+```
+where ``p_k`` is the search direction.
 
 For line search methods we have to (i) find a search direction ``p_k`` and (ii) find an appropriate step size ``\alpha_k``. We then update ``x_k`` based on these quantities:
 
