@@ -88,6 +88,11 @@ end
 
 linesearch_objective(objective!::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache) = linesearch_objective(objective!.F, jacobian!, cache)
 
+"""
+    AbstractNewtonSolver <: NonlinearSolver
+
+A supertype that comprises e.g. [`NewtonSolver`](@ref).
+"""
 abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
 
 @define newton_solver_variables begin

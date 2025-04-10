@@ -64,6 +64,8 @@ function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVect
     cache
 end
 
+update!(cache::NewtonOptimizerCache, x::AbstractVector, g::Gradient) = update!(cache, x, gradient(x, g))
+
 @doc raw"""
     update!(cache::NewtonOptimizerCache, x, g, hes)
 
@@ -85,7 +87,7 @@ Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref).
 
 The multiplication by the inverse of ``H`` is done with `LinearAlgebra.ldiv!`.
 """
-function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVector, hes::Hessian)
+function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::Union{AbstractVector, Gradient}, hes::Hessian)
     update!(cache, x, g)
     ldiv!(direction(cache), hes, rhs(cache))
     cache

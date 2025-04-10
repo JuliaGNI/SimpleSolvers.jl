@@ -8,7 +8,13 @@ One of the most central objects in `SimpleSolvers` are [`SimpleSolvers.update!`]
 - [`SimpleSolvers.update!(::SimpleSolvers.NewtonOptimizerState, ::AbstractVector)`](@ref).
 - [`SimpleSolvers.update!(::SimpleSolvers.OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 
-So [`SimpleSolvers.update!`](@ref) always takes an object that has to be updated and a single vector in the simplest case. For some methods more arguments need to be provided. If we look at the case of the [Hessian](@ref "Hessians"), we store a matrix ``H`` that has to be updated in every iteration. We first initialize the matrix[^1]:
+So [`SimpleSolvers.update!`](@ref) always takes an object that has to be updated and a single vector in the simplest case. For some methods more arguments need to be provided. 
+
+## Examples
+
+### `Hessian`
+
+If we look at the case of the [Hessian](@ref "Hessians"), we store a matrix ``H`` that has to be updated in every iteration. We first initialize the matrix[^1]:
 
 [^1]: The constructor uses the function [`SimpleSolvers.initialize!`](@ref).
 
@@ -18,7 +24,7 @@ using SimpleSolvers: update! # hide
 using LinearAlgebra: norm # hide
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 x = [1., 0., 0.]
-hes = Hessian(f, x)
+hes = Hessian(f, x; mode = :autodiff)
 hes.H
 ```
 
@@ -30,14 +36,15 @@ update!(hes, x)
 hes.H
 ```
 
-In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) we have to 
+### `NewtonOptimizerCache`
+
+In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) we have to supply a value of the [`Gradient`](@ref) and the [`Hessian`](@ref) in addition to `x`:
 
 ```@example update
 using SimpleSolvers: initialize!, NewtonOptimizerCache # hide
-grad = GradientAutodiff(f, x)
-g = gradient(x, grad)
+grad = Gradient(f, x; mode = :autodiff)
 cache = NewtonOptimizerCache(x)
-update!(cache, x, g, hes)
+update!(cache, x, grad, hes)
 ```
 
 !!! info
@@ -55,22 +62,23 @@ state = NewtonOptimizerState(x, obj)
 update!(state, x)
 ```
 
+### `OptimizerResult`
+
 We also show how to update an instance of [`SimpleSolvers.OptimizerResult`](@ref):
 
 ```@example update
 using SimpleSolvers: OptimizerResult # hide
 
-result = OptimizerResult(x, f(x))
+result = OptimizerResult(x, obj)
 
-update!(result, x, f(x), g)
+update!(result, x, obj, grad)
 ```
 
 Note that the residuals are still `NaN`s here. In order to get proper values for these we have to *perform two updating steps*:
 
 ```@example update
 x₂ = [.9, 0., 0.]
-g .= gradient(x₂, grad)
-update!(result, x₂, f(x₂), g)
+update!(result, x₂, obj, grad)
 ```
 
 !!! warn

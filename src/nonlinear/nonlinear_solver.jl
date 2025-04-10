@@ -1,5 +1,10 @@
 using Printf
 
+"""
+    NonlinearSolver <: AbstractSolver
+
+A supertype that comprises e.g. [`AbstractNewtonSolver`](@ref).
+"""
 abstract type NonlinearSolver <: AbstractSolver end
 
 config(s::NonlinearSolver) = error("config not implemented for $(typeof(s))")

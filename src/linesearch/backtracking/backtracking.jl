@@ -52,6 +52,9 @@ where ``f`` is the *univariate objective* (of type [`AbstractUnivariateObjective
     f(\alpha) < y_0 + \epsilon \cdot \alpha \cdot d_0,
 ```
 where ``\epsilon`` is stored in `ls`.
+
+!!! info
+    The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search objective.
 """
 struct BacktrackingState{OPT <: Options, T <: Number} <: LinesearchState
     config::OPT
@@ -74,11 +77,12 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = 
 LinesearchState(algorithm::Backtracking; kwargs...) = BacktrackingState(; kwargs...)
 
 function (ls::BacktrackingState)(obj::AbstractUnivariateObjective, α = ls.α₀)
-    local x₀ = zero(α)
-    local y₀ = value!(obj, x₀)
-    local d₀ = derivative!(obj, x₀)
+    x₀ = zero(α)
+    y₀ = value!(obj, x₀)
+    d₀ = derivative!(obj, x₀)
 
-    sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, -d₀, obj)
+    # note that we set pₖ ← 0 here as this is the descent direction for the linesearch objective.
+    sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)
     for _ in 1:ls.config.max_iterations
         if sdc(α)
             break

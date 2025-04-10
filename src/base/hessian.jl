@@ -17,9 +17,12 @@ This functor can also be called with [`compute_hessian!`](@ref).
 # Examples
 
 Examples include:
-- [`GradientFunction`](@ref)
-- [`GradientAutodiff`](@ref)
-- [`GradientFiniteDifferences`](@ref)
+- [`HessianFunction`](@ref)
+- [`HessianAutodiff`](@ref)
+- [`HessianBFGS`](@ref)
+- [`HessianDFP`](@ref)
+
+These examples can also be called with e.g. `Hessian(x; mode = :autodiff)`.
 """
 abstract type Hessian{T} end
 

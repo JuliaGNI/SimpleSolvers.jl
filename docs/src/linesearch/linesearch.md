@@ -7,7 +7,7 @@ A line search method has the goal of minimizing an objective (either a [`Univari
 [^1]: in [nocedal2006numerical](@cite) a *search direction* is called a **descent direction**.
 
 !!! info "Definition"
-    For an objective ``f:\mathcal{M}\to\mathbb{R}`` on a manifold ``\mathcal{M}`` a **search direction** at point ``x_k\in\mathcal{M}`` is a vector ``p_k\in{}T_{x_k}\mathcal{M}`` with
+    For an objective ``f:\mathcal{M}\to\mathbb{R}`` on a manifold ``\mathcal{M}`` a **search direction** at point ``x_k\in\mathcal{M}`` is a vector ``p_k\in{}T_{x_k}\mathcal{M}`` for which we have
     ```math
         g_{x_k}(p_k, \mathrm{grad}^g_{x_k}f) < 0,
     ```
@@ -16,7 +16,7 @@ A line search method has the goal of minimizing an objective (either a [`Univari
 A line search is therefore a *sub-optimization problem* in a nonlinear optimizer (or solver) in which we want to find an ``\alpha`` that minimizes:
 
 ```math
-    \min_\alpha{}f(\alpha) = \min_\alpha{}F(x_k + \alpha{}p_k),
+    \min_\alpha{}f^\mathrm{ls}(\alpha) = \min_\alpha{}f(R_{x_k}(\alpha_k{}p_k)),
 ```
 where ``p_k`` is the search direction.
 
@@ -27,4 +27,6 @@ For line search methods we have to (i) find a search direction ``p_k`` and (ii) 
 ```
 where ``R_{x_k}:T_{x_k}\mathcal{M}\to\mathcal{M}`` is a retraction at ``x_k.``
 
-`SimpleSolvers` also contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`TemporaryUnivariateObjective`](@ref) that realizes the function ``f`` described above. 
+## Line Search Objective
+
+`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`TemporaryUnivariateObjective`](@ref) that realizes the function ``f^\mathrm{ls}`` described above. 

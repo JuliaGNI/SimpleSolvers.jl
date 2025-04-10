@@ -21,7 +21,10 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Linesearch" => ["linesearch/linesearch.md",
+        "Objectives" => "objectives.md",
+        "Gradients" => "gradients.md",
+        "Line Search" => ["Line Searches" => "linesearch/linesearch.md",
+                         "Static" => "linesearch/static.md",
                          "Backtracking" => "linesearch/backtracking.md"],
         "Optimizers" => ["optimizers/optimizers.md"],
         "Hessians" => "hessians.md",

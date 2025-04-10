@@ -29,22 +29,25 @@ We can visualize the sufficient decrease condition with an example:
 
 ```@example sdc
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective, ldiv! # hide
 
-x = [1., 0.]
+x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = MultivariateObjective(f, x)
+hes = Hessian(obj, x; mode = :autodiff)
+update!(hes, x)
 
 c₁ = 1e-4
 g = gradient(obj, x)
-p = -g
-# cache = NewtonOptimizerCache(x)
-# ls_obj = linesearch_objective(obj, cache)
+rhs = -g
+# the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
+p = similar(rhs)
+ldiv!(p, hes, rhs)
 sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
 
 # check different values
-α₁, α₂, α₃ = .1, .3, .4
-(sdc(α₁), sdc(α₂), sdc(α₃))
+α₁, α₂, α₃, α₄, α₅ = .1, .4, 0.7, 1., 1.3
+(sdc(α₁), sdc(α₂), sdc(α₃), sdc(α₄), sdc(α₅))
 ```
 
 We can also illustrate this:
@@ -60,18 +63,23 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 fig = Figure()
 ax = Axis3(fig[1,1])
 xs = LinRange(-.2, 3.2, 100)
-ys = LinRange(-1.5, 1.5, 100)
+ys = LinRange(1., 4., 100)
 zs = [f(vcat(x, y)) for x in xs, y in ys]
-surface!(ax, xs, ys, zs)
-scatter!(ax, Tuple(vcat(x, f(x))); color=mred, label=L"x_0")
-arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = (.1, .1, .1))
+surface!(ax, xs, ys, zs; alpha = .5)
+scatter!(ax, [x[1]], [x[2]], [f(x)]; color=mred, label=L"x_0")
+arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:origin)
 
 x1 = x + α₁ * p
 x2 = x + α₂ * p
 x3 = x + α₃ * p
-scatter!(ax, Tuple(vcat(x1, f(x1))); color=mpurple, label=L"x_1")
-scatter!(ax, Tuple(vcat(x2, f(x2))); color=morange, label=L"x_2")
-scatter!(ax, Tuple(vcat(x3, f(x3))); color=mblue, label=L"x_3")
+x4 = x + α₄ * p
+x5 = x + α₅ * p
+scatter!(ax, [x1[1]], [x1[2]], [f(x1)]; color=mpurple, label=L"x_1")
+scatter!(ax, [x2[1]], [x2[2]], [f(x2)]; color=morange, label=L"x_2")
+scatter!(ax, [x3[1]], [x3[2]], [f(x3)]; color=mblue, label=L"x_3")
+scatter!(ax, [x4[1]], [x4[2]], [f(x4)]; color=mgreen, label=L"x_4")
+scatter!(ax, [x5[1]], [x5[2]], [f(x5)]; color=mred, label=L"x_5")
+
 axislegend(ax)
 save("sufficient_decrease.png", fig)
 nothing
@@ -109,10 +117,6 @@ We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem
 ```@example sdc
 using SimpleSolvers # hide
 
-x = [1., 0., 0.]
-f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
-obj = MultivariateObjective(f, x)
-
 sl = Backtracking()
 nothing # hide
 ```
@@ -123,11 +127,8 @@ nothing # hide
 using SimpleSolvers: linesearch_objective, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 
-update!(cache, x)
-x₂ = [.9, 0., 0.]
-update!(cache, x₂)
-value!(obj, x₂)
-gradient!(obj, x₂)
+gradient!(obj, x)
+update!(cache, x, obj.g, hes)
 ls_obj = linesearch_objective(obj, cache)
 nothing # hide
 ```
@@ -138,17 +139,23 @@ We now use this to compute a *backtracking line search*[^2]:
 
 ```@example sdc
 ls = LinesearchState(sl)
-α = 1.
+α = 50.
 αₜ = ls(ls_obj, α)
 ```
 
 And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:
 ```@example sdc
-using SimpleSolvers: SufficientDecreaseCondition # hide
-derivative!(ls_obj, α)
-sdc = SufficientDecreaseCondition(c₁, α, ls_obj.F(α), ls_obj.D(α), -ls_obj.D(α), ls_obj)
 sdc(αₜ)
 ```
 
 !!! info
     We note that for the static line search we always just return ``\alpha``.
+
+## Backtracking Line Search for a Line Search Objective
+
+We note that when performing backtracking on a [line search objective](@ref "Line Search Objective") care needs to be taken. This is because we need to find equivalent quantities for ``\grad_{x_k}f`` and ``p``. We first look at the derivative of the line search objective:
+
+```math
+\frac{d}{d\alpha}f^\mathrm{ls}(\alpha) = \frac{d}{d\alpha}f(\mathcal{R}_{x_k}(\alpha{}p)) = \langle d|_{\mathcal{R}_{x_k}(\alpha{}p)}f, \alpha{}p \rangle,
+```
+because the tangent map of a retraction is the identity at zero, i.e. ``T_{0_x}\mathcal{R} = \mathrm{id}_{T_x\mathcal{M}}.

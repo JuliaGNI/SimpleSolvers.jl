@@ -2,17 +2,19 @@
     AbstractObjective
 
 An *objective* is a quantity to has to be made zero by a solver or minimized by an optimizer.
+
+See [`AbstractUnivariateObjective`](@ref) and [`MultivariateObjective`](@ref).
 """
 abstract type AbstractObjective end
 
 """
     AbstractUnivariateObjective <: AbstractObjective
 
-A subtype of [`AbstractObjective`](@ref) that only depends on one variable.
+A subtype of [`AbstractObjective`](@ref) that only depends on one variable. See [`UnivariateObjective`](@ref).
 """
 abstract type AbstractUnivariateObjective <: AbstractObjective end
 
-clear!(::Function) = nothing
+clear!(::CT) where {CT <: Callable} = error("No method `clear!` implemented for type $(CT).")
 
 """
     UnivariateObjective <: AbstractUnivariateObjective
@@ -40,8 +42,19 @@ Where no keys are inferred, except `x_f` and `x_d` (via [`alloc_f`](@ref) and [`
 
 The most general constructor (i.e. the one the needs the least specification) is:
 
-```julia
-UnivariateObjective(x::Number -> x^2, 1.)
+```jldoctest; setup = :(using SimpleSolvers)
+f(x::Number) = x ^ 2
+UnivariateObjective(f, 1.)
+
+# output
+
+UnivariateObjective:\n
+    f(x)              = NaN
+    d(x)              = NaN
+    x_f               = NaN
+    x_d               = NaN
+    number of f calls = 0
+    number of d calls = 0
 ```
 where `ForwardDiff` is used to generate the derivative of the (anonymous) function.
 
@@ -63,6 +76,17 @@ mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractUnivariateObje
     d_calls::Int
 end
 
+function Base.show(io::IO, obj::UnivariateObjective)
+    @printf io "UnivariateObjective:\n"
+    @printf io "\n"
+    @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
+    @printf io "    d(x)              = %.2e %s" derivative(obj) "\n" 
+    @printf io "    x_f               = %.2e %s" obj.x_f "\n" 
+    @printf io "    x_d               = %.2e %s" obj.x_d "\n" 
+    @printf io "    number of f calls = %s %s" obj.f_calls "\n" 
+    @printf io "    number of d calls = %s %s" obj.d_calls "\n" 
+end
+
 function UnivariateObjective(F::Callable, D::Callable, x::Number;
                              f::Real = alloc_f(x),
                              d::Number = alloc_d(x),
@@ -71,7 +95,8 @@ function UnivariateObjective(F::Callable, D::Callable, x::Number;
     UnivariateObjective(F, D, f, d, x_d, x_f, 0, 0)
 end
 
-function UnivariateObjective(F::Callable, x::Number; kwargs...)
+function UnivariateObjective(F::Callable, x::Number; mode = :autodiff, kwargs...)
+    @assert mode == :autodiff "Constructor for `UnivariateObjective` not defined for mode ≠ :autodiff."
     D = (x) -> ForwardDiff.derivative(F,x)
     UnivariateObjective(F, D, x; kwargs...)
 end
@@ -264,6 +289,17 @@ mutable struct MultivariateObjective{TF <: Callable, TG <: Gradient, Tf, Tg, Tx}
 
     f_calls::Int
     g_calls::Int
+end
+
+function Base.show(io::IO, obj::MultivariateObjective)
+    @printf io "MultivariateObjective (for vector-valued quantities only the first component is printed):\n"
+    @printf io "\n"
+    @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
+    @printf io "    g(x)₁             = %.2e %s" gradient(obj)[1] "\n" 
+    @printf io "    x_f₁              = %.2e %s" obj.x_f[1] "\n" 
+    @printf io "    x_g₁              = %.2e %s" obj.x_g[1] "\n" 
+    @printf io "    number of f calls = %s %s" obj.f_calls "\n" 
+    @printf io "    number of g calls = %s %s" obj.g_calls "\n" 
 end
 
 function MultivariateObjective(F::Callable, G::Gradient,

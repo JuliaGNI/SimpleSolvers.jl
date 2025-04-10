@@ -19,6 +19,8 @@ function OptimizerResult(x::VT, y::YT) where {XT, YT, VT <: AbstractVector{XT}}
     clear!(result)
 end
 
+OptimizerResult(x::AbstractVector, obj::AbstractObjective) = OptimizerResult(x, obj(x))
+
 status(result::OptimizerResult) = result.status
 
 solution(result::OptimizerResult) = result.x
@@ -62,6 +64,9 @@ function update!(result::OptimizerResult, x::AbstractVector, f::Number, g::Abstr
 
     result
 end
+
+update!(result::OptimizerResult, x::AbstractVector, f::Number, grad::Gradient) = update!(result, x, f, gradient(x, grad))
+update!(result::OptimizerResult, x::AbstractVector, obj::AbstractObjective, g) = update!(result, x, obj(x), g)
 
 function increase_iteration_number!(result::OptimizerResult)
     increase_iteration_number!(status(result))
