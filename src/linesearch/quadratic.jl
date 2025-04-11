@@ -20,7 +20,7 @@ end
 
 Base.show(io::IO, ::QuadraticState) = print(io, "Polynomial quadratic")
 
-LinesearchState(algorithm::Quadratic; kwargs...) = QuadraticState(; kwargs...)
+LinesearchState(algorithm::Quadratic; T::DataType=Float64, kwargs...) = QuadraticState(; kwargs...)
 
 function (ls::QuadraticState)(obj::AbstractUnivariateObjective, α::T = ls.α₀) where {T}
     local αₜ::T

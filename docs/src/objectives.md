@@ -8,10 +8,11 @@ A central object in `SimpleSolvers` are *objectives* (see [`SimpleSolvers.Abstra
 
 We can allocate a univariate objective with:
 
-```@example objective; setup = (:using Random; Random.seed!(123))
+```@example objective
 using SimpleSolvers
+using Random; Random.seed!(123) # hide
 
-f(x::Number) = tanh(x)
+f(x::Number) = x ^ 2
 x = rand()
 obj = UnivariateObjective(f, x)
 ```
@@ -87,8 +88,21 @@ t_obj = TemporaryUnivariateObjective(obj.F, obj.D)
 - [`derivative!!`](@ref) ``\implies`` [`gradient!!`](@ref).
 
 ```@example objective
-f(x::AbstractArray) = sum(tanh.(x))
+Random.seed!(123) # hide
+f(x::AbstractArray) = sum(x .^ 2)
 x = rand(3)
 
 obj = MultivariateObjective(f, x)
+```
+
+Every instance of [`MultivariateObjective`](@ref) stores an instance of [`Gradient`](@ref) to which we [similarly can apply the functions](@ref "Gradients") [`gradient`](@ref) or [`gradient!`](@ref):
+
+```@example objective
+gradient(x, obj)
+```
+
+The difference to [`Gradient`](@ref) is that we also store the value for the evaluated gradient, which can be accessed by calling:
+
+```@example objective
+gradient(obj)
 ```

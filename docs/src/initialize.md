@@ -48,3 +48,5 @@ For [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.OptimizerStatus`
 ## Reasoning behind Initialization with `NaN`s
 
 We initialize with `NaN`s instead of with zeros (or other values) as this clearly divides the initialization from the numerical operations (which are done with [`SimpleSolvers.update!`](@ref)).
+
+## Alloc Functions

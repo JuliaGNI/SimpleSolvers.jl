@@ -22,7 +22,8 @@ function J!(g, x)
     end
 end
 
-for (Solver, kwarguments) in (
+for T ∈ (Float64, Float32)
+    for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
                 (NewtonSolver, (linesearch = Quadratic(),)),
@@ -34,7 +35,6 @@ for (Solver, kwarguments) in (
                 # (NLsolveNewton, NamedTuple()),
             )
 
-    for T in (Float64, Float32)
         n = 1
         x = ones(T, n)
         y = zero(x)

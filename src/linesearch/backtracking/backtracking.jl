@@ -62,21 +62,22 @@ struct BacktrackingState{OPT <: Options, T <: Number} <: LinesearchState
     ϵ::T
     p::T
 
-    function BacktrackingState(; config = Options(),
+    function BacktrackingState(::Type{T₁}=Float64; config::Options = Options(),
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     ϵ::T = DEFAULT_WOLFE_ϵ,
-                    p::T = DEFAULT_ARMIJO_p) where {T}
+                    p::T = DEFAULT_ARMIJO_p) where {T₁, T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
-        new{typeof(config), T}(config, α₀, ϵ, p)
+        configT = Options(T₁, config)
+        new{typeof(configT), T₁}(configT, T₁(α₀), T₁(ϵ), T₁(p))
     end
 end
 
 Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * "and p = " * string(ls.p) * ".")
 
-LinesearchState(algorithm::Backtracking; kwargs...) = BacktrackingState(; kwargs...)
+LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState)(obj::AbstractUnivariateObjective, α = ls.α₀)
+function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {OT, T}
     x₀ = zero(α)
     y₀ = value!(obj, x₀)
     d₀ = derivative!(obj, x₀)

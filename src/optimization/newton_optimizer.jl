@@ -136,7 +136,7 @@ In the example above we have to apply [`update!`](@ref) twice on the instance of
 
 Calling the function and derivative stored in the [`TemporaryUnivariateObjective`](@ref) created with `linesearch_objective` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
-function linesearch_objective(objective::MultivariateObjective, cache::NewtonOptimizerCache{T}) where {T}
+function linesearch_objective(objective::MultivariateObjective{T}, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
         objective.F(cache.x)
@@ -149,7 +149,7 @@ function linesearch_objective(objective::MultivariateObjective, cache::NewtonOpt
         dot(gradient!(objective, cache.x), cache.rhs)
     end
 
-    TemporaryUnivariateObjective(f, d)
+    TemporaryUnivariateObjective(f, d, zero(T))
 end
 
 """
@@ -179,7 +179,7 @@ function NewtonOptimizerState(x::VT, objective::MultivariateObjective; mode = :a
     cache = NewtonOptimizerCache(x, objective)
     initialize!(hessian, x)
     initialize!(cache, x)
-    ls = LinesearchState(linesearch)
+    ls = LinesearchState(linesearch; T = XT)
     lso = linesearch_objective(objective, cache)
 
     NewtonOptimizerState(objective, hessian, ls, lso, cache)

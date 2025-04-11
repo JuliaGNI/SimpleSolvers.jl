@@ -18,7 +18,7 @@ end
 
 # StaticState(args...; α = 1.0, kwargs...) = StaticState(α)
 
-LinesearchState(algorithm::Static; kwargs...) = StaticState(algorithm.α)
+LinesearchState(algorithm::Static{T₁}; T::DataType=T₁, kwargs...) where {T₁} = StaticState(T(algorithm.α))
 
 Base.show(io::IO, state::StaticState) = show(io, Static(state.α))
 

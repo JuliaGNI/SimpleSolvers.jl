@@ -15,7 +15,7 @@ function QuasiNewtonSolver(x::AT, y::AT; F = missing, DF! = missing, linesearch 
     jacobian = ismissing(F) ? (ismissing(DF!) ? error("F and DF! are both missing.") : Jacobian{T}(DF!, n; mode = :function)) : Jacobian{T}(F, n; mode = :autodiff)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
-    ls = LinesearchState(linesearch)
+    ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)
     QuasiNewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options, refactorize)
 end

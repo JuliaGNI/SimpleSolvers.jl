@@ -12,7 +12,7 @@ abstract type AbstractObjective end
 
 A subtype of [`AbstractObjective`](@ref) that only depends on one variable. See [`UnivariateObjective`](@ref).
 """
-abstract type AbstractUnivariateObjective <: AbstractObjective end
+abstract type AbstractUnivariateObjective{Tx <: Number} <: AbstractObjective end
 
 clear!(::CT) where {CT <: Callable} = error("No method `clear!` implemented for type $(CT).")
 
@@ -62,7 +62,7 @@ where `ForwardDiff` is used to generate the derivative of the (anonymous) functi
 
 The functor calls [`value!`](@ref).
 """
-mutable struct UnivariateObjective{TF, TD, Tf, Td, Tx} <: AbstractUnivariateObjective
+mutable struct UnivariateObjective{Tx, TF, TD, Tf, Td} <: AbstractUnivariateObjective{Tx}
     F::TF
     D::TD
 
@@ -88,15 +88,15 @@ function Base.show(io::IO, obj::UnivariateObjective)
 end
 
 function UnivariateObjective(F::Callable, D::Callable, x::Number;
-                             f::Real = alloc_f(x),
-                             d::Number = alloc_d(x),
-                             x_d::Number = alloc_x(x),
-                             x_f::Number = alloc_x(x))
-    UnivariateObjective(F, D, f, d, x_d, x_f, 0, 0)
+                             f::Tf = alloc_f(x),
+                             d::Td = alloc_d(x),
+                             x_d::Tx = alloc_x(x),
+                             x_f::Tx = alloc_x(x)) where {Tx <: Number, Tf <: Real, Td <: Number}
+    UnivariateObjective{Tx, typeof(F), typeof(D), Tf, Td}(F, D, f, d, x_d, x_f, 0, 0)
 end
 
 function UnivariateObjective(F::Callable, x::Number; mode = :autodiff, kwargs...)
-    @assert mode == :autodiff "Constructor for `UnivariateObjective` not defined for mode ≠ :autodiff."
+    @assert mode == :autodiff "This constructor for `UnivariateObjective` is not defined for mode ≠ :autodiff."
     D = (x) -> ForwardDiff.derivative(F,x)
     UnivariateObjective(F, D, x; kwargs...)
 end
@@ -245,12 +245,12 @@ end
 
 Like [`UnivariateObjective`](@ref) but doesn't store `f`, `d`, `x_f` and `x_d` as well as `f_calls` and `d_calls`.
 """
-struct TemporaryUnivariateObjective{TF, TD} <: AbstractUnivariateObjective
+struct TemporaryUnivariateObjective{Tx <: Number, TF, TD} <: AbstractUnivariateObjective{Tx}
     F::TF
     D::TD
 end
 
-TemporaryUnivariateObjective(f, d, x::Number) = TemporaryUnivariateObjective(f, d)
+TemporaryUnivariateObjective(f, d, ::Tx=zero(Float64)) where {Tx <: Number} = TemporaryUnivariateObjective{Tx, typeof(f), typeof(d)}(f, d)
 
 value(obj::TemporaryUnivariateObjective, x::Number) = obj.F(x)
 value(obj::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
@@ -277,7 +277,7 @@ The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
 If `MultivariateObjective` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
 """
-mutable struct MultivariateObjective{TF <: Callable, TG <: Gradient, Tf, Tg, Tx} <: AbstractObjective
+mutable struct MultivariateObjective{T <: Number, Tx <: AbstractVector{T}, TF <: Callable, TG <: Gradient, Tf, Tg} <: AbstractObjective
     F::TF
     G::TG
 
@@ -303,10 +303,10 @@ function Base.show(io::IO, obj::MultivariateObjective)
 end
 
 function MultivariateObjective(F::Callable, G::Gradient,
-                               x::AbstractArray{<:Number};
-                               f::Number=alloc_f(x),
-                               g::AbstractArray{<:Number}=alloc_g(x))
-    MultivariateObjective(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
+                               x::Tx;
+                               f::Tf=alloc_f(x),
+                               g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
+    MultivariateObjective{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
 end
 
 function MultivariateObjective(F::Callable, G!::Callable,
@@ -317,24 +317,22 @@ function MultivariateObjective(F::Callable, G!::Callable,
 end
 
 function MultivariateObjective(F::Callable, x::AbstractArray; kwargs...)
-    G = GradientAutodiff(F, x)
+    G = Gradient(F, x; kwargs...)
     MultivariateObjective(F, G, x; kwargs...)
 end
 
 MultivariateObjective(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateObjective(F, x; kwargs...)
 
 """
-    gradient(obj::MultivariateObjective, x)
+    gradient(x, obj::MultivariateObjective)
 
 Like [`derivative`](@ref), but for [`MultivariateObjective`](@ref), not [`UnivariateObjective`](@ref).
 """
 gradient(obj::MultivariateObjective) = obj.g
 
-function gradient(obj::MultivariateObjective, x::AbstractArray{<:Number})
-    ḡ = similar(gradient(obj))
-    obj.G(ḡ, x)
+function gradient(x::AbstractArray{<:Number}, obj::MultivariateObjective)
     obj.g_calls += 1
-    ḡ
+    gradient(x, obj.G)
 end
 
 """
@@ -344,8 +342,8 @@ Like [`derivative!!`](@ref), but for [`MultivariateObjective`](@ref), not [`Univ
 """
 function gradient!!(obj::MultivariateObjective, x::AbstractArray{<:Number})
     copyto!(obj.x_g, x)
-    obj.G(obj.g, x)
     obj.g_calls += 1
+    gradient!(obj.g, x, obj.G)
     gradient(obj)
 end
 
@@ -354,7 +352,7 @@ gradient!(obj::MultivariateObjective, x)
 
 Like [`derivative!`](@ref), but for [`MultivariateObjective`](@ref), not [`UnivariateObjective`](@ref).
 """
-function gradient!(obj::MultivariateObjective, x)
+function gradient!(obj::MultivariateObjective, x::AbstractArray{<:Number})
     if x != obj.x_g
         gradient!!(obj, x)
     end

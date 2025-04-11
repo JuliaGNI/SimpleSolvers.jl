@@ -18,7 +18,7 @@ function NewtonSolver(x::AT, y::AT; F = missing, DF! = missing, linesearch = Bac
     jacobian = (ismissing(DF!) && !ismissing(F)) ? Jacobian{T}(F, n; mode = mode) : Jacobian{T}(DF!, n; mode = :function)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y)
-    ls = LinesearchState(linesearch)
+    ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)
     NewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options)
 end
@@ -28,7 +28,7 @@ end
 
 Compute one Newton step for `f` based on the Jacobian `jacobian!`.
 """
-function solver_step!(x, f, jacobian!, s::NewtonSolver)
+function solver_step!(x::Union{AbstractVector{T}, T}, f, jacobian!, s::NewtonSolver{T}) where {T}
     # shortcuts
     rhs = cache(s).rhs
     δ = cache(s).δx

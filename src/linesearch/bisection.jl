@@ -72,7 +72,7 @@ end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection; kwargs...) = BisectionState(; kwargs...)
+LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(; kwargs...)
 
 function (ls::BisectionState)(obj::AbstractUnivariateObjective)
     bisection(obj, 0., 1.; config = ls.config)
