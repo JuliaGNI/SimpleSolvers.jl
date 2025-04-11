@@ -1,4 +1,9 @@
 
+"""
+    LinearSolver <: AbstractSolver
+
+A supertype that comprises e.g. [`LUSolver`](@ref) and [`LUSolverLAPACK`](@ref).
+"""
 abstract type LinearSolver{T} <: AbstractSolver end
 
 factorize!(s::LinearSolver) = error("factorize! not implemented for $(typeof(s))")

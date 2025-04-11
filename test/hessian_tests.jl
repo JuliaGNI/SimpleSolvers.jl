@@ -52,7 +52,7 @@ had1 = zero(h)
 hus1 = zero(h)
 
 compute_hessian!(had1, x, F; mode = :autodiff)
-compute_hessian!(hus1, x, H!; mode = :user)
+compute_hessian!(hus1, x, H!; mode = :function)
 
 test_hessian(had, had1, 0)
 test_hessian(hus, hus1, 0)

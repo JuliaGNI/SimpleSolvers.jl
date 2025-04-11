@@ -1,4 +1,8 @@
+"""
+    LUSolver <: LinearSolver
 
+A custom implementation of an LU solver.
+"""
 mutable struct LUSolver{T} <: LinearSolver{T}
     n::Int
     A::Matrix{T}

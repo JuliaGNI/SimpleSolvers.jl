@@ -1,7 +1,7 @@
-
 using SimpleSolvers
 using Test
-
+import Random
+Random.seed!(123)
 
 n = 2
 x = rand(n)
@@ -21,8 +21,8 @@ function ∇F!(g::Vector, x::Vector)
 end
 
 
-∇PAD = Gradient{T}(F, n; mode = :autodiff, diff_type = :forward)
-∇PFD = Gradient{T}(F, n; mode = :autodiff, diff_type = :finite)
+∇PAD = Gradient{T}(F, n; mode = :autodiff)
+∇PFD = Gradient{T}(F, n; mode = :finite)
 ∇PUS = Gradient{T}(∇F!, n; mode = :user)
 
 @test typeof(∇PAD) <: GradientAutodiff
@@ -41,9 +41,9 @@ gad = zero(g)
 gfd = zero(g)
 gus = zero(g)
 
-compute_gradient!(gad, x, ∇PAD)
-compute_gradient!(gfd, x, ∇PFD)
-compute_gradient!(gus, x, ∇PUS)
+SimpleSolvers.compute_gradient!(gad, x, ∇PAD)
+SimpleSolvers.compute_gradient!(gfd, x, ∇PFD)
+SimpleSolvers.compute_gradient!(gus, x, ∇PUS)
 
 test_grad(gad, g, eps())
 test_grad(gfd, g, 1E-7)
@@ -54,9 +54,9 @@ gad1 = zero(g)
 gfd1 = zero(g)
 gus1 = zero(g)
 
-compute_gradient!(gad1, x, F; mode = :autodiff, diff_type = :forward)
-compute_gradient!(gfd1, x, F; mode = :autodiff, diff_type = :finite)
-compute_gradient!(gus1, x, ∇F!; mode = :user)
+SimpleSolvers.compute_gradient!(gad1, x, F; mode = :autodiff, diff_type = :forward)
+SimpleSolvers.compute_gradient!(gfd1, x, F; mode = :autodiff, diff_type = :finite)
+SimpleSolvers.compute_gradient!(gus1, x, ∇F!; mode = :user)
 
 test_grad(gad, gad1, 0)
 test_grad(gfd, gfd1, 0)
@@ -66,8 +66,8 @@ test_grad(gus, gus1, 0)
 gad2 = zero(g)
 gfd2 = zero(g)
 
-compute_gradient_ad!(gad2, x, F)
-compute_gradient_fd!(gfd2, x, F)
+SimpleSolvers.gradient_ad!(gad2, x, F)
+SimpleSolvers.gradient_fd!(gfd2, x, F)
 
 test_grad(gad, gad2, 0)
 test_grad(gfd, gfd2, 0)

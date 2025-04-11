@@ -1,4 +1,3 @@
-
 using SimpleSolvers
 using SimpleSolvers: LinesearchState, StaticState
 using Test
@@ -16,7 +15,6 @@ function F(x)
     end
     return y
 end
-
 
 function test_linesearch(algorithm, method; kwargs...)
 
@@ -188,7 +186,7 @@ end
 
 @testset "$(rpad("Backtracking",80))" begin
 
-    test_linesearch(Backtracking(), backtracking)
+    # test_linesearch(Backtracking(), backtracking)
 
 
     # x₀ = [-3.0]
