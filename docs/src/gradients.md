@@ -27,4 +27,3 @@ When calling an instance of [`Gradient`](@ref) we can use the functions [`gradie
 ```@example gradient
 gradient(x, grad)
 ```
-

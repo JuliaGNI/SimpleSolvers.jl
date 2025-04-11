@@ -23,6 +23,7 @@ makedocs(;
         "Home" => "index.md",
         "Objectives" => "objectives.md",
         "Gradients" => "gradients.md",
+        "Jacobians" => "jacobians.md",
         "Line Search" => ["Line Searches" => "linesearch/linesearch.md",
                          "Static" => "linesearch/static.md",
                          "Backtracking" => "linesearch/backtracking.md"],

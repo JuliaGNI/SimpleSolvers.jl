@@ -133,9 +133,9 @@ struct JacobianAutodiff{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig, YT 
     Jconfig::JT
     ty::YT
 
-    function JacobianAutodiff(F, x::YT, y::YT) where {T, YT <: AbstractArray{T}}
+    function JacobianAutodiff(F::CT, x::YT, y::YT) where {T, YT <: AbstractArray{T}, CT <: Callable}
         Jconfig = ForwardDiff.JacobianConfig(F, y, x)
-        new{T, typeof(F), typeof(Jconfig), YT}(F, Jconfig, y)
+        new{T, CT, typeof(Jconfig), YT}(F, Jconfig, y)
     end
 end
 
@@ -145,7 +145,7 @@ function JacobianAutodiff{T}(F::Callable, nx::Integer, ny::Integer) where {T}
     JacobianAutodiff(F, tx, ty)
 end
 
-JacobianAutodiff{T}(n) where {T} = JacobianAutodiff{T}(n, n)
+JacobianAutodiff{T}(F, n::Integer) where {T} = JacobianAutodiff{T}(F, n, n)
 
 function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.jacobian!(J, jac.F, jac.ty, x, jac.Jconfig)
