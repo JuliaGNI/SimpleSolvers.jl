@@ -143,7 +143,6 @@ function solve!(x::AbstractVector, opt::Optimizer)
     # initialize!(opt, x)
 
     while !meets_stopping_criteria(opt)
-        @info "new iteration"
         increase_iteration_number!(result(opt))
         solver_step!(x, state(opt))
         update!(opt, x)
