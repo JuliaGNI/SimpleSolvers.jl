@@ -11,6 +11,7 @@ module SimpleSolvers
     import GeometricBase: value
 
     include("utils.jl")
+    include("base/realcomplex.jl")
     include("base/initialize.jl")
 
     export solve!
