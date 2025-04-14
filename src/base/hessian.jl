@@ -209,8 +209,6 @@ Base.inv(H::HessianAutodiff) = inv(H.H)
 Base.:\(H::HessianAutodiff, b) = H.H \ b
 
 LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
-# LinearAlgebra.ldiv!(x, H::HessianAD, b) = LinearAlgebra.ldiv!(x, H.H, b)
-# TODO: Make this work!
 
 function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
