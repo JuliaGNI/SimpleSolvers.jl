@@ -28,6 +28,7 @@ makedocs(;
         "Line Search" => ["Line Searches" => "linesearch/linesearch.md",
                          "Static" => "linesearch/static.md",
                          "Backtracking" => "linesearch/backtracking.md",
+                         "The Curvature Condition" => "linesearch/curvature_condition.md",
                          "Quadratic" => "linesearch/quadratic.md",
                          ],
         "Optimizers" => ["optimizers/optimizers.md"],
