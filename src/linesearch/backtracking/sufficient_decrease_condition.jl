@@ -8,7 +8,7 @@ The condition that determines if ``\alpha_k`` is *big enough*.
 We call the constant that pertains to the sufficient decrease condition ``c``. This is typically called ``c_1`` in the literature [nocedal2006numerical](@cite).
 See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
 """
-mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TVT<:Union{T, AbstractArray{T}}, OT <:AbstractObjective} <: BacktrackingCondition
+mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TVT<:Union{T, AbstractArray{T}}, OT <:AbstractObjective{T}} <: BacktrackingCondition{T}
     c::T
     xₖ::VT
     fₖ::T

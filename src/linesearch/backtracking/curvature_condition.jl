@@ -4,22 +4,38 @@
 The second of the Wolfe conditions [nocedal2006numerical](@cite). The first one is the [`SufficientDecreaseCondition`](@ref).
 
 This encompasses the *standard curvature condition* and the *strong curvature condition*.
+
+# Constructor
+
+```julia
+CurvatureCondition(c, xₖ, gradₖ, pₖ, obj, grad; mode)
+```
+Here `grad` has to be a [`Gradient`](@ref) and `obj` an [`AbstractObjective`](@ref). The other inputs are either arrays or numbers.
+
+# Implementation
+
+For computational reasons `CurvatureCondition` also has a field `gradₖ₊₁` in which the temporary new gradient is saved.
 """
-mutable struct CurvatureCondition{T, VT <: AbstractArray{T}, TVT <: AbstractArray{T}, OT <: AbstractObjective, GT <: Gradient{T}, CCT} <: BacktrackingCondition
+mutable struct CurvatureCondition{T, VT <: AbstractArray{T}, TVT <: AbstractArray{T}, OT <: AbstractObjective{T}, GT <: Gradient{T}, CCT} <: BacktrackingCondition{T}
     c::T
     xₖ::VT
     gradₖ::TVT
     pₖ::TVT
     obj::OT
     grad::GT
+    gradₖ₊₁::TVT
+    function CurvatureCondition(c::T, xₖ::VT, gradₖ::TVT, pₖ::TVT, obj::OT, grad::GT; mode=:Standard) where {T <: Number, VT <: AbstractArray{T}, TVT <: AbstractArray{T}, OT <: AbstractObjective{T}, GT <: Gradient{T}}
+        @assert ((mode == :Standard) || (mode == :Strong)) "Mode has to be either :Strong or :Standard!"
+        new{T, VT, TVT, OT, GT, mode}(c, xₖ, gradₖ, pₖ, obj, grad, alloc_g(xₖ))
+    end
 end
 
 function standard_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-    cc.grad(xₖ₊₁)' * cc.pₖ ≥ c₂ * cc.gradₖ' * cc.pₖ
+    gradient!(cc.gradₖ₊₁, xₖ₊₁, cc.grad)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
 end
 
 function strong_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-    abs(gradient(cc.grad, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
+    abs(gradient!(cc.gradₖ₊₁, xₖ₊₁, cc.grad)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
 end
 
 function (cc::CurvatureCondition{T, VT, TVT, OT, GT, :Standard})(xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
@@ -30,6 +46,6 @@ function (cc::CurvatureCondition{T, VT, TVT, OT, GT, :Strong})(xₖ₊₁::VT, �
     strong_curvature_condition(cc, xₖ₊₁, αₖ)
 end
 
-function (bc::CurvatureCondition{T})(αₖ::T) where {T}
-    bc(compute_new_iterate(bc.xₖ, αₖ, bc.gradₖ), αₖ)
+function (cc::CurvatureCondition{T})(αₖ::T) where {T}
+    cc(compute_new_iterate(cc.xₖ, αₖ, cc.gradₖ), αₖ)
 end

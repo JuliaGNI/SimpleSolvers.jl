@@ -5,14 +5,14 @@ An *objective* is a quantity to has to be made zero by a solver or minimized by 
 
 See [`AbstractUnivariateObjective`](@ref) and [`MultivariateObjective`](@ref).
 """
-abstract type AbstractObjective end
+abstract type AbstractObjective{T <: Number} end
 
 """
     AbstractUnivariateObjective <: AbstractObjective
 
 A subtype of [`AbstractObjective`](@ref) that only depends on one variable. See [`UnivariateObjective`](@ref).
 """
-abstract type AbstractUnivariateObjective{Tx <: Number} <: AbstractObjective end
+abstract type AbstractUnivariateObjective{Tx} <: AbstractObjective{Tx} end
 
 clear!(::CT) where {CT <: Callable} = error("No method `clear!` implemented for type $(CT).")
 
@@ -277,7 +277,7 @@ The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
 If `MultivariateObjective` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
 """
-mutable struct MultivariateObjective{T <: Number, Tx <: AbstractVector{T}, TF <: Callable, TG <: Gradient, Tf, Tg} <: AbstractObjective
+mutable struct MultivariateObjective{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Gradient{T}, Tf, Tg} <: AbstractObjective{T}
     F::TF
     G::TG
 

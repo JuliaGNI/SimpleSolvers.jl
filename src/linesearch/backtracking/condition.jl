@@ -3,7 +3,7 @@
 
 Abstract type comprising the conditions that are used for checking step sizes for the backtracking line search (see [`BacktrackingState`](@ref)).
 """
-abstract type BacktrackingCondition end
+abstract type BacktrackingCondition{T} end
 
 (bc::BCT, xₖ, αₖ, gradₖ) where {BCT <: BacktrackingCondition} = error("Condition $(BCT) not defined for this combination of input arguments.")
 
