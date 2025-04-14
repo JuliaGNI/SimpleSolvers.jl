@@ -82,7 +82,6 @@ alloc_g(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
 alloc_h(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x*x'
 alloc_j(x::AbstractArray{T}, f::AbstractArray{T}) where {T <: Number} = T(NaN) .* vec(f) .* vec(x)'
 
-
 function L2norm(x)
     local l2::eltype(x) = 0
     for xᵢ in x

@@ -2,9 +2,14 @@
     SufficientDecreaseCondition <: LinesearchCondition
 
 The condition that determines if ``\alpha_k`` is *big enough*.
+
+# Extended help
+
+We call the constant that pertains to the sufficient decrease condition ``c``. This is typically called ``c_1`` in the literature [nocedal2006numerical](@cite).
+See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
 """
 mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TVT<:Union{T, AbstractArray{T}}, OT <:AbstractObjective} <: BacktrackingCondition
-    c₁::T
+    c::T
     xₖ::VT
     fₖ::T
     gradₖ::TVT
@@ -26,7 +31,7 @@ end
 function (sdc::SufficientDecreaseCondition{T, VT})(xₖ₊₁::VT, αₖ::T) where {T, VT}
     fₖ₊₁ = value!(sdc.obj, xₖ₊₁)
     @info "sufficient decrease iteration"
-    fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
+    fₖ₊₁ ≤ sdc.fₖ + sdc.c * αₖ * sdc.pₖ' * sdc.gradₖ
 end
 
 function (sdc::SufficientDecreaseCondition{T})(αₖ::T₁) where {T, T₁ <: Number}

@@ -6,15 +6,19 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 const DEFAULT_ARMIJO_p  = 0.5
 
 @doc raw"""
-    const DEFAULT_WOLFE_ϵ
+    const DEFAULT_WOLFE_c₁
 
 A constant ``\epsilon`` on which a finite difference approximation of the derivative of the objective is computed. This is then used in the following stopping criterion:
 
 ```math
 \frac{f(\alpha) - f(\alpha_0)}{\epsilon} < \alpha\cdot{}f'(\alpha_0).
 ```
+
+# Extended help
+
+
 """
-const DEFAULT_WOLFE_ϵ  = 1E-4
+const DEFAULT_WOLFE_c₁  = 1E-4
 
 @doc raw"""
     BacktrackingState <: LinesearchState
@@ -26,7 +30,7 @@ Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
 The keys are:
 - `config::`[`Options`](@ref)
 - `α₀`: 
-- `ϵ=$(DEFAULT_WOLFE_ϵ)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the objective. Also see [`DEFAULT_WOLFE_ϵ`](@ref).
+- `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the objective. Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
 # Functor
@@ -64,7 +68,7 @@ struct BacktrackingState{OPT <: Options, T <: Number} <: LinesearchState
 
     function BacktrackingState(::Type{T₁}=Float64; config::Options = Options(),
                     α₀::T = DEFAULT_ARMIJO_α₀,
-                    ϵ::T = DEFAULT_WOLFE_ϵ,
+                    ϵ::T = DEFAULT_WOLFE_c₁,
                     p::T = DEFAULT_ARMIJO_p) where {T₁, T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."

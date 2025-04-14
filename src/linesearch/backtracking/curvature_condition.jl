@@ -1,12 +1,12 @@
 @doc raw"""
     CurvatureCondition <: LinesearchCondition
 
-The second of the Wolfe conditions [nocedal2006numerical](@cite). 
+The second of the Wolfe conditions [nocedal2006numerical](@cite). The first one is the [`SufficientDecreaseCondition`](@ref).
 
 This encompasses the *standard curvature condition* and the *strong curvature condition*.
 """
 mutable struct CurvatureCondition{T, VT <: AbstractArray{T}, TVT <: AbstractArray{T}, OT <: AbstractObjective, GT <: Gradient{T}, CCT} <: BacktrackingCondition
-    c₂::T
+    c::T
     xₖ::VT
     gradₖ::TVT
     pₖ::TVT
@@ -19,7 +19,7 @@ function standard_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}
 end
 
 function strong_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-    abs(gradient(cc.grad, xₖ₊₁)' * cc.pₖ) < abs(c₂ * cc.gradₖ' * cc.pₖ)
+    abs(gradient(cc.grad, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
 end
 
 function (cc::CurvatureCondition{T, VT, TVT, OT, GT, :Standard})(xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}

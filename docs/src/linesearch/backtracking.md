@@ -9,7 +9,7 @@ The *Armijo condition* or *sufficient decrease condition* states:
 ```math
     f(R_{x_k}(\alpha_k{}p_k)) \leq f(x_k) + c_1g_{x_k}(\alpha_k{}p_k, \mathrm{grad}^g_{x_k}f),  
 ```
-for some constant ``c_1\in(0, 1)`` (see [`SimpleSolvers.DEFAULT_WOLFE_ϵ`](@ref)).
+for some constant ``c_1\in(0, 1)`` (see [`SimpleSolvers.DEFAULT_WOLFE_c₁`](@ref)).
 
 The sufficient decrease condition can also be written as 
 
@@ -108,7 +108,7 @@ For the strong Wolfe conditions we *replace the curvature condition* by:
 Note the sign change here. This is because the term ``g(\mathrm{grad}_{x_k}f, p_k)`` is negative. Both the standard *curvature condition* and the *strong curvature condition* are implemented under [`SimpleSolvers.CurvatureCondition`](@ref).
 
 
-## Example
+## [Example](@id sdc_example)
 
 We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem[^1]:
 
@@ -150,6 +150,7 @@ sdc(αₜ)
 
 !!! info
     We note that for the static line search we always just return ``\alpha``.
+
 
 ## Backtracking Line Search for a Line Search Objective
 

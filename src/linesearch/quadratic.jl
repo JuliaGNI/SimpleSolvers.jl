@@ -13,7 +13,7 @@ struct QuadraticState{OPT,T} <: LinesearchState where {OPT <: Options, T <: Numb
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     σ₀::T = DEFAULT_ARMIJO_σ₀,
                     σ₁::T = DEFAULT_ARMIJO_σ₁,
-                    ϵ::T = DEFAULT_WOLFE_ϵ) where {T}
+                    ϵ::T = DEFAULT_WOLFE_c₁) where {T}
         new{typeof(config), T}(config, α₀, σ₀, σ₁, ϵ)
     end
 end
