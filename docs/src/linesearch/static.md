@@ -1,5 +1,7 @@
 # Static Line Search
 
+Static line search is the simplest form of line search in which the *guess for ``\alpha``* is always just a fixed value. In the following we demonstrate how to use this line search.
+
 ## [Example](@id static_example)
 
 We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem:
