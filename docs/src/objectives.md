@@ -72,7 +72,10 @@ obj
 
 An equivalent relationship exists between the functions [`derivative`](@ref), [`derivative!`](@ref) and [`derivative!!`](@ref).
 
-In addition to [`UnivariateObjective`](@ref), `SimpleSolvers` also contains a [`TemporaryUnivariateObjective`](@ref):
+In addition to [`UnivariateObjective`](@ref), `SimpleSolvers` also contains a [`TemporaryUnivariateObjective`](@ref)[^1]:
+
+[^1]: To be used together with [`SimpleSolvers.linesearch_objective`](@ref).
+
 ```@example objective
 t_obj = TemporaryUnivariateObjective(obj.F, obj.D)
 ```
