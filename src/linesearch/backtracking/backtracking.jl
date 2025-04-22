@@ -84,12 +84,14 @@ LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = Bac
 function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {OT, T}
     x₀ = zero(α)
     y₀ = value!(obj, x₀)
-    d₀ = derivative!(obj, x₀)
+    d(α) = derivative!(obj, α)
+    d₀ = d(x₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch objective.
     sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)
+    cc = CurvatureCondition(T(.9), x₀, d₀, one(α), obj, d; mode=:Standard)
     for _ in 1:ls.config.max_iterations
-        if sdc(α)
+        if (sdc(α) && cc(α))
             break
         else
             print(α)
