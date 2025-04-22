@@ -149,7 +149,7 @@ function linesearch_objective(objective::MultivariateObjective{T}, cache::Newton
         dot(gradient!(objective, cache.x), cache.rhs)
     end
 
-    TemporaryUnivariateObjective(f, d, zero(T))
+    TemporaryUnivariateObjective{T}(f, d)
 end
 
 """

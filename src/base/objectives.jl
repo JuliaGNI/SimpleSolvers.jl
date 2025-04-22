@@ -250,7 +250,9 @@ struct TemporaryUnivariateObjective{Tx <: Number, TF, TD} <: AbstractUnivariateO
     D::TD
 end
 
-TemporaryUnivariateObjective(f, d, ::Tx=zero(Float64)) where {Tx <: Number} = TemporaryUnivariateObjective{Tx, typeof(f), typeof(d)}(f, d)
+TemporaryUnivariateObjective{Tx}(f, d) where {Tx <: Number} = TemporaryUnivariateObjective{Tx, typeof(f), typeof(d)}(f, d)
+
+TemporaryUnivariateObjective(f, d, ::Tx=zero(Float64)) where {Tx <: Number} = TemporaryUnivariateObjective{Tx}(f, d)
 
 value(obj::TemporaryUnivariateObjective, x::Number) = obj.F(x)
 value(obj::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
