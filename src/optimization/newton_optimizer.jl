@@ -4,9 +4,9 @@
 # Keys
 
 - `x̄`: the previous iterate,
-- `x`: current iterate,
+- `x`: current iterate (this stores the guess called by the functions generated with [`linesearch_objective`](@ref)),
 - `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
-- `g`: gradient value,
+- `g`: gradient value (this stores the gradient associated with `x` called by the *derivative part* of [`linesearch_objective`](@ref)),
 - `rhs`: the right hand side used to compute the update.
 
 To understand how these are used in practice see e.g. [`linesearch_objective`](@ref).
@@ -139,7 +139,7 @@ Calling the function and derivative stored in the [`TemporaryUnivariateObjective
 function linesearch_objective(objective::MultivariateObjective{T}, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
-        objective.F(cache.x)
+        value!(objective, cache.x)
     end
 
     function d(α)
