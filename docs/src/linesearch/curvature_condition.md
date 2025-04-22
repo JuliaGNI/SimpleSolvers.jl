@@ -43,7 +43,7 @@ hes = Hessian(obj, x; mode = :autodiff)
 update!(hes, x)
 
 c₂ = .9
-g = gradient(x, obj)
+g = gradient(obj, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)

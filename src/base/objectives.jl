@@ -332,7 +332,7 @@ Like [`derivative`](@ref), but for [`MultivariateObjective`](@ref), not [`Univar
 """
 gradient(obj::MultivariateObjective) = obj.g
 
-function gradient(x::AbstractArray{<:Number}, obj::MultivariateObjective)
+function gradient(obj::MultivariateObjective, x::AbstractArray{<:Number})
     obj.g_calls += 1
     gradient(x, obj.G)
 end

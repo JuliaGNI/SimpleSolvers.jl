@@ -101,7 +101,7 @@ obj = MultivariateObjective(f, x)
 Every instance of [`MultivariateObjective`](@ref) stores an instance of [`Gradient`](@ref) to which we [similarly can apply the functions](@ref "Gradients") [`gradient`](@ref) or [`gradient!`](@ref):
 
 ```@example objective
-gradient(x, obj)
+gradient(obj, x)
 ```
 
 The difference to [`Gradient`](@ref) is that we also store the value for the evaluated gradient, which can be accessed by calling:

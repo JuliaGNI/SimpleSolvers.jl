@@ -51,7 +51,7 @@ for (x_temp, y_temp) ∈ zip((x, 2x), (f, F(2x)))
 end
 
 function return_correct_gradients(obj1::MultivariateObjective, obj2::MultivariateObjective, x::AbstractVector, z::AbstractVector)
-    @test gradient(x, obj1) == gradient(x, obj2) == z
+    @test gradient(obj1, x) == gradient(obj2, x) == z
     @test f_calls(obj1) == f_calls(obj2) == 0
     @test g_calls(obj1) == g_calls(obj2) == 1
 end
