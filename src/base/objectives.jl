@@ -188,7 +188,7 @@ derivative(obj::UnivariateObjective) = obj.d
 """
     derivative!!(obj::AbstractObjective, x)
 
-Similar to [`value!!`](@ref), but fo the derivative part (see [`UnivariateObjective`](@ref)).
+Similar to [`value!!`](@ref), but fo the derivative part (see [`UnivariateObjective`](@ref) and [`TemporaryUnivariateObjective`](@ref)).
 """
 function derivative!!(obj::UnivariateObjective, x::Number)
     obj.x_d = x
