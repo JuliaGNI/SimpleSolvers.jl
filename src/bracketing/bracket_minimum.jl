@@ -1,8 +1,18 @@
-
+"Default constant."
 const DEFAULT_BRACKETING_s = 1E-2
+"Default constant."
 const DEFAULT_BRACKETING_k = 2.0
+"Default constant"
+const DEFAULT_BRACKETING_nmax=100
 
+"""
+    bracket_minimum(f, x)
 
+# Keyword arguments
+- `s::`[`DEFAULT_BRACKETING_s`](@ref)
+- `k::`[`DEFAULT_BRACKETING_k`](@ref)
+- `nmax::`[`DEFAULT_BRACKETING_nmax`](@ref)
+"""
 function bracket_minimum(f, x=0.0; s=DEFAULT_BRACKETING_s, k=DEFAULT_BRACKETING_k, nmax=DEFAULT_BRACKETING_nmax)
     a, ya = x, f(x)
     b, yb = a + s, f(a + s)

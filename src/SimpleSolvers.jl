@@ -94,7 +94,6 @@ module SimpleSolvers
 
     export bracket_minimum
 
-    include("bracketing/bracketing.jl")
     include("bracketing/bracket_minimum.jl")
 
     export Linesearch, Static
