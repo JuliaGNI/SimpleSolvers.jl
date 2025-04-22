@@ -1,20 +1,11 @@
 using SimpleSolvers
-using SimpleSolvers: LinesearchState, StaticState
+using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate
 using Test
 
-# include("optimizers_problems.jl")
+include("optimizers_problems.jl")
 
-f(x) = x^2-1
+f(x) = x^2 - 1
 g(x) = 2x
-
-function F(x)
-    # sum(x.^2) - 1
-    y = - one(eltype(x))
-    for _x in x
-        y += _x^2
-    end
-    return y
-end
 
 function test_linesearch(algorithm, method; kwargs...)
 
@@ -23,55 +14,52 @@ function test_linesearch(algorithm, method; kwargs...)
     xₛ =  0.0
     δx = x₁ .- x₀
 
-    _f = α -> f(x₀ + α * δx)
-    _d = α -> g(x₀ + α * δx)
+    _f(α) = f(compute_new_iterate(x₀, α, δx))
+    _d(α) = g(compute_new_iterate(x₀, α, δx))
 
-    o1 = UnivariateObjective(_f, xₛ)
-    o2 = UnivariateObjective(_f, _d, xₛ)
+    obj1 = UnivariateObjective(_f, xₛ; mode = :autodiff)
+    obj2 = UnivariateObjective(_f, _d, xₛ)
 
     options = Options(x_abstol = zero(x₀))
     
-    ls = Linesearch(; algorithm = algorithm, config = options, kwargs...)
-    
+    ls = LinesearchState(algorithm; config = options, kwargs...)
 
-    α1 = ls(o1)
-    α2 = ls(o2)
+    α1 = ls(obj1)
+    α2 = ls(obj2)
     α3 = ls(_f, _d)
 
-    @test x₀ + α1 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α2 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α3 * δx ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α1, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α2, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α3, δx) ≈ xₛ  atol=∛(2eps())
 
+    # start with a different initial guess
+    α1 = ls(obj1, 2 * one(xₛ))
+    α2 = ls(obj2, 2 * one(xₛ))
+    α3 = ls(_f, _d, 2 * one(xₛ))
 
-    α1 = ls(o1, one(xₛ))
-    α2 = ls(o2, one(xₛ))
-    α3 = ls(_f, _d, one(xₛ))
+    @test compute_new_iterate(x₀, α1, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α2, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α3, δx) ≈ xₛ  atol=∛(2eps())
 
-    @test x₀ + α1 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α2 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α3 * δx ≈ xₛ  atol=∛(2eps())
-
-
-    α1 = method(o1; config = config = options, kwargs...)
-    α2 = method(o2; config = config = options, kwargs...)
+    # use an externally supplied method to compute the step size α
+    α1 = method(obj1; config = config = options, kwargs...)
+    α2 = method(obj2; config = config = options, kwargs...)
     α3 = method(_f, _d; config = options, kwargs...)
 
-    @test x₀ + α1 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α2 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α3 * δx ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α1, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α2, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α3, δx) ≈ xₛ  atol=∛(2eps())
 
+    # start with a different step size
+    α1 = method(obj1, 2 * one(xₛ); config = options, kwargs...)
+    α2 = method(obj2, 2 * one(xₛ); config = options, kwargs...)
+    α3 = method(_f, _d, 2 * one(xₛ); config = options, kwargs...)
 
-    α1 = method(o1, one(xₛ); config = options, kwargs...)
-    α2 = method(o2, one(xₛ); config = options, kwargs...)
-    α3 = method(_f, _d, one(xₛ); config = options, kwargs...)
-
-    @test x₀ + α1 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α2 * δx ≈ xₛ  atol=∛(2eps())
-    @test x₀ + α3 * δx ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α1, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α2, δx) ≈ xₛ  atol=∛(2eps())
+    @test compute_new_iterate(x₀, α3, δx) ≈ xₛ  atol=∛(2eps())
 
 end
-
-
 
 @testset "$(rpad("Bracketing",80))" begin
     @test bracket_minimum(x -> x^2) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
