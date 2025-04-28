@@ -36,7 +36,7 @@ for T ∈ (Float64, Float32)
             )
 
         n = 1
-        x = ones(T, n)
+        x = zeros(T, n)
         y = zero(x)
         nl = Solver(x, y; F = F!, kwarguments...)
 
@@ -46,15 +46,15 @@ for T ∈ (Float64, Float32)
         solve!(x, F!, nl)
         # println(status(nl))
         for _x in x
-            @test _x ≈ T(0) atol = 1000eps(Float32)
+            @test _x ≈ zero(T) atol = eps(T)
         end
 
-        x = ones(T, n)
+        x = zeros(T, n)
         nl = Solver(x, y; DF! = J!, kwarguments...)
         solve!(x, F!, nl)
-        # println(status(nl))
+        println(Solver, kwarguments)
         for _x in x
-            @test _x ≈ T(0) atol = 1000eps(Float32)
+            @test _x ≈ zero(T) atol = eps(T)
         end
     end
 end

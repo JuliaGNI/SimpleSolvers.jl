@@ -15,15 +15,95 @@ const DEFAULT_BRACKETING_k = 2.0
 "Default constant"
 const DEFAULT_BRACKETING_nmax=100
 
-"""
+abstract type BracketingCriterion end
+struct BracketMinimumCriterion <: BracketingCriterion end
+struct BracketRootCriterion <: BracketingCriterion end
+(::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
+(::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
+
+function bracket(f::Callable, x::T, bc::BracketingCriterion; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T, T} where {T <: Number}    
+    a = x
+    ya = f(a)
+
+    b = a + s
+    yb = f(b)
+
+    # check if condition is already satisfied
+    if bc(f(a - s), yb)
+        return (a - s, b)
+    end
+
+    for _ in 1:nmax
+        c = b + s
+        yc = f(c)
+        if bc(yb, yc)
+            interval = a < c ? (a, c) : (c, a)
+            return interval
+        end
+        a = b
+        ya = yb
+        b = c
+        yb = yc
+        s *= k
+    end
+    error("Unable to bracket f starting at x = $x.")
+end
+
+@doc raw"""
     bracket_minimum(f, x)
 
+Move a bracket successively in the search direction (starting at `x`) and increase its size until a local minimum of `f` is found. 
+This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval).
+
 # Keyword arguments
+
 - `s::`[`DEFAULT_BRACKETING_s`](@ref)
 - `k::`[`DEFAULT_BRACKETING_k`](@ref)
 - `nmax::`[`DEFAULT_BRACKETING_nmax`](@ref)
+
+# Extended help
+
+For bracketing we need two constants ``s`` and ``k`` (see [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)). 
+
+Before we start the algorithm we *initialize* it, i.e. we check that we indeed have a descent direction:
+```math
+\begin{aligned}
+& a \gets x, \\
+& b \gets a + s, \\
+& \mathrm{if} \quad f(b) > f(a)\\
+& \qquad\text{Flip $a$ and $b$ and set $s\gets-s$.}\\
+& \mathrm{end}
+\end{aligned}
+```
+
+The algorithm then successively computes:
+```math
+c \gets b + s,
+```
+
+and then checks whether ``f(c) > f(b)``. If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
+If this is not satisfied ``a,`` ``b`` and ``s`` are updated:
+```math
+\begin{aligned}
+a \gets & b, \\
+b \gets & c, \\
+s \gets & sk, 
+\end{aligned}
+```
+and the algorithm is continued. If we have not found a sign chance after ``n_\mathrm{max}`` iterations (see [`DEFAULT_BRACKETING_nmax`](@ref)) the algorithm is terminated and returns an error.
+The interval that is returned by `bracket_minimum` is then typically used as a starting point for [`bisection`](@ref).
+
+!!! info
+    The function `bracket_root` is equivalent to `bracket_minimum` with the only difference that the criterion we check for is:
+    ```math
+    f(c)f(b) < 0,
+    ```
+    i.e. that a sign change in the function occurs.
+
+See [`bracket_root`](@ref).
 """
-function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T, T} where {T <: Number}
+function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T <: Number}
+    
     a = x
     ya = f(a)
 
@@ -37,18 +117,16 @@ function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k:
         s = -s
     end
 
-    for _ in 1:nmax
-        c = b + s
-        yc = f(c)
-        if yc > yb
-            interval = a < c ? (a, c) : (c, a)
-            return interval
-        end
-        a = b
-        ya = yb
-        b = c
-        yb = yc
-        s *= k
-    end
-    error("Unable to bracket f starting at x = $x.")
+    bracket(f, a, BracketMinimumCriterion(); s=s, k=k, nmax=nmax)
+end
+
+"""
+    bracket_root(f, x)
+
+Make a bracket for the function based on `x` (for root finding).
+
+This is largely equivalent to [`bracket_minimum`](@ref). See the end of that docstring for more information.
+"""
+function bracket_root(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T, T} where {T <: Number}
+    bracket(f, x, BracketRootCriterion(); s=s, k=k, nmax=nmax)
 end

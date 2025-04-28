@@ -17,7 +17,7 @@ function NewtonSolver(x::AT, y::AT; F = missing, DF! = missing, linesearch = Bac
     !ismissing(F) || !ismissing(DF!) || error("You have to either provide F or DF!.")
     jacobian = (ismissing(DF!) && !ismissing(F)) ? Jacobian{T}(F, n; mode = mode) : Jacobian{T}(DF!, n; mode = :function)
     cache = NewtonSolverCache(x, y)
-    linear_solver = LinearSolver(y)
+    linear_solver = LinearSolver(y; linear_solver = :julia)
     ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)
     NewtonSolver{T, AT, typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, jacobian, linear_solver, ls, cache, options)
@@ -29,27 +29,25 @@ end
 Compute one Newton step for `f` based on the Jacobian `jacobian!`.
 """
 function solver_step!(x::Union{AbstractVector{T}, T}, f, jacobian!, s::NewtonSolver{T}) where {T}
-    # shortcuts
-    rhs = cache(s).rhs
-    δ = cache(s).δx
-
     # update Newton solver cache
     update!(s, x)
 
-    # compute Jacobian
-    compute_jacobian!(s, x, jacobian!)
+    _compute_jacobian!(s, x, jacobian!)
 
-    # factorize linear solver
-    factorize!(linearsolver(s), cache(s).J)
+    # factorize the jacobian stored in `s` and save the factorized matrix in the corresponding linear solver.
+    factorize!(linearsolver(s), jacobian(cache(s)))
 
     # compute RHS (f is an in-place function)
-    f(rhs, x)
-    rmul!(rhs, -1)
+    f(cache(s).rhs, x)
+    rmul!(cache(s).rhs, -1)
 
     # solve J δx = -f(x)
-    ldiv!(δ, linearsolver(s), rhs)
+    ldiv!(direction(cache(s)), linearsolver(s), cache(s).rhs)
 
     # apply line search
-    α = s.linesearch(linesearch_objective(f, jacobian(s), cache(s)))
-    x .+= α .* δ
+    α = linesearch(s)(linesearch_objective(f, jacobian(s), cache(s)))
+    x .+= α .* direction(cache(s))
 end
+
+_compute_jacobian!(s::NewtonSolver, x, jacobian!::Callable) = compute_jacobian!(s, x, jacobian!; mode = :function)
+_compute_jacobian!(s::NewtonSolver, x, jacobian!::Jacobian) = compute_jacobian!(s, x, jacobian!)

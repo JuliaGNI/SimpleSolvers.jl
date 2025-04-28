@@ -30,6 +30,7 @@ makedocs(;
                          "The Sufficient Decrease Condition" => "linesearch/sufficient_decrease_condition.md",
                          "The Curvature Condition" => "linesearch/curvature_condition.md",
                          "Backtracking" => "linesearch/backtracking.md",
+                         "Bisections" => "linesearch/bisections.md",
                          "Quadratic" => "linesearch/quadratic.md",
                          ],
         "Optimizers" => ["optimizers/optimizers.md"],

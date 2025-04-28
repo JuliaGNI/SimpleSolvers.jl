@@ -32,6 +32,9 @@ struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
     end
 end
 
+jacobian(cache::NewtonSolverCache) = cache.J
+direction(cache::NewtonSolverCache) = cache.δx
+
 @doc raw"""
     update!(cache, x)
 
@@ -110,13 +113,39 @@ end
 cache(solver::AbstractNewtonSolver) = solver.cache
 config(solver::AbstractNewtonSolver) = solver.config
 status(solver::AbstractNewtonSolver) = solver.status
-jacobian(solver::AbstractNewtonSolver) = solver.jacobian
+
+"""
+    jacobian(solver::AbstractNewtonSolver)
+
+Calling `jacobian` on an instance of [`AbstractNewtonSolver`](@ref) produces a slight ambiguity since the `cache` (of type [`NewtonSolverCache`](@ref)) also stores a Jacobian, but in the latter case it is a matrix not an instance of type [`Jacobian`](@ref).
+Hence we return the object of type [`Jacobian`](@ref) when calling `jacobian`. This is also used in [`solver_step!`](@ref).
+"""
+jacobian(solver::AbstractNewtonSolver)::Jacobian = solver.jacobian
+
+"""
+    linearsolver(solver)
+
+Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`AbstractNewtonSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linearsolver)
+x = rand(3)
+y = rand(3)
+F(y, x) = y .= tanh.(x)
+s = NewtonSolver(x, y; F = F)
+linearsolver(s)
+
+# output
+
+LUSolver{Float64}(3, [0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [1, 2, 3], [1, 2, 3], 1)
+```
+"""
 linearsolver(solver::AbstractNewtonSolver) = solver.linear
 linesearch(solver::AbstractNewtonSolver) = solver.linesearch
 
-compute_jacobian!(s::AbstractNewtonSolver, x) = compute_jacobian!(s.cache.J, x, f)
-compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Jacobian) = compute_jacobian!(s.cache.J, x, jacobian!)
-compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Callable) = compute_jacobian!(s.cahce.J, x, jacobian!)
+# compute_jacobian!(s::AbstractNewtonSolver, x) = compute_jacobian!(jacobian(s), x, f)
+compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...) = compute_jacobian!(jacobian(cache(s)), x, jacobian!; kwargs...)
 # compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable) = compute_jacobian!(s, x, f, missing)
 # compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable, ::Missing) = s.jacobian(s.cache.J, x, f)
 # compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable, j::Callable) = s.jacobian(s.cache.J, x, j)

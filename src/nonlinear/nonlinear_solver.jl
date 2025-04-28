@@ -35,7 +35,7 @@ end
 
 Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
 
-# get_solver_status!(solver::NonlinearSolver{T}, status_dict::Dict) where {T} =
+# (solver::NonlinearSolver{T}, status_dict::Dict) where {T} =
 #             get_solver_status!(status(solver), params(solver), status_dict)
 
 # get_solver_status(solver::NonlinearSolver{T}) where {T} = get_solver_status!(solver,

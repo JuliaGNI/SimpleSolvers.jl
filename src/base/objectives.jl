@@ -7,6 +7,8 @@ See [`AbstractUnivariateObjective`](@ref) and [`MultivariateObjective`](@ref).
 """
 abstract type AbstractObjective{T <: Number} end
 
+Base.Function(obj::AbstractObjective) = obj.F
+
 """
     AbstractUnivariateObjective <: AbstractObjective
 

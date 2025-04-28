@@ -46,7 +46,7 @@ LinesearchState(algorithm::LinesearchMethod; kwags...) = error("LinesearchState 
 # solve!(x, δx, ls::LinesearchState) = ls(x, δx)
 # solve!(x, δx, g, ls::LinesearchState) = ls(x, δx, g)
 
-# TODO: clarify why we need the extra struct `LineSearch`. Are `LinesearchMethod`s not enough?
+# TODO: clarify why we need the extra struct `LineSearch`. Are `LinesearchMethod`s together with `LinesearchState` not enough?
 """
     Linesearch
 

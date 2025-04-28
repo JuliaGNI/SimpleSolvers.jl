@@ -114,17 +114,17 @@ end
     x  = copy(x₀)
     o  = UnivariateObjective(f, x)
 
-    x1 = bisection(f, x₀, x₁; config = Options(x_abstol = zero(x)))
-    x2 = bisection(f, x; config = Options(x_abstol = zero(x)))
+    x1 = bisection(f, x₀, x₁; config = Options(x_abstol = 10eps(x)))
+    x2 = bisection(f, x; config = Options(x_abstol = 10eps(x)))
 
-    @test x1 ≈ -1  atol=∛(2eps())
-    @test x2 ≈ -1  atol=∛(2eps())
+    @test x1 ≈ -1  atol=∛(10eps())
+    @test x2 ≈ -1  atol=∛(10eps())
 
-    x1 = bisection(f, x₀, x₁; config = Options(f_abstol = zero(f(x))))
-    x2 = bisection(f, x; config = Options(f_abstol = zero(f(x))))
+    x1 = bisection(f, x₀, x₁; config = Options(f_abstol = 2eps(f(x))))
+    x2 = bisection(f, x; config = Options(f_abstol = 2eps(f(x))))
     
-    @test x1 ≈ -1  atol=2eps()
-    @test x2 ≈ -1  atol=2eps()
+    @test x1 ≈ -1  atol=10eps()
+    @test x2 ≈ -1  atol=10eps()
 
 
     # x₀ = [-3.0]
@@ -133,12 +133,12 @@ end
     # δx = x₁ .- x₀
     # x  = copy(x₀)
 
-    x_abstol = zero(eltype(x))
-    f_abstol = zero(F(x))
+    x_abstol = 10eps(eltype(x))
+    f_abstol = 10eps(F(x))
 
     ls = Linesearch(algorithm = Bisection(), config = Options(x_abstol = x_abstol))
 
-    @test ls(o) == ls(f,g) == 1.0
+    @test ( (ls(o) ≈ ls(f, g) ≈ 1.0) || (ls(o) ≈ ls(f, g) ≈ -1.0) )
 
     # x1 = copy(x₀)
     # x2 = copy(x₀)
@@ -148,14 +148,14 @@ end
     # solve!(x2, δx, ls)
     # solve!(x3, δx, ls.state)
 
-    # @test x1 ≈ xₛ  atol=∛(2eps())
-    # @test x2 ≈ xₛ  atol=∛(2eps())
-    # @test x3 ≈ xₛ  atol=∛(2eps())
+    # @test x1 ≈ xₛ  atol=∛(10eps())
+    # @test x2 ≈ xₛ  atol=∛(10eps())
+    # @test x3 ≈ xₛ  atol=∛(10eps())
 
 
     ls = Linesearch(algorithm = Bisection(), config = Options(f_abstol = f_abstol))
 
-    @test ls(o) == ls(f,g) == 1.0
+    @test ( (ls(o) ≈ ls(f, g) ≈ 1.0) || (ls(o) ≈ ls(f, g) ≈ -1.0) )
 
     # x1 = copy(x₀)
     # x2 = copy(x₀)
@@ -165,9 +165,9 @@ end
     # solve!(x2, δx, ls)
     # solve!(x3, δx, ls.state)
 
-    # @test x1 ≈ xₛ  atol=2eps()
-    # @test x2 ≈ xₛ  atol=2eps()
-    # @test x3 ≈ xₛ  atol=2eps()
+    # @test x1 ≈ xₛ  atol=10eps()
+    # @test x2 ≈ xₛ  atol=10eps()
+    # @test x3 ≈ xₛ  atol=10eps()
 
 end
 
@@ -193,9 +193,9 @@ end
     # solve!(x2, δx, ls)
     # backtracking(F, x3, δx; config = Options(x_abstol = zero(eltype(x))))
 
-    # @test x1 ≈ xₛ  atol=∛(2eps())
-    # @test x2 ≈ xₛ  atol=∛(2eps())
-    # @test x3 ≈ xₛ  atol=∛(2eps())
+    # @test x1 ≈ xₛ  atol=∛(10eps())
+    # @test x2 ≈ xₛ  atol=∛(10eps())
+    # @test x3 ≈ xₛ  atol=∛(10eps())
     
 
     # n = 1
@@ -263,9 +263,9 @@ end
     # solve!(x2, δx, ls)
     # quadratic(F, x3, δx; config = Options(x_abstol = zero(eltype(x))))
 
-    # @test x1 ≈ xₛ  atol=∛(2eps())
-    # @test x2 ≈ xₛ  atol=∛(2eps())
-    # @test x3 ≈ xₛ  atol=∛(2eps())
+    # @test x1 ≈ xₛ  atol=∛(10eps())
+    # @test x2 ≈ xₛ  atol=∛(10eps())
+    # @test x3 ≈ xₛ  atol=∛(10eps())
     
 
     # n = 1

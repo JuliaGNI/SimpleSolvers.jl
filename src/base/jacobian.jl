@@ -33,7 +33,7 @@ abstract type Jacobian{T} end
 
 Apply the [`Jacobian`](@ref) and store the result in `j`.
 """
-compute_jacobian!(j::AbstractMatrix, x::AbstractVector, jacobian::Jacobian) = jacobian(j,x)
+compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian::Jacobian{T}) where {T} = jacobian(j,x)
 
 """
     check_jacobian(J)
@@ -244,16 +244,12 @@ end
 
 Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
 
-function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian!::Jacobian) where T
-    jacobian!(j, x)
-end
-
 """
     compute_jacobian!(j, x, ForJ)
 
 Allocate a [`Jacobian`](@ref) object, apply it to `x`, and store the result in `j`.
 """
-function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable; kwargs...) where {T}
-    jacobian = Jacobian{T}(ForJ, size(j,1), size(j,2); kwargs...)
+function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable; mode = :autodiff, kwargs...) where {T}
+    jacobian = Jacobian{T}(ForJ, size(j,1), size(j,2); mode = mode, kwargs...)
     compute_jacobian!(j, x, jacobian)
 end

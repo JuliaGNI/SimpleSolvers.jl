@@ -1,30 +1,61 @@
-"""
+@doc raw"""
     bisection(f, xmin, xmax; config)
 
 Perform bisection of `f` in the interval [`xmin`, `xmax`] with [`Options`](@ref) `config`.
 
 The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is [`F_ABSTOL`](@ref) by default).
+
+# implementation
+
+When calling `bisection` it first checks if ``x_\mathrm{min} < x_\mathrm{max}`` and else flips the two entries.
+
+# Extended help
+
+The bisection algorithm divides an interval into equal halves until a root is found (up to a desired accuracy).
+
+We first initialize:
+```math
+\begin{aligned}
+x_0 \gets & x_\mathrm{min},
+x_1 \gets & x_\mathrm{max},
+\end{aligned}
+```
+and then repeat:
+```math
+\begin{aligned}
+& x \gets \frac{x_0 + x_1}{2}, \\
+& \text{if $f(x_0)f(x) > 0$} \\
+& \qquad x_0 \gets x, \\
+& \text{else} \\
+& \qquad x_1 \gets x, \\
+& \text{end}
+\end{aligned}
+```
+So the algorithm checks in each step where the sign change occurred and moves the ``x_0`` or ``x_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (see [`MAX_ITERATIONS`](@ref) and the [`Options`](@ref) struct).
+
+!!! warning
+    The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
 """
 function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <: Number}
-    local x₀ = xmin
-    local x₁ = xmax
-    local x  = zero(T)
+    x₀ = xmin
+    x₁ = xmax
+    x  = zero(T)
 
+    # flip x₀ and x₁ if the former is bigger than the latter
     x₀ < x₁ || begin x₀, x₁ = x₁, x₀ end
 
-    local y₀ = f(x₀)
-    local y₁ = f(x₁)
-    local y  = zero(y₀)
+    y₀ = f(x₀)
+    y₁ = f(x₁)
+    y  = zero(y₀)
 
-    # y₀ * y₁ ≤ 0 || error("Either no or multiple real roots in [xmin,xmax]")
+    @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
 
     for j in 1:config.max_iterations
         x = (x₀ + x₁) / 2
         y = f(x)
 
-        # println("j = ", j, " , x₀ = ", x₀, " , x₁ = ", x₁)
-
-        !isapprox(y, zero(y), atol=config.f_abstol) || break
+        # break if y is close to zero.
+        !≈(y, zero(y), atol=config.f_abstol) || break
 
         if y₀ * y > 0
             x₀ = x  # Root is in the right half of [x₀,x₁].
@@ -35,18 +66,16 @@ function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <
         end
 
         !isapprox(x₁ - x₀, zero(x), atol=config.x_abstol) || break
+
+        j != config.max_iterations || error("Max iteration number exceeded")
     end
-
-    # println("α=", x, ", f(α)=", y, ", ftol=", config.f_abstol, ", abs(x₁-x₀)=", abs(x₁-x₀), ", xtol=", config.x_abstol)
-
-    # i != ls.nmax || error("Max iteration number exceeded")
 
     x
 end
 
 bisection(obj::AbstractObjective, xmin::T, xmax::T; config = Options()) where {T <: Number} = bisection(obj.F, xmin, xmax; config = config)
 
-bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
+bisection(f, x::Number; kwargs...) = bisection(f, bracket_root(f, x)...; kwargs...)
 
 """
     BisectionState <: LinesearchState
@@ -74,6 +103,14 @@ Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
 LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(; kwargs...)
 
-function (ls::BisectionState)(obj::AbstractUnivariateObjective)
-    bisection(obj, 0., 1.; config = ls.config)
+function (ls::BisectionState)(obj::UnivariateObjective{T}) where {T}
+    # bisection(obj, 0., 1.; config = ls.config)
+    # call the objective on zero if it hasn't been called before
+    obj.f_calls ≠ 0 || value!(obj, zero(T))
+    bisection(obj.F, obj.x_f; config = ls.config)
+end
+
+function (ls::BisectionState)(obj::TemporaryUnivariateObjective{T}) where {T}
+    # initialize on 0.
+    bisection(obj.F, zero(T); config = ls.config)
 end

@@ -76,6 +76,9 @@ scatter!(ax, [α₂], [ls_obj(α₂)]; color=morange, label=L"\alpha_2")
 scatter!(ax, [α₃], [ls_obj(α₃)]; color=mblue, label=L"\alpha_3")
 scatter!(ax, [α₄], [ls_obj(α₄)]; color=mgreen, label=L"\alpha_4")
 scatter!(ax, [α₅], [ls_obj(α₅)]; color=mred, label=L"\alpha_5")
+
+axislegend(ax)
+
 save("2d_plot.png", fig)
 nothing
 ```
