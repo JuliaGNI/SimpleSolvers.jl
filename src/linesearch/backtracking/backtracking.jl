@@ -1,8 +1,34 @@
 using Printf
+@doc raw"""
+    const DEFAULT_ARMIJO_α₀
 
+The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`BacktrackingState`](@ref) and [`QuadraticState`](@ref)).
+Its value is """ * """$(DEFAULT_ARMIJO_α₀)
+"""
 const DEFAULT_ARMIJO_α₀ = 1.0
+
+"""
+    const DEFAULT_ARMIJO_σ₀
+
+Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
+Its value is $(DEFAULT_ARMIJO_σ₀)
+"""
 const DEFAULT_ARMIJO_σ₀ = 0.1
+
+"""
+    const DEFAULT_ARMIJO_σ₁
+
+Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
+Its value is $(DEFAULT_ARMIJO_σ₁)
+"""
 const DEFAULT_ARMIJO_σ₁ = 0.5
+
+"""
+    const DEFAULT_ARMIJO_p
+
+Constant used in [`BacktrackingState`](@ref).
+Its value is $(DEFAULT_ARMIJO_p)
+"""
 const DEFAULT_ARMIJO_p  = 0.5
 
 @doc raw"""

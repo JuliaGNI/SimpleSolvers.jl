@@ -48,7 +48,7 @@ nothing # hide
 
 ## Bracketing
 
-For bracketing we move an interval successively and simultaneously increase it in the hope that we observe a local minimum (see [`bracket_minimum`](@ref)).
+For bracketing [kochenderfer2019algorithms](@cite) we move an interval successively and simultaneously increase it in the hope that we observe a local minimum (see [`bracket_minimum`](@ref)).
 
 ```@example bisection
 α₀ = 0.0

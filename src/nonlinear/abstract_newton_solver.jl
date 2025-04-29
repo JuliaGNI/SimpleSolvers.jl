@@ -72,6 +72,11 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
     cache
 end
 
+"""
+    linesearch_objective(objective!, jacobian!, cache)
+
+Make a line search objective for a *Newton solver* (the `cache` here is an instance of [`NewtonSolverCache`](@ref)).
+"""
 function linesearch_objective(objective!::Callable, jacobian!::Jacobian, cache::NewtonSolverCache{T}) where T
     function f(α)
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)

@@ -75,7 +75,12 @@ end
 
 bisection(obj::AbstractObjective, xmin::T, xmax::T; config = Options()) where {T <: Number} = bisection(obj.F, xmin, xmax; config = config)
 
-bisection(f, x::Number; kwargs...) = bisection(f, bracket_root(f, x)...; kwargs...)
+"""
+    bisection(f, x)
+
+Use [`bracket_minimum`](@ref) to find a starting interval and then do bisections.
+"""
+bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
 """
     BisectionState <: LinesearchState
