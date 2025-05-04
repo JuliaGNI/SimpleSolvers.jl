@@ -48,14 +48,14 @@ function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <
     y₁ = f(x₁)
     y  = zero(y₀)
 
-    @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
+    # @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
 
     for j in 1:config.max_iterations
         x = (x₀ + x₁) / 2
         y = f(x)
 
         # break if y is close to zero.
-        !≈(y, zero(y), atol=config.f_abstol) || break
+        !≈(y, zero(y); atol=config.f_abstol) || break
 
         if y₀ * y > 0
             x₀ = x  # Root is in the right half of [x₀,x₁].
@@ -73,7 +73,8 @@ function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <
     x
 end
 
-bisection(obj::AbstractObjective, xmin::T, xmax::T; config = Options()) where {T <: Number} = bisection(obj.F, xmin, xmax; config = config)
+bisection(obj::AbstractObjective, xmin::T, xmax::T; config = Options()) where {T <: Number} = bisection(obj.D, xmin, xmax; config = config)
+# bisection(obj::AbstractObjective, x::T; kwargs...) = bisection(obj.D, x; kwargs...)
 
 """
     bisection(f, x)
@@ -112,10 +113,18 @@ function (ls::BisectionState)(obj::UnivariateObjective{T}) where {T}
     # bisection(obj, 0., 1.; config = ls.config)
     # call the objective on zero if it hasn't been called before
     obj.f_calls ≠ 0 || value!(obj, zero(T))
-    bisection(obj.F, obj.x_f; config = ls.config)
+    ls(obj, obj.x_f)
 end
 
 function (ls::BisectionState)(obj::TemporaryUnivariateObjective{T}) where {T}
     # initialize on 0.
-    bisection(obj.F, zero(T); config = ls.config)
+    ls(obj, zero(T))
+end
+
+function (ls::BisectionState)(obj::AbstractUnivariateObjective, x)
+    ls(obj, bracket_minimum(obj.F, x)...)
+end
+
+function (ls::BisectionState)(obj::AbstractUnivariateObjective, x₀, x₁)
+    bisection(obj, x₀, x₁; config = ls.config)
 end

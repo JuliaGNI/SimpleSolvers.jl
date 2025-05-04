@@ -53,10 +53,23 @@ where ``\sigma_1`` is again stored in `ls`. If this second condition is also not
 So if `\alpha_t` does not lie in the interval ``(\sigma_0\alpha, \sigma_1\alpha)`` the interval is made bigger by either multiplying with ``\sigma_0`` (default [`DEFAULT_ARMIJO_σ₀`](@ref)) or ``\sigma_1`` (default [`DEFAULT_ARMIJO_σ₁`](@ref)).
 """
 function adjust_alpha(ls::QuadraticState{T}, αₜ::T, α::T) where {T}
-    if αₜ < ls.σ₀ * α
-        ls.σ₀ * α
-    elseif αₜ > ls.σ₁ * α
-        ls.σ₁ * α
+    adjust_alpha(ls.σ₀, ls.σ₁, αₜ, α)
+end
+
+"""
+    adjust_alpha(αₜ, α)
+
+Adjust `αₜ` based on the previous `α`. Also see [`adjust_alpha(::QuadraticState{T}, ::T, ::T) where {T}`](@ref).
+
+# Implementation
+
+Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
+"""
+function adjust_alpha(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
+    if αₜ < σ₀ * α
+        σ₀ * α
+    elseif αₜ > σ₁ * α
+        σ₁ * α
     else
         αₜ
     end

@@ -82,8 +82,8 @@ alloc_g(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
 alloc_h(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x*x'
 alloc_j(x::AbstractArray{T}, f::AbstractArray{T}) where {T <: Number} = T(NaN) .* vec(f) .* vec(x)'
 
-function L2norm(x)
-    local l2::eltype(x) = 0
+function L2norm(x::Union{T, Array{T}}) where {T <: Number}
+    l2 = zero(T)
     for xᵢ in x
         l2 += xᵢ^2
     end

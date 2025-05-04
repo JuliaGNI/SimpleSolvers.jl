@@ -95,6 +95,7 @@ module SimpleSolvers
     export bracket_minimum
 
     include("bracketing/bracket_minimum.jl")
+    include("bracketing/triple_point_finder.jl")
 
     export Linesearch, Static
     export Backtracking, backtracking,
@@ -110,6 +111,7 @@ module SimpleSolvers
     include("linesearch/backtracking/curvature_condition.jl")
     include("linesearch/bisection.jl")
     include("linesearch/quadratic.jl")
+    include("linesearch/bierlaire_quadratic.jl")
 
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NewtonSolver, QuasiNewtonSolver,

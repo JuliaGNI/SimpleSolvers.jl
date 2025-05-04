@@ -29,15 +29,32 @@ solver = NewtonSolver(x, f.(x); F = f)
 update!(solver, x)
 compute_jacobian!(solver, x, j!; mode = :function)
 
-factorize!(linearsolver(solver), jacobian(cache(solver)))
-
+# compute rhs
 f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
-# solve J δx = -f(x)
+# multiply rhs with jacobian
+factorize!(linearsolver(solver), jacobian(cache(solver)))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
+
 ls_obj = linesearch_objective(f!, JacobianFunction(j!, x), cache(solver))
+fˡˢ = ls_obj.F
+∂fˡˢ∂α = ls_obj.D
+p₀ = fˡˢ(0.)
+p₁ = ∂fˡˢ∂α(0.)
+α₀ = SimpleSolvers.DEFAULT_ARMIJO_α₀
+y = fˡˢ(α₀)
+p₂ = (y^2 - p₀ - p₁*α₀) / α₀^2
+p(α) = p₀ + p₁ * α + p₂ * α^2
+αₜ = -p₁ / (2p₂)
 nothing # hide
+```
+
+Note that we started the iteration with [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref). When using [`SimpleSolvers.QuadraticState`](@ref) we in addition call [`SimpleSolvers.adjust_alpha`](@ref):
+
+```@example quadratic
+using SimpleSolvers: adjust_alpha # hide
+α₁ = adjust_alpha(αₜ, α₀)
 ```
 
 ```@setup quadratic
@@ -50,22 +67,36 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -1.:.01:2.
-p₀ = ls_obj.F(0.)
-p₁ = ls_obj.D(0.)
-α₀ = SimpleSolvers.DEFAULT_ARMIJO_α₀
-y = ls_obj.F(α₀)
-p₂ = (y^2 - p₀ - p₁*α₀) / α₀^2
-p(α) = p₀ + p₁ * α + p₂ * α^2
-αₜ = -p₁ / (2p₂)
-lines!(ax, alpha, ls_obj.F.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, αₜ, p(αₜ); color = mred)
+alpha = -2.:.01:2.
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
+lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
+scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
 axislegend(ax)
-save("f_ls.png", fig)
+save("f_ls1.png", fig)
 nothing # hide
 ```
 
-![](f_ls.png)
+![](f_ls1.png)
+
+We plot another iterate:
+
+```@example quadratic
+y = fˡˢ(α₁)
+p₂ = (y^2 - p₀ - p₁*α₁) / α₁^2
+p(α) = p₀ + p₁ * α + p₂ * α^2
+αₜ = -p₁ / (2p₂)
+α₂ = adjust_alpha(αₜ, α₁)
+```
+
+```@setup quadratic
+lines!(ax, alpha, p.(alpha); label = L"p^{(2)}(\alpha)")
+scatter!(ax, α₂, p(α₂); color = mred, label = L"\alpha_2")
+axislegend(ax)
+save("f_ls2.png", fig)
+nothing # hide
+```
+
+![](f_ls2.png)
 
 ## Example in the Non-Convex Case
 

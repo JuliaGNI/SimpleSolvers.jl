@@ -120,6 +120,10 @@ function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k:
     bracket(f, a, BracketMinimumCriterion(); s=s, k=k, nmax=nmax)
 end
 
+function bracket_minimum(obj::AbstractObjective{T}, x::T=T(0.0); kwargs...) where {T <: Number}
+    bracket_minimum(obj.F, x; kwargs...)
+end
+
 """
     bracket_root(f, x)
 

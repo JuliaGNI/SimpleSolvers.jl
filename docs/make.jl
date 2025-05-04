@@ -18,6 +18,7 @@ makedocs(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://JuliaGNI.github.io/SimpleSolvers.jl",
         assets=String[],
+        size_threshold = 1048576,
     ),
     pages=[
         "Home" => "index.md",
