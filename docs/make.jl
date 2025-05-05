@@ -33,6 +33,7 @@ makedocs(;
                          "Backtracking" => "linesearch/backtracking.md",
                          "Bisections" => "linesearch/bisections.md",
                          "Quadratic" => "linesearch/quadratic.md",
+                         "Bierlaire Quadratic" => "linesearch/bierlaire_quadratic.md",
                          ],
         "Optimizers" => ["optimizers/optimizers.md"],
         "Updates" => "update.md",

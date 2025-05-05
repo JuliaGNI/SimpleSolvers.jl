@@ -1,7 +1,7 @@
 """
     DEFAULT_BIERLAIRE_ε
 
-A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref).
+A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref). This constant is taken from [bierlaire2015optimization](@cite).
 """
 const DEFAULT_BIERLAIRE_ε = 1E-3
 
