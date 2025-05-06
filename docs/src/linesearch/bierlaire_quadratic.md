@@ -180,8 +180,6 @@ ax = Axis(fig[1, 1])
 alpha = .8:.01:1.2
 c = b
 b = χ
-println(c)
-println(b)
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")

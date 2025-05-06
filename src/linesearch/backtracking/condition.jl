@@ -7,7 +7,21 @@ abstract type BacktrackingCondition{T} end
 
 (bc::BCT, xₖ, αₖ, gradₖ) where {BCT <: BacktrackingCondition} = error("Condition $(BCT) not defined for this combination of input arguments.")
 
-# this is there because we also may have manifolds
+"""
+    compute_new_iterate(xₖ, αₖ, pₖ)
+
+Compute `xₖ₊₁` based on a *direction* `pₖ` and a *step length* `αₖ`.
+
+# Extended help
+
+In the case of vector spaces this function simply does:
+
+```julia
+xₖ + αₖ * pₖ
+```
+
+For manifolds we instead perform a *retraction* [absil2008optimization](@cite).
+"""
 function compute_new_iterate(xₖ::VT, αₖ::T, pₖ::TVT) where {T, VT, TVT}
     error("Not implemented for $(VT).")
 end

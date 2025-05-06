@@ -16,6 +16,18 @@ const DEFAULT_BRACKETING_k = 2.0
 const DEFAULT_BRACKETING_nmax=100
 
 abstract type BracketingCriterion end
+"""
+    BracketMinimumCriterion <: BracketingCriterion
+
+The criterion used for [`bracket_minimum`](@ref).
+
+# Functor
+
+```julia
+bc(yb, yc)
+```
+This checks whether `yc` is bigger than `yb`, i.e. whether `c` is *past the minimum*.
+"""
 struct BracketMinimumCriterion <: BracketingCriterion end
 struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
@@ -53,7 +65,8 @@ end
     bracket_minimum(f, x)
 
 Move a bracket successively in the search direction (starting at `x`) and increase its size until a local minimum of `f` is found. 
-This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval).
+This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval). 
+This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Also compare it to [`bracket_minimum_with_fixed_point`](@ref).
 
 # Keyword arguments
 
@@ -122,6 +135,55 @@ end
 
 function bracket_minimum(obj::AbstractObjective{T}, x::T=T(0.0); kwargs...) where {T <: Number}
     bracket_minimum(obj.F, x; kwargs...)
+end
+
+@doc raw"""
+    bracket_minimum_with_fixed_point(f, x)
+
+Find a bracket while keeping the left side (i.e. `x`) fixed. 
+The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
+
+The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (taken from [kelley1995iterative](@cite)), as the minimum of the polynomial approximation is:
+```math
+p_2 = \frac{f(b) - f(a) - f'(0)b}{b^2},
+```
+where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
+"""
+function bracket_minimum_with_fixed_point(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T <: Number}
+    
+    a = x
+    ya = f(a)
+
+    b = a + s
+    yb = f(b)
+
+    # flip a & b if necessary
+    if yb > ya
+        a, b = b, a
+        ya, yb = yb, ya
+        s = -s
+    end
+
+    bc = BracketMinimumCriterion()
+
+    # check if condition is already satisfied
+    if bc(f(a - s), yb)
+        return (a, b)
+    end
+
+    for _ in 1:nmax
+        b = b + s
+        yb = f(b)
+        if bc(ya, yb)
+            interval = a < b ? (a, b) : (b, a)
+            return interval
+        end
+        s *= k
+    end
+end
+
+function bracket_minimum_with_fixed_point(obj::AbstractObjective{T}, x::T=T(0.0); kwargs...) where {T <: Number}
+    bracket_minimum_with_fixed_point(obj.F, x; kwargs...)
 end
 
 """

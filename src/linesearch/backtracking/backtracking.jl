@@ -11,6 +11,9 @@ const DEFAULT_ARMIJO_α₀ = 1.0
     const DEFAULT_ARMIJO_σ₀
 
 Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
+
+It is meant to *safeguard against stagnation* when performing line searches (see [kelley1995iterative](@cite)).
+
 Its value is $(DEFAULT_ARMIJO_σ₀)
 """
 const DEFAULT_ARMIJO_σ₀ = 0.1

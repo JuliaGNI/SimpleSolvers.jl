@@ -16,7 +16,7 @@ and we also call ``p_0:=f^\mathrm{ls}(0)`` and ``p_1:=(f^\mathrm{ls})'(0)``. The
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction # hide
+using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -42,7 +42,7 @@ fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
-α₀ = SimpleSolvers.DEFAULT_ARMIJO_α₀
+α₀ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y^2 - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -55,6 +55,15 @@ Note that we started the iteration with [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@
 ```@example quadratic
 using SimpleSolvers: adjust_alpha # hide
 α₁ = adjust_alpha(αₜ, α₀)
+```
+
+We now check wether ``\alpha_1`` satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"):
+
+```@example quadratic
+using SimpleSolvers: DEFAULT_WOLFE_c₁, SufficientDecreaseCondition # hide
+sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, 0., fˡˢ(0.), derivative(ls_obj, 0.), 1., ls_obj)
+@assert sdc(α₁) # hide
+sdc(α₁)
 ```
 
 ```@setup quadratic
@@ -81,11 +90,22 @@ nothing # hide
 We plot another iterate:
 
 ```@example quadratic
-y = fˡˢ(α₁)
-p₂ = (y^2 - p₀ - p₁*α₁) / α₁^2
+α₀₂ = α₁ + 1.
+y = fˡˢ(α₀₂)
+p₀ = fˡˢ(α₁)
+p₁ = ∂fˡˢ∂α(α₁)
+p₂ = (y^2 - p₀ - p₁*α₀₂) / α₀₂^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
 αₜ = -p₁ / (2p₂)
-α₂ = adjust_alpha(αₜ, α₁)
+α₂ = adjust_alpha(αₜ, α₀₂)
+```
+
+We again check if the proposed ``\alpha_2`` satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"):
+
+```@example quadratic
+using SimpleSolvers: DEFAULT_WOLFE_c₁, SufficientDecreaseCondition # hide
+sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, α₁, fˡˢ(α₁), derivative(ls_obj, α₁), 1., ls_obj)
+sdc(α₂)
 ```
 
 ```@setup quadratic

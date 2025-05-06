@@ -3,7 +3,7 @@
 
 Quadratic Polynomial line search.
 
-*Quadratic line search* works by fitting a polynomial to a univariate objective (see [`AbstractUnivariateObjective`](@ref)) and then finding the minimum of that polynomial.
+*Quadratic line search* works by fitting a polynomial to a univariate objective (see [`AbstractUnivariateObjective`](@ref)) and then finding the minimum of that polynomial. Also compare this to [`BierlaireQuadraticState`](@ref). The algorithm is taken from [kelley1995iterative](@cite).
 
 # Keywords
 
@@ -56,10 +56,12 @@ function adjust_alpha(ls::QuadraticState{T}, αₜ::T, α::T) where {T}
     adjust_alpha(ls.σ₀, ls.σ₁, αₜ, α)
 end
 
-"""
+@doc raw"""
     adjust_alpha(αₜ, α)
 
 Adjust `αₜ` based on the previous `α`. Also see [`adjust_alpha(::QuadraticState{T}, ::T, ::T) where {T}`](@ref).
+
+The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm{old}]`` should *safeguard against stagnation in the iterates* as well as checking that ``\alpha`` decreases at least by a factor ``\sigma_1``. The defaults for `σ₀` and `σ₁` are [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref) respectively.
 
 # Implementation
 
@@ -75,32 +77,38 @@ function adjust_alpha(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::
     end
 end
 
+"""
+    determine_initial_α(y₀, obj, α₀)
+
+Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`.
+This is used as a starting point for using the functor of [`QuadraticState`](@ref) and makes sure that `α` describes *a point past the minimum*.
+"""
+function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, y₀::T=value(obj, zero(T))) where {T}
+    BracketMinimumCriterion()(y₀, value(obj, α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, zero(T))[2]
+end
+
 function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {T}
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
-    y₀ = value!(obj, zero(T))
-    d₀ = derivative!(obj, zero(T))
+    x₀ = zero(T)
+    y₀ = value!(obj, x₀)
+    d₀ = derivative!(obj, x₀)
     p₀ = y₀
     p₁ = d₀
-    
-    sdc = SufficientDecreaseCondition(ls.c, zero(T), y₀, d₀, one(T), obj)
-    for _ in 1:ls.config.max_iterations
-        # compute value of new solution
-        y₁ = value!(obj, α)
+    α = determine_initial_α(obj, α, y₀)
 
-        if sdc(α)
-            break
-        else
-            # determine nonconstant coefficient of polynomial p(α) = p₀ + p₁α + p₂α²
-            p₂ = (y₁^2 - p₀ - p₁*α) / α^2
+    sdc = SufficientDecreaseCondition(ls.c, x₀, y₀, d₀, one(T), obj)
+    # compute value of new solution
+    y₁ = value!(obj, α)
 
-            # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-            αₜ = - p₁ / (2p₂)
+    # determine nonconstant coefficient of polynomial p(α) = p₀ + p₁α + p₂α²
+    p₂ = (y₁^2 - p₀ - p₁*α) / α^2
 
-            α = adjust_alpha(ls, αₜ, α)
-        end
-    end
+    # compute minimum αₜ of p(α); i.e. p'(α) = 0.
+    αₜ = - p₁ / (2p₂)
 
-    α
+    α = adjust_alpha(ls, αₜ, α)
+
+    sdc(α) ? α : ls(obj, α * DEFAULT_ARMIJO_p)
 end
 
 quadratic(o::AbstractUnivariateObjective, args...; kwargs...) = QuadraticState(; kwargs...)(o, args...)

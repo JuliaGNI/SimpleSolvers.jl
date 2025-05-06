@@ -3,6 +3,20 @@
 
 The condition that determines if ``\alpha_k`` is *big enough*.
 
+# Constructor
+
+```julia
+SufficientDecreaseCondition(c₁, xₖ, fₖ, gradₖ, pₖ, obj)
+```
+
+# Functors
+
+```julia
+sdc(xₖ₊₁, αₖ)
+sdc(αₖ)
+```
+The second functor is shorthand for `sdc(compute_new_iterate(sdc.xₖ, αₖ, sdc.pₖ), T(αₖ))`, also see [`compute_new_iterate`](@ref).
+
 # Extended help
 
 We call the constant that pertains to the sufficient decrease condition ``c``. This is typically called ``c_1`` in the literature [nocedal2006numerical](@cite).
