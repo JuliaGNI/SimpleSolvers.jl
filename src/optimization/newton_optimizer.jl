@@ -110,24 +110,27 @@ Create [`TemporaryUnivariateObjective`](@ref) for linesearch algorithm. The vari
 # Example
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerCache, linesearch_objective, update!)
-x = [1., 0., 0.]
+x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = MultivariateObjective(f, x)
 gradient!(obj, x)
 value!(obj, x)
 cache = NewtonOptimizerCache(x)
-update!(cache, x, obj.g)
+hess = Hessian(obj, x; mode = :autodiff)
+update!(hess, x)
+update!(cache, x, obj.g, hess)
 x₂ = [.9, 0., 0.]
 gradient!(obj, x₂)
 value!(obj, x₂)
-update!(cache, x₂, obj.g)
+update!(hess, x₂)
+update!(cache, x₂, obj.g, hess)
 ls_obj = linesearch_objective(obj, cache)
 α = .1
 (ls_obj.F(α), ls_obj.D(α))
 
 # output
 
-(0.5265000000000001, -1.7030250000000005)
+(0.4412947468016475, -0.8083161485821551)
 ```
 
 In the example above we have to apply [`update!`](@ref) twice on the instance of [`NewtonOptimizerCache`](@ref) because it needs to store the current *and* the previous iterate.
@@ -146,7 +149,7 @@ function linesearch_objective(objective::MultivariateObjective{T}, cache::Newton
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
         gradient!(objective, cache.x)
         cache.g .= objective.g
-        dot(gradient!(objective, cache.x), cache.rhs)
+        dot(cache.g, direction(cache))
     end
 
     TemporaryUnivariateObjective{T}(f, d)

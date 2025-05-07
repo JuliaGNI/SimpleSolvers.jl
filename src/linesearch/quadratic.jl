@@ -36,7 +36,7 @@ Base.show(io::IO, ::QuadraticState) = print(io, "Polynomial quadratic")
 LinesearchState(algorithm::Quadratic; T::DataType=Float64, kwargs...) = QuadraticState(T; kwargs...)
 
 @doc raw"""
-    adjust_alpha(ls, αₜ, α)
+    adjust_α(ls, αₜ, α)
 
 Check which conditions the new `αₜ` satisfies and return the updated `α` accordingly.
 
@@ -52,14 +52,14 @@ If this is not true we check:
 where ``\sigma_1`` is again stored in `ls`. If this second condition is also not true we simply return the unchanged ``\alpha_t``.
 So if `\alpha_t` does not lie in the interval ``(\sigma_0\alpha, \sigma_1\alpha)`` the interval is made bigger by either multiplying with ``\sigma_0`` (default [`DEFAULT_ARMIJO_σ₀`](@ref)) or ``\sigma_1`` (default [`DEFAULT_ARMIJO_σ₁`](@ref)).
 """
-function adjust_alpha(ls::QuadraticState{T}, αₜ::T, α::T) where {T}
-    adjust_alpha(ls.σ₀, ls.σ₁, αₜ, α)
+function adjust_α(ls::QuadraticState{T}, αₜ::T, α::T) where {T}
+    adjust_α(ls.σ₀, ls.σ₁, αₜ, α)
 end
 
 @doc raw"""
-    adjust_alpha(αₜ, α)
+    adjust_α(αₜ, α)
 
-Adjust `αₜ` based on the previous `α`. Also see [`adjust_alpha(::QuadraticState{T}, ::T, ::T) where {T}`](@ref).
+Adjust `αₜ` based on the previous `α`. Also see [`adjust_α(::QuadraticState{T}, ::T, ::T) where {T}`](@ref).
 
 The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm{old}]`` should *safeguard against stagnation in the iterates* as well as checking that ``\alpha`` decreases at least by a factor ``\sigma_1``. The defaults for `σ₀` and `σ₁` are [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref) respectively.
 
@@ -67,7 +67,7 @@ The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm
 
 Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
 """
-function adjust_alpha(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
+function adjust_α(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
     if αₜ < σ₀ * α
         σ₀ * α
     elseif αₜ > σ₁ * α
@@ -80,11 +80,15 @@ end
 """
     determine_initial_α(y₀, obj, α₀)
 
-Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`.
+Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
 This is used as a starting point for using the functor of [`QuadraticState`](@ref) and makes sure that `α` describes *a point past the minimum*.
 """
 function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, y₀::T=value(obj, zero(T))) where {T}
-    BracketMinimumCriterion()(y₀, value(obj, α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, zero(T))[2]
+    if derivative(obj, zero(T)) < zero(T)
+        BracketMinimumCriterion()(y₀, value(obj, α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, zero(T))[2]
+    else
+        bracket_minimum_with_fixed_point(obj, zero(T))[1]
+    end
 end
 
 function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {T}
@@ -106,7 +110,7 @@ function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
     αₜ = - p₁ / (2p₂)
 
-    α = adjust_alpha(ls, αₜ, α)
+    α = adjust_α(ls, αₜ, α)
 
     sdc(α) ? α : ls(obj, α * DEFAULT_ARMIJO_p)
 end
