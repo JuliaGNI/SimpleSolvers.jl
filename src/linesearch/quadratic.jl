@@ -38,7 +38,7 @@ LinesearchState(algorithm::Quadratic; T::DataType=Float64, kwargs...) = Quadrati
 @doc raw"""
     adjust_α(ls, αₜ, α)
 
-Check which conditions the new `αₜ` satisfies and return the updated `α` accordingly.
+Check which conditions the new `αₜ` is in ``[\sigma_0\alpha_0, \simga_1\alpha_0]`` and return the updated `α` accordingly (it is updated if it does not lie in the interval).
 
 We first check the following:
 ```math

@@ -184,8 +184,8 @@ using SimpleSolvers: compute_new_iterate # hide
 x .= compute_new_iterate(x, α₁, direction(cache(solver)))
 ```
 
-```@example quadratic
-scatter!(ax_initial, x, f(x); color = mred, label = L"f(x)")
+```@setup quadratic
+scatter!(ax_initial, x, f(x); color = mred, label = L"x^\mathrm{update}")
 axislegend(ax_initial)
 save("f_with_iterate.png", fig_initial)
 nothing # hide
@@ -194,7 +194,7 @@ nothing # hide
 
 And we see that we already very close to the root.
 
-## Example in the Non-Convex Case
+## Example for Optimization
 
 We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_objective`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
@@ -276,3 +276,103 @@ nothing # hide
 ![](f_ls_opt1.png)
 
 What we see here is that we do not use ``\alpha_t = -p_1 / (2p_2)`` as [`SimpleSolvers.adjust_α`](@ref) instead picks the left point in the interval ``[\sigma_0\alpha_0, \sigma_1\alpha_0]`` as the change computed with ``\alpha_t`` would be too small.
+
+We now again move the original ``x`` in the Newton direction with step length ``\alpha_1``:
+
+```@example quadratic
+x .= compute_new_iterate(x, α₁, direction(_cache))
+```
+
+```@setup quadratic
+fig = Figure()
+ax = Axis(fig[1, 1])
+x_array = -1.:.01:2.
+lines!(ax, x_array, f.(x_array); label = L"f(x)")
+scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
+axislegend(ax)
+save("f_with_iterate_opt.png", fig)
+nothing # hide
+```
+![](f_with_iterate_opt.png)
+
+We make another iteration:
+```@example quadratic
+gradient!(obj, x)
+value!(obj, x)
+update!(hess, x)
+update!(_cache, x, gradient(obj), hess)
+ls_obj = linesearch_objective(obj, _cache)
+
+fˡˢ = ls_obj.F
+∂fˡˢ∂α = ls_obj.D
+p₀ = fˡˢ(0.)
+p₁ = ∂fˡˢ∂α(0.)
+α₀⁽²⁾ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+y = fˡˢ(α₀)
+p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
+p(α) = p₀ + p₁ * α + p₂ * α^2
+αₜ = -p₁ / (2p₂)
+```
+
+```@example quadratic
+α₂ = adjust_α(αₜ, α₀⁽²⁾)
+```
+
+We see that for ``\alpha_2`` (as opposed to ``\alpha_1``) we have ``\alpha_2 = \alpha_t`` as ``\alpha_t`` is in (this is what [`SimpleSolvers.adjust_α`](@ref) checks for):
+
+```@example quadratic
+using SimpleSolvers: DEFAULT_ARMIJO_σ₀, DEFAULT_ARMIJO_σ₁ # hide
+(DEFAULT_ARMIJO_σ₀ * α₀⁽²⁾, DEFAULT_ARMIJO_σ₁ * α₀⁽²⁾)
+```
+
+```@example quadratic
+x .= compute_new_iterate(x, α₂, direction(_cache))
+```
+
+```@setup quadratic
+fig = Figure()
+ax = Axis(fig[1, 1])
+x_array = -1.:.01:2.
+lines!(ax, x_array, f.(x_array); label = L"f(x)")
+scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
+axislegend(ax)
+save("f_with_iterate_opt2.png", fig)
+nothing # hide
+```
+![](f_with_iterate_opt2.png)
+
+We finally compute a third iterate:
+```@example quadratic
+gradient!(obj, x)
+value!(obj, x)
+update!(hess, x)
+update!(_cache, x, gradient(obj), hess)
+ls_obj = linesearch_objective(obj, _cache)
+
+fˡˢ = ls_obj.F
+∂fˡˢ∂α = ls_obj.D
+p₀ = fˡˢ(0.)
+p₁ = ∂fˡˢ∂α(0.)
+α₀⁽³⁾ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+y = fˡˢ(α₀)
+p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
+p(α) = p₀ + p₁ * α + p₂ * α^2
+αₜ = -p₁ / (2p₂)
+α₃ = adjust_α(αₜ, α₀⁽³⁾)
+```
+
+```@example quadratic
+x .= compute_new_iterate(x, α₃, direction(_cache))
+```
+
+```@setup quadratic
+fig = Figure()
+ax = Axis(fig[1, 1])
+x_array = -1.:.01:2.
+lines!(ax, x_array, f.(x_array); label = L"f(x)")
+scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
+axislegend(ax)
+save("f_with_iterate_opt3.png", fig)
+nothing # hide
+```
+![](f_with_iterate_opt3.png)
