@@ -5,7 +5,7 @@ function F(x)
     for _x in x
         y += _x^2
     end
-    return y
+    y
 end
 
 function ∇F!(g, x)
@@ -17,4 +17,5 @@ function H!(g, x)
     for i in eachindex(x)
         g[i,i] = 2
     end
+    g
 end

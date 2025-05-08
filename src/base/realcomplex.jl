@@ -1,0 +1,1 @@
+const RealOrComplex{T} = Union{T, Complex{T}}

@@ -1,8 +1,6 @@
-
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!
 using Test
-
 
 struct NonlinearSolverTest{T} <: NonlinearSolver end
 
@@ -12,7 +10,6 @@ test_solver = NonlinearSolverTest{Float64}()
 @test_throws ErrorException status(test_solver)
 @test_throws ErrorException initialize!(test_solver, rand(3))
 @test_throws ErrorException solver_step!(test_solver)
-
 
 function F!(f, x)
     f .= tan.(x)
@@ -25,8 +22,8 @@ function J!(g, x)
     end
 end
 
-
-for (Solver, kwarguments) in (
+for T ∈ (Float64, Float32)
+    for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
                 (NewtonSolver, (linesearch = Quadratic(),)),
@@ -38,11 +35,10 @@ for (Solver, kwarguments) in (
                 # (NLsolveNewton, NamedTuple()),
             )
 
-    for T in (Float64, Float32)
         n = 1
-        x = ones(T, n)
+        x = zeros(T, n)
         y = zero(x)
-        nl = Solver(x, y; kwarguments...)
+        nl = Solver(x, y; F = F!, kwarguments...)
 
         @test config(nl) == nl.config
         @test status(nl) == nl.status
@@ -50,15 +46,15 @@ for (Solver, kwarguments) in (
         solve!(x, F!, nl)
         # println(status(nl))
         for _x in x
-            @test _x ≈ 0 atol = eps(T)
+            @test _x ≈ zero(T) atol = eps(T)
         end
 
-        x = ones(T, n)
-        nl = Solver(x, y; J! = J!, kwarguments...)
-        solve!(x, F!, J!, nl)
-        # println(status(nl))
+        x = zeros(T, n)
+        nl = Solver(x, y; DF! = J!, kwarguments...)
+        solve!(x, F!, nl)
+        println(Solver, kwarguments)
         for _x in x
-            @test _x ≈ 0 atol = eps(T)
+            @test _x ≈ zero(T) atol = eps(T)
         end
     end
 end

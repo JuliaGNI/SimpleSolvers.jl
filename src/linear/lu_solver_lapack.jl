@@ -2,7 +2,11 @@
 import LinearAlgebra: checksquare
 import LinearAlgebra.BLAS: BlasFloat, BlasInt, liblapack, @blasfunc
 
+"""
+    LUSolverLAPACK <: LinearSolver
 
+The LU Solver taken from `LinearAlgebra.BLAS`.
+"""
 struct LUSolverLAPACK{T<:BlasFloat} <: LinearSolver{T}
     n::BlasInt
     A::Matrix{T}

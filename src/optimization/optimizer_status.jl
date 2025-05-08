@@ -1,4 +1,10 @@
+"""
+    OptimizerStatus
 
+Stores residuals (relative and absolute) and various convergence properties.
+
+See [`OptimizerResult`](@ref).
+"""
 mutable struct OptimizerStatus{XT,YT}
     i::Int  # iteration number
 
@@ -28,11 +34,7 @@ OptimizerStatus{XT,YT}() where {XT,YT} = OptimizerStatus{XT,YT}(
 
 OptimizerStatus{T}() where {T} = OptimizerStatus{T,T}()
 
-function OptimizerStatus(x, y)
-    XT = typeof(norm(x))
-    YT = typeof(norm(y))
-    OptimizerStatus{XT,YT}()
-end
+OptimizerStatus(::AbstractArray{T₁}, ::AbstractArray{T₂}) where {T₁, T₂} = OptimizerStatus{T₁, T₂}()
 
 iterations(status::OptimizerStatus) = status.i
 x_abschange(status::OptimizerStatus) = status.rxₐ
@@ -44,6 +46,11 @@ f_change_approx(status::OptimizerStatus) = status.Δf̃
 g_abschange(status::OptimizerStatus) = status.rgₐ
 g_residual(status::OptimizerStatus) = status.rg
 
+"""
+    clear!(obj)
+
+Similar to [`initialize!`](@ref).
+"""
 function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.i = 0
 
@@ -65,6 +72,37 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status.x_isnan = true
     status.f_isnan = true
     status.g_isnan = true
+
+    status
+end
+
+"""
+    residual!(status, x, x̄, f, f̄, g, ḡ)
+
+Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) and current iterates (`x`, `f`, `g`).
+"""
+function residual!(status::OS, x::XT, x̄::XT, f::FT, f̄::FT, g::GT, ḡ::GT)::OS where {OS <: OptimizerStatus, XT, FT, GT}
+    Δx = x - x̄
+    status.rxₐ = norm(Δx)
+    status.rxᵣ = status.rxₐ / norm(x)
+
+    status.Δf  = f - f̄
+    status.Δf̃ = ḡ ⋅ Δx
+
+    status.rfₐ = norm(status.Δf)
+    status.rfᵣ = status.rfₐ / norm(f)
+
+    Δg = g - ḡ
+    status.rgₐ = norm(Δg)
+    status.rg  = norm(g)
+    
+    status.f_increased = abs(f) > abs(f̄)
+
+    status.x_isnan = any(isnan, x)
+    status.f_isnan = any(isnan, f)
+    status.g_isnan = any(isnan, g)
+
+    status
 end
 
 function Base.show(io::IO, s::OptimizerStatus)
@@ -97,6 +135,11 @@ increase_iteration_number!(status::OptimizerStatus) = status.i += 1
 
 isconverged(status::OptimizerStatus) = status.x_converged || status.f_converged || status.g_converged
 
+"""
+    assess_convergence!(status, config)
+
+Checks if the optimizer converged.
+"""
 function assess_convergence!(status::OptimizerStatus, config::Options)
     x_converged = x_abschange(status) ≤ x_abstol(config) ||
                   x_relchange(status) ≤ x_reltol(config)
@@ -122,20 +165,32 @@ function assess_convergence!(status::OptimizerStatus, config::Options)
     return isconverged(status)
 end
 
+@doc raw"""
+    meets_stopping_criteria(status, config)
+
+Check if the optimizer has converged.
+
+# Implementation
+
+`meets_stopping_criteria` first calls [`assess_convergence!`](@ref) and then checks if one of the following is true:
+- `converged` (the output of [`assess_convergence!`](@ref)) is `true` and `status.i` ``\geq`` `config.min_iterations`,
+- if `config.allow_f_increases` is `false`: `status.f_increased` is `true`,
+- `status.i` ``\geq`` `config.max_iterations`,
+- `status.rxₐ` ``>`` `config.x_abstol_break`
+- `status.rxᵣ` ``>`` `config.x_reltol_break`
+- `status.rfₐ` ``>`` `config.f_abstol_break`
+- `status.rfᵣ` ``>`` `config.f_reltol_break`
+- `status.rg`  ``>`` `config.g_restol_break`
+- `status.x_isnan`
+- `status.f_isnan`
+- `status.g_isnan`
+"""
 function meets_stopping_criteria(status::OptimizerStatus, config::Options)
     converged = assess_convergence!(status, config)
 
-    # println(converged && status.i ≥ config.min_iterations )
-    # println(status.f_increased && !config.allow_f_increases )
-    # println(status.i ≥ config.max_iterations)
-    # println(status.rxₐ > config.x_abstol_break)
-    # println(status.rxᵣ > config.x_reltol_break)
-    # println(status.rfₐ > config.f_abstol_break)
-    # println(status.rfᵣ > config.f_reltol_break)
-    # println(status.rg  > config.g_restol_break)
-    # println(status.x_isnan)
-    # println(status.f_isnan)
-    # println(status.g_isnan)
+    if status.x_isnan || status.f_isnan || status.g_isnan
+        error("x, f or g in the OptimizerStatus you provided are NaNs.")
+    end
 
     ( converged && status.i ≥ config.min_iterations ) ||
     ( status.f_increased && !config.allow_f_increases ) ||
@@ -144,10 +199,7 @@ function meets_stopping_criteria(status::OptimizerStatus, config::Options)
       status.rxᵣ > config.x_reltol_break ||
       status.rfₐ > config.f_abstol_break ||
       status.rfᵣ > config.f_reltol_break ||
-      status.rg  > config.g_restol_break ||
-      status.x_isnan ||
-      status.f_isnan ||
-      status.g_isnan
+      status.rg  > config.g_restol_break
 end
 
 
