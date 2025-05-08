@@ -39,7 +39,7 @@ function linesearch_objective(objective!, jacobian!, cache::NewtonSolverCache)
     function f(α)
         cache.x₁ .= cache.x₀ .+ α .* cache.δx
         objective!(cache.y, cache.x₁)
-        l2norm(cache.y)
+        L2norm(cache.y)
     end
 
     function d(α)
