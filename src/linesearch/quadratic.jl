@@ -91,7 +91,8 @@ function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, y₀::
     end
 end
 
-function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {T}
+function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_iterations::Integer = 0, α::T = ls.α₀) where {T}
+    number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
     x₀ = zero(T)
     y₀ = value!(obj, x₀)
@@ -112,7 +113,7 @@ function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls
 
     α = adjust_α(ls, αₜ, α)
 
-    sdc(α) ? α : ls(obj, α * DEFAULT_ARMIJO_p)
+    sdc(α) ? α : ls(obj, number_of_iterations + 1, α * DEFAULT_ARMIJO_p)
 end
 
 quadratic(o::AbstractUnivariateObjective, args...; kwargs...) = QuadraticState(; kwargs...)(o, args...)
