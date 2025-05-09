@@ -185,10 +185,12 @@ end
 
 Clear `status` and initialize it based on `x` and the function `f`.
 """
-function initialize!(status::NonlinearSolverStatus, x::AbstractVector, f::Callable)
+function initialize!(status::NonlinearSolverStatus, x::AbstractVector, obj::AbstractObjective)
     clear!(status)
+    clear!(obj)
     copyto!(solution(status), x)
-    f(status.f, x)
+    value!(obj, x)
+    status.f .= value(obj)
     
     status
 end
@@ -204,6 +206,17 @@ The new `f` and `f̄` stored in `status` are used to compute `γ`.
 function update!(status::NonlinearSolverStatus, x::AbstractVector, f::Callable)
     copyto!(solution(status), x)
     f(status.f, x)
+
+    status.δ .= solution(status) .- status.x̄
+    status.γ .= status.f .- status.f̄
+    
+    status
+end
+
+function update!(status::NonlinearSolverStatus, x::AbstractVector, obj::MultivariateObjective)
+    copyto!(solution(status), x)
+    value!(obj, x)
+    status.f .= value(obj)
 
     status.δ .= solution(status) .- status.x̄
     status.γ .= status.f .- status.f̄

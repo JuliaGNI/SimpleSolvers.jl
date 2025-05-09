@@ -152,15 +152,9 @@ value(obj::AbstractObjective) = obj.f
 
 Set `obj.x_f` to `x` and `obj.f` to `value(obj, x)` and return `value(obj)`.
 """
-function value!!(obj::AbstractObjective, x::Number)
+function value!!(obj::AbstractUnivariateObjective, x::Number)
     obj.x_f = x
     obj.f = value(obj, x)
-    value(obj)
-end
-function value!!(obj::AbstractObjective, x::AbstractArray{<:Number})
-    obj.x_f .= x
-    obj.f = value(obj, x)
-    value(obj)
 end
 
 """
@@ -308,14 +302,14 @@ end
 
 function MultivariateObjective(F::Callable, G::Gradient,
                                x::Tx;
-                               f::Tf=alloc_f(x),
+                               f::Tf=alloc_f(x, F),
                                g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
     MultivariateObjective{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
 end
 
 function MultivariateObjective(F::Callable, G!::Callable,
                                x::AbstractArray{<:Number};
-                               f::Number=alloc_f(x),
+                               f::Number=alloc_f(x, F),
                                g::AbstractArray{<:Number}=alloc_g(x))
     MultivariateObjective(F, GradientFunction(G!, x), x; f = f, g = g)
 end
@@ -326,6 +320,15 @@ function MultivariateObjective(F::Callable, x::AbstractArray; kwargs...)
 end
 
 MultivariateObjective(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateObjective(F, x; kwargs...)
+
+function value!!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
+    obj.x_f .= x
+    value(obj) .= value(obj, x)
+end
+function value!!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
+    obj.x_f .= x
+    obj.f = value(obj, x)
+end
 
 """
     gradient(x, obj::MultivariateObjective)
@@ -363,17 +366,24 @@ function gradient!(obj::MultivariateObjective, x::AbstractArray{<:Number})
     gradient(obj)
 end
 
-function _clear_f!(obj::MultivariateObjective)
+function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     obj.f_calls = 0
-    obj.f = typeof(obj.f)(NaN)
-    obj.x_f .= eltype(obj.x_f)(NaN)
+    obj.f = alloc_f(obj.x_f)
+    obj.x_f .= alloc_x(obj.x_f)
+    nothing
+end
+
+function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
+    obj.f_calls = 0
+    obj.f .= alloc_f(obj.x_f, obj.F)
+    obj.x_f .= alloc_x(obj.x_f)
     nothing
 end
 
 function _clear_g!(obj::MultivariateObjective)
     obj.g_calls = 0
-    obj.g .= eltype(obj.g)(NaN)
-    obj.x_g .= eltype(obj.x_g)(NaN)
+    obj.g .= alloc_g(obj.x_g)
+    obj.x_g .= alloc_x(obj.x_g)
     nothing
 end
 

@@ -1,4 +1,3 @@
-
 using SimpleSolvers
 using Test
 
@@ -8,7 +7,6 @@ d = x -> 2x
 const x = Float64(π)
 const y = f(x)
 const z = d(x)
-
 
 obj1 = UnivariateObjective(f, x)
 obj2 = UnivariateObjective(f, d, x)

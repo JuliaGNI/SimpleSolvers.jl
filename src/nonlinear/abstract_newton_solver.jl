@@ -84,17 +84,19 @@ Make a line search objective for a *Newton solver* (the `cache` here is an insta
 
 Also see [`linesearch_objective(::MultivariateObjective{T}, ::NewtonOptimizerCache{T}) where {T}`](@ref).
 """
-function linesearch_objective(objective!::Callable, jacobian!::Jacobian, cache::NewtonSolverCache{T}) where T
+function linesearch_objective(objective::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache{T}) where T
     function f(α)
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
-        objective!(cache.y, cache.x₁)
-        l2norm(cache.y)
+        value!(objective, cache.x₁)
+        cache.y .= value(objective)
+        L2norm(cache.y)
     end
 
     function d(α)
         cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
-        objective!(cache.y, cache.x₁)
-        jacobian!(cache.J, cache.x₁, objective!)
+        value!(objective, cache.x₁)
+        cache.y .= value(objective)
+        compute_jacobian!(cache.J, cache.x₁, jacobian!)
         2 * dot(cache.y, cache.J, cache.δx)
     end
 
@@ -102,25 +104,12 @@ function linesearch_objective(objective!::Callable, jacobian!::Jacobian, cache::
     TemporaryUnivariateObjective(f, d, zero(T))
 end
 
-linesearch_objective(objective!::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache) = linesearch_objective(objective!.F, jacobian!, cache)
-
 """
     AbstractNewtonSolver <: NonlinearSolver
 
 A supertype that comprises e.g. [`NewtonSolver`](@ref).
 """
 abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
-
-@define newton_solver_variables begin
-    jacobian::TJ
-
-    linear::TL
-    linesearch::TLS
-
-    cache::NewtonSolverCache{T,AT,JT}
-    config::Options{T}
-    status::TST
-end
 
 cache(solver::AbstractNewtonSolver) = solver.cache
 config(solver::AbstractNewtonSolver) = solver.config

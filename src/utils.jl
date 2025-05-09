@@ -78,6 +78,12 @@ alloc_d(x::Number) = typeof(x)(NaN)
 
 alloc_x(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
 alloc_f(::AbstractArray{T}) where {T <: Number} = real(T)(NaN)
+
+function alloc_f(x::AbstractArray{T}, f::Callable) where {T <: Number}
+    y = f(x)
+    alloc_x(y)
+end
+
 alloc_g(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
 alloc_h(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x*x'
 alloc_j(x::AbstractArray{T}, f::AbstractArray{T}) where {T <: Number} = T(NaN) .* vec(f) .* vec(x)'

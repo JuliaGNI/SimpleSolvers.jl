@@ -11,9 +11,8 @@ test_solver = NonlinearSolverTest{Float64}()
 @test_throws ErrorException initialize!(test_solver, rand(3))
 @test_throws ErrorException solver_step!(test_solver)
 
-function F!(f, x)
-    f .= tan.(x)
-end
+F(x) = tan.(x)
+F!(y, x) = y .= F(x)
 
 function J!(g, x)
     g .= 0
@@ -38,20 +37,21 @@ for T ∈ (Float64, Float32)
         n = 1
         x = zeros(T, n)
         y = zero(x)
-        nl = Solver(x, y; F = F!, kwarguments...)
+        obj = MultivariateObjective(F, x)
+        nl = Solver(x, y; F = F, kwarguments...)
 
         @test config(nl) == nl.config
         @test status(nl) == nl.status
 
-        solve!(x, F!, nl)
+        solve!(x, F, nl)
         # println(status(nl))
         for _x in x
             @test _x ≈ zero(T) atol = eps(T)
         end
 
         x = zeros(T, n)
-        nl = Solver(x, y; DF! = J!, kwarguments...)
-        solve!(x, F!, nl)
+        nl = Solver(x, y; F = F, DF! = J!, kwarguments...)
+        solve!(x, F, nl)
         println(Solver, kwarguments)
         for _x in x
             @test _x ≈ zero(T) atol = eps(T)
