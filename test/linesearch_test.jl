@@ -34,19 +34,6 @@ function compute_next_iterate(ls::LinesearchState, x₀::T, n::Integer; kwargs..
     x
 end
 
-# function compute_next_iterate(ls::LinesearchState, x₀::T, _f::Base.Callable, _d::Base.Callable; α₀ = one(T)) where {T}
-#     α = ls(_f, _d, α₀)
-#     compute_new_iterate(x₀, α, _d(x₀))
-# end
-# 
-# function compute_next_iterate(ls::LinesearchState, x₀::T, _f::Base.Callable, _d::Base.Callable, n::Integer; kwargs...) where {T}
-#     x = x₀
-#     for _ in 1:n
-#         x = compute_next_iterate(ls, x, _f, _d; kwargs...)
-#     end
-#     x
-# end
-
 function test_linesearch(algorithm, n = 1; kwargs...)
 
     x₀ = -3.0
@@ -59,12 +46,10 @@ function test_linesearch(algorithm, n = 1; kwargs...)
 
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())
-    # @test compute_next_iterate(ls, x₀, _f, _d, n) ≈ xₛ  atol=∛(2eps())
 
     # start with a different initial guess
     @test compute_next_iterate(ls, x₀, n; α₀ = 2one(x₀)) ≈ xₛ  atol=∛(2eps())
     @test compute_next_iterate(ls, x₀, n; α₀ = 2one(x₀)) ≈ xₛ  atol=∛(2eps())
-    # @test compute_next_iterate(ls, x₀, _f, _d, n; α₀ = 2one(x₀)) ≈ xₛ  atol=∛(2eps())
 end
 
 @testset "$(rpad("Bracketing",80))" begin
@@ -95,13 +80,6 @@ end
     ls1 = Linesearch(algorithm = Static())
     ls2 = Linesearch(algorithm = Static(1.0))
     ls3 = Linesearch(algorithm = Static(0.8))
-
-    # @test ls1 == Linesearch(x, F; algorithm = Static())
-    # @test ls2 == Linesearch(x, F; algorithm = Static(), D = D)
-
-    # x1 = copy(x₀); x2 = copy(x₀); @test solve!(x1, δx, ls1) == ls1(x2, δx) == x₁
-    # x1 = copy(x₀); x2 = copy(x₀); @test solve!(x1, δx, ls2) == ls2(x2, δx) == x₁
-    # x1 = copy(x₀); x2 = copy(x₀); @test solve!(x1, δx, ls3) == ls3(x2, δx) == x₁
 
     @test ls1(o1) == ls1(o2) == ls1(f,g) == 1
     @test ls2(o1) == ls2(o2) == ls2(f,g) == 1
