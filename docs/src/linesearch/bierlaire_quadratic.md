@@ -10,6 +10,7 @@ using Random # hide
 Random.seed!(123) # hide
 
 f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x + 2x) + 2one(T)
+f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (x .^ 3 - 5x + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
 x = rand(1)
@@ -25,7 +26,8 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(cache(solver)))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-ls_obj = linesearch_objective(f!, JacobianFunction(j!, x), cache(solver))
+obj = MultivariateObjective(f, x)
+ls_obj = linesearch_objective(obj, JacobianFunction(j!, x), cache(solver))
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

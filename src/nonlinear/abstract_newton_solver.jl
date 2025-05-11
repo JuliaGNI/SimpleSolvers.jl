@@ -133,7 +133,7 @@ Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`AbstractNewtonSol
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linearsolver)
 x = rand(3)
 y = rand(3)
-F(y, x) = y .= tanh.(x)
+F(x) = tanh.(x)
 s = NewtonSolver(x, y; F = F)
 linearsolver(s)
 

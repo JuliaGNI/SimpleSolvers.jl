@@ -69,7 +69,8 @@ rmul!(cache(solver).rhs, -1)
 # multiply rhs with jacobian
 factorize!(linearsolver(solver), jacobian(cache(solver)))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-ls_obj = linesearch_objective(f!, JacobianFunction(j!, x), cache(solver))
+obj = MultivariateObjective(f, x)
+ls_obj = linesearch_objective(obj, JacobianFunction(j!, x), cache(solver))
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
