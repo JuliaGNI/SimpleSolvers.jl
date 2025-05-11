@@ -38,26 +38,22 @@ for method in (Newton(), BFGS(), DFP())
             @test config(opt) == opt.config
             @test status(opt) == opt.result.status
 
-            if !(method == BFGS() && _linesearch == Quadratic() && T == Float32)
-                # TODO: Investigate why this combination always fails.
+            update!(opt, rand(T, length(x)))
+            update!(opt, rand(T, length(x)))
+            solve!(x, opt)
+            # println(opt)
+            @test norm(minimizer(opt)) ≈ 0 atol=1E-7
+            @test norm(minimum(opt)) ≈ F(0) atol=1E-7
 
-                update!(opt, rand(T, length(x)))
-                update!(opt, rand(T, length(x)))
-                solve!(x, opt)
-                # println(opt)
-                @test norm(minimizer(opt)) ≈ 0 atol=1E-7
-                @test norm(minimum(opt)) ≈ F(0) atol=1E-7
+            x = ones(T, n)
+            opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = _linesearch)
+            update!(opt, rand(T, length(x)))
+            update!(opt, rand(T, length(x)))
 
-                x = ones(T, n)
-                opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = _linesearch)
-                update!(opt, rand(T, length(x)))
-                update!(opt, rand(T, length(x)))
-
-                solve!(x, opt)
-                # println(opt)
-                @test norm(minimizer(opt)) ≈ 0 atol=1E-7
-                @test norm(minimum(opt)) ≈ F(0) atol=1E-7
-            end
+            solve!(x, opt)
+            # println(opt)
+            @test norm(minimizer(opt)) ≈ 0 atol=1E-7
+            @test norm(minimum(opt)) ≈ F(0) atol=1E-7
         end
     end
 end
