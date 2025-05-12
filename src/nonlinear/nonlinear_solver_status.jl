@@ -11,7 +11,7 @@ Stores absolute, relative and successive residuals for `x` and `f`.
 - `rfₐ`: absolute residual in `f`,
 - `rfᵣ`: relative residual in `f`,
 - `rfₛ`: successive residual in `f`,
-- `x`: initial solution,
+- `x`: the *current solution* (can also be accessed by calling [`solution`](@ref)),
 - `x̄`: previous solution
 - `δ`: change in solution (see [`direction`](@ref)),
 - `x̃`: temporary variable similar to `x`,
@@ -32,10 +32,10 @@ NonlinearSolverStatus{Float64}(3)
 # output
 
 i=   0,
-rxₐ=0.00000000e+00,
-rxᵣ=0.00000000e+00,
-rfₐ=0.00000000e+00,
-rfᵣ=0.00000000e+00
+rxₐ=           NaN,
+rxᵣ=           NaN,
+rfₐ=           NaN,
+rfᵣ=           NaN
 ```
 """
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
@@ -64,15 +64,24 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     g_converged::Bool
     f_increased::Bool
 
-    NonlinearSolverStatus{T}(n::Int) where {T} = new{T,T,Vector{T},Vector{T}}(
+    function NonlinearSolverStatus{T}(n::Int) where {T}
+        
+        status = new{T,T,Vector{T},Vector{T}}(
         0, 
         zero(T), zero(T), zero(T), # residuals for x
         zero(T), zero(T), zero(T), # residuals for f
         zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for x
         zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
         false, false, false, false)
+        clear!(status)
+    end
 end
 
+"""
+    solution(status)
+
+Return the current value of `x` (i.e. the current solution).
+"""
 solution(status::NonlinearSolverStatus) = status.x
 
 # why do we initialize with zero but clear to NaN??
@@ -100,6 +109,8 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.x_converged = false
     status.f_converged = false
     status.f_increased = false
+
+    status
 end
 
 Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
@@ -154,6 +165,8 @@ Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@r
 - `status.rfₐ ≤ config.f_abstol`. See [`F_ABSTOL`](@ref),
 - `status.rfᵣ ≤ config.f_reltol`. See [`F_RELTOL`](@ref),
 - `status.rfₛ ≤ config.f_suctol`. See [`F_SUCTOL`](@ref).
+
+Also see [`meets_stopping_criteria`](@ref).
 """
 function assess_convergence!(status::NonlinearSolverStatus, config::Options)
     x_converged = status.rxₐ ≤ config.x_abstol ||
@@ -172,6 +185,49 @@ function assess_convergence!(status::NonlinearSolverStatus, config::Options)
     isconverged(status)
 end
 
+"""
+    meets_stopping_criteria(status, config)
+
+Determines whether the iteration stops based on the current [`NonlinearSolverStatus`](@ref).
+
+!!! warn
+    The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call `assess_convergence!` (with the same input arguments).
+
+The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
+- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence!`](@ref)) and `status.i ≥ config.min_iterations`,
+- `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
+- `status.i ≥ config.max_iterations`, 
+- if any component in `solution(status)` is `NaN`,
+- if any component in `status.f` is `NaN`,
+- `status.rxₐ > config.x_abstol_break` (see [`X_ABSTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`X_ABSTOL_BREAK`](@ref) is $(X_ABSTOL_BREAK),
+- `status.rxᵣ > config.x_reltol_break` (see [`X_RELTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`X_RELTOL_BREAK`](@ref) is $(X_RELTOL_BREAK), 
+- `status.rfₐ > config.f_abstol_break` (see [`F_ABSTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`F_ABSTOL_BREAK`](@ref) is $(F_ABSTOL_BREAK),
+- `status.rfᵣ > config.f_reltol_break` (see [`F_RELTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`F_RELTOL_BREAK`](@ref) is $(F_RELTOL_BREAK).
+So convergence is only one possible criterion for which [`meets_stopping_criteria`](@ref). We may also satisfy a stopping criterion without having convergence!
+
+# Examples
+
+In the following example we show that `meets_stopping_criteria` evaluates to true when used on a freshly allocated [`NonlinearSolverStatus`](@ref):
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, meets_stopping_criteria)
+status = NonlinearSolverStatus{Float64}(5)
+config = Options()
+meets_stopping_criteria(status, config)
+
+# output
+
+true
+```
+This obviously has not converged. To check convergence we can use [`assess_convergence!`](@ref):
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, assess_convergence!)
+status = NonlinearSolverStatus{Float64}(5)
+config = Options()
+assess_convergence!(status, config)
+
+# output
+
+false
+```
+"""
 function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
     assess_convergence!(status, config)
 
@@ -185,29 +241,6 @@ function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
       any(isnan, solution(status)) ||
       any(isnan, status.f)
 end
-
-# function check_solver_status(status::NonlinearSolverStatus, config::Options)
-#     if any(x -> isnan(x), status.xₚ)
-#         throw(NonlinearSolverException("Detected NaN"))
-#     end
-
-#     if status.rₐ > config.f_abstol_break
-#         throw(NonlinearSolverException("Absolute error ($(status.rₐ)) larger than allowed ($(config.f_abstol_break))"))
-#     end
-
-#     if status.rᵣ > config.f_reltol_break
-#         throw(NonlinearSolverException("Relative error ($(status.rᵣ)) larger than allowed ($(config.f_reltol_break))"))
-#     end
-# end
-
-# function get_solver_status!(status::NonlinearSolverStatus, config::Options, status_dict::Dict)
-#     status_dict[:nls_niter] = status.i
-#     status_dict[:nls_atol] = status.rₐ
-#     status_dict[:nls_rtol] = status.rᵣ
-#     status_dict[:nls_stol] = status.rₛ
-#     status_dict[:nls_converged] = assess_convergence(status, config)
-#     return status_dict
-# end
 
 function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
     if config.warn_iterations > 0 && status.i ≥ config.warn_iterations
@@ -247,23 +280,14 @@ function initialize!(status::NonlinearSolverStatus, x::AbstractVector, obj::Abst
 end
 
 """
-    update!(status, x, f)
+    update!(status, x, obj)
 
-Update `status` based on `x` and the function `f`.
+Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`MultivariateObjective`](@ref) `obj`.
 
 The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
+See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
-function update!(status::NonlinearSolverStatus, x::AbstractVector, f::Callable)
-    copyto!(solution(status), x)
-    f(status.f, x)
-
-    status.δ .= solution(status) .- status.x̄
-    status.γ .= status.f .- status.f̄
-    
-    status
-end
-
 function update!(status::NonlinearSolverStatus, x::AbstractVector, obj::MultivariateObjective)
     copyto!(solution(status), x)
     value!(obj, x)

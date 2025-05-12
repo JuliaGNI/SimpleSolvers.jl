@@ -14,9 +14,13 @@ const F_SUCTOL::Real = 2eps()
 const F_MINDEC::Real = 1e-4
 "Tolerance for the residual (?) of the gradient. Its value is $(G_RESTOL)"
 const G_RESTOL::Real = sqrt(eps())
+"See [`meets_stopping_criteria`](@ref)."
 const X_ABSTOL_BREAK::Real = Inf
+"See [`meets_stopping_criteria`](@ref)."
 const X_RELTOL_BREAK::Real = Inf
+"See [`meets_stopping_criteria`](@ref)."
 const F_ABSTOL_BREAK::Real = Inf
+"See [`meets_stopping_criteria`](@ref)."
 const F_RELTOL_BREAK::Real = Inf
 const G_ABSTOL_BREAK::Real = Inf
 const G_RESTOL_BREAK::Real = Inf
