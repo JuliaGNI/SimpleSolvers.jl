@@ -75,6 +75,8 @@ _compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Jacobian) = compute_ja
 
 A convenience constructor for [`NewtonSolver`](@ref). Also see [`DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER`](@ref).
 
+Calling `QuasiNewtonSolver` hence produces an instance of [`NewtonSolver`](@ref) with the difference that `refactorize ≠ 1`. The [`Jacobian`](@ref) is thus not evaluated and refactored in every step.
+
 # Implementation
 It does:
 
