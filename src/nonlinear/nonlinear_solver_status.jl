@@ -112,7 +112,7 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
 @doc raw"""
     print_status(status, config)
 
-Print the solver staus if:
+Print the solver status if:
 1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `status.i > config.max_iterations`
 2. `config.verbosity > 1`.
 """
@@ -144,6 +144,17 @@ increase_iteration_number!(status::NonlinearSolverStatus) = status.i += 1
 
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
 
+"""
+    assess_convergence!(status, config)
+
+Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
+- `status.rxₐ ≤ config.x_abstol`. See [`X_ABSTOL`](@ref),
+- `status.rxᵣ ≤ config.x_reltol`. See [`X_RELTOL`](@ref),
+- `status.rxₛ ≤ config.x_suctol`. See [`X_SUCTOL`](@ref),
+- `status.rfₐ ≤ config.f_abstol`. See [`F_ABSTOL`](@ref),
+- `status.rfᵣ ≤ config.f_reltol`. See [`F_RELTOL`](@ref),
+- `status.rfₛ ≤ config.f_suctol`. See [`F_SUCTOL`](@ref).
+"""
 function assess_convergence!(status::NonlinearSolverStatus, config::Options)
     x_converged = status.rxₐ ≤ config.x_abstol ||
                   status.rxᵣ ≤ config.x_reltol ||

@@ -1,18 +1,18 @@
-"absolute tolerance for `x` (the function argument)."
+"Absolute tolerance for `x` (the function argument). Its value is $(X_ABSTOL). Used in e.g. [`assess_convergence!`](@ref)"
 const X_ABSTOL::Real = -Inf
-"relative tolerance for `x` (the function argument)."
+"Relative tolerance for `x` (the function argument). Its value is $(X_RELTOL). Used in e.g. [`assess_convergence!`](@ref)"
 const X_RELTOL::Real = 2eps()
-"succesive tolerance for `x"
+"succesive tolerance for `x`. Its value is $(X_SUCTOL). Used in e.g. [`assess_convergence!`](@ref)"
 const X_SUCTOL::Real = 2eps()
-"Absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref)."
+"Absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref). Its value is $(F_ABSTOL)."
 const F_ABSTOL::Real = 1e-50
-"relative tolerance for the function value."
+"Relative tolerance for the function value. Its value is $(F_RELTOL). Used in e.g. [`assess_convergence!`](@ref)."
 const F_RELTOL::Real = 2eps()
-"succesive tolerance for the function value"
+"Succesive tolerance for the function value. Its value is $(F_RELTOL). Used in e.g. [`assess_convergence!`](@ref)."
 const F_SUCTOL::Real = 2eps()
-"minimum value by which the function has to decrease."
+"Minimum value by which the function has to decrease. Its value is $(F_MINDEC)"
 const F_MINDEC::Real = 1e-4
-"tolerance for the residual (?) of the gradient."
+"Tolerance for the residual (?) of the gradient. Its value is $(G_RESTOL)"
 const G_RESTOL::Real = sqrt(eps())
 const X_ABSTOL_BREAK::Real = Inf
 const X_RELTOL_BREAK::Real = Inf
