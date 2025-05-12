@@ -1,23 +1,63 @@
+"""
+    NonlinearSolverStatus
+
+Stores absolute, relative and successive residuals for `x` and `f`.
+
+# Keys
+- `i::Int`: iteration number,
+- `rxₐ`: absolute residual in `x`,
+- `rxᵣ`: relative residual in `x`,
+- `rxₛ`: successive residual in `x`,
+- `rfₐ`: absolute residual in `f`,
+- `rfᵣ`: relative residual in `f`,
+- `rfₛ`: successive residual in `f`,
+- `x`: initial solution,
+- `x̄`: previous solution
+- `δ`: change in solution (see [`direction`](@ref)),
+- `x̃`: temporary variable similar to `x`,
+- `f`: initial function value,
+- `f̄`: previous function value,
+- `γ`: records change in `f`
+- `f̃`: temporary variable similar to `f`
+- `x_converged::Bool`
+- `f_converged::Bool`
+- `g_converged::Bool`
+- `f_increased::Bool`
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus)
+NonlinearSolverStatus{Float64}(3)
+
+# output
+
+i=   0,
+rxₐ=0.00000000e+00,
+rxᵣ=0.00000000e+00,
+rfₐ=0.00000000e+00,
+rfᵣ=0.00000000e+00
+```
+"""
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
-    i::Int        # iteration number
+    i::Int
 
-    rxₐ::XT       # residual (absolute)
-    rxᵣ::XT       # residual (relative)
-    rxₛ::XT       # residual (successive)
+    rxₐ::XT
+    rxᵣ::XT
+    rxₛ::XT
 
-    rfₐ::YT       # residual (absolute)
-    rfᵣ::YT       # residual (relative)
-    rfₛ::YT       # residual (successive)
+    rfₐ::YT
+    rfᵣ::YT
+    rfₛ::YT
 
-    x::AXT        # initial solution
-    x̄::AXT        # previous solution
-    δ::AXT        # change in solution
-    x̃::AXT        # temporary variable similar to x
+    x::AXT
+    x̄::AXT
+    δ::AXT
+    x̃::AXT
 
-    f::AYT        # initial function
-    f̄::AYT        # previous function
-    γ::AYT        # records change in f
-    f̃::AYT        # temporary variable similar to f
+    f::AYT
+    f̄::AYT
+    γ::AYT
+    f̃::AYT
 
     x_converged::Bool
     f_converged::Bool
@@ -47,15 +87,15 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.rfᵣ = YT(NaN)
     status.rfₛ = YT(NaN)
 
-    status.x̄ .= XT(NaN)
-    status.x .= XT(NaN)
-    status.δ .= XT(NaN)
-    status.x̃ .= XT(NaN)
+    status.x̄ .= alloc_x(status.x)
+    status.x .= alloc_x(status.x)
+    status.δ .= alloc_x(status.x)
+    status.x̃ .= alloc_x(status.x)
 
-    status.f̄ .= YT(NaN)
-    status.f .= YT(NaN)
-    status.γ .= YT(NaN)
-    status.f̃ .= YT(NaN)
+    status.f̄ .= alloc_f(status.f)
+    status.f .= alloc_f(status.f)
+    status.γ .= alloc_f(status.f)
+    status.f̃ .= alloc_f(status.f)
 
     status.x_converged = false
     status.f_converged = false
@@ -63,10 +103,10 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
 end
 
 Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
-                        (@sprintf "    i=%4i" status.i),  ",   ",
-                        (@sprintf "rxₐ=%14.8e" status.rxₐ), ",   ",
-                        (@sprintf "rxᵣ=%14.8e" status.rxᵣ), ",   ",
-                        (@sprintf "rfₐ=%14.8e" status.rfₐ), ",   ",
+                        (@sprintf "i=%4i" status.i),  ",\n",
+                        (@sprintf "rxₐ=%14.8e" status.rxₐ), ",\n",
+                        (@sprintf "rxᵣ=%14.8e" status.rxᵣ), ",\n",
+                        (@sprintf "rfₐ=%14.8e" status.rfₐ), ",\n",
                         (@sprintf "rfᵣ=%14.8e" status.rfᵣ))
 
 @doc raw"""

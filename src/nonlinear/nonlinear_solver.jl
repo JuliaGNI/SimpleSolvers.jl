@@ -3,7 +3,7 @@ using Printf
 """
     NonlinearSolver <: AbstractSolver
 
-A supertype that comprises e.g. [`AbstractNewtonSolver`](@ref).
+A supertype that comprises e.g. [`NewtonSolver`](@ref).
 """
 abstract type NonlinearSolver <: AbstractSolver end
 

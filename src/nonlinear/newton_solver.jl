@@ -6,19 +6,19 @@ const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
 """
     NewtonSolver
 
-A struct that comprises all Newton solvers. Those typically differ in the way the Jacobian is computed.
+A `struct`` that comprises all Newton solvers. Those typically differ in the way the [`Jacobian`](@ref) is computed.
 
 # Keywords
 - `obj::`[`AbstractObjective`](@ref)
 - `jacobian::`[`Jacobian`](@ref)
-- `linear`
+- `linear::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)),
 - `linesearch::`[`LinesearchState`](@ref)
-- `refactorize::Int`
+- `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
 - `cache::`[`NewtonSolverCache`](@ref)
 - `config::`[`Options`](@ref)
-- `status::`[`NonlinearSolverStatus`](@ref)
+- `status::`[`NonlinearSolverStatus`](@ref): 
 """
-struct NewtonSolver{T, AT, OT <: AbstractObjective, JT, TJ <: Jacobian, TL, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: NonlinearSolver
+struct NewtonSolver{T, AT, OT <: AbstractObjective, JT, TJ <: Jacobian, TL <: LinearSolver, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: NonlinearSolver
     obj::OT
     jacobian::TJ
 

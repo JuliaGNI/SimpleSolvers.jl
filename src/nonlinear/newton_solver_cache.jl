@@ -3,11 +3,13 @@
 
 Stores `x₀`, `x₁`, `δx`, `rhs`, `y` and `J`.
 
+Compare this to [`NewtonOptimizerCache`](@ref).
+
 # Keys
 
 - `x₀`: the previous iterate,
 - `x₁`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_objective`](@ref),
-- `δx`: search direction,
+- `δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
 - `rhs`: the right-hand-side, 
 - `y`: the objective evaluated at `x₁`. This is used in [`linesearch_objective`](@ref),
 - `J::AbstractMatrix`: the Jacobian evaluated at `x₁`. This is used in [`linesearch_objective`](@ref). Note that this is not of type [`Jacobian`](@ref)!
@@ -18,9 +20,9 @@ Stores `x₀`, `x₁`, `δx`, `rhs`, `y` and `J`.
 NewtonSolverCache(x, y)
 ```
 
-`J` is allocated by calling [`alloc_j`](@ref).
+# Implementation
 
-Also compare this to [`NewtonOptimizerCache`](@ref).
+`J` is allocated by calling [`alloc_j`](@ref).
 """
 struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
     x₀::AT
