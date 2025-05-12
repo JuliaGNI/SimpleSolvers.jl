@@ -59,7 +59,7 @@ function solver_step!(x::Union{AbstractVector{T}, T}, obj::AbstractObjective, ja
     update!(s, x)
 
     if mod(status(s).i-1, s.refactorize) == 0
-        _compute_jacobian!(s, x, jacobian!)
+        compute_jacobian!(s, x, jacobian!)
         # factorize the jacobian stored in `s` and save the factorized matrix in the corresponding linear solver.
         factorize!(linearsolver(s), jacobian(cache(s)))
     end
@@ -74,11 +74,8 @@ function solver_step!(x::Union{AbstractVector{T}, T}, obj::AbstractObjective, ja
 
     # apply line search
     α = linesearch(s)(linesearch_objective(obj, jacobian(s), cache(s)))
-    x .+= α .* direction(cache(s))
+    x .+= compute_new_iterate(x, α, direction(cache(s)))
 end
-
-_compute_jacobian!(s::NewtonSolver, x, jacobian!::Callable) = compute_jacobian!(s, x, jacobian!; mode = :function)
-_compute_jacobian!(s::NewtonSolver, x, jacobian!::Jacobian) = compute_jacobian!(s, x, jacobian!)
 
 """
     QuasiNewtonSolver
