@@ -143,6 +143,6 @@ module SimpleSolvers
     include("optimization/hessian_dfp.jl")
     include("optimization/newton_optimizer_cache.jl")
     include("optimization/newton_optimizer_linesearch_objective.jl")
-    include("optimization/newton_optimizer.jl")
+    include("optimization/newton_optimizer_state.jl")
 
 end
