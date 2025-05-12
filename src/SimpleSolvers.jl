@@ -123,7 +123,7 @@ module SimpleSolvers
 
     include("nonlinear/nonlinear_solver_status.jl")
     include("nonlinear/nonlinear_solver.jl")
-    include("nonlinear/abstract_newton_solver.jl")
+    include("nonlinear/newton_solver_cache.jl")
     include("nonlinear/newton_solver.jl")
 
     export Optimizer,
