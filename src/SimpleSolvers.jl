@@ -141,6 +141,7 @@ module SimpleSolvers
     include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
+    include("optimization/newton_optimizer_cache.jl")
     include("optimization/newton_optimizer.jl")
 
 end

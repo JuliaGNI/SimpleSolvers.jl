@@ -7,8 +7,18 @@ const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
     NewtonSolver
 
 A struct that comprises all Newton solvers. Those typically differ in the way the Jacobian is computed.
+
+# Keywords
+- `obj::`[`AbstractObjective`](@ref)
+- `jacobian::`[`Jacobian`](@ref)
+- `linear`
+- `linesearch::`[`LinesearchState`](@ref)
+- `refactorize::Int`
+- `cache::`[`NewtonSolverCache`](@ref)
+- `config::`[`Options`](@ref)
+- `status::`[`NonlinearSolverStatus`](@ref)
 """
-struct NewtonSolver{T, AT, OT <: AbstractObjective, JT, TJ <: Jacobian, TL, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: AbstractNewtonSolver{T,AT}
+struct NewtonSolver{T, AT, OT <: AbstractObjective, JT, TJ <: Jacobian, TL, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: NonlinearSolver
     obj::OT
     jacobian::TJ
 
@@ -42,9 +52,9 @@ end
 """
     solver_step!(s)
 
-Compute one Newton step for `f` based on the Jacobian `jacobian!`.
+Compute one Newton step for `f` based on the [`Jacobian`](@ref) `jacobian!`.
 """
-function solver_step!(x::Union{AbstractVector{T}, T}, obj::AbstractObjective, jacobian!, s::NewtonSolver{T}) where {T}
+function solver_step!(x::Union{AbstractVector{T}, T}, obj::AbstractObjective, jacobian!::Jacobian, s::NewtonSolver{T}) where {T}
     # update Newton solver cache
     update!(s, x)
 
@@ -67,8 +77,8 @@ function solver_step!(x::Union{AbstractVector{T}, T}, obj::AbstractObjective, ja
     x .+= α .* direction(cache(s))
 end
 
-_compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Callable) = compute_jacobian!(s, x, jacobian!; mode = :function)
-_compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Jacobian) = compute_jacobian!(s, x, jacobian!)
+_compute_jacobian!(s::NewtonSolver, x, jacobian!::Callable) = compute_jacobian!(s, x, jacobian!; mode = :function)
+_compute_jacobian!(s::NewtonSolver, x, jacobian!::Jacobian) = compute_jacobian!(s, x, jacobian!)
 
 """
     QuasiNewtonSolver
@@ -85,3 +95,49 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 ```
 """
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
+
+cache(solver::NewtonSolver) = solver.cache
+config(solver::NewtonSolver) = solver.config
+status(solver::NewtonSolver) = solver.status
+
+"""
+    jacobian(solver::NewtonSolver)
+
+Calling `jacobian` on an instance of [`NewtonSolver`](@ref) produces a slight ambiguity since the `cache` (of type [`NewtonSolverCache`](@ref)) also stores a Jacobian, but in the latter case it is a matrix not an instance of type [`Jacobian`](@ref).
+Hence we return the object of type [`Jacobian`](@ref) when calling `jacobian`. This is also used in [`solver_step!`](@ref).
+"""
+jacobian(solver::NewtonSolver)::Jacobian = solver.jacobian
+
+"""
+    linearsolver(solver)
+
+Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`NewtonSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linearsolver)
+x = rand(3)
+y = rand(3)
+F(x) = tanh.(x)
+s = NewtonSolver(x, y; F = F)
+linearsolver(s)
+
+# output
+
+LUSolver{Float64}(3, [0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [1, 2, 3], [1, 2, 3], 1)
+```
+"""
+linearsolver(solver::NewtonSolver) = solver.linear
+linesearch(solver::NewtonSolver) = solver.linesearch
+
+compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...) = compute_jacobian!(jacobian(cache(s)), x, jacobian!; kwargs...)
+
+check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
+print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
+
+initialize!(s::NewtonSolver, x₀::AbstractArray, f) = initialize!(status(s), x₀, f)
+update!(s::NewtonSolver, x₀::AbstractArray) = update!(cache(s), x₀)
+
+function solve!(x, f::Callable, s::NewtonSolver)
+    solve!(x, f, jacobian(s), s)
+end

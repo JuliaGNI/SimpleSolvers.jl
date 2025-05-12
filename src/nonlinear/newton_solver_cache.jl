@@ -5,7 +5,12 @@ Stores `x₀`, `x₁`, `δx`, `rhs`, `y` and `J`.
 
 # Keys
 
-`δx`: search direction.
+- `x₀`: the previous iterate,
+- `x₁`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_objective`](@ref),
+- `δx`: search direction,
+- `rhs`: the right-hand-side, 
+- `y`: the objective evaluated at `x₁`. This is used in [`linesearch_objective`](@ref),
+- `J::AbstractMatrix`: the Jacobian evaluated at `x₁`. This is used in [`linesearch_objective`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
 # Constructor
 
@@ -14,6 +19,8 @@ NewtonSolverCache(x, y)
 ```
 
 `J` is allocated by calling [`alloc_j`](@ref).
+
+Also compare this to [`NewtonOptimizerCache`](@ref).
 """
 struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
     x₀::AT
@@ -66,65 +73,8 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
     cache.δx .= alloc_x(x)
 
     cache.rhs .= alloc_x(x)
-    cache.y .= alloc_x(x)
-    cache.J .= alloc_x(x)
+    cache.y .= alloc_f(cache.y)
+    cache.J .= alloc_j(x, cache.y)
 
     cache
-end
-
-"""
-    AbstractNewtonSolver <: NonlinearSolver
-
-A supertype that comprises e.g. [`NewtonSolver`](@ref).
-"""
-abstract type AbstractNewtonSolver{T,AT} <: NonlinearSolver end
-
-cache(solver::AbstractNewtonSolver) = solver.cache
-config(solver::AbstractNewtonSolver) = solver.config
-status(solver::AbstractNewtonSolver) = solver.status
-
-"""
-    jacobian(solver::AbstractNewtonSolver)
-
-Calling `jacobian` on an instance of [`AbstractNewtonSolver`](@ref) produces a slight ambiguity since the `cache` (of type [`NewtonSolverCache`](@ref)) also stores a Jacobian, but in the latter case it is a matrix not an instance of type [`Jacobian`](@ref).
-Hence we return the object of type [`Jacobian`](@ref) when calling `jacobian`. This is also used in [`solver_step!`](@ref).
-"""
-jacobian(solver::AbstractNewtonSolver)::Jacobian = solver.jacobian
-
-"""
-    linearsolver(solver)
-
-Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`AbstractNewtonSolver`](@ref).
-
-# Examples
-
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linearsolver)
-x = rand(3)
-y = rand(3)
-F(x) = tanh.(x)
-s = NewtonSolver(x, y; F = F)
-linearsolver(s)
-
-# output
-
-LUSolver{Float64}(3, [0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [1, 2, 3], [1, 2, 3], 1)
-```
-"""
-linearsolver(solver::AbstractNewtonSolver) = solver.linear
-linesearch(solver::AbstractNewtonSolver) = solver.linesearch
-
-# compute_jacobian!(s::AbstractNewtonSolver, x) = compute_jacobian!(jacobian(s), x, f)
-compute_jacobian!(s::AbstractNewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...) = compute_jacobian!(jacobian(cache(s)), x, jacobian!; kwargs...)
-# compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable) = compute_jacobian!(s, x, f, missing)
-# compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable, ::Missing) = s.jacobian(s.cache.J, x, f)
-# compute_jacobian!(s::AbstractNewtonSolver, x, f::Callable, j::Callable) = s.jacobian(s.cache.J, x, j)
-
-check_jacobian(s::AbstractNewtonSolver) = check_jacobian(jacobian(s))
-print_jacobian(s::AbstractNewtonSolver) = print_jacobian(jacobian(s))
-
-initialize!(s::AbstractNewtonSolver, x₀::AbstractArray, f) = initialize!(status(s), x₀, f)
-update!(s::AbstractNewtonSolver, x₀::AbstractArray) = update!(cache(s), x₀)
-
-function solve!(x, f::Callable, s::AbstractNewtonSolver)
-    solve!(x, f, jacobian(s), s)
 end
