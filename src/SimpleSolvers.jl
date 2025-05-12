@@ -125,7 +125,6 @@ module SimpleSolvers
     include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/abstract_newton_solver.jl")
     include("nonlinear/newton_solver.jl")
-    include("nonlinear/quasi_newton_solver.jl")
 
     export Optimizer,
            OptimizationAlgorithm, isaOptimizationAlgorithm,
