@@ -33,10 +33,12 @@ NonlinearSolverStatus{Float64}(3)
 # output
 
 i=   0,
-rxₐ=           NaN,
-rxᵣ=           NaN,
-rfₐ=           NaN,
-rfᵣ=           NaN
+x₁= NaN,
+f= NaN,
+rxₐ= NaN,
+rxᵣ= NaN,
+rfₐ= NaN,
+rfᵣ= NaN
 ```
 
 # Extended help
@@ -127,12 +129,32 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status
 end
 
-Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
+Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT}) where {XT, YT, AXT <: Number} = print(io,
                         (@sprintf "i=%4i" status.i),  ",\n",
-                        (@sprintf "rxₐ=%14.8e" status.rxₐ), ",\n",
-                        (@sprintf "rxᵣ=%14.8e" status.rxᵣ), ",\n",
-                        (@sprintf "rfₐ=%14.8e" status.rfₐ), ",\n",
-                        (@sprintf "rfᵣ=%14.8e" status.rfᵣ))
+                        (@sprintf "x=%4i" status.x),  ",\n",
+                        (@sprintf "f=%4i" status.f),  ",\n",
+                        (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
+                        (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
+                        (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
+                        (@sprintf "rfᵣ=%4e" status.rfᵣ))
+
+Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: Number} = print(io,
+                        (@sprintf "i=%4i" status.i),  ",\n",
+                        (@sprintf "x₁=%4i" status.x[1]),  ",\n",
+                        (@sprintf "f=%4i" status.f),  ",\n",
+                        (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
+                        (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
+                        (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
+                        (@sprintf "rfᵣ=%4e" status.rfᵣ))
+
+Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: AbstractArray} = print(io,
+                        (@sprintf "i=%4i" status.i),  ",\n",
+                        (@sprintf "x₁=%4i" status.x[1]),  ",\n",
+                        (@sprintf "f=%4i" status.f[1]),  ",\n",
+                        (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
+                        (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
+                        (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
+                        (@sprintf "rfᵣ=%4e" status.rfᵣ))
 
 @doc raw"""
     print_status(status, config)

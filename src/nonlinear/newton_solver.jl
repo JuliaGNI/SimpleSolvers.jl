@@ -6,7 +6,29 @@ const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
 """
     NewtonSolver
 
-A `struct`` that comprises all Newton solvers. Those typically differ in the way the [`Jacobian`](@ref) is computed.
+A `struct` that comprises all Newton solvers. Those typically differ in the way the [`Jacobian`](@ref) is computed.
+
+# Constructors
+
+The `NewtonSolver` can be called with an [`AbstractObjective`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
+```jldoctest; setup=:(using SimpleSolvers)
+linesearch = Quadratic()
+F(x) = tanh.(x)
+x = [.5, .5]
+NewtonSolver(x, F(x); F = F, linesearch = linesearch)
+
+# output
+
+i=   0,
+x₁= NaN,
+f= NaN,
+rxₐ= NaN,
+rxᵣ= NaN,
+rfₐ= NaN,
+rfᵣ= NaN
+````
+
+What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 
 # Keywords
 - `obj::`[`AbstractObjective`](@ref)
@@ -18,8 +40,8 @@ A `struct`` that comprises all Newton solvers. Those typically differ in the way
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref): 
 """
-struct NewtonSolver{T, AT, OT <: AbstractObjective, JT, TJ <: Jacobian, TL <: LinearSolver, TLS <: LinesearchState, TST <: NonlinearSolverStatus{T}} <: NonlinearSolver
-    obj::OT
+struct NewtonSolver{T, AT, OT <: AbstractObjective, TJ <: Jacobian, TL <: LinearSolver, TLS <: LinesearchState, TC <: NewtonSolverCache, TST <: NonlinearSolverStatus{T}} <: NonlinearSolver
+    objective::OT
     jacobian::TJ
 
     linear::TL
@@ -27,26 +49,30 @@ struct NewtonSolver{T, AT, OT <: AbstractObjective, JT, TJ <: Jacobian, TL <: Li
 
     refactorize::Int
 
-    cache::NewtonSolverCache{T,AT,JT}
+    cache::TC
     config::Options{T}
     status::TST
 
-    function NewtonSolver{T,AT,OT, JT, TJ, TL, TS}(x, jacobian, objective, linear_solver, linesearch, cache, config; refactorize = 1) where {T, AT, OT, JT, TJ, TL, TS}
+    function NewtonSolver(x::AT, jacobian::TJ, objective::OT, linear_solver::TL, linesearch::TLS, cache::TC, config::Options; refactorize = 1) where {T, AT <: AbstractVector{T}, OT, TJ, TL, TLS, TC}
         status = NonlinearSolverStatus{T}(length(x))
-        new{T, AT, OT, JT, TJ, TL, TS, typeof(status)}(jacobian, objective, linear_solver, linesearch, refactorize, cache, config, status)
+        new{T, AT, OT, TJ, TL, TLS, TC, typeof(status)}(objective, jacobian, linear_solver, linesearch, refactorize, cache, config, status)
     end
 end
 
-function NewtonSolver(x::AT, y::AT; F = missing, DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
-    n = length(y)
+function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: AbstractVector{T}}
     !ismissing(F) || error("You have to provide an F.")
     objective = MultivariateObjective(F, x)
-    jacobian = ismissing(DF!) ? Jacobian{T}(F, n; mode = mode) : Jacobian{T}(DF!, n; mode = :function)
+    NewtonSolver(objective, x, y; kwargs...)
+end
+
+function NewtonSolver(objective::MultivariateObjective, x::AT, y::AT; DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
+    n = length(y)
+    jacobian = ismissing(DF!) ? Jacobian{T}(objective.F, n; mode = mode) : Jacobian{T}(DF!, n; mode = :function)
     cache = NewtonSolverCache(x, y)
     linear_solver = LinearSolver(y; linear_solver = :julia)
     ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)
-    NewtonSolver{T, AT, typeof(objective), typeof(cache.J), typeof(jacobian), typeof(linear_solver), typeof(ls)}(x, objective, jacobian, linear_solver, ls, cache, options; kwargs...)
+    NewtonSolver(x, jacobian, objective, linear_solver, ls, cache, options; kwargs...)
 end
 
 """
@@ -138,3 +164,5 @@ update!(s::NewtonSolver, x₀::AbstractArray) = update!(cache(s), x₀)
 function solve!(x, f::Callable, s::NewtonSolver)
     solve!(x, f, jacobian(s), s)
 end
+
+Base.show(io::IO, solver::NewtonSolver) = show(io, status(solver))

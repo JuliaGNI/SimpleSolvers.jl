@@ -7,7 +7,6 @@ A *backtracking line search method* determines the amount to move in a given sea
 !!! info
     We note that for the static line search we always just return ``\alpha``.
 
-
 ## Backtracking Line Search for a Line Search Objective
 
 We note that when performing backtracking on a [line search objective](@ref "Line Search Objective") care needs to be taken. This is because we need to find equivalent quantities for ``\mathrm{grad}_{x_k}f`` and ``p``. We first look at the derivative of the line search objective:
@@ -87,7 +86,7 @@ nothing
 
 ## [Example](@id sdc_example)
 
-We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem[^3]:
+We show how to use line searches in `SimpleSolvers` to solve a simple toy problem[^3]:
 
 [^3]: Also compare this to the case of the [static line search](@ref static_example).
 
