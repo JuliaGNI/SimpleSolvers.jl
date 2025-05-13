@@ -1,7 +1,7 @@
-"""
+@doc raw"""
     NonlinearSolverStatus
 
-Stores absolute, relative and successive residuals for `x` and `f`.
+Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
 # Keys
 - `i::Int`: iteration number,
@@ -13,12 +13,13 @@ Stores absolute, relative and successive residuals for `x` and `f`.
 - `rfₛ`: successive residual in `f`,
 - `x`: the *current solution* (can also be accessed by calling [`solution`](@ref)),
 - `x̄`: previous solution
-- `δ`: change in solution (see [`direction`](@ref)),
-- `x̃`: temporary variable similar to `x`,
-- `f`: initial function value,
+- `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::MultivariateObjective)`](@ref),
+- `x̃`: a variable that gives the *component-wise change* via ``\delta/x``,
+- `f₀`: initial function value,
+- `f`: current function value,
 - `f̄`: previous function value,
-- `γ`: records change in `f`
-- `f̃`: temporary variable similar to `f`
+- `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::MultivariateObjective)`](@ref),
+- `f̃`: variable that gives the change in the function value via ``\gamma/f(x_0)``,
 - `x_converged::Bool`
 - `f_converged::Bool`
 - `g_converged::Bool`
@@ -37,6 +38,19 @@ rxᵣ=           NaN,
 rfₐ=           NaN,
 rfᵣ=           NaN
 ```
+
+# Extended help
+
+!!! info
+    Note the difference between the relative residual for ``x``, `rxᵣ`, and the relative residual for ``f``, `rfᵣ`. For the former we compute
+    ```math
+    \mathrm{r}x_r = \frac{\mathrm{r}x_a}{||x||},
+    ```
+    for the latter we compute:
+    ```math
+    \mathrm{r}f_r = \frac{\mathrm{r}f_a}{||f(x_0)||},
+    ```
+    i.e. we divide by the initial ``f_0``.
 """
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     i::Int
@@ -54,6 +68,7 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     δ::AXT
     x̃::AXT
 
+    f₀::AYT
     f::AYT
     f̄::AYT
     γ::AYT
@@ -71,7 +86,7 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
         zero(T), zero(T), zero(T), # residuals for x
         zero(T), zero(T), zero(T), # residuals for f
         zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for x
-        zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
+        zeros(T, n), zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
         false, false, false, false)
         clear!(status)
     end
@@ -84,14 +99,13 @@ Return the current value of `x` (i.e. the current solution).
 """
 solution(status::NonlinearSolverStatus) = status.x
 
-# why do we initialize with zero but clear to NaN??
 function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.i = 0
 
     status.rxₐ = XT(NaN)
     status.rxᵣ = XT(NaN)
     status.rxₛ = XT(NaN)
-    
+
     status.rfₐ = YT(NaN)
     status.rfᵣ = YT(NaN)
     status.rfₛ = YT(NaN)
@@ -249,6 +263,19 @@ function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
     nothing
 end
 
+@doc raw"""
+    residual!(status)
+
+Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
+Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::MultivariateObjective)`](@ref).
+The computed residuals are the following:
+- `rxₐ`: absolute residual in ``x``,
+- `rxᵣ`: relative residual in ``x``,
+- `rxₛ` : successive residual (the norm of ``\delta``),
+- `rfₐ`: absolute residual in ``f``,
+- `rfᵣ`: relative residual in ``f``,
+- `rfₛ` : successive residual (the norm of ``\gamma``).
+"""
 function residual!(status::NonlinearSolverStatus)
     status.rxₐ = norm(status.δ)
     status.rxᵣ = status.rxₐ / norm(status.x)
@@ -256,8 +283,7 @@ function residual!(status::NonlinearSolverStatus)
     status.rxₛ = norm(status.δ)
 
     status.rfₐ = norm(status.f)
-    @warn "In order to compute the relative residual for f, we have to store f₀, the initial f. This is not done at the moment."
-    status.rfᵣ = norm(status.f) / norm(status.f̃)
+    status.rfᵣ = norm(status.f) / norm(status.f₀)
     status.f̃ .= status.γ ./ status.f
     status.rfₛ = norm(status.γ)
 
@@ -267,7 +293,7 @@ end
 """
     initialize!(status, x, f)
 
-Clear `status` and initialize it based on `x` and the function `f`.
+Clear `status::`[`NonlinearSolverStatus`](@ref) (via the function [`clear!`](@ref)) and initialize it based on `x` and the function `f`.
 """
 function initialize!(status::NonlinearSolverStatus, x::AbstractVector, obj::AbstractObjective)
     clear!(status)
@@ -275,6 +301,7 @@ function initialize!(status::NonlinearSolverStatus, x::AbstractVector, obj::Abst
     copyto!(solution(status), x)
     value!(obj, x)
     status.f .= value(obj)
+    status.f₀ .= copy(status.f)
     
     status
 end
