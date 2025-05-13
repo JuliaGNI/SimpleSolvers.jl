@@ -29,21 +29,8 @@ end
 
 solve!(x::AbstractArray, f::Callable, jacobian!, s::NonlinearSolver) = solve!(x, MultivariateObjective(f, x), jacobian!, s)
 
-# solve!(x, f, s::NonlinearSolver) = solve!(x, f, f, s)
-
 struct NonlinearSolverException <: Exception
     msg::String
 end
 
 Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
-
-# (solver::NonlinearSolver{T}, status_dict::Dict) where {T} =
-#             get_solver_status!(status(solver), params(solver), status_dict)
-
-# get_solver_status(solver::NonlinearSolver{T}) where {T} = get_solver_status!(solver,
-#             Dict(:nls_niter => 0,
-#                  :nls_atol => zero(T),
-#                  :nls_rtol => zero(T),
-#                  :nls_stol => zero(T),
-#                  :nls_converged => false)
-#             )
