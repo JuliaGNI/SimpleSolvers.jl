@@ -38,6 +38,7 @@ makedocs(;
         "Optimizers" => ["optimizers/optimizers.md"],
         "Updates" => "update.md",
         "Initialization" => "initialize.md",
+        "Solver Status" => "nonlinear_solver_status.md",
         "In-place vs out-of-place" => "in_place_out_of_place.md",
         "References" => "references.md",
     ],
