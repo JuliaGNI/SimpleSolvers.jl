@@ -93,9 +93,9 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 """
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
-cache(solver::NewtonSolver) = solver.cache
-config(solver::NewtonSolver) = solver.config
-status(solver::NewtonSolver) = solver.status
+cache(solver::NewtonSolver)::NewtonSolverCache = solver.cache
+config(solver::NewtonSolver)::Options = solver.config
+status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
 
 """
     jacobian(solver::NewtonSolver)
