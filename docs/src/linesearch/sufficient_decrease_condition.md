@@ -21,7 +21,7 @@ As we assume that ``f(R_{x_k}(\alpha_k{}p_k)) \leq f(x_k)`` and ``g_{x_k}(c_1p_k
 
 making clear why this is called the *sufficient decrease condition*. The parameter ``c_1`` is typically chosen very small, around ``10^{-4}``. This is implemented as [`SimpleSolvers.SufficientDecreaseCondition`](@ref).
 
-# [Example](@id sdc_example_full)
+## [Example](@id sdc_example_full)
 
 We can visualize the sufficient decrease condition with an example:
 
