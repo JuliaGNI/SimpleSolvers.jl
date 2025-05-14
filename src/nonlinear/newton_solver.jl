@@ -91,7 +91,6 @@ function solver_step!(x::Union{AbstractVector{T}, T}, obj::AbstractObjective, ja
     end
 
     # compute RHS (f is an in-place function)
-    value!(obj, x)
     cache(s).rhs .= value(obj)
     rmul!(cache(s).rhs, -1)
 
@@ -131,6 +130,8 @@ Hence we return the object of type [`Jacobian`](@ref) when calling `jacobian`. T
 """
 jacobian(solver::NewtonSolver)::Jacobian = solver.jacobian
 
+objective(solver::NewtonSolver)::AbstractObjective = solver.objective
+
 """
     linearsolver(solver)
 
@@ -159,7 +160,19 @@ check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
 print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
 
 initialize!(s::NewtonSolver, x₀::AbstractArray, f) = initialize!(status(s), x₀, f)
-update!(s::NewtonSolver, x₀::AbstractArray) = update!(cache(s), x₀)
+
+"""
+    update!(solver, x)
+
+Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
+This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `objective` stored in `solver` (and `status(solver)`).
+"""
+function update!(s::NewtonSolver, x₀::AbstractArray)
+    update!(status(s), x₀, objective(s))
+    update!(cache(s), x₀)
+
+    s
+end
 
 function solve!(x, f::Callable, s::NewtonSolver)
     solve!(x, f, jacobian(s), s)

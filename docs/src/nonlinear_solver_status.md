@@ -16,3 +16,13 @@ We now create an instance of [`NewtonSolver`](@ref) which also allocates a [`Sim
 ```@example status
 solver = NewtonSolver(obj, x, obj(x))
 ```
+
+Note that all variables are [initialized with `NaN`s](@ref "Reasoning behind Initialization with `NaN`s").
+
+For the first step we therefore have to call [`SimpleSolvers.update!`](@ref)[^1]:
+
+[^1]: Also see the [page on the `update!` function](@ref "Updates").
+
+```@example status
+update!(solver, x)
+```

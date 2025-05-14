@@ -333,6 +333,9 @@ end
 
 Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`MultivariateObjective`](@ref) `obj`.
 
+!!! info
+   This also updates the objective `obj`!
+
 The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
