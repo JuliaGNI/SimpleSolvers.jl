@@ -92,7 +92,14 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
         false, false, false, false)
         clear!(status)
     end
+
+    function NonlinearSolverStatus(x₀::AbstractVector{T}, obj::AbstractObjective{T}) where {T}
+        status = NonlinearSolverStatus{T}(length(x₀))
+        initialize!(status, x₀, obj)
+    end
 end
+
+iteration_number(status) = status.i
 
 """
     solution(status)
@@ -102,7 +109,7 @@ Return the current value of `x` (i.e. the current solution).
 solution(status::NonlinearSolverStatus) = status.x
 
 function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
-    status.i = 0
+    iteration_number(status) = 0
 
     status.rxₐ = XT(NaN)
     status.rxᵣ = XT(NaN)
@@ -130,27 +137,27 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
 end
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT}) where {XT, YT, AXT <: Number} = print(io,
-                        (@sprintf "i=%4i" status.i),  ",\n",
-                        (@sprintf "x=%4i" status.x),  ",\n",
-                        (@sprintf "f=%4i" status.f),  ",\n",
+                        (@sprintf "i=%4i" iteration_number(status)),  ",\n",
+                        (@sprintf "x=%4e" status.x),  ",\n",
+                        (@sprintf "f=%4e" status.f),  ",\n",
                         (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
                         (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
                         (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
                         (@sprintf "rfᵣ=%4e" status.rfᵣ))
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: Number} = print(io,
-                        (@sprintf "i=%4i" status.i),  ",\n",
-                        (@sprintf "x₁=%4i" status.x[1]),  ",\n",
-                        (@sprintf "f=%4i" status.f),  ",\n",
+                        (@sprintf "i=%4i" iteration_number(status)),  ",\n",
+                        (@sprintf "x₁=%4e" status.x[1]),  ",\n",
+                        (@sprintf "f=%4e" status.f),  ",\n",
                         (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
                         (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
                         (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
                         (@sprintf "rfᵣ=%4e" status.rfᵣ))
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: AbstractArray} = print(io,
-                        (@sprintf "i=%4i" status.i),  ",\n",
-                        (@sprintf "x₁=%4i" status.x[1]),  ",\n",
-                        (@sprintf "f=%4i" status.f[1]),  ",\n",
+                        (@sprintf "i=%4i" iteration_number(status)),  ",\n",
+                        (@sprintf "x₁=%4e" status.x[1]),  ",\n",
+                        (@sprintf "f=%4e" status.f[1]),  ",\n",
                         (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
                         (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
                         (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
@@ -160,11 +167,11 @@ Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, 
     print_status(status, config)
 
 Print the solver status if:
-1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `status.i > config.max_iterations`
+1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `iteration_number(status) > config.max_iterations`
 2. `config.verbosity > 1`.
 """
 function print_status(status::NonlinearSolverStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && status.i ≤ config.max_iterations)) ||
+    if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && iteration_number(status) ≤ config.max_iterations)) ||
         config.verbosity > 1
         println(status)
     end
@@ -177,10 +184,10 @@ Increase iteration number of `status`.
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus, increase_iteration_number!)
+```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus, increase_iteration_number!, iteration_number)
 status = NonlinearSolverStatus{Float64}(5)
 increase_iteration_number!(status)
-status.i
+iteration_number(status)
 
 # output
 
@@ -230,9 +237,9 @@ Determines whether the iteration stops based on the current [`NonlinearSolverSta
     The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call `assess_convergence!` (with the same input arguments).
 
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
-- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence!`](@ref)) and `status.i ≥ config.min_iterations`,
+- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence!`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
-- `status.i ≥ config.max_iterations`, 
+- `iteration_number(status) ≥ config.max_iterations`, 
 - if any component in `solution(status)` is `NaN`,
 - if any component in `status.f` is `NaN`,
 - `status.rxₐ > config.x_abstol_break` (see [`X_ABSTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`X_ABSTOL_BREAK`](@ref) is $(X_ABSTOL_BREAK),
@@ -267,9 +274,9 @@ false
 function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
     assess_convergence!(status, config)
 
-    ( isconverged(status) && status.i ≥ config.min_iterations ) ||
+    ( isconverged(status) && iteration_number(status) ≥ config.min_iterations ) ||
     ( status.f_increased && !config.allow_f_increases ) ||
-      status.i ≥ config.max_iterations ||
+      iteration_number(status) ≥ config.max_iterations ||
       status.rxₐ > config.x_abstol_break ||
       status.rxᵣ > config.x_reltol_break ||
       status.rfₐ > config.f_abstol_break ||
@@ -279,8 +286,8 @@ function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
 end
 
 function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
-    if config.warn_iterations > 0 && status.i ≥ config.warn_iterations
-        @warn "Solver took $(status.i) iterations."
+    if config.warn_iterations > 0 && iteration_number(status) ≥ config.warn_iterations
+        @warn "Solver took $(iteration_number(status)) iterations."
     end
     nothing
 end
@@ -331,7 +338,7 @@ end
 """
     update!(status, x, obj)
 
-Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`MultivariateObjective`](@ref) `obj`.
+Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`MultivariateObjective`](@ref) `obj`. Internally this calls [`next_iteration!`](@ref).
 
 !!! info
    This also updates the objective `obj`!
@@ -344,10 +351,13 @@ function update!(status::NonlinearSolverStatus, x::AbstractVector, obj::Multivar
     copyto!(solution(status), x)
     value!(obj, x)
     status.f .= value(obj)
+    next_iteration!(status)
 
     status.δ .= solution(status) .- status.x̄
     status.γ .= status.f .- status.f̄
     
+    residual!(status)
+
     status
 end
 

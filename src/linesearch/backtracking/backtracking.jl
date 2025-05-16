@@ -112,7 +112,7 @@ LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = Bac
 
 function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {OT, T}
     x₀ = zero(α)
-    y₀ = value!(obj, x₀)
+    y₀ = __value!(obj, x₀)
     d(α) = derivative!(obj, α)
     d₀ = d(x₀)
 
@@ -123,13 +123,15 @@ function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α:
         if (sdc(α) && cc(α))
             break
         else
-            print(α)
             α *= ls.p
         end
     end
 
     α
 end
+
+__value!(obj::UnivariateObjective, x₀) = value!(obj, x₀)
+__value!(obj::TemporaryUnivariateObjective, x₀) = value(obj, x₀)
 
 backtracking(o::AbstractUnivariateObjective, args...; kwargs...) = BacktrackingState(; kwargs...)(o, args...)
 backtracking(f::Callable, g::Callable, args...; kwargs...) = BacktrackingState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)

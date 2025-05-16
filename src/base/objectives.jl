@@ -5,7 +5,7 @@ An *objective* is a quantity to has to be made zero by a solver or minimized by 
 
 See [`AbstractUnivariateObjective`](@ref) and [`MultivariateObjective`](@ref).
 """
-abstract type AbstractObjective{T <: Number} end
+abstract type AbstractObjective{T <: Number} <: AbstractProblem end
 
 Base.Function(obj::AbstractObjective) = obj.F
 
@@ -267,7 +267,7 @@ end
 """
     MultivariateObjective <: AbstractObjective
 
-Like [`UnivariateObjective`](@ref), but stores *gradients* instead of *derivatives*.
+Like [`UnivariateObjective`](@ref), but stores *gradients* instead of *derivatives*. Also compare this to [`NonlinearSystem`](@ref).
 
 The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
@@ -354,7 +354,7 @@ function gradient(obj::MultivariateObjective, x::AbstractArray{<:Number})
 end
 
 """
-    gradient(obj::MultivariateObjective, x)
+    gradient!!(obj::MultivariateObjective, x)
 
 Like [`derivative!!`](@ref), but for [`MultivariateObjective`](@ref), not [`UnivariateObjective`](@ref).
 """
@@ -408,6 +408,9 @@ function clear!(obj::MultivariateObjective)
     _clear_g!(obj)
     nothing
 end
+
+f_argument(obj::AbstractObjective) = obj.x_f
+g_argument(obj::MultivariateObjective) = obj.x_g
 
 f_calls(o::AbstractObjective) = error("f_calls is not implemented for $(summary(o)).")
 f_calls(o::Union{UnivariateObjective, MultivariateObjective}) = o.f_calls

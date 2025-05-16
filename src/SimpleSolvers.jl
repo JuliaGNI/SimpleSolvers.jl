@@ -7,7 +7,7 @@ module SimpleSolvers
 
     import Base.minimum
     import Base.Callable
-    import GeometricBase: AbstractSolver, SolverMethod
+    import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem
     import GeometricBase: value
 
     include("utils.jl")
@@ -85,8 +85,12 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
+    include("base/systems.jl")
+
+    export LinearSystem, NonlinearSystem
+
     export LinearSolver, LUSolver, LUSolverLAPACK,
-           factorize!
+           factorize!, linearsystem
 
     include("linear/linear_solvers.jl")
     include("linear/lu_solver.jl")

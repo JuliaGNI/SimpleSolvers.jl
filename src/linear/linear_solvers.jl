@@ -2,7 +2,7 @@
 """
     LinearSolver <: AbstractSolver
 
-A supertype that comprises e.g. [`LUSolver`](@ref) and [`LUSolverLAPACK`](@ref).
+A supertype that comprises e.g. [`LUSolver`](@ref) and [`LUSolverLAPACK`](@ref). These are used to solver [`LinearSystem`](@ref)s.
 
 # Constructor
 
@@ -17,16 +17,18 @@ abstract type LinearSolver{T} <: AbstractSolver end
 factorize!(s::LinearSolver) = error("factorize! not implemented for $(typeof(s))")
 LinearAlgebra.ldiv!(s::LinearSolver) = error("ldiv! not implemented for $(typeof(s))")
 
-function LinearSolver(x::AbstractVector{T}; linear_solver = :julia) where {T}
+function LinearSolver(x::AbstractVector{T}; linearsolver = :julia) where {T}
     n = length(x)
 
-    if linear_solver === nothing || linear_solver == :julia
-        linear_solver = LUSolver{T}(n)
-    elseif linear_solver == :lapack
-        linear_solver = LUSolverLAPACK{T}(BlasInt(n))
+    linear_solver_object = if linearsolver === nothing || linearsolver == :julia
+        LUSolver{T}(n)
+    elseif linearsolver == :lapack
+        LUSolverLAPACK{T}(BlasInt(n))
     else
-        @assert typeof(linear_solver) <: LinearSolver{T}
-        @assert n == linear_solver.n
+        @assert typeof(linearsolver) <: LinearSolver{T}
+        @assert n == linearsolver.n
+        linearsolver
     end
-    linear_solver
+
+    linear_solver_object
 end

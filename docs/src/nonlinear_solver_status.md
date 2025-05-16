@@ -26,3 +26,10 @@ For the first step we therefore have to call [`SimpleSolvers.update!`](@ref)[^1]
 ```@example status
 update!(solver, x)
 ```
+
+Note that the residuals are still `NaN`s however as we need to perform at least two updates in order to compute them. As a next step we write:
+
+```@example status
+x = [2., 1.2]
+update!(solver, x)
+```
