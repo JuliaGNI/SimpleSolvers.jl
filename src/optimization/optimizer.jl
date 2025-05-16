@@ -2,9 +2,9 @@
 const SOLUTION_MAX_PRINT_LENGTH = 10
 
 """
-An `OptimizationAlgorithm` is a datastructe that is used to dispatch on different algorithms.
+An `OptimizationAlgorithm` is a data structure that is used to dispatch on different algorithms.
 
-It needs to implement three important methods,
+It needs to implement three methods,
 ```
 initialize!(alg::OptimizationAlgorithm, ::AbstractVector)
 update!(alg::OptimizationAlgorithm, ::AbstractVector)
@@ -41,7 +41,9 @@ function isaOptimizationAlgorithm(alg)
     applicable(solver_step!, x, alg)
 end
 
-
+"""
+    Optimizer
+"""
 struct Optimizer{ALG <: NonlinearMethod,
                  OBJ <: MultivariateObjective,
                  OPT <: Options,
@@ -54,11 +56,13 @@ struct Optimizer{ALG <: NonlinearMethod,
     state::AST
 end
 
-function Optimizer(x::VT, objective::MultivariateObjective; algorithm = BFGS(), linesearch = Backtracking(), config = Options()) where {XT, VT <: AbstractVector{XT}}
+function Optimizer(x::VT, objective::MultivariateObjective; algorithm::NewtonMethod = BFGS(), linesearch = Backtracking(), config = Options()) where {T, VT <: AbstractVector{T}}
     y = value(objective, x)
     result = OptimizerResult(x, y)
-    astate = OptimizerState(algorithm, objective, x, y; linesearch = linesearch)
-    options = Options(XT, config)
+    # rag = gradient(objective, x)
+    clear!(result)
+    astate = OptimizationAlgorithm(algorithm, objective, x; linesearch = linesearch)
+    options = Options(T, config)
     Optimizer{typeof(algorithm), typeof(objective), typeof(options), typeof(result), typeof(astate)}(algorithm, objective, options, result, astate)
 end
 
@@ -118,20 +122,28 @@ meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), c
 
 function initialize!(opt::Optimizer, x::AbstractVector)
     clear!(objective(opt))
-    initialize!(result(opt), x, value!(objective(opt), x), gradient!(objective(opt), x))
+    clear!(result(opt))
     initialize!(state(opt), x)
 end
 
 "compute objective and gradient at new solution and update result"
 function update!(opt::Optimizer, x::AbstractVector)
     update!(result(opt), x, value!(objective(opt), x), gradient!(objective(opt), x))
+    update!(state(opt), x)
+
+    opt
 end
 
-function solve!(x, opt::Optimizer)
-    initialize!(opt, x) 
+"""
+    solve!(x, opt)
+
+
+"""
+function solve!(x::AbstractVector, opt::Optimizer)
+    # initialize!(opt, x)
 
     while !meets_stopping_criteria(opt)
-        next_iteration!(result(opt))
+        increase_iteration_number!(result(opt))
         solver_step!(x, state(opt))
         update!(opt, x)
     end
@@ -139,5 +151,5 @@ function solve!(x, opt::Optimizer)
     warn_iteration_number(status(opt), config(opt))
     print_status(status(opt), config(opt))
 
-    return x
+    x
 end

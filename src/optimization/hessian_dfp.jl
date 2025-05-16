@@ -1,4 +1,8 @@
+"""
+    HessianDFP <: Hessian
 
+
+"""
 struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
     objective::OBJ
 
