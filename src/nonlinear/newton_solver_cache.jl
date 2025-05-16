@@ -1,18 +1,18 @@
 """
     NewtonSolverCache
 
-Stores `x₀`, `x₁`, `δx`, `rhs`, `y` and `J`.
+Stores `x̄`, `x`, `δx`, `rhs`, `y` and `J`.
 
 Compare this to [`NewtonOptimizerCache`](@ref).
 
 # Keys
 
-- `x₀`: the previous iterate,
-- `x₁`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_objective`](@ref),
+- `x̄`: the previous iterate,
+- `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_objective`](@ref),
 - `δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
 - `rhs`: the right-hand-side, 
-- `y`: the objective evaluated at `x₁`. This is used in [`linesearch_objective`](@ref),
-- `J::AbstractMatrix`: the Jacobian evaluated at `x₁`. This is used in [`linesearch_objective`](@ref). Note that this is not of type [`Jacobian`](@ref)!
+- `y`: the objective evaluated at `x`. This is used in [`linesearch_objective`](@ref),
+- `J::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_objective`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
 # Constructor
 
@@ -25,8 +25,8 @@ NewtonSolverCache(x, y)
 `J` is allocated by calling [`alloc_j`](@ref).
 """
 struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
-    x₀::AT
-    x₁::AT
+    x̄::AT
+    x::AT
     δx::AT
 
     rhs::AT
@@ -48,13 +48,13 @@ direction(cache::NewtonSolverCache) = cache.δx
     update!(cache, x)
 
 Update the [`NewtonSolverCache`](@ref) based on `x`, i.e.:
-1. `cache.x₀` ``\gets`` x,
-2. `cache.x₁` ``\gets`` x,
+1. `cache.x̄` ``\gets`` x,
+2. `cache.x` ``\gets`` x,
 3. `cache.δx` ``\gets`` 0.
 """
-function update!(cache::NewtonSolverCache, x::AbstractVector)
-    cache.x₀ .= x
-    cache.x₁ .= x
+function update!(cache::NewtonSolverCache{T}, x::AbstractVector{T}) where {T}
+    cache.x̄ .= x
+    solution(cache) .= x
     cache.δx .= 0
     
     cache
@@ -70,8 +70,8 @@ Initialize the [`NewtonSolverCache`](@ref) based on `x`.
 This calls [`alloc_x`](@ref) to do all the initialization.
 """
 function initialize!(cache::NewtonSolverCache, x::AbstractVector)
-    cache.x₀ .= alloc_x(x)
-    cache.x₁ .= alloc_x(x)
+    cache.x̄ .= alloc_x(x)
+    solution(cache) .= alloc_x(x)
     cache.δx .= alloc_x(x)
 
     cache.rhs .= alloc_x(x)
@@ -80,3 +80,5 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
 
     cache
 end
+
+solution(cache::NewtonSolverCache) = cache.x
