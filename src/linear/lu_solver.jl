@@ -42,6 +42,7 @@ LUSolver{Float32}(2, Float32[0.0 0.0; 0.0 0.0], [1, 2], [1, 2], 1)
 - `pivots::Vector{Int}`
 - `perms::Vector{Int}`
 - `info::Int`
+- `pivot::Bool`
 """
 mutable struct LUSolver{T, LST <: LinearSystem{T}} <: LinearSolver{T}
     n::Int
@@ -49,6 +50,7 @@ mutable struct LUSolver{T, LST <: LinearSystem{T}} <: LinearSolver{T}
     pivots::Vector{Int}
     perms::Vector{Int}
     info::Int
+    pivot::Bool
 end
 
 """
@@ -58,13 +60,13 @@ Access the [`LinearSystem`](@ref) stored in the [`LUSolver`](@ref).
 """
 linearsystem(lu::LUSolver) = lu.linearsystem
 
-function LUSolver(ls::LST) where {T, LST <: LinearSystem{T}}
+function LUSolver(ls::LST; pivot = true) where {T, LST <: LinearSystem{T}}
     n = checksquare(Matrix(ls))
-    lu = LUSolver{T, LST}(n, ls, zeros(Int, n), zeros(Int, n), 0)
+    lu = LUSolver{T, LST}(n, ls, zeros(Int, n), zeros(Int, n), 0, pivot)
     solve!(lu)
 end
 
-LUSolver{T}(n::Int) where {T} = LUSolver(zeros(T, n, n))
+LUSolver{T}(n::Int; kwargs...) where {T} = LUSolver(zeros(T, n, n); kwargs...)
 
 """
     factorize!(lu, A)
@@ -104,7 +106,7 @@ A
   0.384615    0.666667   2.66667
 ```
 """
-function factorize!(lu::LUSolver{T}, A::AbstractMatrix{T}; pivot=true) where {T}
+function factorize!(lu::LUSolver{T}, A::AbstractMatrix{T}; pivot=lu.pivot) where {T}
     copy!(Matrix(linearsystem(lu)), A)
     
     @inbounds for i in eachindex(lu.perms)
@@ -112,7 +114,6 @@ function factorize!(lu::LUSolver{T}, A::AbstractMatrix{T}; pivot=true) where {T}
     end
 
     @inbounds for k ∈ 1:lu.n
-        # find index max
         kp = pivot ? find_maximum_value(Matrix(linearsystem(lu))[:, k], k) : k
         
         lu.pivots[k] = kp
@@ -156,7 +157,8 @@ factorize!(lu::LUSolver; kwargs...) = factorize!(lu, Matrix(linearsystem(lu)); k
 """
     find_maximum_value(v, k)
 
-Find the maximum value of vector `v` starting from the index `k`.
+Find the maximum value of vector `v` starting from the index `k`. 
+This is used for *pivoting* in [`factorize!`](@ref).
 """
 function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T <: Number}
     kp = k
