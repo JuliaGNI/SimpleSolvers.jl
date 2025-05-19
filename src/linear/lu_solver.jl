@@ -13,11 +13,10 @@ We use the `LUSolver` together with [`ldiv!`](@ref) to compute multiplication of
 ```jldoctest; setup = :(using SimpleSolvers, LinearAlgebra, Random; Random.seed!(123))
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
-ls = LinearSystem(A, v)
+ls = LinearSystem(copy(A), v)
 
 lu = LUSolver(ls)
 
-solve!(lu)
 solution(ls) ≈ inv(A) * v
 
 # output
@@ -25,14 +24,14 @@ solution(ls) ≈ inv(A) * v
 true
 ```
 
-When calling `LUSolver` on an integer alone, a matrix with all zeros is allocated:
+When calling `LUSolver` on a matrix together with a vector the constructor automatically calls [`solve!`](@ref), i.e. solves the system. When calling `LUSolver` on an integer alone, a matrix with all zeros is allocated:
 
 ```jldoctest; setup = :(using SimpleSolvers)
 LUSolver{Float32}(2)
 
 # output
 
-LUSolver{Float32}(2, Float32[0.0 0.0; 0.0 0.0], [1, 2], [1, 2], 1)
+LUSolver{Float32, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}}(2, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}(Float32[NaN, NaN], Float32[NaN NaN; NaN NaN], Float32[NaN, NaN]), [1, 2], [1, 2], 0, true)
 ```
 
 # Keys
@@ -66,7 +65,10 @@ function LUSolver(ls::LST; pivot = true) where {T, LST <: LinearSystem{T}}
     solve!(lu)
 end
 
-LUSolver{T}(n::Int; kwargs...) where {T} = LUSolver(zeros(T, n, n); kwargs...)
+function LUSolver{T}(n::Int; kwargs...) where {T}
+    ls = LinearSystem{T}(n)
+    LUSolver(ls; kwargs...)
+end
 
 """
     factorize!(lu, A)
@@ -80,7 +82,7 @@ A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 y = [1., 0., 0.]
 
 ls = LinearSystem(similar(A), y)
-lu = LUSolver{Float64, typeof(ls)}(3, ls, zeros(Int, 3), zeros(Int, 3), 0)
+lu = LUSolver{Float64, typeof(ls)}(3, ls, zeros(Int, 3), zeros(Int, 3), 0, true)
 factorize!(lu, A)
 Matrix(linearsystem(lu))
 
@@ -94,9 +96,12 @@ Matrix(linearsystem(lu))
 Here `Matrix(linearsystem(lu))` stores the factorized result. If we want to save this factorized matrix in the same `A` to save memory we can write:
 ```jldoctest; setup = :(using SimpleSolvers)
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
-lu = LUSolver{Float64}(3, A, zeros(Int, 3), zeros(Int, 3), 0)
+x = [1., 2., 3.]
+y = [2., 3., 4.]
+ls = LinearSystem(x, one(A), y)
+lu = LUSolver(ls)
 factorize!(lu, A)
-A
+Matrix(ls)
 
 # output
 
@@ -107,7 +112,7 @@ A
 ```
 """
 function factorize!(lu::LUSolver{T}, A::AbstractMatrix{T}; pivot=lu.pivot) where {T}
-    copy!(Matrix(linearsystem(lu)), A)
+    copyto!(Matrix(linearsystem(lu)), A)
     
     @inbounds for i in eachindex(lu.perms)
         lu.perms[i] = i
@@ -221,5 +226,6 @@ Solve the [`LinearSystem`](@ref) stored in `lu` and store the result in [`soluti
 function solve!(lu::LUSolver)
     factorize!(lu)
     ldiv!(solution(lu), lu, rhs(linearsystem(lu)))
+    lu.solved = true
     lu
 end

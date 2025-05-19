@@ -12,13 +12,13 @@ status(s::NonlinearSolver) = error("status not implemented for $(typeof(s))")
 initialize!(s::NonlinearSolver, ::AbstractArray) = error("initialize! not implemented for $(typeof(s))")
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
-function solve!(x::AbstractArray, obj::AbstractObjective, jacobian!, s::NonlinearSolver)
-    initialize!(s, x, obj)
+function solve!(x::AbstractArray, nls::NonlinearSystem, jacobian!, s::NonlinearSolver)
+    initialize!(s, x)
 
     while !meets_stopping_criteria(status(s), config(s))
         next_iteration!(status(s))
-        solver_step!(x, obj, jacobian!, s)
-        update!(status(s), x, obj)
+        solver_step!(x, nls, jacobian!, s)
+        update!(status(s), x, nls)
         residual!(status(s))
     end
 
@@ -27,7 +27,7 @@ function solve!(x::AbstractArray, obj::AbstractObjective, jacobian!, s::Nonlinea
     x
 end
 
-solve!(x::AbstractArray, f::Callable, jacobian!, s::NonlinearSolver) = solve!(x, MultivariateObjective(f, x), jacobian!, s)
+solve!(x::AbstractArray, f::Callable, jacobian!, s::NonlinearSolver) = solve!(x, NonlinearSystem(f, x), jacobian!, s)
 
 struct NonlinearSolverException <: Exception
     msg::String

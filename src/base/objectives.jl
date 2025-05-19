@@ -228,12 +228,12 @@ end
 """
     clear!(obj)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(obj::AbstractUnivariateObjective)
     _clear_f!(obj)
     _clear_d!(obj)
-    nothing
+    obj
 end
 
 """
@@ -401,12 +401,12 @@ end
 """
     clear!(obj)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(obj::MultivariateObjective)
     _clear_f!(obj)
     _clear_g!(obj)
-    nothing
+    obj
 end
 
 f_argument(obj::AbstractObjective) = obj.x_f

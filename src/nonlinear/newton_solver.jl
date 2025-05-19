@@ -20,7 +20,7 @@ NewtonSolver(x, F(x); F = F, linesearch = linesearch)
 # output
 
 i=   0,
-x₁= NaN,
+x= NaN,
 f= NaN,
 rxₐ= NaN,
 rxᵣ= NaN,
@@ -31,7 +31,7 @@ rfᵣ= NaN
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 
 # Keywords
-- `nonlinear::`[`NonlinearSystem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearsystem`](@ref),
+- `nonlinearsystem::`[`NonlinearSystem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearsystem`](@ref),
 - `jacobian::`[`Jacobian`](@ref)
 - `linear::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`LinesearchState`](@ref)
@@ -40,7 +40,7 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref): 
 """
-struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSyT <: LinearSystem, LSoT <: LinearSolver, LiSeT <: LinesearchState, TC <: NewtonSolverCache, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
+struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSyT <: LinearSystem, LSoT <: LinearSolver, LiSeT <: LinesearchState, CT <: NewtonSolverCache, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
     nonlinearsystem::NLST
     linearsystem::LSyT
 
@@ -49,30 +49,38 @@ struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSyT <: LinearSystem, LSoT <
 
     refactorize::Int
 
-    cache::TC
+    cache::CT
     config::Options{T}
     status::NSST
 
-    function NewtonSolver(x::AT, nonlinearsystem::NLST, linearsystem::LST, linearsolver::TL, linesearch::TLS, cache::TC, config::Options; refactorize::Integer = 1) where {T, AT <: AbstractVector{T}, NLST, LST, TL, TLS, TC}
-        status = NonlinearSolverStatus(x, nonlinearsystem)
-        new{T, AT, NLST, LST, TL, TLS, TC, typeof(status)}(nonlinearsystem, linearsystem, linearsolver, linesearch, refactorize, cache, config, status)
+    function NewtonSolver(x::AT, nls::NLST, linearsystem::LSyT, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options; refactorize::Integer = 1) where {T, AT <: AbstractVector{T}, NLST, LSyT, LSoT, LiSeT, CT}
+        status = NonlinearSolverStatus(x, nls)
+        new{T, AT, NLST, LSyT, LSoT, LiSeT, CT, typeof(status)}(nls, linearsystem, linearsolver, linesearch, refactorize, cache, config, status)
     end
 end
 
-function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: AbstractVector{T}}
-    !ismissing(F) || error("You have to provide an F.")
-    nonlinear = MultivariateObjective(F, x)
-    NewtonSolver(nonlinear, x, y; kwargs...)
-end
+"""
+    NewtonSolver(x, F, y)
 
-function NewtonSolver(nonlinearsystem::NonlinearSystem, x::AT, y::AT; DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
-    n = length(y)
-    jacobian = ismissing(DF!) ? Jacobian{T}(Function(nonlinearsystem), n; mode = mode) : Jacobian{T}(DF!, n; mode = :function)
+# Keywords
+- `DF!`
+- `linesearch`
+- `config`
+- `mode`
+"""
+function NewtonSolver(x::AT, F::Callable, y::AT=F(x); DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
+    nls = ismissing(DF!) ? NonlinearSystem(F, x; mode = mode) : NonlinearSystem(F, DF!, x)
     cache = NewtonSolverCache(x, y)
     linearsolver = LinearSolver(y; linearsolver = :julia)
     ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)
-    NewtonSolver(x, nonlinearsystem, linearsystem, linearsolver, linesearch, cache, options; kwargs...)
+    linearsystem = LinearSystem(y)
+    NewtonSolver(x, nls, linearsystem, linearsolver, ls, cache, options; kwargs...)
+end
+
+function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: AbstractVector{T}}
+    !ismissing(F) || error("You have to provide an F.")
+    NewtonSolver(x, F, y; kwargs...)
 end
 
 """
@@ -80,14 +88,28 @@ end
 
 Compute one Newton step for `f` based on the [`Jacobian`](@ref) `jacobian!`.
 """
-function solver_step!(x::Union{AbstractVector{T}, T}, obj::NonlinearSystem, jacobian!::Jacobian, s::NewtonSolver{T}) where {T}
+function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
+    value!(nonlinearsystem(s), x)
+    jacobian!(nonlinearsystem(s), x)
+    update!(linearsystem(s), x, Jacobian(s), value(s))
+    solve!(linearsystem(s))
+    solution(cache(s)) .= solution(linearsystem(s))
+    rhs(cache(s)) .= -rhs(linearsystem(s))
+    ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
+    α = linesearch(s)(linesearch_objective(nls, jacobian(s), cache(s)))
+    x .+= compute_new_iterate(x, α, direction(cache(s)))
+    cache(s).x .= x
+    s
+end
+
+function solver_step!(x::Union{AbstractVector{T}, T}, nls::NonlinearSystem, jacobian!::Jacobian, s::NewtonSolver{T}) where {T}
     # update Newton solver cache
     update!(s, x)
 
     update_rhs_and_direction!(s, jacobian!)
 
     # apply line search
-    α = linesearch(s)(linesearch_nonlinear(obj, jacobian(s), cache(s)))
+    α = linesearch(s)(linesearch_objective(nls, jacobian(s), cache(s)))
     x .+= compute_new_iterate(x, α, direction(cache(s)))
 end
 
@@ -114,10 +136,6 @@ function update_rhs_and_direction!(solver::NewtonSolver, jacobian!::Jacobian, x:
     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
     solver
-end
-
-function solver_linear_system!(solver::LinearSolver, ls::LinearSystem, x::AbstractVector)
-
 end
 
 update_rhs_and_direction!(solver::NewtonSolver, jacobian!::Jacobian) = update_rhs_and_direction!(solver, jacobian!::Jacobian, solution(cache(solver)))
@@ -147,7 +165,7 @@ status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
 
 Return the [`NonlinearSystem`](@ref) contained in the [`NewtonSolver`](@ref). Compare this to [`linearsolver`](@ref).
 """
-nonlinearsystem(solver::NewtonSolver)::NonlinearSystem = solver.nonlinear
+nonlinearsystem(solver::NewtonSolver)::NonlinearSystem = solver.nonlinearsystem
 iteration_number(solver::NewtonSolver)::Integer = iteration_number(status(solver))
 
 """
@@ -174,10 +192,10 @@ linearsolver(s)
 
 # output
 
-LUSolver{Float64}(3, [0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [1, 2, 3], [1, 2, 3], 1)
+LUSolver{Float64, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}}(3, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([NaN, NaN, NaN], [NaN NaN NaN; NaN NaN NaN; NaN NaN NaN], [NaN, NaN, NaN]), [1, 2, 3], [1, 2, 3], 0, true)
 ```
 """
-linearsolver(solver::NewtonSolver) = solver.linear
+linearsolver(solver::NewtonSolver) = solver.linearsolver
 linesearch(solver::NewtonSolver) = solver.linesearch
 
 compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...) = compute_jacobian!(jacobian(cache(s)), x, jacobian!; kwargs...)
@@ -185,7 +203,7 @@ compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwar
 check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
 print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
 
-initialize!(s::NewtonSolver, x₀::AbstractArray, f) = initialize!(status(s), x₀, f)
+initialize!(s::NewtonSolver, x₀::AbstractArray) = initialize!(status(s), x₀)
 
 """
     update!(solver, x)
@@ -194,7 +212,8 @@ Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
 This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
 """
 function update!(s::NewtonSolver, x₀::AbstractArray)
-    update!(status(s), x₀, nonlinear(s))
+    update!(status(s), x₀)
+    update!(nonlinearsystem(s), x₀)
     update!(cache(s), x₀)
 
     s

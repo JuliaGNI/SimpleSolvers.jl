@@ -13,12 +13,12 @@ Stores absolute, relative and successive residuals for `x` and `f`. It is used a
 - `rfₛ`: successive residual in `f`,
 - `x`: the *current solution* (can also be accessed by calling [`solution`](@ref)),
 - `x̄`: previous solution
-- `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::MultivariateObjective)`](@ref),
+- `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref),
 - `x̃`: a variable that gives the *component-wise change* via ``\delta/x``,
 - `f₀`: initial function value,
 - `f`: current function value,
 - `f̄`: previous function value,
-- `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::MultivariateObjective)`](@ref),
+- `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref),
 - `f̃`: variable that gives the change in the function value via ``\gamma/f(x_0)``,
 - `x_converged::Bool`
 - `f_converged::Bool`
@@ -33,7 +33,7 @@ NonlinearSolverStatus{Float64}(3)
 # output
 
 i=   0,
-x₁= NaN,
+x= NaN,
 f= NaN,
 rxₐ= NaN,
 rxᵣ= NaN,
@@ -91,11 +91,13 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
         zeros(T, n), zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
         false, false, false, false)
         clear!(status)
+        status
     end
 
-    function NonlinearSolverStatus(x₀::AbstractVector{T}, obj::AbstractObjective{T}) where {T}
+    function NonlinearSolverStatus(x₀::AbstractVector{T}) where {T}
         status = NonlinearSolverStatus{T}(length(x₀))
-        initialize!(status, x₀, obj)
+        initialize!(status, x₀)
+        status
     end
 end
 
@@ -147,7 +149,7 @@ Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT}) where {XT, YT, AXT <
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: Number} = print(io,
                         (@sprintf "i=%4i" iteration_number(status)),  ",\n",
-                        (@sprintf "x₁=%4e" status.x[1]),  ",\n",
+                        (@sprintf "x=%4e" status.x[1]),  ",\n",
                         (@sprintf "f=%4e" status.f),  ",\n",
                         (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
                         (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
@@ -156,7 +158,7 @@ Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, 
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: AbstractArray} = print(io,
                         (@sprintf "i=%4i" iteration_number(status)),  ",\n",
-                        (@sprintf "x₁=%4e" status.x[1]),  ",\n",
+                        (@sprintf "x=%4e" status.x[1]),  ",\n",
                         (@sprintf "f=%4e" status.f[1]),  ",\n",
                         (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
                         (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
@@ -296,7 +298,7 @@ end
     residual!(status)
 
 Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
-Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::MultivariateObjective)`](@ref).
+Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref).
 The computed residuals are the following:
 - `rxₐ`: absolute residual in ``x``,
 - `rxᵣ`: relative residual in ``x``,
@@ -320,37 +322,32 @@ function residual!(status::NonlinearSolverStatus)
 end
 
 """
-    initialize!(status, x, f)
+    initialize!(status, x)
 
-Clear `status::`[`NonlinearSolverStatus`](@ref) (via the function [`clear!`](@ref)) and initialize it based on `x` and the function `f`.
+Clear `status::`[`NonlinearSolverStatus`](@ref) (via the function [`clear!`](@ref)).
 """
-function initialize!(status::NonlinearSolverStatus, x::AbstractVector, obj::AbstractObjective)
+function initialize!(status::NonlinearSolverStatus, x::AbstractVector)
     clear!(status)
-    clear!(obj)
-    copyto!(solution(status), x)
-    value!(obj, x)
-    status.f .= value(obj)
-    status.f₀ .= copy(status.f)
     
     status
 end
 
 """
-    update!(status, x, obj)
+    update!(status, x, nls)
 
-Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`MultivariateObjective`](@ref) `obj`. Internally this calls [`next_iteration!`](@ref).
+Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`NonlinearSystem`](@ref) `obj`. Internally this calls [`next_iteration!`](@ref).
 
 !!! info
-   This also updates the objective `obj`!
+   This also updates the objective `nls`!
 
 The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
-function update!(status::NonlinearSolverStatus, x::AbstractVector, obj::MultivariateObjective)
+function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem)
     copyto!(solution(status), x)
-    value!(obj, x)
-    status.f .= value(obj)
+    value!(nls, x)
+    status.f .= value(nls)
     next_iteration!(status)
 
     status.δ .= solution(status) .- status.x̄

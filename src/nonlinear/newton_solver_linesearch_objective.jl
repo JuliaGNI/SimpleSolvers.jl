@@ -12,17 +12,17 @@ Also see [`linesearch_objective(::MultivariateObjective{T}, ::NewtonOptimizerCac
 """
 function linesearch_objective(objective::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache{T}) where T
     function f(α)
-        cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
-        value!(objective, cache.x₁)
+        cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
+        value!(objective, cache.x)
         cache.y .= value(objective)
         L2norm(cache.y)
     end
 
     function d(α)
-        cache.x₁ .= compute_new_iterate(cache.x₀, α, cache.δx)
-        value!(objective, cache.x₁)
+        cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
+        value!(objective, cache.x)
         cache.y .= value(objective)
-        compute_jacobian!(cache.J, cache.x₁, jacobian!)
+        compute_jacobian!(cache.J, cache.x, jacobian!)
         2 * dot(cache.y, cache.J, cache.δx)
     end
 
