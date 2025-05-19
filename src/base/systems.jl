@@ -2,21 +2,58 @@
     LinearSystem
 
 A `LinearSystem` describes ``Ax = y``, where we want to solve for ``x``.
+
+# Keys
+- `x`
+- `A`
+- `y`
+- `solved`: see [`status(::LinearSystem)`](@ref)
 """
-struct LinearSystem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <: AbstractProblem 
+mutable struct LinearSystem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <: AbstractProblem 
     x::VT
     A::AT
     y::VT
-    function LinearSystem(x::VT, A::AT, y::VT) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
+    solved::Bool
+    function LinearSystem(x::VT, A::AT, y::VT; solved::Bool = false) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
         @assert (length(y), length(x)) == size(A)
-        new{T, VT, AT}(x, A, y)
+        new{T, VT, AT}(x, A, y, solved)
     end
 end
 
-function LinearSystem(A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
+function LinearSystem(A::AbstractMatrix{T}, y::AbstractVector{T}; kwargs...) where {T}
     x = alloc_x(A[1, :])
-    LinearSystem(x, A, y)
+    LinearSystem(x, A, y; kwargs...)
 end
+
+function LinearSystem{T}(n::Integer, m::Integer; kwargs...) where {T}
+    A = zeros(T, n, m)
+    A .= T(NaN)
+    y = alloc_x(A[:, 1])
+    LinearSystem(A, y; kwargs...)
+end
+
+LinearSystem{T}(n::Integer; kwargs...) where {T} = LinearSystem{T}(n, n; kwargs...)
+
+LinearSystem(y::AbstractVector{T}; kwargs...) where {T} = LinearSystem{T}(length(y); kwargs...)
+
+"""
+    update!(ls, x, A, y)
+
+Set the [`solution`](@ref) vector of `ls` (a [`LinearSystem`](@ref)) to `x`, the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
+"""
+function update!(ls::LinearSystem{T}, x::AbstractVector{T}, A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
+    solution(ls) .= x
+    rhs(ls) .= y
+    Matrix(ls) .= A
+    ls.solved = false
+end
+
+"""
+    status(ls)
+
+Return the status of a [`LinearSolver`](@ref), i.e. say if the system has been solved.
+"""
+status(ls::LinearSystem) = ls.solved
 
 solution(ls::LinearSystem) = ls.x
 rhs(ls::LinearSystem) = ls.y
@@ -63,6 +100,9 @@ mutable struct NonlinearSystem{T, TF <: Callable, TJ <: Jacobian{T}, Tx <: Abstr
     end
 end
 
+"""
+    NonlinearSystem(F, J!, x)
+"""
 function NonlinearSystem(F::Callable, J!::Callable,
     x::AbstractArray{<:Number};
     f::Number=alloc_f(x, F),
@@ -70,9 +110,12 @@ function NonlinearSystem(F::Callable, J!::Callable,
     NonlinearSystem(F, JacobianFunction(J!, x), x; f = f, j = j)
 end
 
+"""
+    NonlinearSystem(F, x)
+"""
 function NonlinearSystem(F::Callable, x::AbstractArray; kwargs...)
     J = Jacobian(F, x; kwargs...)
-    NonlinearSystem(F, J, x; kwargs...)
+    NonlinearSystem(F, J, x)
 end
 
 function value!!(nls::NonlinearSystem{T}, x::AbstractArray{T}) where {T}
@@ -160,12 +203,12 @@ end
 """
     clear!(nls::NonlinearSystem)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(nls::NonlinearSystem)
     _clear_f!(nls)
     _clear_j!(nls)
-    nothing
+    nls
 end
 
 """
