@@ -1,6 +1,6 @@
 # Solver Status
 
-In `SimpleSolvers` we can use the [`SimpleSolvers.NonlinearSolverStatus`](@ref) to provide a diagnostic tool for a [`NonlinearSolver`](@ref). We first make an instance of [`MultivariateObjective`](@ref):
+In `SimpleSolvers` we can use the [`SimpleSolvers.NonlinearSolverStatus`](@ref) to provide a diagnostic tool for a [`NonlinearSolver`](@ref). We first make an instance of [`NonlinearSystem`](@ref):
 
 ```@example status
 using SimpleSolvers # hide
@@ -8,13 +8,13 @@ using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!,
 
 x = [3., 1.3]
 f = x -> tanh.(x)
-obj = MultivariateObjective(f, x)
+nls = NonlinearSystem(f, x)
 ```
 
 We now create an instance of [`NewtonSolver`](@ref) which also allocates a [`SimpleSolvers.NonlinearSolverStatus`](@ref):
 
 ```@example status
-solver = NewtonSolver(obj, x, obj(x))
+solver = NewtonSolver(x, f)
 ```
 
 Note that all variables are [initialized with `NaN`s](@ref "Reasoning behind Initialization with `NaN`s").

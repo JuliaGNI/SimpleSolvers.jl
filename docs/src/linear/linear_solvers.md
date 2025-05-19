@@ -13,7 +13,7 @@ A linear system can be called with:
 ```@example linear_system
 using SimpleSolvers
 
-A = [(0. + 1e-5) 1. 2.; 3. 4. 5.; 6. 7. 8.]
+A = [(0. + 1e-6) 1. 2.; 3. 4. 5.; 6. 7. 8.]
 y = [1., 2., 3.]
 ls = LinearSystem(copy(A), y)
 nothing # hide
@@ -25,40 +25,57 @@ Note that we here use the matrix:
 A = \begin{pmatrix} 0 + \varepsilon & 1 & 2 \\ 3 & 4 & 5 \\ 6 & 7 & 8 \end{pmatrix}.
 ```
 
-This matrix would be singular if we had ``\varepsilon = 0`` because ``2\cdot\begin{pmatrix} 3 \\ 4 \\ 5 \end{pmatrix} - \begin{pmatrix} \end 6 \\ 7 \\ 8 {pmatrix} = \begin{pmatrix} 0 \\ 1 \\ 2 \end{pmatrix}.`` So by choosing ``\varepsilon = 10^{-5}`` the matrix is *ill-conditioned*.
+This matrix would be singular if we had ``\varepsilon = 0`` because ``2\cdot\begin{pmatrix} 3 \\ 4 \\ 5 \end{pmatrix} - \begin{pmatrix} \end 6 \\ 7 \\ 8 {pmatrix} = \begin{pmatrix} 0 \\ 1 \\ 2 \end{pmatrix}.`` So by choosing ``\varepsilon = 10^{-6}`` the matrix is *ill-conditioned*.
 
-We will also use this problem as an example to demonstrate features of [`LinearSolver`](@ref)s.
-
-As a result we can solve the system in double precision with a naive matrix inversion:
+We first solve [`LinearSystem`](@ref) with an [`LUSolver`](@ref) in double precision and without pivoting:
 
 ```@example linear_system
-inv(A) * y
+lu = LUSolver(ls; pivot = false)
+solution(lu)
 ```
 
-but not in single precision[^1]:
-[^1]: We use the superscript ``s`` to indicate single precision.
+We now do the same in single precision:
 
 ```@example linear_system
 Aˢ = Float32.(A)
 yˢ = Float32.(y)
 lsˢ = LinearSystem(copy(Aˢ), yˢ)
-
-inv(Aˢ) * yˢ
-```
-
-We now use an [`LUSolver`](@ref) to solve the same problem:
-
-```@example linear_system
-lu = LUSolver(lsˢ)
-solution(lsˢ)
-```
-
-If we however deactivate pivoting we get:
-
-```@example linear_system
-Aˢ = Float32.(A) # hide
-yˢ = Float32.(y) # hide
-lsˢ = LinearSystem(copy(Aˢ), yˢ) # hide
 lu = LUSolver(lsˢ; pivot = false)
 solution(lsˢ)
 ```
+
+As we can see the computation of the factorization returns `NaN`s. If we use pivoting however, the problem can also be solved with single precision:
+
+```@example linear_system
+lsˢ = LinearSystem(copy(Aˢ), yˢ) # hide
+lu = LUSolver(lsˢ; pivot = true)
+solution(lsˢ)
+```
+
+## Solving the System with Built-In Functionality from the `LinearAlgebra` Package
+
+We further try to solve the system with the `inv` operator from the `LinearAlgebra` package. First in double precision:
+
+```@example linear_system
+inv(A) * y
+```
+
+And also in single precision
+
+```@example linear_system
+inv(Aˢ) * yˢ
+```
+
+In single precision the result is completely wrong as can also be seen by computing:
+
+```@example linear_system
+inv(Aˢ) * Aˢ
+```
+
+If we however write:
+
+```@example linear_system
+Aˢ \ yˢ
+```
+
+we again obtain a correct-looking result, as `LinearAlgebra.\` uses an algorithm very similar to [`factorize!`](@ref) in `SimpleSolvers`.
