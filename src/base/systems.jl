@@ -4,25 +4,25 @@
 A `LinearSystem` describes ``Ax = y``, where we want to solve for ``x``.
 
 # Keys
-- `x`
+- `δx`
 - `A`
 - `y`
 - `solved`: see [`status(::LinearSystem)`](@ref)
 """
 mutable struct LinearSystem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <: AbstractProblem 
-    x::VT
+    δx::VT
     A::AT
     y::VT
     solved::Bool
-    function LinearSystem(x::VT, A::AT, y::VT; solved::Bool = false) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
-        @assert (length(y), length(x)) == size(A)
-        new{T, VT, AT}(x, A, y, solved)
+    function LinearSystem(δx::VT, A::AT, y::VT; solved::Bool = false) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
+        @assert (length(y), length(δx)) == size(A)
+        new{T, VT, AT}(δx, A, y, solved)
     end
 end
 
 function LinearSystem(A::AbstractMatrix{T}, y::AbstractVector{T}; kwargs...) where {T}
-    x = alloc_x(A[1, :])
-    LinearSystem(x, A, y; kwargs...)
+    δx = alloc_x(A[1, :])
+    LinearSystem(δx, A, y; kwargs...)
 end
 
 function LinearSystem{T}(n::Integer, m::Integer; kwargs...) where {T}
@@ -37,15 +37,19 @@ LinearSystem{T}(n::Integer; kwargs...) where {T} = LinearSystem{T}(n, n; kwargs.
 LinearSystem(y::AbstractVector{T}; kwargs...) where {T} = LinearSystem{T}(length(y); kwargs...)
 
 """
-    update!(ls, x, A, y)
+    update!(ls, δx, A, y)
 
-Set the [`solution`](@ref) vector of `ls` (a [`LinearSystem`](@ref)) to `x`, the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
+Set the [`solution`](@ref) vector of `ls` (a [`LinearSystem`](@ref)) to `δx`, the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
+
+!!! info
+    Calling `update!` doesn't solve the `LinearSystem`, you still have to call `solve!` in combination with a `LinearSolver` which the `LinearSystem` is a part of.
 """
-function update!(ls::LinearSystem{T}, x::AbstractVector{T}, A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
-    solution(ls) .= x
+function update!(ls::LinearSystem{T}, δx::AbstractVector{T}, A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
+    solution(ls) .= δx
     rhs(ls) .= y
     Matrix(ls) .= A
     ls.solved = false
+    ls
 end
 
 """
@@ -55,7 +59,7 @@ Return the status of a [`LinearSolver`](@ref), i.e. say if the system has been s
 """
 status(ls::LinearSystem) = ls.solved
 
-solution(ls::LinearSystem) = ls.x
+solution(ls::LinearSystem) = ls.δx
 rhs(ls::LinearSystem) = ls.y
 Base.Matrix(ls::LinearSystem)::Matrix = ls.A
 

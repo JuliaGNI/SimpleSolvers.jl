@@ -24,24 +24,25 @@ NewtonSolverCache(x, y)
 
 `J` is allocated by calling [`alloc_j`](@ref).
 """
-struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}}
+struct NewtonSolverCache{T, AT <: AbstractVector{T}} # , JT <: AbstractMatrix{T}}
     x̄::AT
     x::AT
     δx::AT
 
     rhs::AT
     y::AT
-    J::JT
+    # J::JT
 
     function NewtonSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
-        J = alloc_j(x, y)
-        c = new{T,AT,typeof(J)}(zero(x), zero(x), zero(x), zero(y), zero(y), J)
+        # J = alloc_j(x, y)
+        # c = new{T,AT,typeof(J)}(zero(x), zero(x), zero(x), zero(y), zero(y), J)
+        c = new{T, AT}(zero(x), zero(x), zero(x), zero(y), zero(y))
         initialize!(c, fill!(similar(x), NaN))
         c
     end
 end
 
-jacobian(cache::NewtonSolverCache) = cache.J
+# jacobian(cache::NewtonSolverCache) = cache.J
 direction(cache::NewtonSolverCache) = cache.δx
 
 @doc raw"""
@@ -76,7 +77,7 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
 
     cache.rhs .= alloc_x(x)
     cache.y .= alloc_f(cache.y)
-    cache.J .= alloc_j(x, cache.y)
+    # cache.J .= alloc_j(x, cache.y)
 
     cache
 end

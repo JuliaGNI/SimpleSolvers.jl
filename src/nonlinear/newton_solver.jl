@@ -26,7 +26,7 @@ rxₐ= NaN,
 rxᵣ= NaN,
 rfₐ= NaN,
 rfᵣ= NaN
-````
+```
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 
@@ -54,7 +54,7 @@ struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSyT <: LinearSystem, LSoT <
     status::NSST
 
     function NewtonSolver(x::AT, nls::NLST, linearsystem::LSyT, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options; refactorize::Integer = 1) where {T, AT <: AbstractVector{T}, NLST, LSyT, LSoT, LiSeT, CT}
-        status = NonlinearSolverStatus(x, nls)
+        status = NonlinearSolverStatus(x)
         new{T, AT, NLST, LSyT, LSoT, LiSeT, CT, typeof(status)}(nls, linearsystem, linearsolver, linesearch, refactorize, cache, config, status)
     end
 end
@@ -89,16 +89,14 @@ end
 Compute one Newton step for `f` based on the [`Jacobian`](@ref) `jacobian!`.
 """
 function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
+    update!(cache(s), x)
     value!(nonlinearsystem(s), x)
     jacobian!(nonlinearsystem(s), x)
-    update!(linearsystem(s), x, Jacobian(s), value(s))
+    update!(linearsystem(s), x, jacobian(s), -value(s))
     solve!(linearsystem(s))
-    solution(cache(s)) .= solution(linearsystem(s))
-    rhs(cache(s)) .= -rhs(linearsystem(s))
-    ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
+    direction(cache(s)) .= solution(linearsystem(s))
     α = linesearch(s)(linesearch_objective(nls, jacobian(s), cache(s)))
     x .+= compute_new_iterate(x, α, direction(cache(s)))
-    cache(s).x .= x
     s
 end
 
@@ -129,7 +127,7 @@ function update_rhs_and_direction!(solver::NewtonSolver, jacobian!::Jacobian, x:
     end
 
     # compute RHS (f is an in-place function)
-    cache(solver).rhs .= value(nonlinear(solver))
+    cache(solver).rhs .= value(solver)
     rmul!(cache(solver).rhs, -1)
 
     # solve J δx = -f(x)
@@ -166,6 +164,9 @@ status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
 Return the [`NonlinearSystem`](@ref) contained in the [`NewtonSolver`](@ref). Compare this to [`linearsolver`](@ref).
 """
 nonlinearsystem(solver::NewtonSolver)::NonlinearSystem = solver.nonlinearsystem
+
+value(solver::NewtonSolver) = value(nonlinearsystem(solver))
+
 iteration_number(solver::NewtonSolver)::Integer = iteration_number(status(solver))
 
 """
@@ -192,7 +193,7 @@ linearsolver(s)
 
 # output
 
-LUSolver{Float64, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}}(3, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([NaN, NaN, NaN], [NaN NaN NaN; NaN NaN NaN; NaN NaN NaN], [NaN, NaN, NaN]), [1, 2, 3], [1, 2, 3], 0, true)
+LUSolver{Float64, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}}(3, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([NaN, NaN, NaN], [NaN NaN NaN; NaN NaN NaN; NaN NaN NaN], [NaN, NaN, NaN], true), [1, 2, 3], [1, 2, 3], 0, true)
 ```
 """
 linearsolver(solver::NewtonSolver) = solver.linearsolver

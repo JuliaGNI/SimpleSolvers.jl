@@ -31,7 +31,7 @@ LUSolver{Float32}(2)
 
 # output
 
-LUSolver{Float32, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}}(2, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}(Float32[NaN, NaN], Float32[NaN NaN; NaN NaN], Float32[NaN, NaN]), [1, 2], [1, 2], 0, true)
+LUSolver{Float32, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}}(2, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}(Float32[NaN, NaN], Float32[NaN NaN; NaN NaN], Float32[NaN, NaN], true), [1, 2], [1, 2], 0, true)
 ```
 
 # Keys
@@ -224,8 +224,9 @@ solution(lu::LUSolver) = solution(linearsystem(lu))
 Solve the [`LinearSystem`](@ref) stored in `lu` and store the result in [`solution`](@ref)`(lu)`.
 """
 function solve!(lu::LUSolver)
+    !status(linearsystem(lu)) || error("System has already been solved.")
     factorize!(lu)
     ldiv!(solution(lu), lu, rhs(linearsystem(lu)))
-    lu.solved = true
+    linearsystem(lu).solved = true
     lu
 end
