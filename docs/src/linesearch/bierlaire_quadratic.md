@@ -23,11 +23,11 @@ f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(cache(solver)))
+factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-obj = MultivariateObjective(f, x)
-ls_obj = linesearch_objective(obj, JacobianFunction(j!, x), cache(solver))
+nls = NonlinearSystem(f, x)
+ls_obj = linesearch_objective(nls, cache(solver))
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

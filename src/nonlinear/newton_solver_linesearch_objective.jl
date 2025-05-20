@@ -1,5 +1,5 @@
 """
-    linesearch_objective(objective!, jacobian!, cache)
+    linesearch_objective(nls, cache)
 
 Make a line search objective for a *Newton solver* (the `cache` here is an instance of [`NewtonSolverCache`](@ref)).
 
@@ -10,20 +10,20 @@ Make a line search objective for a *Newton solver* (the `cache` here is an insta
 
 Also see [`linesearch_objective(::MultivariateObjective{T}, ::NewtonOptimizerCache{T}) where {T}`](@ref).
 """
-function linesearch_objective(objective::AbstractObjective, jacobian!::Jacobian, cache::NewtonSolverCache{T}) where T
+function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{T}) where T
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
-        value!(objective, cache.x)
-        cache.y .= value(objective)
+        value!(nls, cache.x)
+        cache.y .= value(nls)
         L2norm(cache.y)
     end
 
     function d(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
-        value!(objective, cache.x)
-        cache.y .= value(objective)
-        compute_jacobian!(cache.J, cache.x, jacobian!)
-        2 * dot(cache.y, cache.J, cache.δx)
+        value!(nls, cache.x)
+        cache.y .= value(nls)
+        jacobian!(nls, cache.x)
+        2 * dot(cache.y, jacobian(nls), direction(cache))
     end
 
     # the last argument is to specify the "type" in the objective

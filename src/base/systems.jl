@@ -25,6 +25,11 @@ function LinearSystem(A::AbstractMatrix{T}, y::AbstractVector{T}; kwargs...) whe
     LinearSystem(δx, A, y; kwargs...)
 end
 
+function LinearSystem(A::AbstractMatrix; kwargs...)
+    y = alloc_x(A[:, 1])
+    LinearSystem(A, y; kwargs...)
+end
+
 function LinearSystem{T}(n::Integer, m::Integer; kwargs...) where {T}
     A = zeros(T, n, m)
     A .= T(NaN)
@@ -173,7 +178,7 @@ function jacobian!!(nls::NonlinearSystem{T}, x::AbstractArray{T}) where {T}
     copyto!(j_argument(nls), x)
     nls.j_calls += 1
     compute_jacobian!(jacobian(nls), x, Jacobian(nls))
-    jacobian(obj)
+    jacobian(nls)
 end
 
 """
@@ -186,7 +191,7 @@ function jacobian!(nls::NonlinearSystem{T}, x::AbstractArray{T}) where {T <: Num
     if x != j_argument(nls)
         jacobian!!(nls, x)
     end
-    jacobian(obj)
+    jacobian(nls)
 end
 
 function _clear_f!(nls::NonlinearSystem)
@@ -267,3 +272,9 @@ f_calls(nls::NonlinearSystem) = nls.f_calls
 Like [`f_calls`](@ref) in relation to a [`NonlinearSystem`](@ref) `nls`, but for [`jacobian`](@ref) (or [`jacobian!`](@ref)).
 """
 j_calls(nls::NonlinearSystem) = nls.j_calls
+
+function update!(nls::NonlinearSystem{T}, x::AbstractVector{T}) where {T}
+    value!(nls, x)
+    jacobian!(nls, x)
+    nls
+end

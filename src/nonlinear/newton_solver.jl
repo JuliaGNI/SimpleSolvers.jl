@@ -91,52 +91,55 @@ Compute one Newton step for `f` based on the [`Jacobian`](@ref) `jacobian!`.
 function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
     update!(cache(s), x)
     value!(nonlinearsystem(s), x)
-    jacobian!(nonlinearsystem(s), x)
-    update!(linearsystem(s), x, jacobian(s), -value(s))
-    solve!(linearsystem(s))
+    if (mod(iteration_number(solver)-1, solver.refactorize) == 0 || iteration_number(solver) == 0 || iteration_number(solver) == 1)
+        jacobian!(nonlinearsystem(s), x)
+        update!(linearsystem(s), x, jacobian(s), -value(s))
+        solve!(linearsystem(s))
+    end
+    @assert status(linearsystem(s)) "The linear system hasn't been solved!"
     direction(cache(s)) .= solution(linearsystem(s))
-    α = linesearch(s)(linesearch_objective(nls, jacobian(s), cache(s)))
+    α = linesearch(s)(linesearch_objective(nls, cache(s)))
     x .+= compute_new_iterate(x, α, direction(cache(s)))
     s
 end
 
-function solver_step!(x::Union{AbstractVector{T}, T}, nls::NonlinearSystem, jacobian!::Jacobian, s::NewtonSolver{T}) where {T}
-    # update Newton solver cache
-    update!(s, x)
-
-    update_rhs_and_direction!(s, jacobian!)
-
-    # apply line search
-    α = linesearch(s)(linesearch_objective(nls, jacobian(s), cache(s)))
-    x .+= compute_new_iterate(x, α, direction(cache(s)))
-end
-
-"""
-    update_rhs_and_direction(solver, jacobian!, x)
-
-Update the rhs and the [`direction`](@ref) of `solver::`[`NewtonSolver`](@ref).
-
-This is used in addition to [`update!(::NewtonSolver, ::AbstractArray)`](@ref) when calling [`solver_step!`](@ref).
-"""
-function update_rhs_and_direction!(solver::NewtonSolver, jacobian!::Jacobian, x::AbstractVector)
-    @info string(iteration_number(solver))
-    if (mod(iteration_number(solver)-1, solver.refactorize) == 0 || iteration_number(solver) == 0 || iteration_number(solver) == 1)
-        compute_jacobian!(solver, x, jacobian!)
-        # factorize the jacobian stored in `s` and save the factorized matrix in the corresponding linear solver.
-        factorize!(linearsolver(solver), jacobian(cache(solver)))
-    end
-
-    # compute RHS (f is an in-place function)
-    cache(solver).rhs .= value(solver)
-    rmul!(cache(solver).rhs, -1)
-
-    # solve J δx = -f(x)
-    ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-
-    solver
-end
-
-update_rhs_and_direction!(solver::NewtonSolver, jacobian!::Jacobian) = update_rhs_and_direction!(solver, jacobian!::Jacobian, solution(cache(solver)))
+# function solver_step!(x::Union{AbstractVector{T}, T}, nls::NonlinearSystem, jacobian!::Jacobian, s::NewtonSolver{T}) where {T}
+#     # update Newton solver cache
+#     update!(s, x)
+# 
+#     update_rhs_and_direction!(s)
+# 
+#     # apply line search
+#     α = linesearch(s)(linesearch_objective(nls, cache(s)))
+#     x .+= compute_new_iterate(x, α, direction(cache(s)))
+# end
+# 
+# """
+#     update_rhs_and_direction(solver, jacobian!, x)
+# 
+# Update the rhs and the [`direction`](@ref) of `solver::`[`NewtonSolver`](@ref).
+# 
+# This is used in addition to [`update!(::NewtonSolver, ::AbstractArray)`](@ref) when calling [`solver_step!`](@ref).
+# """
+# function update_rhs_and_direction!(solver::NewtonSolver, x::AbstractVector)
+#     @info string(iteration_number(solver))
+#     if (mod(iteration_number(solver)-1, solver.refactorize) == 0 || iteration_number(solver) == 0 || iteration_number(solver) == 1)
+#         compute_jacobian!(solver, x)
+#         # factorize the jacobian stored in `s` and save the factorized matrix in the corresponding linear solver.
+#         factorize!(linearsolver(solver), jacobian(solver))
+#     end
+# 
+#     # compute RHS (f is an in-place function)
+#     cache(solver).rhs .= value(solver)
+#     rmul!(cache(solver).rhs, -1)
+# 
+#     # solve J δx = -f(x)
+#     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
+# 
+#     solver
+# end
+# 
+# update_rhs_and_direction!(solver::NewtonSolver) = update_rhs_and_direction!(solver, solution(cache(solver)))
 
 """
     QuasiNewtonSolver
@@ -170,12 +173,20 @@ value(solver::NewtonSolver) = value(nonlinearsystem(solver))
 iteration_number(solver::NewtonSolver)::Integer = iteration_number(status(solver))
 
 """
+    Jacobian(solver::NewtonSolver)
+
+Return the [`Jacobian`](@ref) stored in the [`NonlinearSystem`](@ref) of `solver`.
+"""
+Jacobian(solver::NewtonSolver)::Jacobian = Jacobian(nonlinearsystem(solver))
+
+"""
     jacobian(solver::NewtonSolver)
 
-Calling `jacobian` on an instance of [`NewtonSolver`](@ref) produces a slight ambiguity since the `cache` (of type [`NewtonSolverCache`](@ref)) also stores a Jacobian, but in the latter case it is a matrix not an instance of type [`Jacobian`](@ref).
-Hence we return the object of type [`Jacobian`](@ref) when calling `jacobian`. This is also used in [`solver_step!`](@ref).
+Return the evaluated Jacobian (a Matrix) stored in the [`NonlinearSystem`](@ref) of `solver`.
+
+Also see [`jacobian(::NonlinearSystem)`].
 """
-jacobian(solver::NewtonSolver)::Jacobian = solver.jacobian
+jacobian(solver::NewtonSolver)::AbstractMatrix = jacobian(nonlinearsystem(solver))
 
 """
     linearsolver(solver)
@@ -199,7 +210,14 @@ LUSolver{Float64, LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}}(3, Li
 linearsolver(solver::NewtonSolver) = solver.linearsolver
 linesearch(solver::NewtonSolver) = solver.linesearch
 
-compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...) = compute_jacobian!(jacobian(cache(s)), x, jacobian!; kwargs...)
+function compute_jacobian!(s::NewtonSolver, x; kwargs...)
+    compute_jacobian!(jacobian(s), x, Jacobian(s); kwargs...)
+end
+
+function compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...)
+    @warn "This function should not be called! Instead call `compute_jacobian!(s, x)`."
+    compute_jacobian!(jacobian(nonlinearsystem(s)), x, jacobian!; kwargs...)
+end
 
 check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
 print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
@@ -213,7 +231,7 @@ Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
 This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
 """
 function update!(s::NewtonSolver, x₀::AbstractArray)
-    update!(status(s), x₀)
+    update!(status(s), x₀, nonlinearsystem(s))
     update!(nonlinearsystem(s), x₀)
     update!(cache(s), x₀)
 

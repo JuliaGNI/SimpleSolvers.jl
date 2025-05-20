@@ -70,6 +70,10 @@ function LUSolver{T}(n::Int; kwargs...) where {T}
     LUSolver(ls; kwargs...)
 end
 
+function LUSolver(A::AbstractMatrix; kwargs...)
+    LUSolver(LinearSystem(A); kwargs...)
+end
+
 """
     factorize!(lu, A)
 
