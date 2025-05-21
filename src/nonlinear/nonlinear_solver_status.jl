@@ -126,6 +126,7 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.δ .= alloc_x(status.x)
     status.x̃ .= alloc_x(status.x)
 
+    status.f₀ .= alloc_f(status.f)
     status.f̄ .= alloc_f(status.f)
     status.f .= alloc_f(status.f)
     status.γ .= alloc_f(status.f)
@@ -345,10 +346,11 @@ The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
 function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem)
-    copyto!(solution(status), x)
+    next_iteration!(status)
+    solution(status) .= x
     value!(nls, x)
     status.f .= value(nls)
-    next_iteration!(status)
+    (iteration_number(status) != 0) || (status.f₀ .= value(nls))
 
     status.δ .= solution(status) .- status.x̄
     status.γ .= status.f .- status.f̄

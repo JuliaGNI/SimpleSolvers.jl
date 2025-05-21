@@ -40,9 +40,8 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref): 
 """
-struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSyT <: LinearSystem, LSoT <: LinearSolver, LiSeT <: LinesearchState, CT <: NewtonSolverCache, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
+struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSoT <: LinearSolver, LiSeT <: LinesearchState, CT <: NewtonSolverCache, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
     nonlinearsystem::NLST
-    linearsystem::LSyT
 
     linearsolver::LSoT
     linesearch::LiSeT
@@ -53,9 +52,9 @@ struct NewtonSolver{T, AT, NLST <: NonlinearSystem, LSyT <: LinearSystem, LSoT <
     config::Options{T}
     status::NSST
 
-    function NewtonSolver(x::AT, nls::NLST, linearsystem::LSyT, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options; refactorize::Integer = 1) where {T, AT <: AbstractVector{T}, NLST, LSyT, LSoT, LiSeT, CT}
+    function NewtonSolver(x::AT, nls::NLST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options; refactorize::Integer = 1) where {T, AT <: AbstractVector{T}, NLST, LSoT, LiSeT, CT}
         status = NonlinearSolverStatus(x)
-        new{T, AT, NLST, LSyT, LSoT, LiSeT, CT, typeof(status)}(nls, linearsystem, linearsolver, linesearch, refactorize, cache, config, status)
+        new{T, AT, NLST, LSoT, LiSeT, CT, typeof(status)}(nls, linearsolver, linesearch, refactorize, cache, config, status)
     end
 end
 
@@ -74,8 +73,7 @@ function NewtonSolver(x::AT, F::Callable, y::AT=F(x); DF! = missing, linesearch 
     linearsolver = LinearSolver(y; linearsolver = :julia)
     ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)
-    linearsystem = LinearSystem(y)
-    NewtonSolver(x, nls, linearsystem, linearsolver, ls, cache, options; kwargs...)
+    NewtonSolver(x, nls, linearsolver, ls, cache, options; kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: AbstractVector{T}}
@@ -84,21 +82,21 @@ function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: Abst
 end
 
 """
-    solver_step!(s)
+    solver_step!(s, x)
 
 Compute one Newton step for `f` based on the [`Jacobian`](@ref) `jacobian!`.
 """
 function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
     update!(cache(s), x)
     value!(nonlinearsystem(s), x)
-    if (mod(iteration_number(solver)-1, solver.refactorize) == 0 || iteration_number(solver) == 0 || iteration_number(solver) == 1)
+    if (mod(iteration_number(s)-1, s.refactorize) == 0 || iteration_number(s) == 0 || iteration_number(s) == 1)
         jacobian!(nonlinearsystem(s), x)
         update!(linearsystem(s), x, jacobian(s), -value(s))
-        solve!(linearsystem(s))
+        solve!(linearsolver(s))
     end
     @assert status(linearsystem(s)) "The linear system hasn't been solved!"
     direction(cache(s)) .= solution(linearsystem(s))
-    α = linesearch(s)(linesearch_objective(nls, cache(s)))
+    α = linesearch(s)(linesearch_objective(s))
     x .+= compute_new_iterate(x, α, direction(cache(s)))
     s
 end
@@ -122,6 +120,8 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 cache(solver::NewtonSolver)::NewtonSolverCache = solver.cache
 config(solver::NewtonSolver)::Options = solver.config
 status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
+
+linearsystem(solver::NewtonSolver) = linearsystem(linearsolver(solver))
 
 """
     nonlinearsystem(solver)
@@ -200,8 +200,9 @@ function update!(s::NewtonSolver, x₀::AbstractArray)
     s
 end
 
-function solve!(s::NonlinearSolver, x::AbstractArray)
+function solve!(s::NewtonSolver, x::AbstractArray)
     initialize!(s, x)
+    update!(status(s), x, nonlinearsystem(s))
 
     while !meets_stopping_criteria(status(s), config(s))
         next_iteration!(status(s))

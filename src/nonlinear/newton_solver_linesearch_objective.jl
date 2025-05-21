@@ -29,3 +29,10 @@ function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{
     # the last argument is to specify the "type" in the objective
     TemporaryUnivariateObjective(f, d, zero(T))
 end
+
+"""
+    linesearch_objective(nl::NonlinearSolver)
+
+Build a line search objective based on a [`NonlinearSolver`](@ref) (almost always a [`NewtonSolver`](@ref) in practice).
+"""
+linesearch_objective(nl::NonlinearSolver) = linesearch_objective(nonlinearsystem(nl), cache(nl))
