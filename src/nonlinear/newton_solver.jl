@@ -103,44 +103,6 @@ function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
     s
 end
 
-# function solver_step!(x::Union{AbstractVector{T}, T}, nls::NonlinearSystem, jacobian!::Jacobian, s::NewtonSolver{T}) where {T}
-#     # update Newton solver cache
-#     update!(s, x)
-# 
-#     update_rhs_and_direction!(s)
-# 
-#     # apply line search
-#     α = linesearch(s)(linesearch_objective(nls, cache(s)))
-#     x .+= compute_new_iterate(x, α, direction(cache(s)))
-# end
-# 
-# """
-#     update_rhs_and_direction(solver, jacobian!, x)
-# 
-# Update the rhs and the [`direction`](@ref) of `solver::`[`NewtonSolver`](@ref).
-# 
-# This is used in addition to [`update!(::NewtonSolver, ::AbstractArray)`](@ref) when calling [`solver_step!`](@ref).
-# """
-# function update_rhs_and_direction!(solver::NewtonSolver, x::AbstractVector)
-#     @info string(iteration_number(solver))
-#     if (mod(iteration_number(solver)-1, solver.refactorize) == 0 || iteration_number(solver) == 0 || iteration_number(solver) == 1)
-#         compute_jacobian!(solver, x)
-#         # factorize the jacobian stored in `s` and save the factorized matrix in the corresponding linear solver.
-#         factorize!(linearsolver(solver), jacobian(solver))
-#     end
-# 
-#     # compute RHS (f is an in-place function)
-#     cache(solver).rhs .= value(solver)
-#     rmul!(cache(solver).rhs, -1)
-# 
-#     # solve J δx = -f(x)
-#     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-# 
-#     solver
-# end
-# 
-# update_rhs_and_direction!(solver::NewtonSolver) = update_rhs_and_direction!(solver, solution(cache(solver)))
-
 """
     QuasiNewtonSolver
 
