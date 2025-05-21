@@ -34,8 +34,8 @@ for T ∈ (Float64, Float32)
             )
 
         n = 1
-        x = zeros(T, n)
-        y = zero(x)
+        x = ones(T, n)
+        y = F(x)
         nl = Solver(x, y; F = F, kwarguments...)
 
         @test config(nl) == nl.config
@@ -46,7 +46,7 @@ for T ∈ (Float64, Float32)
             @test _x ≈ zero(T) atol = eps(T)
         end
 
-        x = zeros(T, n)
+        x = ones(T, n)
         # use custom Jacobian
         nl = Solver(x, y; F = F, DF! = J!, kwarguments...)
         solve!(nl, x)
