@@ -154,13 +154,20 @@ function value!(nls::NonlinearSystem{T}, x::AbstractVector{T}) where {T <: Numbe
 end
 
 """
-    jacobian(x, nls::NonlinearSystem)
+    jacobian(nls::NonlinearSystem)
 
 Return the value of the jacobian stored in `nls` (instance of [`NonlinearSystem`](@ref)).
 Like [`derivative`](@ref) for [`UnivariateObjective`](@ref) or [`gradient`](@ref) for [`MultivariateObjective`](@ref).
+
+Also see [`Jacobian(::NonlinearSystem)`](@ref).
 """
 jacobian(nls::NonlinearSystem) = nls.j
 
+"""
+    Jacobian(x, nls::NonlinearSystem)
+
+Return the [`Jacobian`](@ref) stored in `nls`. Also see [`jacobian(::NonlinearSystem)`](@ref).
+"""
 Jacobian(nls::NonlinearSystem) = nls.J
 
 function jacobian(nls::NonlinearSystem{T}, x::AbstractArray{T}) where {T <: Number}
