@@ -300,17 +300,6 @@ function Base.show(io::IO, obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where{
     @printf io "    number of g calls = %s %s" obj.g_calls "\n" 
 end
 
-function Base.show(io::IO, obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where{T, Tx, TF, TG, Tf <: AbstractArray}
-    @printf io "MultivariateObjective (for vector-valued quantities only the first component is printed):\n"
-    @printf io "\n"
-    @printf io "    f(x)₁             = %.2e %s" value(obj)[1] "\n"
-    @printf io "    g(x)₁             = %.2e %s" gradient(obj)[1] "\n" 
-    @printf io "    x_f₁              = %.2e %s" obj.x_f[1] "\n" 
-    @printf io "    x_g₁              = %.2e %s" obj.x_g[1] "\n" 
-    @printf io "    number of f calls = %s %s" obj.f_calls "\n" 
-    @printf io "    number of g calls = %s %s" obj.g_calls "\n" 
-end
-
 function MultivariateObjective(F::Callable, G::Gradient,
                                x::Tx;
                                f::Tf=alloc_f(x, F),
