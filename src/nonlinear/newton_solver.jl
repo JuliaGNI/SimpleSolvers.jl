@@ -146,7 +146,7 @@ Jacobian(solver::NewtonSolver)::Jacobian = Jacobian(nonlinearsystem(solver))
 
 Return the evaluated Jacobian (a Matrix) stored in the [`NonlinearSystem`](@ref) of `solver`.
 
-Also see [`jacobian(::NonlinearSystem)`].
+Also see [`jacobian(::NonlinearSystem)`](@ref) and [`Jacobian(::NonlinearSystem)`](@ref).
 """
 jacobian(solver::NewtonSolver)::AbstractMatrix = jacobian(nonlinearsystem(solver))
 
@@ -199,6 +199,23 @@ function update!(s::NewtonSolver, x₀::AbstractArray)
 
     s
 end
+
+function solve!(x::AbstractArray, nls::NonlinearSystem, jacobian!, s::NonlinearSolver)
+    initialize!(s, x)
+
+    while !meets_stopping_criteria(status(s), config(s))
+        next_iteration!(status(s))
+        solver_step!(x, nls, jacobian!, s)
+        update!(status(s), x, nls)
+        residual!(status(s))
+    end
+
+    warn_iteration_number(status(s), config(s))
+
+    x
+end
+
+solve!(x::AbstractArray, f::Callable, jacobian!, s::NonlinearSolver) = solve!(x, NonlinearSystem(f, x), jacobian!, s)
 
 function solve!(x, f::Callable, s::NewtonSolver)
     solve!(x, f, jacobian(s), s)
