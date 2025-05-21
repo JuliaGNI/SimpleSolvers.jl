@@ -37,7 +37,6 @@ for T ∈ (Float64, Float32)
         n = 1
         x = zeros(T, n)
         y = zero(x)
-        obj = MultivariateObjective(F, x)
         nl = Solver(x, y; F = F, kwarguments...)
 
         @test config(nl) == nl.config

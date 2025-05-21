@@ -113,9 +113,9 @@ end
     NonlinearSystem(F, J!, x)
 """
 function NonlinearSystem(F::Callable, J!::Callable,
-    x::AbstractArray{<:Number};
-    f::Number=alloc_f(x, F),
-    j::AbstractArray{<:Number}=alloc_g(x))
+    x::AbstractVector{T};
+    f::AbstractVector{T}=alloc_f(x, F),
+    j::AbstractMatrix{T}=alloc_j(x, f)) where {T <: Number}
     NonlinearSystem(F, JacobianFunction(J!, x), x; f = f, j = j)
 end
 
