@@ -31,7 +31,6 @@ for T ∈ (Float64, Float32)
                 (QuasiNewtonSolver, (linesearch = Backtracking(),)),
                 (QuasiNewtonSolver, (linesearch = Quadratic(),)),
                 (QuasiNewtonSolver, (linesearch = Bisection(),)),
-                # (NLsolveNewton, NamedTuple()),
             )
 
         n = 1
@@ -42,15 +41,15 @@ for T ∈ (Float64, Float32)
         @test config(nl) == nl.config
         @test status(nl) == nl.status
 
-        solve!(x, F, nl)
-        # println(status(nl))
+        solve!(nl, x)
         for _x in x
             @test _x ≈ zero(T) atol = eps(T)
         end
 
         x = zeros(T, n)
+        # use custom Jacobian
         nl = Solver(x, y; F = F, DF! = J!, kwarguments...)
-        solve!(x, F, nl)
+        solve!(nl, x)
         println(Solver, kwarguments)
         for _x in x
             @test _x ≈ zero(T) atol = eps(T)
