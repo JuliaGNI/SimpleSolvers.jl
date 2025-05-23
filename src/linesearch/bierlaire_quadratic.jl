@@ -1,9 +1,11 @@
 """
     DEFAULT_BIERLAIRE_ε
 
-A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref). This constant is taken from [bierlaire2015optimization](@cite).
+A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref). The constant recommended in [bierlaire2015optimization](@cite) is `1E-3`.
+
+Note that this constant may also depend on whether we deal with optimizers or solvers.
 """
-const DEFAULT_BIERLAIRE_ε = 1E-3
+const DEFAULT_BIERLAIRE_ε::Float64 = eps(Float32)
 
 """
     DEFAULT_BIERLAIRE_ξ
@@ -11,10 +13,15 @@ const DEFAULT_BIERLAIRE_ε = 1E-3
 A constant on basis of which the `b` in [`BierlaireQuadraticState`](@ref) is perturbed in order "to avoid stalling" (see [bierlaire2015optimization; Chapter 11.2.1](@cite)).
 Its value is $(DEFAULT_BIERLAIRE_ξ).
 """
-const DEFAULT_BIERLAIRE_ξ = 1E-6
+const DEFAULT_BIERLAIRE_ξ = 1E-7
 
 """
     BierlaireQuadraticState <: LinesearchState
+
+
+# Extended help
+
+Note that the performance of [`BierlaireQuadratic`](@ref) may heavily depend on the choice of [`DEFAULT_BIERLAIRE_ε`](@ref) (i.e. the precision) and [`DEFAULT_BIERLAIRE_ξ`](@ref).
 """
 struct BierlaireQuadraticState{T,OPT} <: LinesearchState where {T <: Number, OPT <: Options{T}}
     config::OPT

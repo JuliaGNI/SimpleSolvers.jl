@@ -2,6 +2,7 @@ module SimpleSolvers
 
     using Distances
     using ForwardDiff
+    using StaticArrays
     using LinearAlgebra
     using Printf
 
@@ -14,7 +15,7 @@ module SimpleSolvers
     include("base/realcomplex.jl")
     include("base/initialize.jl")
 
-    export solve!
+    export solve!, solve
     export config, result, state, status
     export algorithm, objective
     export solution, minimizer, minimum
@@ -89,9 +90,11 @@ module SimpleSolvers
 
     export LinearSystem, NonlinearSystem
 
-    export LinearSolver, LUSolver, LUSolverLAPACK,
+    export LinearSolver, LU, LUSolverLAPACK,
            factorize!, linearsystem
 
+    include("linear/linear_solver_method.jl")
+    include("linear/linear_solver_cache.jl")
     include("linear/linear_solvers.jl")
     include("linear/lu_solver.jl")
     include("linear/lu_solver_lapack.jl")

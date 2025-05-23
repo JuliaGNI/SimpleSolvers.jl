@@ -4,67 +4,58 @@
 A `LinearSystem` describes ``Ax = y``, where we want to solve for ``x``.
 
 # Keys
-- `δx`
 - `A`
 - `y`
-- `solved`: see [`status(::LinearSystem)`](@ref)
 """
 mutable struct LinearSystem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <: AbstractProblem 
-    δx::VT
     A::AT
     y::VT
-    solved::Bool
-    function LinearSystem(δx::VT, A::AT, y::VT; solved::Bool = false) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
-        @assert (length(y), length(δx)) == size(A)
-        new{T, VT, AT}(δx, A, y, solved)
+    function LinearSystem(A::AT, y::VT) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
+        @assert (length(y)) == size(A, 2)
+        new{T, VT, AT}(A, y)
     end
 end
 
-function LinearSystem(A::AbstractMatrix{T}, y::AbstractVector{T}; kwargs...) where {T}
-    δx = alloc_x(A[1, :])
-    LinearSystem(δx, A, y; kwargs...)
-end
-
-function LinearSystem(A::AbstractMatrix; kwargs...)
+function LinearSystem(A::AbstractMatrix)
     y = alloc_x(A[:, 1])
-    LinearSystem(A, y; kwargs...)
+    LinearSystem(A, y)
 end
 
-function LinearSystem{T}(n::Integer, m::Integer; kwargs...) where {T}
+function LinearSystem{T}(n::Integer, m::Integer) where {T}
     A = zeros(T, n, m)
     A .= T(NaN)
     y = alloc_x(A[:, 1])
-    LinearSystem(A, y; kwargs...)
+    LinearSystem(A, y)
 end
 
-LinearSystem{T}(n::Integer; kwargs...) where {T} = LinearSystem{T}(n, n; kwargs...)
+LinearSystem{T}(n::Integer) where {T} = LinearSystem{T}(n, n)
 
-LinearSystem(y::AbstractVector{T}; kwargs...) where {T} = LinearSystem{T}(length(y); kwargs...)
+LinearSystem(y::AbstractVector{T}) where {T} = LinearSystem{T}(length(y))
 
 """
-    update!(ls, δx, A, y)
+    update!(ls, A, y)
 
-Set the [`solution`](@ref) vector of `ls` (a [`LinearSystem`](@ref)) to `δx`, the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
+Set the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
 
 !!! info
-    Calling `update!` doesn't solve the `LinearSystem`, you still have to call `solve!` in combination with a `LinearSolver` which the `LinearSystem` is a part of.
+    Calling `update!` doesn't solve the [`LinearSystem`](@ref), you still have to call `solve!` in combination with a [`LinearSolver`](@ref).
 """
-function update!(ls::LinearSystem{T}, δx::AbstractVector{T}, A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
-    solution(ls) .= δx
-    rhs(ls) .= y
-    Matrix(ls) .= A
-    ls.solved = false
+function update!(ls::LinearSystem{T}, A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
+    update!(ls, A)
+    update!(ls, y)
     ls
 end
 
-"""
-    status(ls)
+function update!(ls::LinearSystem{T}, A::AbstractMatrix{T}) where {T}
+    ls.A .= A
+    ls
+end
 
-Return the status of a [`LinearSolver`](@ref), i.e. say if the system has been solved.
-"""
-status(ls::LinearSystem) = ls.solved
+function update!(ls::LinearSystem{T}, b::AbstractVector{T}) where {T}
+    ls.y .= b
+    ls
+end
 
-solution(ls::LinearSystem) = ls.δx
 rhs(ls::LinearSystem) = ls.y
 Base.Matrix(ls::LinearSystem)::Matrix = ls.A
 

@@ -7,13 +7,13 @@ using SimpleSolvers
 using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
-Random.seed!(123) # hide
+Random.seed!(1234) # hide
 
-f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x + 2x) + 2one(T)
-f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (x .^ 3 - 5x + 2x) .+ 2one(T)
+f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
+f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (.5 * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
-x = rand(1)
+x = -10 * rand(1)
 solver = NewtonSolver(x, f.(x); F = f)
 update!(solver, x)
 compute_jacobian!(solver, x, j!; mode = :function)
@@ -44,10 +44,10 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -2.:.01:2.
+alpha = -2.5:.01:3.
 a = -2.
 b = 0.5
-c = 2.
+c = 2.5
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
@@ -95,7 +95,7 @@ We can plot this polynomial:
 β₃ = fˡˢ(a) / (a - b)
 p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
 lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
-axislegend(ax)
+axislegend(ax; position = :rt)
 save("f_ls_bierlaire2.png", fig)
 nothing
 ```
@@ -111,7 +111,7 @@ We can now easily determine the minimum of the polynomial ``p``. It is:
 ```@setup bierlaire
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
-axislegend(ax)
+axislegend(ax; position = :rt)
 save("f_ls_bierlaire3.png", fig)
 ```
 
@@ -123,14 +123,13 @@ We now use this ``\chi`` to either replace ``a``, ``b`` or ``c`` and distinguish
 3. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) > f^\mathrm{ls}(b)`` ``\implies`` we replace ``a \gets \chi``,
 4. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) \leq f^\mathrm{ls}(b)`` ``\implies`` we replace ``b, c \gets \chi, b``.
 
-In our example we have the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is less than ``f(b)``. We therefore replace ``a`` with ``b`` and ``b`` with ``\chi``. The new approximation is the following one:
+In our example we have the third case: ``\chi`` is to the left of ``b`` and ``f^\mathrm{ls}(\chi)`` is bigger than ``f(b)``. We therefore replace ``a`` with ``\chi``. The new approximation is the following one:
 
 ```@setup bierlaire
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -0.:.01:2.
-a = b
-b = χ
+alpha = -0.:.01:2.5
+a = χ
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
@@ -148,12 +147,37 @@ save("f_ls_bierlaire4.png", fig)
 
 ![](f_ls_bierlaire4.png)
 
-We again observe the second case. By again replacing ``a, b \gets b, \chi`` we get:
+We now observe the first case. By replacing ``c \gets \chi`` we get:
 
 ```@setup bierlaire
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = .8:.01:2.
+alpha = 0.:.01:1.
+c = χ
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
+scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
+scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
+scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
+β₁ = ((b - c) * fˡˢ(a) + (c - a) * fˡˢ(b) + (a - b) * fˡˢ(c)) / ((a - b) * (c - a) * (c - b))
+β₂ = fˡˢ(b) / (b - a)
+β₃ = fˡˢ(a) / (a - b)
+p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
+lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
+χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
+scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
+axislegend(ax; position = :rt)
+save("f_ls_bierlaire5.png", fig)
+```
+
+![](f_ls_bierlaire5.png)
+
+We now observe the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is below ``f(b)``. Hence we replace ``a \gets b`` and ``b \gets \chi.`` A successive iteration yields:
+
+```@setup bierlaire
+@assert fˡˢ(χ) ≤ fˡˢ(b)
+fig = Figure()
+ax = Axis(fig[1, 1])
+alpha = .45:.01:1.
 a = b
 b = χ
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
@@ -166,33 +190,7 @@ scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
 p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
 lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
-scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
-axislegend(ax; position = :rb)
-save("f_ls_bierlaire5.png", fig)
-```
-
-![](f_ls_bierlaire5.png)
-
-No we observe the fourth case: ``\chi`` is to the left of ``b`` and ``f^\mathrm{ls}(\chi)`` is below ``f(b)``. Hence we replace ``b, c \gets \chi, b.`` A successive iteration yields:
-
-```@setup bierlaire
-@assert fˡˢ(χ) ≤ fˡˢ(b)
-fig = Figure()
-ax = Axis(fig[1, 1])
-alpha = .8:.01:1.2
-c = b
-b = χ
-lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
-scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
-scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
-β₁ = ((b - c) * fˡˢ(a) + (c - a) * fˡˢ(b) + (a - b) * fˡˢ(c)) / ((a - b) * (c - a) * (c - b))
-β₂ = fˡˢ(b) / (b - a)
-β₃ = fˡˢ(a) / (a - b)
-p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
-lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
-χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
-scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
+# scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rb)
 save("f_ls_bierlaire6.png", fig)
 ```

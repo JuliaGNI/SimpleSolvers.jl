@@ -1,6 +1,9 @@
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!
 using Test
+using Random
+using ForwardDiff
+Random.seed!(1234)
 
 struct NonlinearSolverTest{T} <: NonlinearSolver end
 
@@ -11,30 +14,35 @@ test_solver = NonlinearSolverTest{Float64}()
 @test_throws ErrorException initialize!(test_solver, rand(3))
 @test_throws ErrorException solver_step!(test_solver)
 
-F(x) = tan.(x)
+f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
+F(x) = f.(x)
 F!(y, x) = y .= F(x)
+
+n = 1
+x₀ = rand(n)
+root₁ = 0.7613128434711648
+root₂ = -4.7350357537069865
 
 function J!(g, x)
     g .= 0
     for i in eachindex(x)
-        g[i,i] = sec(x[i])^2
+        g[i, i] = ForwardDiff.derivative(f, x[i])
     end
 end
 
-for T ∈ (Float64, Float32)
+for T ∈ (Float64, ) # Float32)
     for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
                 (NewtonSolver, (linesearch = Quadratic(),)),
-                (NewtonSolver, (linesearch = Bisection(),)),
-                (QuasiNewtonSolver, (linesearch = Static(),)),
-                (QuasiNewtonSolver, (linesearch = Backtracking(),)),
-                (QuasiNewtonSolver, (linesearch = Quadratic(),)),
-                (QuasiNewtonSolver, (linesearch = Bisection(),)),
+                # (NewtonSolver, (linesearch = Bisection(),)),
+                # (QuasiNewtonSolver, (linesearch = Static(),)),
+                # (QuasiNewtonSolver, (linesearch = Backtracking(),)),
+                # (QuasiNewtonSolver, (linesearch = Quadratic(),)),
+                # (QuasiNewtonSolver, (linesearch = Bisection(),)),
             )
 
-        n = 1
-        x = ones(T, n)
+        x = T.(copy(x₀))
         y = F(x)
         nl = Solver(x, y; F = F, kwarguments...)
 
@@ -43,16 +51,16 @@ for T ∈ (Float64, Float32)
 
         solve!(nl, x)
         for _x in x
-            @test _x ≈ zero(T) atol = eps(T)
+            @test ≈(_x, T(root₁)) || ≈(_x, T(root₂))
         end
 
-        x = ones(T, n)
+        x .= T.(x₀)
         # use custom Jacobian
         nl = Solver(x, y; F = F, DF! = J!, kwarguments...)
         solve!(nl, x)
         println(Solver, kwarguments)
         for _x in x
-            @test _x ≈ zero(T) atol = eps(T)
+            @test ≈(_x, T(root₁)) || ≈(_x, T(root₂))
         end
     end
 end

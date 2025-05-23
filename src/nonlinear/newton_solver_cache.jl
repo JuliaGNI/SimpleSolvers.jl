@@ -10,7 +10,7 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 - `x̄`: the previous iterate,
 - `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_objective`](@ref),
 - `δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
-- `rhs`: the right-hand-side, 
+- `rhs`: the right-hand-side (this can be accessed by calling [`rhs`](@ref)), 
 - `y`: the objective evaluated at `x`. This is used in [`linesearch_objective`](@ref),
 - `J::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_objective`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
@@ -83,3 +83,9 @@ function initialize!(cache::NewtonSolverCache, x::AbstractVector)
 end
 
 solution(cache::NewtonSolverCache) = cache.x
+"""
+    rhs(cache)
+
+Return the right-hand side of the equation, stored in `cache::`[`NewtonSolverCache`](@ref).
+"""
+rhs(cache::NewtonSolverCache) = cache.rhs
