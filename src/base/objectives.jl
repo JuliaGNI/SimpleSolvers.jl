@@ -5,7 +5,7 @@ An *objective* is a quantity to has to be made zero by a solver or minimized by 
 
 See [`AbstractUnivariateObjective`](@ref) and [`MultivariateObjective`](@ref).
 """
-abstract type AbstractObjective{T <: Number} end
+abstract type AbstractObjective{T <: Number} <: AbstractProblem end
 
 Base.Function(obj::AbstractObjective) = obj.F
 
@@ -228,12 +228,12 @@ end
 """
     clear!(obj)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(obj::AbstractUnivariateObjective)
     _clear_f!(obj)
     _clear_d!(obj)
-    nothing
+    obj
 end
 
 """
@@ -267,7 +267,7 @@ end
 """
     MultivariateObjective <: AbstractObjective
 
-Like [`UnivariateObjective`](@ref), but stores *gradients* instead of *derivatives*.
+Like [`UnivariateObjective`](@ref), but stores *gradients* instead of *derivatives*. Also compare this to [`NonlinearSystem`](@ref).
 
 The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
@@ -289,7 +289,7 @@ mutable struct MultivariateObjective{T, Tx <: AbstractVector{T}, TF <: Callable,
     g_calls::Int
 end
 
-function Base.show(io::IO, obj::MultivariateObjective)
+function Base.show(io::IO, obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where{T, Tx, TF, TG, Tf <: Number}
     @printf io "MultivariateObjective (for vector-valued quantities only the first component is printed):\n"
     @printf io "\n"
     @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
@@ -343,7 +343,7 @@ function gradient(obj::MultivariateObjective, x::AbstractArray{<:Number})
 end
 
 """
-    gradient(obj::MultivariateObjective, x)
+    gradient!!(obj::MultivariateObjective, x)
 
 Like [`derivative!!`](@ref), but for [`MultivariateObjective`](@ref), not [`UnivariateObjective`](@ref).
 """
@@ -390,13 +390,16 @@ end
 """
     clear!(obj)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(obj::MultivariateObjective)
     _clear_f!(obj)
     _clear_g!(obj)
-    nothing
+    obj
 end
+
+f_argument(obj::AbstractObjective) = obj.x_f
+g_argument(obj::MultivariateObjective) = obj.x_g
 
 f_calls(o::AbstractObjective) = error("f_calls is not implemented for $(summary(o)).")
 f_calls(o::Union{UnivariateObjective, MultivariateObjective}) = o.f_calls

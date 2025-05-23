@@ -247,7 +247,9 @@ function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode, kwargs...) whe
     end
 end
 
-Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
+Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; mode = :autodiff, kwargs...)
+
+Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x), length(F(x)); mode = :autodiff, kwargs...)
 
 """
     compute_jacobian!(j, x, ForJ)

@@ -7,7 +7,6 @@ A *backtracking line search method* determines the amount to move in a given sea
 !!! info
     We note that for the static line search we always just return ``\alpha``.
 
-
 ## Backtracking Line Search for a Line Search Objective
 
 We note that when performing backtracking on a [line search objective](@ref "Line Search Objective") care needs to be taken. This is because we need to find equivalent quantities for ``\mathrm{grad}_{x_k}f`` and ``p``. We first look at the derivative of the line search objective:
@@ -19,7 +18,7 @@ because the tangent map of a retraction is the identity at zero [absil2008optimi
 
 [^2]: If we are not dealing with general Riemannian manifolds but only vector spaces then ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f`` simply becomes ``\nabla_{\mathcal{R}_{x_k}(\alpha{}p)}f`` and we further have ``\langle A, B\rangle = A^T B``.
 
-We again look at [the example introduced when talking about the sufficient decrease condition](@ref sdc_example) and cast it in the form of a *line search objective*:
+We again look at [the example introduced when talking about the sufficient decrease condition](@ref sdc_example_full) and cast it in the form of a *line search objective*:
 
 ```@setup ls_obj
 using SimpleSolvers # hide
@@ -79,15 +78,15 @@ scatter!(ax, [α₅], [ls_obj(α₅)]; color=mred, label=L"\alpha_5")
 
 axislegend(ax)
 
-save("2d_plot.png", fig)
+save("ls_backtracking_2d_plot.png", fig)
 nothing
 ```
 
-![](2d_plot.png)
+![](ls_backtracking_2d_plot.png)
 
 ## [Example](@id sdc_example)
 
-We show how to use linesearches in `SimpleSolvers` to solve a simple toy problem[^3]:
+We show how to use line searches in `SimpleSolvers` to solve a simple toy problem[^3]:
 
 [^3]: Also compare this to the case of the [static line search](@ref static_example).
 

@@ -180,6 +180,7 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T=0.0; s::T=T(DEFAULT_
         end
         s *= k
     end
+    error("Unable to bracket f starting at x = $x.")
 end
 
 function bracket_minimum_with_fixed_point(obj::AbstractObjective{T}, x::T=T(0.0); kwargs...) where {T <: Number}

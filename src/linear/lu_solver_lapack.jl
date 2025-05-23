@@ -1,4 +1,3 @@
-
 import LinearAlgebra: checksquare
 import LinearAlgebra.BLAS: BlasFloat, BlasInt, liblapack, @blasfunc
 
@@ -7,21 +6,29 @@ import LinearAlgebra.BLAS: BlasFloat, BlasInt, liblapack, @blasfunc
 
 The LU Solver taken from `LinearAlgebra.BLAS`.
 """
-struct LUSolverLAPACK{T<:BlasFloat} <: LinearSolver{T}
+struct LUSolverLAPACK{T <: BlasFloat, LST <: LinearSystem{T}}
     n::BlasInt
-    A::Matrix{T}
+    linearsystem::LST
     pivots::Vector{BlasInt}
     info::BlasInt
 end
 
-function LUSolverLAPACK(A::Matrix{T}) where {T}
-    n = checksquare(A)
-    lu = LUSolverLAPACK{T}(n, zero(A), zeros(BlasInt, n), 0)
-    factorize!(lu, A)
+linearsystem(lu::LUSolverLAPACK) = lu.linearsystem
+
+function LUSolverLAPACK(ls::LST) where {T, LST <: LinearSystem{T}}
+    n = checksquare(Matrix(ls))
+    lu = LUSolverLAPACK{T, LST}(n, ls, zeros(BlasInt, n), BlasInt(0))
+    solve!(lu)
 end
 
-LUSolverLAPACK{T}(n::BlasInt) where {T} = LUSolverLAPACK(zeros(T, n, n))
+function LUSolverLAPACK{T}(n::BlasInt) where {T}
+    ls = LinearSystem{T}(n)
+    LUSolverLAPACK(ls)
+end
 
+function LUSolverLAPACK(A::AbstractMatrix)
+    LUSolverLAPACK(LinearSystem(A))
+end
 
 ## LAPACK LU factorization and solver for general matrices (GE)
 for (getrf, getrs, elty) in
@@ -31,11 +38,11 @@ for (getrf, getrs, elty) in
      (:cgetrf_,:cgetrs_,:ComplexF32))
     @eval begin
         function factorize!(lu::LUSolverLAPACK{$elty}, A::AbstractMatrix{$elty})
-            copy!(lu.A, A)
+            copy!(Matrix(linearsystem(lu)), A)
             ccall((@blasfunc($getrf), liblapack), Nothing,
                   (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
                    Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}),
-                   Ref(lu.n), Ref(lu.n), lu.A, Ref(lu.n), lu.pivots, Ref(lu.info))
+                   Ref(lu.n), Ref(lu.n), Matrix(linearsystem(lu)), Ref(lu.n), lu.pivots, Ref(lu.info))
 
             if lu.info > 0
                 throw(SingularException(lu.info))
@@ -52,7 +59,7 @@ for (getrf, getrs, elty) in
             ccall((@blasfunc($getrs), liblapack), Nothing,
                   (Ptr{UInt8}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt},
                    Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-                   Ref(trans), Ref(lu.n), Ref(nrhs), lu.A, Ref(lu.n), lu.pivots, x, Ref(lu.n), Ref(lu.info))
+                   Ref(trans), Ref(lu.n), Ref(nrhs), Matrix(linearsystem(lu)), Ref(lu.n), lu.pivots, x, Ref(lu.n), Ref(lu.info))
 
             if lu.info < 0
                 throw(ArgumentError(lu.info))
@@ -61,3 +68,15 @@ for (getrf, getrs, elty) in
         end
     end
 end
+
+solution(lu::LUSolverLAPACK) = solution(linearsystem(lu))
+
+function solve!(lu::LUSolverLAPACK)
+    !status(linearsystem(lu)) || error("System has already been solved.")
+    factorize!(lu)
+    ldiv!(solution(lu), lu, rhs(linearsystem(lu)))
+    linearsystem(lu).solved = true
+    lu
+end
+
+factorize!(lu::LUSolverLAPACK) = factorize!(lu, Matrix(linearsystem(lu)))
