@@ -1,167 +1,233 @@
 """
-    struct LUSolver <: LinearSolver
+    struct LU <: LinearSolverMethod
 
 A custom implementation of an LU solver, meant to solve a [`LinearSystem`](@ref).
 
-Routines that use `LUSolver` include [`factorize!`](@ref), [`ldiv!`](@ref) and [`solve!`](@ref).
-In practice the `LUSolver` is used by calling its constructor together with [`ldiv!`](@ref) or [`solve!`](@ref), as shown in the *Example section* of this docstring.
+Routines that use the LU solver include [`factorize!`](@ref), [`ldiv!`](@ref) and [`solve!`](@ref).
+In practice the `LU` solver is used by calling the [`LinearSolver`](@ref) constructor and [`ldiv!`](@ref) or [`solve!`](@ref), or with an instance of `LU` as an argument directly, as shown in the *Example section* of this docstring.
+
+# constructor
+
+The constructor is called with either no argument:
+
+```jldoctest; setup = :(using SimpleSolvers)
+LU()
+
+# output
+
+LU{Missing}(missing, true)
+```
+
+or with `pivot` and `static` as optional booleans:
+
+```jldoctest; setup = :(using SimpleSolvers)
+LU(; pivot=true, static=true)
+
+# output
+
+LU{Bool}(true, true)
+```
+
+Note that if we do not supply an explicit keyword `static`, the corresponding field is `missing` (as in the first case). Also see [`_static`](@ref).
 
 # Example
 
-We use the `LUSolver` together with [`ldiv!`](@ref) to compute multiplication of a matrix inverse onto a vector (from the left):
+We use the `LU` together with [`solve`](@ref) to solve a linear system:
 
-```jldoctest; setup = :(using SimpleSolvers, LinearAlgebra, Random; Random.seed!(123))
+```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv; Random.seed!(123))
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
-ls = LinearSystem(copy(A), v)
+ls = LinearSystem(A, v)
 
-lu = LUSolver(ls)
+lu = LU()
 
-solution(ls) ≈ inv(A) * v
+solve(lu, ls) ≈ inv(A) * v
 
 # output
 
 true
 ```
+"""
+struct LU{ST <: Union{Missing, Bool}} <: LinearSolverMethod 
+    static::ST
+    pivot::Bool
 
-When calling `LUSolver` on a matrix together with a vector the constructor automatically calls [`solve!`](@ref), i.e. solves the system. When calling `LUSolver` on an integer alone, a matrix with all zeros is allocated:
+    LU(; pivot=true, static=missing) = new{typeof(static)}(static, pivot)
+end
 
-```jldoctest; setup = :(using SimpleSolvers)
-LUSolver{Float32}(2)
+"""
+Threshold for the maximum size a static matrix should have.
+"""
+const N_STATIC_THRESHOLD = 10
 
-# output
+"""
+    _static(A)
 
-LUSolver{Float32, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}}(2, LinearSystem{Float32, Vector{Float32}, Matrix{Float32}}(Float32[NaN, NaN], Float32[NaN NaN; NaN NaN], Float32[NaN, NaN], true), [1, 2], [1, 2], 0, true)
-```
+Determine whether to allocate a `StaticArray` or simply copy the input array.
+This is used when calling [`LinearSolverCache`](@ref) on [`LU`](@ref).
+Every matrix that is smaller or equal to [`N_STATIC_THRESHOLD`](@ref) is turned into a `StaticArray` as a consequence.
+"""
+_static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD ? true : false
+
+"""
+    LUSolverCache <: LinearSolverCache
 
 # Keys
-
-- `n::Int`
-- `A::Matrix{T}`
-- `pivots::Vector{Int}`
-- `perms::Vector{Int}`
-- `info::Int`
-- `pivot::Bool`
+- `A`: the factorized matrix `A`,
+- `pivots`:
+- `perms`:
+- `info`
 """
-mutable struct LUSolver{T, LST <: LinearSystem{T}} <: LinearSolver{T}
-    n::Int
-    linearsystem::LST
+mutable struct LUSolverCache{T, AT <: AbstractMatrix{T}} <: LinearSolverCache{T}
+    A::AT
     pivots::Vector{Int}
     perms::Vector{Int}
     info::Int
-    pivot::Bool
+end
+
+function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
+    n = checksquare(A)
+    Ā = _static(A) ? MMatrix{size(A)...}(copy(A)) : copy(A)
+    LUSolverCache{T, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+end
+
+function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
+    n = checksquare(A)
+    Ā = lu.static ? MMatrix{size(A)...}(copy(A)) : copy(A)
+    LUSolverCache{T, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+end
+
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, ls::LinearSystem) where {T, LUT <: LU}
+    cache(lsolver).A .= ls.A
+    factorize!(lsolver)
+    ldiv!(solution, lsolver, rhs(ls))
+    solution
+end
+
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, b::AbstractVector) where {T, LUT <: LU}
+    ldiv!(solution, lsolver, b)
+    solution
+end
+
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, A::AbstractMatrix, b::AbstractVector) where {T, LUT <: LU}
+    cache(lsolver).A .= A 
+    factorize!(lsolver)
+    ldiv!(solution, lsolver, b)
+    solution
+end
+
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, A::AbstractMatrix) where {T, LUT <: LU}
+    solve!(solution, lsolver, A, rhs(cache(lsolver)))
+end
+
+function solve!(lsolver::LinearSolver{T, LUT}, args...)  where {T, LUT <: LU}
+    x = alloc_x(cache(lsolver).A[1, :])
+    solve!(x, lsolver, args...)
+    x
+end
+
+function solve(lu::LU, ls::LinearSystem) 
+    lsolver = LinearSolver(lu, ls)
+    solve!(lsolver, ls)
+end
+
+function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
+    ls = LinearSystem(A, b)
+    solve(lu, ls)
 end
 
 """
-    linearsystem(lu)
+    factorize!(lsolver::LinearSolver, A)
 
-Access the [`LinearSystem`](@ref) stored in the [`LUSolver`](@ref).
-"""
-linearsystem(lu::LUSolver) = lu.linearsystem
-
-function LUSolver(ls::LST; pivot = true) where {T, LST <: LinearSystem{T}}
-    n = checksquare(Matrix(ls))
-    lu = LUSolver{T, LST}(n, ls, zeros(Int, n), zeros(Int, n), 0, pivot)
-    solve!(lu)
-end
-
-function LUSolver{T}(n::Int; kwargs...) where {T}
-    ls = LinearSystem{T}(n)
-    LUSolver(ls; kwargs...)
-end
-
-function LUSolver(A::AbstractMatrix; kwargs...)
-    LUSolver(LinearSystem(A); kwargs...)
-end
-
-"""
-    factorize!(lu, A)
-
-Factorize the matrix `A` and store the result in `Matrix(linearsystem(lu))`.
+Factorize the matrix `A` and store the result in `cache(lsolver).A`.
+Note that calling `cache` on `lsolver` returns the instance of [`LUSolverCache`](@ref) stored in `lsolver`.
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
+A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
+y = [1., 0., 0.]
+x = similar(y)
+
+lsolver = LinearSolver(LU(; static=false), x)
+factorize!(lsolver, A)
+cache(lsolver).A
+
+# output
+
+3×3 Matrix{Float64}:
+ 13.0        17.0       19.0
+  0.0769231   0.692308   1.53846
+  0.384615    0.666667   2.66667
+```
+Here `cache(lsolver).A` stores the factorized matrix. If we call `factorize!` with two input arguments as above, the method first copies the matrix `A` into the [`LUSolverCache`](@ref). We can equivalently also do:
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 y = [1., 0., 0.]
 
-ls = LinearSystem(similar(A), y)
-lu = LUSolver{Float64, typeof(ls)}(3, ls, zeros(Int, 3), zeros(Int, 3), 0, true)
-factorize!(lu, A)
-Matrix(linearsystem(lu))
+lsolver = LinearSolver(LU(), A)
+factorize!(lsolver)
+cache(lsolver).A
 
 # output
 
-3×3 Matrix{Float64}:
+3×3 StaticArraysCore.MMatrix{3, 3, Float64, 9} with indices SOneTo(3)×SOneTo(3):
  13.0        17.0       19.0
   0.0769231   0.692308   1.53846
   0.384615    0.666667   2.66667
 ```
-Here `Matrix(linearsystem(lu))` stores the factorized result. If we want to save this factorized matrix in the same `A` to save memory we can write:
-```jldoctest; setup = :(using SimpleSolvers)
-A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
-x = [1., 2., 3.]
-y = [2., 3., 4.]
-ls = LinearSystem(x, one(A), y)
-lu = LUSolver(ls)
-factorize!(lu, A)
-Matrix(ls)
 
-# output
-
-3×3 Matrix{Float64}:
- 13.0        17.0       19.0
-  0.0769231   0.692308   1.53846
-  0.384615    0.666667   2.66667
-```
+Also note the difference between the output types of the two refactorized matrices. This is because we set the keyword `static` to false when calling [`LU`](@ref). Also see [`_static`](@ref).
 """
-function factorize!(lu::LUSolver{T}, A::AbstractMatrix{T}; pivot=lu.pivot) where {T}
-    copyto!(Matrix(linearsystem(lu)), A)
-    
-    @inbounds for i in eachindex(lu.perms)
-        lu.perms[i] = i
+function factorize!(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU}
+    @inbounds for i in eachindex(cache(lsolver).perms)
+        cache(lsolver).perms[i] = i
     end
 
-    @inbounds for k ∈ 1:lu.n
-        kp = pivot ? find_maximum_value(Matrix(linearsystem(lu))[:, k], k) : k
-        
-        lu.pivots[k] = kp
-        lu.perms[k], lu.perms[kp] = lu.perms[kp], lu.perms[k]
+    n = size(cache(lsolver).A, 1)
 
-        if Matrix(linearsystem(lu))[kp,k] != 0
+    @inbounds for k ∈ axes(cache(lsolver).A, 1)
+        kp = method(lsolver).pivot ? find_maximum_value(cache(lsolver).A[:, k], k) : k
+        
+        cache(lsolver).pivots[k] = kp
+        cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
+
+        if cache(lsolver).A[kp,k] != 0
             if k != kp
                 # Interchange
-                for i in 1:lu.n
-                    tmp = Matrix(linearsystem(lu))[k,i]
-                    Matrix(linearsystem(lu))[k,i] = Matrix(linearsystem(lu))[kp, i]
-                    Matrix(linearsystem(lu))[kp,i] = tmp
+                for i in 1:n
+                    tmp = cache(lsolver).A[k,i]
+                    cache(lsolver).A[k,i] = cache(lsolver).A[kp, i]
+                    cache(lsolver).A[kp,i] = tmp
                 end
             end
             # Scale first column
-            Akkinv = inv(Matrix(linearsystem(lu))[k,k])
-            for i in k+1:lu.n
-                Matrix(linearsystem(lu))[i,k] *= Akkinv
+            Akkinv = inv(cache(lsolver).A[k,k])
+            for i in k+1:n
+                cache(lsolver).A[i,k] *= Akkinv
             end
         elseif lu.info == 0
             lu.info = k
         end
         # Update the rest
-        for j in k+1:lu.n
-            for i in k+1:lu.n
-                Matrix(linearsystem(lu))[i,j] -= Matrix(linearsystem(lu))[i,k] * Matrix(linearsystem(lu))[k,j]
+        for j in k+1:n
+            for i in k+1:n
+                cache(lsolver).A[i,j] -= cache(lsolver).A[i,k] * cache(lsolver).A[k,j]
             end
         end
     end
 
-    lu
+    lsolver
 end
 
-"""
-    factorize!(lu::LUSolver)
+function factorize!(lsolver::LinearSolver{T, LUT}, A::AbstractMatrix{T}) where {T, LUT <: LU}
+    copyto!(cache(lsolver).A, A)
+    
+    factorize!(lsolver)
+end
 
-Factorize the matrix stored in [`linearsystem`](@ref)`(lu)` via an LU decomposition.
-"""
-factorize!(lu::LUSolver; kwargs...) = factorize!(lu, Matrix(linearsystem(lu)); kwargs...)
+factorize!(lsolver::LinearSolver{T, LUT}, ls::LinearSystem{T}) where {T, LUT <: LU} = factorize!(lsolver, ls.A)
 
 """
     find_maximum_value(v, k)
@@ -185,52 +251,34 @@ end
 """
     ldiv!(x, lu, b)
 
-Compute `inv(Matrix(linearsystem(lu))) * b` by utilizing the factorization in the [`LUSolver`](@ref) and store the result in `x`.
+Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
 """
-function LinearAlgebra.ldiv!(x::AbstractVector{T}, lu::LUSolver{T}, b::AbstractVector{T}) where {T}
-    @assert axes(x,1) == axes(b,1) == axes(Matrix(linearsystem(lu)),1) == axes(Matrix(linearsystem(lu)),2)
+function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LUT}, b::AbstractVector{T}) where {T, LUT <: LU}
+    @assert axes(x,1) == axes(b,1) == axes(cache(lsolver).A,1) == axes(cache(lsolver).A,2)
 
-    @inbounds for i in 1:lu.n
-        x[i] = b[lu.perms[i]]
+    n = size(cache(lsolver).A, 1)
+
+    @inbounds for i in 1:n
+        x[i] = b[cache(lsolver).perms[i]]
     end
 
-    @inbounds for i in 2:lu.n
+    @inbounds for i in 2:n
         s = zero(T)
         for j in 1:i-1
-            s += Matrix(linearsystem(lu))[i,j] * x[j]
+            s += cache(lsolver).A[i,j] * x[j]
         end
         x[i] -= s
     end
 
-    x[lu.n] /= Matrix(linearsystem(lu))[lu.n,lu.n]
-    @inbounds for i in lu.n-1:-1:1
+    x[n] /= cache(lsolver).A[n,n]
+    @inbounds for i in n-1:-1:1
         s = zero(T)
-        for j in i+1:lu.n
-            s += Matrix(linearsystem(lu))[i,j] * x[j]
+        for j in i+1:n
+            s += cache(lsolver).A[i,j] * x[j]
         end
         x[i] -= s
-        x[i] /= Matrix(linearsystem(lu))[i,i]
+        x[i] /= cache(lsolver).A[i,i]
     end
 
     x
-end
-
-@doc raw"""
-    solution(lu::LUSolver)
-
-Get the solution (the ``x``) contained in [`linearsystem`](@ref)`(lu)`.
-"""
-solution(lu::LUSolver) = solution(linearsystem(lu))
-
-"""
-    solve!(lu::LUSolver)
-
-Solve the [`LinearSystem`](@ref) stored in `lu` and store the result in [`solution`](@ref)`(lu)`.
-"""
-function solve!(lu::LUSolver)
-    !status(linearsystem(lu)) || error("System has already been solved.")
-    factorize!(lu)
-    ldiv!(solution(lu), lu, rhs(linearsystem(lu)))
-    linearsystem(lu).solved = true
-    lu
 end

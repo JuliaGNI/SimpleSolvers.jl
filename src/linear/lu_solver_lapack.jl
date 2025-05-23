@@ -6,7 +6,7 @@ import LinearAlgebra.BLAS: BlasFloat, BlasInt, liblapack, @blasfunc
 
 The LU Solver taken from `LinearAlgebra.BLAS`.
 """
-struct LUSolverLAPACK{T <: BlasFloat, LST <: LinearSystem{T}} <: LinearSolver{T}
+struct LUSolverLAPACK{T <: BlasFloat, LST <: LinearSystem{T}}
     n::BlasInt
     linearsystem::LST
     pivots::Vector{BlasInt}

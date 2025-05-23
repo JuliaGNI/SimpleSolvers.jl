@@ -15,7 +15,7 @@ using SimpleSolvers
 
 A = [(0. + 1e-6) 1. 2.; 3. 4. 5.; 6. 7. 8.]
 y = [1., 2., 3.]
-ls = LinearSystem(copy(A), y)
+ls = LinearSystem(A, y)
 nothing # hide
 ```
 
@@ -27,11 +27,11 @@ A = \begin{pmatrix} 0 + \varepsilon & 1 & 2 \\ 3 & 4 & 5 \\ 6 & 7 & 8 \end{pmatr
 
 This matrix would be singular if we had ``\varepsilon = 0`` because ``2\cdot\begin{pmatrix} 3 \\ 4 \\ 5 \end{pmatrix} - \begin{pmatrix} 6 \\ 7 \\ 8 \end{pmatrix} = \begin{pmatrix} 0 \\ 1 \\ 2 \end{pmatrix}.`` So by choosing ``\varepsilon = 10^{-6}`` the matrix is *ill-conditioned*.
 
-We first solve [`LinearSystem`](@ref) with an [`LUSolver`](@ref) in double precision and without pivoting:
+We first solve [`LinearSystem`](@ref) with an lu solver (using [`LU`](@ref) and [`solve`](@ref)) in double precision and without pivoting:
 
 ```@example linear_system
-lu = LUSolver(ls; pivot = false)
-solution(lu)
+lu = LU(; pivot = false)
+solve(lu, ls)
 ```
 
 We now do the same in single precision:
@@ -39,17 +39,15 @@ We now do the same in single precision:
 ```@example linear_system
 Aˢ = Float32.(A)
 yˢ = Float32.(y)
-lsˢ = LinearSystem(copy(Aˢ), yˢ)
-lu = LUSolver(lsˢ; pivot = false)
-solution(lsˢ)
+lsˢ = LinearSystem(Aˢ, yˢ)
+solve(lu, lsˢ)
 ```
 
 As we can see the computation of the factorization returns `NaN`s. If we use pivoting however, the problem can also be solved with single precision:
 
 ```@example linear_system
-lsˢ = LinearSystem(copy(Aˢ), yˢ) # hide
-lu = LUSolver(lsˢ; pivot = true)
-solution(lsˢ)
+lu = LU(; pivot = true)
+solve(lu, lsˢ)
 ```
 
 ## Solving the System with Built-In Functionality from the `LinearAlgebra` Package
