@@ -105,9 +105,10 @@ module SimpleSolvers
     include("bracketing/triple_point_finder.jl")
 
     export Linesearch, Static
-    export Backtracking, backtracking,
-           Bisection, bisection,
-           Quadratic, quadratic
+    export Backtracking,
+           Bisection,
+           Quadratic,
+           BierlaireQuadratic
 
     include("linesearch/methods.jl")
     include("linesearch/linesearch.jl")

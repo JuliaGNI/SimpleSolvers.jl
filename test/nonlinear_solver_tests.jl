@@ -1,5 +1,5 @@
 using SimpleSolvers
-using SimpleSolvers: initialize!, solver_step!
+using SimpleSolvers: initialize!, solver_step!, BierlaireQuadratic
 using Test
 using Random
 using ForwardDiff
@@ -35,9 +35,11 @@ for T ∈ (Float64, ) # Float32)
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
                 (NewtonSolver, (linesearch = Quadratic(),)),
+                (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
                 # (NewtonSolver, (linesearch = Bisection(),)),
                 # (QuasiNewtonSolver, (linesearch = Static(),)),
                 # (QuasiNewtonSolver, (linesearch = Backtracking(),)),
+                # (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),)),
                 # (QuasiNewtonSolver, (linesearch = Quadratic(),)),
                 # (QuasiNewtonSolver, (linesearch = Bisection(),)),
             )

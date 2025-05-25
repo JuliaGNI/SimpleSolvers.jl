@@ -91,10 +91,9 @@ function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, y₀::
     end
 end
 
-function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_iterations::Integer = 0, α::T = ls.α₀) where {T}
+function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_iterations::Integer = 0, α::T = ls.α₀, x₀::T=zero(T)) where {T}
     number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
-    x₀ = zero(T)
     y₀ = value!(obj, x₀)
     d₀ = derivative!(obj, x₀)
     p₀ = y₀
@@ -106,15 +105,12 @@ function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_
     y₁ = value!(obj, α)
 
     # determine nonconstant coefficient of polynomial p(α) = p₀ + p₁α + p₂α²
-    p₂ = (y₁^2 - p₀ - p₁*α) / α^2
+    p₂ = (y₁^2 - p₀ - p₁*(α-x₀)) / (α-x₀)^2
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-    αₜ = - p₁ / (2p₂)
+    αₜ = - p₁ / (2p₂) + x₀
 
     α = adjust_α(ls, αₜ, α)
 
-    sdc(α) ? α : ls(obj, number_of_iterations + 1, α * DEFAULT_ARMIJO_p)
+    sdc(α) ? α : ls(obj, number_of_iterations + 1, α * DEFAULT_ARMIJO_p, x₀)
 end
-
-quadratic(o::AbstractUnivariateObjective, args...; kwargs...) = QuadraticState(; kwargs...)(o, args...)
-quadratic(f::Callable, g::Callable, args...; kwargs...) = QuadraticState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)

@@ -132,6 +132,3 @@ end
 
 __value!(obj::UnivariateObjective, x₀) = value!(obj, x₀)
 __value!(obj::TemporaryUnivariateObjective, x₀) = value(obj, x₀)
-
-backtracking(o::AbstractUnivariateObjective, args...; kwargs...) = BacktrackingState(; kwargs...)(o, args...)
-backtracking(f::Callable, g::Callable, args...; kwargs...) = BacktrackingState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)

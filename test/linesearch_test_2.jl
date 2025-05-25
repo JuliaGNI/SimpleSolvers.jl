@@ -35,7 +35,7 @@ end
 
 for T ∈ (Float32, Float64)
     for ls_method ∈ (Bisection(), Quadratic(), BierlaireQuadratic())
-        ls = LinesearchMethod(ls_method; T = T)
+        ls = LinesearchState(ls_method; T = T)
         ls_obj = make_linesearch_objective(T.(x))
         ls(ls, ls_obj)
     end
