@@ -83,11 +83,11 @@ end
 Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
 This is used as a starting point for using the functor of [`QuadraticState`](@ref) and makes sure that `α` describes *a point past the minimum*.
 """
-function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, y₀::T=value(obj, zero(T))) where {T}
-    if derivative(obj, zero(T)) < zero(T)
-        BracketMinimumCriterion()(y₀, value(obj, α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, zero(T))[2]
+function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
+    if derivative(obj, x₀) < zero(T)
+        BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
     else
-        bracket_minimum_with_fixed_point(obj, zero(T))[1]
+        bracket_minimum_with_fixed_point(obj, x₀)[1]
     end
 end
 

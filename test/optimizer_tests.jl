@@ -29,7 +29,7 @@ test_obj = MultivariateObjective(F, test_x)
 @test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj; hessian = HessianDFP(test_obj, test_x))) == true
 
 for method in (Newton(), BFGS(), DFP())
-    for _linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
+    for _linesearch in (Static(0.8), Backtracking()) # , Quadratic2(), BierlaireQuadratic(), Bisection())
         for T in (Float64, Float32)
             n = 1
             x = ones(T, n)

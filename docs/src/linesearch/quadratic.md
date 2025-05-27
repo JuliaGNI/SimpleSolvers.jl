@@ -427,8 +427,6 @@ We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. Fo
 
 We plot the bracket:
 
-using CairoMakie
-
 ```@example II
 using CairoMakie
 mred = RGBf(214 / 256, 39 / 256, 40 / 256)
@@ -502,18 +500,17 @@ and compute its minimum:
 αₜ = -p₁ / (2p₂) + a
 ```
 
-```@example II
+```@setup II
 fig = Figure()
 ax = Axis(fig[1, 1])
 alpha = -2.5:.01:3.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
-ylims!(ax, (-1., 6.))
 axislegend(ax)
 lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
-ylims!(ax, (-1., 6.))
+# ylims!(ax, (-1., 6.))
 axislegend(ax)
 save("f_ls_3.png", fig)
 nothing # hide

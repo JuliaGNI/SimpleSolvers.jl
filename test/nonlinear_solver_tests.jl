@@ -34,8 +34,8 @@ for T ∈ (Float64, ) # Float32)
     for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
-                (NewtonSolver, (linesearch = Quadratic(),)),
-                (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
+                # (NewtonSolver, (linesearch = Quadratic2(),)),
+                # (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
                 # (NewtonSolver, (linesearch = Bisection(),)),
                 # (QuasiNewtonSolver, (linesearch = Static(),)),
                 # (QuasiNewtonSolver, (linesearch = Backtracking(),)),

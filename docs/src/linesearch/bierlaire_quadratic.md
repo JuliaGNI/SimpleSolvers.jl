@@ -9,8 +9,8 @@ using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(1234) # hide
 
-f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
-f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (.5 * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
+f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
+f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (T(.5) * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
 x = -10 * rand(1)
@@ -33,6 +33,13 @@ fˡˢ = ls_obj.F
 nothing # hide
 ```
 
+For the Bierlaire quadratic line search we need three points: ``a``, ``b`` and ``c``:
+
+```@example bierlaire
+a, b, c = -2., 0.5, 2.5
+nothing # hide
+```
+
 ```@setup bierlaire
 using CairoMakie
 
@@ -45,9 +52,6 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 fig = Figure()
 ax = Axis(fig[1, 1])
 alpha = -2.5:.01:3.
-a = -2.
-b = 0.5
-c = 2.5
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
@@ -105,7 +109,7 @@ nothing
 We can now easily determine the minimum of the polynomial ``p``. It is:
 
 ```math
-\chi = \frac{1}{2} \frac{ f^\mathrm{ls}(a) * (b^2 - c^2) + f^\mathrm{ls}(b) * (c^2 - a^2) + f^\mathrm{ls}(c) * (a^2 - b^2) }{f^\mathrm{ls}(a) * (b - c) + f^\mathrm{ls}(b) * (c - a) + f^\mathrm{ls}(c) * (a - b)}.
+\chi = \frac{1}{2} \frac{ f^\mathrm{ls}(a) (b^2 - c^2) + f^\mathrm{ls}(b) (c^2 - a^2) + f^\mathrm{ls}(c) (a^2 - b^2) }{f^\mathrm{ls}(a) (b - c) + f^\mathrm{ls}(b) (c - a) + f^\mathrm{ls}(c) (a - b)}.
 ```
 
 ```@setup bierlaire
@@ -123,13 +127,16 @@ We now use this ``\chi`` to either replace ``a``, ``b`` or ``c`` and distinguish
 3. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) > f^\mathrm{ls}(b)`` ``\implies`` we replace ``a \gets \chi``,
 4. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) \leq f^\mathrm{ls}(b)`` ``\implies`` we replace ``b, c \gets \chi, b``.
 
-In our example we have the third case: ``\chi`` is to the left of ``b`` and ``f^\mathrm{ls}(\chi)`` is bigger than ``f(b)``. We therefore replace ``a`` with ``\chi``. The new approximation is the following one:
+In our example we have the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is smaller than ``f(b)``. We therefore replace ``a`` with ``b`` and ``\b`` with ``\chi``. The new approximation is the following one:
 
 ```@setup bierlaire
 fig = Figure()
 ax = Axis(fig[1, 1])
 alpha = -0.:.01:2.5
-a = χ
+@assert b < χ
+@assert f(b) > f(χ)
+a = b
+b = χ
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
@@ -147,37 +154,14 @@ save("f_ls_bierlaire4.png", fig)
 
 ![](f_ls_bierlaire4.png)
 
-We now observe the first case. By replacing ``c \gets \chi`` we get:
+We again observe the second case. By replacing ``a, b \gets b, \chi`` we get:
 
 ```@setup bierlaire
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = 0.:.01:1.
-c = χ
-lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
-scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
-scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
-β₁ = ((b - c) * fˡˢ(a) + (c - a) * fˡˢ(b) + (a - b) * fˡˢ(c)) / ((a - b) * (c - a) * (c - b))
-β₂ = fˡˢ(b) / (b - a)
-β₃ = fˡˢ(a) / (a - b)
-p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
-lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
-χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
-scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
-axislegend(ax; position = :rt)
-save("f_ls_bierlaire5.png", fig)
-```
-
-![](f_ls_bierlaire5.png)
-
-We now observe the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is below ``f(b)``. Hence we replace ``a \gets b`` and ``b \gets \chi.`` A successive iteration yields:
-
-```@setup bierlaire
-@assert fˡˢ(χ) ≤ fˡˢ(b)
-fig = Figure()
-ax = Axis(fig[1, 1])
-alpha = .45:.01:1.
+alpha = .4:.01:2.5
+@assert b < χ
+@assert f(b) > f(χ)
 a = b
 b = χ
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
@@ -190,8 +174,36 @@ scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
 p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
 lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
-# scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
+scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rb)
+save("f_ls_bierlaire5.png", fig)
+```
+
+![](f_ls_bierlaire5.png)
+
+We now observe the first case: ``\chi`` is to the left of ``b`` and ``f^\mathrm{ls}(\chi)`` is above ``f(b)``. Hence we replace ``b, c \gets \chi, b.`` A successive iteration yields:
+
+```@setup bierlaire
+@assert fˡˢ(χ) ≤ fˡˢ(b)
+fig = Figure()
+ax = Axis(fig[1, 1])
+alpha = .45:.01:1.3
+@assert b > χ
+@assert f(b) < f(χ)
+c = b
+b = χ
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
+scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
+scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
+scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
+β₁ = ((b - c) * fˡˢ(a) + (c - a) * fˡˢ(b) + (a - b) * fˡˢ(c)) / ((a - b) * (c - a) * (c - b))
+β₂ = fˡˢ(b) / (b - a)
+β₃ = fˡˢ(a) / (a - b)
+p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
+lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
+χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
+# scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
+axislegend(ax; position = :rt)
 save("f_ls_bierlaire6.png", fig)
 ```
 

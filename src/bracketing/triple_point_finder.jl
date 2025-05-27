@@ -17,10 +17,12 @@ function triple_point_finder(f::Callable, x₀::T=0.0; δ::T=T(DEFAULT_BRACKETIN
     local xₖ₋₁ = x₀
     local xₖ = x₁
     local xₖ₊₁ = xₖ
+    local increment = δ
     for k in 1:nmax
         xₖ₋₁ = xₖ
         xₖ = xₖ₊₁
-        xₖ₊₁ = 2xₖ
+        increment = 2 * increment
+        xₖ₊₁ = xₖ + increment
         if f(xₖ₊₁) > f(xₖ)
             return (xₖ₋₁, xₖ, xₖ₊₁)
         end

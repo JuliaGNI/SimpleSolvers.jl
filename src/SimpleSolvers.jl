@@ -108,6 +108,7 @@ module SimpleSolvers
     export Backtracking,
            Bisection,
            Quadratic,
+           Quadratic2,
            BierlaireQuadratic
 
     include("linesearch/methods.jl")
@@ -119,6 +120,7 @@ module SimpleSolvers
     include("linesearch/backtracking/curvature_condition.jl")
     include("linesearch/bisection.jl")
     include("linesearch/quadratic.jl")
+    include("linesearch/custom_quadratic.jl")
     include("linesearch/bierlaire_quadratic.jl")
 
     export NonlinearSolver, NonlinearSolverException,

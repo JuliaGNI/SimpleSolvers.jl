@@ -240,6 +240,39 @@ end
     TemporaryUnivariateObjective <: AbstractUnivariateObjective
 
 Like [`UnivariateObjective`](@ref) but doesn't store `f`, `d`, `x_f` and `x_d` as well as `f_calls` and `d_calls`.
+
+In practice `TemporaryUnivariateObjective`s are allocated by calling [`linesearch_objecrtive`](@ref).
+
+# Constructors
+
+!!! warn "Calling line search objectives"
+    Below we show a few constructors that can be used to allocate `TemporaryUnivariateObjective`s. Note however that in practice one probably should not do that and instead call `linesearch_objecrtive`.
+
+```jldoctest; setups = :(using SimpleSolvers: TemporaryUnivariateObjective, compute_new_iterate)
+f(x) = x^2 - 1
+g(x) = 2x
+δx(x) = - g(x) / 2
+x₀ = 3.
+_f(α) = f(compute_new_iterate(x₀, α, δx(x₀)))
+_d(α) = g(compute_new_iterate(x₀, α, δx(x₀)))
+ls_obj = TemporaryUnivariateObjective{typeof(x₀)}(_f, _d)
+
+# output
+
+TemporaryUnivariateObjective{Float64, typeof(_f), typeof(_d)}(_f, _d)
+```
+
+Alternatively one can also do:
+
+```jldoctest; setups = :(using SimpleSolvers: TemporaryUnivariateObjective, compute_new_iterate; f(x) = x^2 - 1; g(x) = 2x; δx(x) = - g(x) / 2; x₀ = 3; _f(α) = f(compute_new_iterate(x₀, α, δx(x₀))); _d(α) = g(compute_new_iterate(x₀, α, δx(x₀))))
+ls_obj = TemporaryUnivariateObjective(_f, _d, x₀)
+
+# output
+
+TemporaryUnivariateObjective(_f, _d, x₀)
+```
+
+Here we wrote `ls_obj` to mean *line search objective*.
 """
 struct TemporaryUnivariateObjective{Tx <: Number, TF, TD} <: AbstractUnivariateObjective{Tx}
     F::TF
