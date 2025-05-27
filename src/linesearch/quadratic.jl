@@ -13,8 +13,8 @@ Quadratic Polynomial line search.
 - `σ₁`: by default [`DEFAULT_ARMIJO_σ₁`](@ref)
 - `c`: by default [`DEFAULT_WOLFE_c₁`](@ref)
 """
-struct QuadraticState{T,OPT} <: LinesearchState where {T <: Number, OPT <: Options{T}}
-    config::OPT
+struct QuadraticState{T} <: LinesearchState{T}
+    config::Options{T}
 
     α₀::T
     σ₀::T

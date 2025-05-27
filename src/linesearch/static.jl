@@ -11,7 +11,7 @@ ls.(a) = ls.α
 ls.(obj, a) = ls.α
 ```
 """
-struct StaticState{T} <: LinesearchState
+struct StaticState{T} <: LinesearchState{T}
     α::T
     StaticState(α::T = 1.0) where {T} = new{T}(α)
 end

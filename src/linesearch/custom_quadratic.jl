@@ -8,8 +8,6 @@ A factor by which `s` is reduced in each bracketing iteration (see [`bracket_min
 """
 const DEFAULT_s_REDUCTION = .5
 
-# const DEFAULT_QUADRATIC_ε
-
 """
     QuadraticState2 <: LinesearchState
 
@@ -24,8 +22,8 @@ This algorithm repeatedly builds new quadratic polynomials until a minimum is fo
 - `s`: A constant that determines the initial interval for bracketing. By default this is [`DEFAULT_BRACKETING_s`](@ref).
 - `s_reduction:` A constant that determines the factor by which `s` is decreased in each new *bracketing iteration*.
 """
-struct QuadraticState2{T,OPT} <: LinesearchState where {T <: Number, OPT <: Options{T}}
-    config::OPT
+struct QuadraticState2{T} <: LinesearchState{T}
+    config::Options{T}
 
     ε::T
     s::T

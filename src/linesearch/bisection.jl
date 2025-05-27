@@ -67,7 +67,7 @@ function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <
 
         !isapprox(x₁ - x₀, zero(x), atol=config.x_abstol) || break
 
-        j != config.max_iterations || error("Max iteration number exceeded")
+        j != config.max_iterations || (println(x₀, " ", x₁, " ", x₁ - x₀); error("Max iteration number exceeded"))
     end
 
     x
@@ -97,8 +97,8 @@ BisectionState(options)
 BisectionState(; options)
 ```
 """
-mutable struct BisectionState{OPT} <: LinesearchState where {OPT <: Options}
-    config::OPT
+mutable struct BisectionState{T} <: LinesearchState{T}
+    config::Options{T}
 end
 
 function BisectionState(; config = Options())

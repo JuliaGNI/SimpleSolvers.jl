@@ -89,8 +89,8 @@ where ``\epsilon`` is stored in `ls`.
 !!! info
     The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search objective.
 """
-struct BacktrackingState{OPT <: Options, T <: Number} <: LinesearchState
-    config::OPT
+struct BacktrackingState{T} <: LinesearchState{T}
+    config::Options{T}
     α₀::T
     ϵ::T
     p::T
