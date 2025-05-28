@@ -241,12 +241,12 @@ end
 
 Like [`UnivariateObjective`](@ref) but doesn't store `f`, `d`, `x_f` and `x_d` as well as `f_calls` and `d_calls`.
 
-In practice `TemporaryUnivariateObjective`s are allocated by calling [`linesearch_objecrtive`](@ref).
+In practice `TemporaryUnivariateObjective`s are allocated by calling [`linesearch_objective`](@ref).
 
 # Constructors
 
 !!! warn "Calling line search objectives"
-    Below we show a few constructors that can be used to allocate `TemporaryUnivariateObjective`s. Note however that in practice one probably should not do that and instead call `linesearch_objecrtive`.
+    Below we show a few constructors that can be used to allocate `TemporaryUnivariateObjective`s. Note however that in practice one probably should not do that and instead call `linesearch_objective`.
 
 ```jldoctest; setup = :(using SimpleSolvers: TemporaryUnivariateObjective, compute_new_iterate)
 f(x) = x^2 - 1
