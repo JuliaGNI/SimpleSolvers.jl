@@ -40,7 +40,7 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref): 
 """
-struct NewtonSolver{T, AT, NLST <: NonlinearSystem{T}, LST <: LinearSystem{T}, LSoT <: LinearSolver{T}, LiSeT <: LinesearchState, CT <: NewtonSolverCache, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
+struct NewtonSolver{T, AT, NLST <: NonlinearSystem{T}, LST <: LinearSystem{T}, LSoT <: LinearSolver{T}, LiSeT <: LinesearchState{T}, CT <: NewtonSolverCache{T}, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
     nonlinearsystem::NLST
     linearsystem::LST
     linearsolver::LSoT
@@ -95,7 +95,7 @@ function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
     update!(linearsystem(s), -value(nonlinearsystem(s)))
     rhs(cache(s)) .= rhs(linearsystem(s))
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    if (mod(iteration_number(s)-1, s.refactorize) == 0 || iteration_number(s) == 0 || iteration_number(s) == 1)
+    if (mod(iteration_number(s)-1, s.refactorize) == 0 || iteration_number(s) == 1)
         jacobian!(nonlinearsystem(s), x)
         update!(linearsystem(s), jacobian(s))
         factorize!(linearsolver(s), linearsystem(s))
@@ -205,12 +205,19 @@ function update!(s::NewtonSolver, x₀::AbstractArray)
     s
 end
 
+"""
+    solve!(s, x)
+
+# Extended help
+
+!!! info
+    The function `update!` calls `next_iteration!`.
+"""
 function solve!(s::NewtonSolver, x::AbstractArray)
     initialize!(s, x)
     update!(status(s), x, nonlinearsystem(s))
 
     while !meets_stopping_criteria(status(s), config(s))
-        next_iteration!(status(s))
         solver_step!(s, x)
         update!(status(s), x, nonlinearsystem(s))
         residual!(status(s))
