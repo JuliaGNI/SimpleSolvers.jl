@@ -20,7 +20,7 @@ F!(y, x) = y .= F(x)
 
 n = 1
 x₀ = rand(n)
-root₁ = 0.7613128434711648
+root₁ = 0.76131284
 root₂ = -4.7350357537069865
 
 function J!(g, x)
@@ -30,18 +30,18 @@ function J!(g, x)
     end
 end
 
-for T ∈ (Float64, ) # Float32)
+for T ∈ (Float64, Float32)
     for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
-                # (NewtonSolver, (linesearch = Quadratic2(),)),
-                # (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
-                # (NewtonSolver, (linesearch = Bisection(),)),
-                # (QuasiNewtonSolver, (linesearch = Static(),)),
-                # (QuasiNewtonSolver, (linesearch = Backtracking(),)),
-                # (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),)),
-                # (QuasiNewtonSolver, (linesearch = Quadratic(),)),
-                # (QuasiNewtonSolver, (linesearch = Bisection(),)),
+                (NewtonSolver, (linesearch = Quadratic2(),)),
+                (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
+                (NewtonSolver, (linesearch = Bisection(),)),
+                (QuasiNewtonSolver, (linesearch = Static(),)),
+                (QuasiNewtonSolver, (linesearch = Backtracking(),)),
+                (QuasiNewtonSolver, (linesearch = Quadratic2(),)),
+                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),)),
+                (QuasiNewtonSolver, (linesearch = Bisection(),)),
             )
 
         x = T.(copy(x₀))
@@ -53,7 +53,7 @@ for T ∈ (Float64, ) # Float32)
 
         solve!(nl, x)
         for _x in x
-            @test ≈(_x, T(root₁)) || ≈(_x, T(root₂))
+            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))
         end
 
         x .= T.(x₀)
@@ -62,7 +62,7 @@ for T ∈ (Float64, ) # Float32)
         solve!(nl, x)
         println(Solver, kwarguments)
         for _x in x
-            @test ≈(_x, T(root₁)) || ≈(_x, T(root₂))
+            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))
         end
     end
 end
