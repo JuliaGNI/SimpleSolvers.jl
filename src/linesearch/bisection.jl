@@ -101,13 +101,14 @@ mutable struct BisectionState{T} <: LinesearchState{T}
     config::Options{T}
 end
 
-function BisectionState(; config = Options())
+function BisectionState(T::DataType=Float64; config = Options())
+    config = Options(T, config)
     BisectionState(config)
 end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(; kwargs...)
+LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(T; kwargs...)
 
 function (ls::BisectionState)(obj::UnivariateObjective{T}) where {T}
     # bisection(obj, 0., 1.; config = ls.config)

@@ -27,7 +27,7 @@ struct QuadraticState{T} <: LinesearchState{T}
                     σ₁::T = DEFAULT_ARMIJO_σ₁,
                     c::T = DEFAULT_WOLFE_c₁) where {T}
         config₁ = Options(T₁, config)
-        new{T₁, typeof(config₁)}(config₁, T₁(α₀), T₁(σ₀), T₁(σ₁), T₁(c))
+        new{T₁}(config₁, T₁(α₀), T₁(σ₀), T₁(σ₁), T₁(c))
     end
 end
 

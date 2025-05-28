@@ -23,8 +23,8 @@ const DEFAULT_BIERLAIRE_ξ::Float64 = eps(Float32)
 
 Note that the performance of [`BierlaireQuadratic`](@ref) may heavily depend on the choice of [`DEFAULT_BIERLAIRE_ε`](@ref) (i.e. the precision) and [`DEFAULT_BIERLAIRE_ξ`](@ref).
 """
-struct BierlaireQuadraticState{T <: Number, OPT <: Options{T}} <: LinesearchState{T}
-    config::OPT
+struct BierlaireQuadraticState{T} <: LinesearchState{T}
+    config::Options{T}
 
     ε::T
     ξ::T
@@ -33,7 +33,7 @@ struct BierlaireQuadraticState{T <: Number, OPT <: Options{T}} <: LinesearchStat
                     ε::T = DEFAULT_BIERLAIRE_ε,
                     ξ::T = DEFAULT_BIERLAIRE_ξ) where {T}
         config₁ = Options(T₁, config)
-        new{T₁, typeof(config₁)}(config₁, T₁(ε), T₁(ξ))
+        new{T₁}(config₁, T₁(ε), T₁(ξ))
     end
 end
 

@@ -1,11 +1,11 @@
-"Absolute tolerance for `x` (the function argument). Its value is $(X_ABSTOL). Used in e.g. [`assess_convergence!`](@ref)"
-const X_ABSTOL::Real = -Inf
+"Absolute tolerance for `x` (the function argument). Its value is $(X_ABSTOL). Used in e.g. [`assess_convergence!`](@ref) and [`bisection`](@ref)."
+const X_ABSTOL::Real = 2eps()
 "Relative tolerance for `x` (the function argument). Its value is $(X_RELTOL). Used in e.g. [`assess_convergence!`](@ref)"
 const X_RELTOL::Real = 2eps()
 "succesive tolerance for `x`. Its value is $(X_SUCTOL). Used in e.g. [`assess_convergence!`](@ref)"
 const X_SUCTOL::Real = 2eps()
 "Absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref). Its value is $(F_ABSTOL)."
-const F_ABSTOL::Real = 1e-50
+const F_ABSTOL::Real = 2eps()
 "Relative tolerance for the function value. Its value is $(F_RELTOL). Used in e.g. [`assess_convergence!`](@ref)."
 const F_RELTOL::Real = 2eps()
 "Succesive tolerance for the function value. Its value is $(F_RELTOL). Used in e.g. [`assess_convergence!`](@ref)."
@@ -166,22 +166,28 @@ function Options(;
                         verbosity)
 end
 
+convert_float64_to_float32_if_necessary(a::Number) = convert_float64_to_float32_if_necessary(Val(a))
+
+convert_float64_to_float32_if_necessary(::Val{T}) where {T} = T
+
+convert_float64_to_float32_if_necessary(::Val{2eps(Float64)}) = 2eps(Float32)
+
 function Options(T::DataType, options::Options)
 
     floatopts = (
-        options.x_abstol,
-        options.x_reltol,
-        options.x_suctol,
-        options.f_abstol,
-        options.f_reltol,
-        options.f_suctol,
-        options.f_mindec,
-        options.g_restol,
-        options.x_abstol_break,
-        options.x_reltol_break,
-        options.f_abstol_break,
-        options.f_reltol_break,
-        options.g_restol_break,
+        convert_float64_to_float32_if_necessary(options.x_abstol),
+        convert_float64_to_float32_if_necessary(options.x_reltol),
+        convert_float64_to_float32_if_necessary(options.x_suctol),
+        convert_float64_to_float32_if_necessary(options.f_abstol),
+        convert_float64_to_float32_if_necessary(options.f_reltol),
+        convert_float64_to_float32_if_necessary(options.f_suctol),
+        convert_float64_to_float32_if_necessary(options.f_mindec),
+        convert_float64_to_float32_if_necessary(options.g_restol),
+        convert_float64_to_float32_if_necessary(options.x_abstol_break),
+        convert_float64_to_float32_if_necessary(options.x_reltol_break),
+        convert_float64_to_float32_if_necessary(options.f_abstol_break),
+        convert_float64_to_float32_if_necessary(options.f_reltol_break),
+        convert_float64_to_float32_if_necessary(options.g_restol_break),
     )
 
     nonfloats = (

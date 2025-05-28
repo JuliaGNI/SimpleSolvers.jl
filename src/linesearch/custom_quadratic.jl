@@ -34,7 +34,7 @@ struct QuadraticState2{T} <: LinesearchState{T}
                     s::T = DEFAULT_BRACKETING_s,
                     s_reduction::T = DEFAULT_s_REDUCTION) where {T}
         config₁ = Options(T₁, config)
-        new{T₁, typeof(config₁)}(config₁, T₁(ε), T₁(s), T₁(s_reduction))
+        new{T₁}(config₁, T₁(ε), T₁(s), T₁(s_reduction))
     end
 end
 

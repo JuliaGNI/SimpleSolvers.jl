@@ -102,7 +102,7 @@ struct BacktrackingState{T} <: LinesearchState{T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
         configT = Options(T₁, config)
-        new{typeof(configT), T₁}(configT, T₁(α₀), T₁(ϵ), T₁(p))
+        new{T₁}(configT, T₁(α₀), T₁(ϵ), T₁(p))
     end
 end
 
@@ -110,7 +110,7 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = 
 
 LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {OT, T}
+function (ls::BacktrackingState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {T}
     x₀ = zero(α)
     y₀ = __value!(obj, x₀)
     d(α) = derivative!(obj, α)
