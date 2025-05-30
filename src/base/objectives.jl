@@ -383,7 +383,7 @@ Like [`derivative!!`](@ref), but for [`MultivariateObjective`](@ref), not [`Univ
 function gradient!!(obj::MultivariateObjective, x::AbstractArray{<:Number})
     copyto!(obj.x_g, x)
     obj.g_calls += 1
-    gradient!(obj.g, x, obj.G)
+    gradient!(gradient(obj), x, obj.G)
     gradient(obj)
 end
 
@@ -431,6 +431,22 @@ function clear!(obj::MultivariateObjective)
     obj
 end
 
+function initialize!(obj::MultivariateObjective, ::AbstractVector)
+    clear!(obj)
+end
+
+"""
+    update!(obj, x)
+
+Call [`value!`](@ref) and [`gradient!`](@ref) on `obj`.
+"""
+function update!(obj::MultivariateObjective, x::AbstractVector)
+    value!(obj, x)
+    gradient!(obj, x)
+
+    obj
+end
+
 f_argument(obj::AbstractObjective) = obj.x_f
 g_argument(obj::MultivariateObjective) = obj.x_g
 
@@ -442,3 +458,5 @@ d_calls(o::UnivariateObjective) = o.d_calls
 
 g_calls(o::AbstractObjective) = error("g_calls is not implemented for $(summary(o)).")
 g_calls(o::MultivariateObjective) = o.g_calls
+
+Gradient(obj::MultivariateObjective) = obj.G
