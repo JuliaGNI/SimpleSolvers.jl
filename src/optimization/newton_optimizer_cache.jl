@@ -59,6 +59,11 @@ function update!(cache::NewtonOptimizerCache, x::AbstractVector)
     cache
 end
 
+"""
+    update!(cache, x, g)
+
+Update the [`NewtonOptimizerCache`](@ref) based on `x` and `g`.
+"""
 function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVector)
     update!(cache, x)
     gradient(cache) .= g
@@ -73,6 +78,8 @@ update!(cache::NewtonOptimizerCache, x::AbstractVector, g::Gradient) = update!(c
 
 Update an instance of [`NewtonOptimizerCache`](@ref) based on `x`.
 
+This is used in [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
+
 This sets:
 ```math
 \bar{x}^\mathtt{cache} \gets x,
@@ -84,6 +91,9 @@ g^\mathtt{cache} \gets g,
 where we wrote ``H`` for the Hessian (i.e. the input argument `hes`). 
 
 Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref). 
+
+!!! warn
+    Note that this is not updating the Hessian `hes`. For this call `update!` on the `Hessian`.
 
 # Implementation
 

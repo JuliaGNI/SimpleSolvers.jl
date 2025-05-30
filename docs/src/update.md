@@ -58,8 +58,8 @@ In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSol
 ```@example update
 using SimpleSolvers: NewtonOptimizerState # hide
 obj = MultivariateObjective(f, x)
-state = NewtonOptimizerState(x, obj)
-update!(state, x)
+state = NewtonOptimizerState(x)
+update!(state, x, Gradient(obj), hes)
 ```
 
 ### `OptimizerResult`

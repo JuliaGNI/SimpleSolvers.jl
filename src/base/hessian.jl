@@ -110,7 +110,7 @@ The functor does:
 hes(H, x) = hes.H!(H, x)
 ```
 """
-struct HessianFunction{T, HT} <: Hessian{T}
+struct HessianFunction{T, HT <: Callable} <: Hessian{T}
     H!::HT
 end
 
@@ -147,7 +147,7 @@ The functor does:
 hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
 ```
 """
-struct HessianAutodiff{T, FT, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
+struct HessianAutodiff{T, FT <: Callable, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
     H::HT
     Hconfig::CT
@@ -163,6 +163,8 @@ function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
 end
 
 HessianAutodiff(F::MultivariateObjective, x) = HessianAutodiff(F.F, x)
+
+Hessian(::Newton, ForOBJ::Union{Callable, MultivariateObjective}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
 
 HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff{T}(F, zeros(T, nx))
 
@@ -225,9 +227,9 @@ function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where 
     end
 end
 
-Hessian(H!, F, x::AbstractVector; kwargs...) = Hessian(H!, nx; mode = :user, kwargs...)
+Hessian(H!::Callable, F::Nothing, x::AbstractVector; kwargs...) = Hessian(H!, length(x); mode = :user, kwargs...)
 
-Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) = Hessian(F, nx;  mode = :autodiff, kwargs...)
+Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) = Hessian(F, length(x);  mode = :autodiff, kwargs...)
 
 Hessian{T}(ForH, nx::Int; kwargs...) where {T} = Hessian(ForH, zeros(T, nx); kwargs...)
 

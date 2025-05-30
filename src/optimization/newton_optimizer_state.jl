@@ -1,88 +1,75 @@
 """
     NewtonOptimizerState <: OptimizationAlgorithm
 
+The optimizer state is needed to update the [`Optimizer`](@ref). This is different to [`OptimizerStatus`](@ref) and [`OptimizerResult`](@ref) which serve as diagnostic tools.
+It stores a [`LinesearchState`](@ref) and a [`NewtonOptimizerCache`](@ref) which is used to compute the line search objective at each iteration.
+
 # Keys
 
-- `objective::`[`MultivariateObjective`](@ref)
-- `hessian::`[`Hessian`](@ref)
 - `linesearch::`[`LinesearchState`](@ref)
-- `ls_objective`
 - `cache::`[`NewtonOptimizerCache`](@ref)
 """
-struct NewtonOptimizerState{OBJ <: MultivariateObjective, HES <: Hessian, LS <: LinesearchState, LSO, NOC <: NewtonOptimizerCache} <: OptimizationAlgorithm
-    objective::OBJ
-    hessian::HES
+struct NewtonOptimizerState{T, LS <: LinesearchState, NOC <: NewtonOptimizerCache{T}} <: OptimizationAlgorithm
     linesearch::LS
-    ls_objective::LSO
     cache::NOC
 
-    function NewtonOptimizerState(objective::OBJ, hessian::HES, linesearch::LS, ls_objetive::LSO, cache::NOC) where {OBJ, HES, LS, LSO, NOC}
-        new{OBJ,HES,LS,LSO,NOC}(objective, hessian, linesearch, ls_objetive, cache)
+    function NewtonOptimizerState(linesearch::LS, cache::NOC) where {T, LS <: LinesearchState{T}, NOC <: NewtonOptimizerCache{T}}
+        new{T,LS,NOC}(linesearch, cache)
     end
 end
 
-function NewtonOptimizerState(x::VT, objective::MultivariateObjective; mode = :autodiff, linesearch = Backtracking(), hessian = Hessian(objective, x; mode = mode)) where {XT, VT <: AbstractVector{XT}}
-    cache = NewtonOptimizerCache(x, objective)
-    initialize!(hessian, x)
+function NewtonOptimizerState(x::VT; linesearch::LinesearchMethod = Backtracking()) where {XT, VT <: AbstractVector{XT}}
+    cache = NewtonOptimizerCache(x)
     initialize!(cache, x)
     ls = LinesearchState(linesearch; T = XT)
-    lso = linesearch_objective(objective, cache)
 
-    NewtonOptimizerState(objective, hessian, ls, lso, cache)
+    NewtonOptimizerState(ls, cache)
 end
 
-# NewtonOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; kwargs...)
-# BFGSOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianBFGS, kwargs...)
-# DFPOptimizer(args...; kwargs...) = NewtonOptimizerState(args...; hessian = HessianDFP, kwargs...)
-
-OptimizationAlgorithm(algorithm::NMT, objective::AbstractObjective, x, y; kwargs...) where {NMT <: NewtonMethod} = error("OptimizationAlgorithm has to be extended to algorithm $(NMT).")
-OptimizationAlgorithm(algorithm::NewtonMethod, objective::AbstractObjective, x; kwargs...) = OptimizationAlgorithm(algorithm, objective, x, objective(x); kwargs...)
-OptimizationAlgorithm(algorithm::Newton, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; kwargs...)
-OptimizationAlgorithm(algorithm::BFGS, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianBFGS(objective, x), kwargs...)
-OptimizationAlgorithm(algorithm::DFP, objective::AbstractObjective, x, y; kwargs...) = NewtonOptimizerState(x, objective; hessian = HessianDFP(objective, x), kwargs...)
-
 cache(newton::NewtonOptimizerState) = newton.cache
-direction(newton::NewtonOptimizerState) = cache(newton).δ
+direction(newton::NewtonOptimizerState) = direction(cache(newton))
 gradient(newton::NewtonOptimizerState) = gradient(newton.cache)
 hessian(newton::NewtonOptimizerState) = newton.hessian
 linesearch(newton::NewtonOptimizerState) = newton.linesearch
-objective(newton::NewtonOptimizerState) = newton.objective
 rhs(newton::NewtonOptimizerState) = rhs(newton.cache)
 
 function initialize!(newton::NewtonOptimizerState, x::AbstractVector)
-    initialize!(hessian(newton), x)
     initialize!(cache(newton), x)
+
+    newton
 end
 
 """
-    update!(newton::NewtonOptimizerState, x)
+    update!(state::NewtonOptimizerState, x, g, hes)
 
-Update an instance of [`NewtonOptimizerState`](@ref) based on `x`.
+Update an instance of [`NewtonOptimizerState`](@ref) based on `x`, `g` and `hes`, where `g` can either be an `AbstractVector` or a [`Gradient`](@ref) and `hes` is a [`Hessian`](@ref).
+This updates the [`NewtonOptimizerCache`](@ref) contained in the [`NewtonOptimizerState`](@ref) by calling [`update!(::NewtonOptimizerCache, ::AbstractVector, ::Union{AbstractVector, Gradient}, ::Hessian)`](@ref).
+
+!!! info
+    An instance of `NewtonOptimizerState` stores the `NewtonOptimizerCache` as well as a `LinesearchState`. The `LinesearchState` stays the same at every iteration, which is why only the `NewtonOptimizerState` is updated.
+
+# Examples
+
+We show that after initializing, update has to be called together with a [`Gradient`](@ref) and a [`Hessian`](@ref):
+
+If we only call `update!` once there are still `NaN`s in the ...
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: update!, NewtonOptimizerState)
+f(x) = sum(x.^2)
+x = [1., 2.]
+state = NewtonOptimizerState(x)
+obj = MultivariateObjective(f, x)
+g = gradient!(obj, x)
+hes = HessianAutodiff(obj, x)
+update!(hes, x)
+update!(state, x, g, hes)
+
+# output
+
+NewtonOptimizerState{Float64, SimpleSolvers.BacktrackingState{Float64}, SimpleSolvers.NewtonOptimizerCache{Float64, Vector{Float64}}}(Backtracking with α₀ = 1.0, ϵ = 0.0001and p = 0.5., SimpleSolvers.NewtonOptimizerCache{Float64, Vector{Float64}}([1.0, 2.0], [1.0, 2.0], [-1.0, -2.0], [2.0, 4.0], [-2.0, -4.0]))
+```
 """
-function update!(newton::NewtonOptimizerState, x::AbstractVector)
-    obj = objective(newton)
-    update!(hessian(newton), x)
-    update!(cache(newton), x, gradient!(obj, x), hessian(newton))
-end
+function update!(state::NewtonOptimizerState, x::AbstractVector, g::Union{AbstractVector, Gradient}, hes::Hessian)
+    update!(cache(state), x, g, hes)
 
-"""
-    solver_step!(x, newton)
-
-Compute a full iterate for an instance of [`NewtonOptimizerState`](@ref) `newton`.
-
-This also performs a line search.
-"""
-function solver_step!(x::VT, newton::NewtonOptimizerState)::VT where {VT <: AbstractVector}
-    # update cache and Hessian
-    update!(newton, x)
-
-    # solve H δx = - ∇f
-    # rhs is -g
-    ldiv!(direction(newton), hessian(newton), rhs(newton))
-
-    # apply line search
-    α = linesearch(newton)(newton.ls_objective)
-
-    # compute new minimizer
-    x .= compute_new_iterate(x, α, direction(newton))
+    state
 end

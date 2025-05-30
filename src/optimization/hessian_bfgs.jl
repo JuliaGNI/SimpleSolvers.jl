@@ -33,7 +33,9 @@ struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
     end
 end
 
-HessianBFGS(F, x) = HessianBFGS(MultivariateObjective(F, x), x)
+HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(MultivariateObjective(F, x), x)
+
+Hessian(::BFGS, ForOBJ::Union{Callable, MultivariateObjective}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
 function initialize!(H::HessianBFGS, x::AbstractVector)
     H.Q .= Matrix(1.0I, size(H.Q)...)

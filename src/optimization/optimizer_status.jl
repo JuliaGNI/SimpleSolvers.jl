@@ -80,6 +80,8 @@ end
     residual!(status, x, x̄, f, f̄, g, ḡ)
 
 Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) and current iterates (`x`, `f`, `g`).
+
+Also see [`assess_convergence!`](@ref) and [`meets_stopping_criteria`](@ref).
 """
 function residual!(status::OS, x::XT, x̄::XT, f::FT, f̄::FT, g::GT, ḡ::GT)::OS where {OS <: OptimizerStatus, XT, FT, GT}
     Δx = x - x̄
@@ -131,6 +133,11 @@ function print_status(status::OptimizerStatus, config::Options)
     end
 end
 
+"""
+    increase_iteration_number!(status)
+
+Increase the iteration number of a `status`[`OptimizerStatus`](@ref). See [`increase_iteration_number!(::NonlinearSolverStatus)`](@ref).
+"""
 increase_iteration_number!(status::OptimizerStatus) = status.i += 1
 
 isconverged(status::OptimizerStatus) = status.x_converged || status.f_converged || status.g_converged
@@ -155,14 +162,7 @@ function assess_convergence!(status::OptimizerStatus, config::Options)
     status.f_converged = f_converged && f_converged_strong
     status.g_converged = g_converged
 
-    # println(x_abschange(status))
-    # println(x_relchange(status))
-
-    # println(x_converged)
-    # println(f_converged)
-    # println(g_converged)
-
-    return isconverged(status)
+    isconverged(status)
 end
 
 @doc raw"""
@@ -201,48 +201,6 @@ function meets_stopping_criteria(status::OptimizerStatus, config::Options)
       status.rfᵣ > config.f_reltol_break ||
       status.rg  > config.g_restol_break
 end
-
-
-# function check_solver_status(status::OptimizerStatus, config::Options)
-#     if any(isnan, status.x) || isnan(status.f) || any(isnan, status.g)
-#         throw(NonlinearSolverException("Detected NaN"))
-#     end
-
-#     if status.rfₐ > config.f_abstol_break
-#         throw(NonlinearSolverException("Absolute error ($(status.rfₐ)) larger than allowed ($(config.f_abtol_break))"))
-#     end
-
-#     if status.rfᵣ > config.f_reltol_break
-#         throw(NonlinearSolverException("Relative error ($(status.rfᵣ)) larger than allowed ($(config.f_reltol_break))"))
-#     end
-# end
-
-# function get_solver_status!(status::OptimizerStatus, params::NonlinearSolverParameters, status_dict::Dict)
-#     status_dict[:niter] = status.i
-#     status_dict[:xatol] = status.rxₐ
-#     status_dict[:xrtol] = status.rxᵣ
-#     status_dict[:yatol] = status.rfₐ
-#     status_dict[:yrtol] = status.rfᵣ
-#     status_dict[:gatol] = status.rgₐ
-#     status_dict[:grtol] = status.rgᵣ
-#     status_dict[:converged] = assess_convergence(status, params)
-#     return status_dict
-# end
-
-# get_solver_status!(solver::OptimizerStatus{T}, status_dict::Dict) where {T} =
-#             get_solver_status!(status(solver), params(solver), status_dict)
-
-# get_solver_status(solver::OptimizerStatus{T}) where {T} = get_solver_status!(solver,
-#             Dict(:niter => 0,
-#                  :xatol => zero(T),
-#                  :xrtol => zero(T),
-#                  :yatol => zero(T),
-#                  :yrtol => zero(T),
-#                  :gatol => zero(T),
-#                  :grtol => zero(T),
-#                  :converged => false)
-#             )
-
 
 function warn_iteration_number(status::OptimizerStatus, config::Options)
     if config.warn_iterations > 0 && status.i ≥ config.warn_iterations

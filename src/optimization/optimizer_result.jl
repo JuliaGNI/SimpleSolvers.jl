@@ -37,9 +37,13 @@ function residual!(result::OR, x::VT, f::YT, g::VT)::OR where {XT, VT <: Abstrac
 end
 
 """
-    clear!(obj)
+    clear!(result)
 
-Similar to [`initialize!`](@ref).
+Clear all the information contained in `result::`[`OptimizerResult`](@ref).
+This also calls [`clear!(::OptimizerStatus)`](@ref).
+
+!!! info
+   Calling `initialize!` on an `OptimizerResult` calls `clear!` internally.
 """
 function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
     clear!(status(result))
@@ -51,8 +55,18 @@ function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
     result
 end
 
+function initialize!(result::OptimizerResult{T}, ::AbstractVector{T}) where {T}
+    clear!(result)
+    result
+end
+
 """
     update!(result, x, f, g)
+
+Update the [`OptimizerResult`](@ref) based on `x`, `f` and `g` (all vectors).
+This involves updating the [`OptimizerStatus`](@ref) stored in `result` (by calling [`residual!`](@ref)).
+
+This also calls [`increase_iteration_number!(::OptimizerResult)`](@ref)
 """
 function update!(result::OptimizerResult, x::AbstractVector, f::Number, g::AbstractVector)
     increase_iteration_number!(result)
@@ -68,6 +82,9 @@ end
 update!(result::OptimizerResult, x::AbstractVector, f::Number, grad::Gradient) = update!(result, x, f, gradient(x, grad))
 update!(result::OptimizerResult, x::AbstractVector, obj::AbstractObjective, g) = update!(result, x, obj(x), g)
 
-function increase_iteration_number!(result::OptimizerResult)
-    increase_iteration_number!(status(result))
-end
+"""
+    increase_iteration_number!(result)
+
+Increase the iteration number of `result`[`OptimizerResult`](@ref). This calls [`increase_iteration_number!(::OptimizerStatus)`](@ref).
+"""
+increase_iteration_number!(result::OptimizerResult) = increase_iteration_number!(status(result))

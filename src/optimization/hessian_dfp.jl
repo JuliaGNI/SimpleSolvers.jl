@@ -34,7 +34,9 @@ struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
 end
 
 
-HessianDFP(F, x) = HessianDFP(MultivariateObjective(F, x), x)
+HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(MultivariateObjective(F, x), x)
+
+Hessian(::DFP, ForOBJ::Union{Callable, MultivariateObjective}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
 function initialize!(H::HessianDFP, x::AbstractVector)
     H.Q .= Matrix(1.0I, size(H.Q)...)
