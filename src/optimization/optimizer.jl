@@ -150,8 +150,8 @@ assess_convergence(opt::Optimizer) = assess_convergence(status(opt), config(opt)
 meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), config(opt))
 
 function initialize!(opt::Optimizer, x::AbstractVector)
-    clear!(objective(opt))
-    clear!(result(opt))
+    initialize!(objective(opt), x)
+    initialize!(result(opt), x)
     initialize!(state(opt), x)
     initialize!(hessian(opt), x)
 
