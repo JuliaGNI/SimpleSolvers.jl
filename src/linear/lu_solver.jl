@@ -34,7 +34,7 @@ Note that if we do not supply an explicit keyword `static`, the corresponding fi
 
 We use the `LU` together with [`solve`](@ref) to solve a linear system:
 
-```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv; Random.seed!(123))
+```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv, update!; Random.seed!(123))
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
 ls = LinearSystem(A, v)
