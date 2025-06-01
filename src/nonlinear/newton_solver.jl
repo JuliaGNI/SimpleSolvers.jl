@@ -71,7 +71,7 @@ end
 function NewtonSolver(x::AT, F::Callable, y::AT=F(x); linear_solver_method = LU(), DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
     nls = ismissing(DF!) ? NonlinearSystem(F, x; mode = mode) : NonlinearSystem(F, DF!, x)
     cache = NewtonSolverCache(x, y)
-    linearsystem = LinearSystem(alloc_j(x, y), y)
+    linearsystem = LinearSystem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = LinesearchState(linesearch; T = T)
     options = Options(T, config)

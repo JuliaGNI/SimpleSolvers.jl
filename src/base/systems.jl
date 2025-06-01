@@ -6,13 +6,49 @@ A `LinearSystem` describes ``Ax = y``, where we want to solve for ``x``.
 # Keys
 - `A`
 - `y`
+
+# Constructors
+
+A `LinearSystem` can be allocated by calling:
+
+```julia
+LinearSystem(A, y)
+LinearSystem)(A)
+LinearSystem(y)
+LinearSystem{T}(n, m)
+LinearSystem{T}(n)
+```
+
+Note that in any case the allocated system is initialized with `NaN`s:
+
+```jldoctest; setup = :(using SimpleSolvers)
+A = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]
+y = [1., 2., 3.]
+ls = LinearSystem(A, y)
+
+# output
+
+LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([NaN NaN NaN; NaN NaN NaN; NaN NaN NaN], [NaN, NaN, NaN])
+```
+
+In order to initialize the system with values, we have to call [`update!`](@ref):
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: update!; A = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]; y = [1., 2., 3.]; ls = LinearSystem(A, y))
+update!(ls, A, y)
+
+# output
+
+LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], [1.0, 2.0, 3.0])
+```
 """
 mutable struct LinearSystem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <: AbstractProblem 
     A::AT
     y::VT
     function LinearSystem(A::AT, y::VT) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
         @assert (length(y)) == size(A, 2)
-        new{T, VT, AT}(A, y)
+        ls = new{T, VT, AT}(copy(A), copy(y))
+        initialize!(ls, y)
+        ls
     end
 end
 
@@ -24,8 +60,7 @@ end
 function LinearSystem{T}(n::Integer, m::Integer) where {T}
     A = zeros(T, n, m)
     A .= T(NaN)
-    y = alloc_x(A[:, 1])
-    LinearSystem(A, y)
+    LinearSystem(A)
 end
 
 LinearSystem{T}(n::Integer) where {T} = LinearSystem{T}(n, n)
@@ -57,7 +92,29 @@ function update!(ls::LinearSystem{T}, b::AbstractVector{T}) where {T}
 end
 
 rhs(ls::LinearSystem) = ls.y
-Base.Matrix(ls::LinearSystem)::Matrix = ls.A
+Base.Matrix(ls::LinearSystem)::AbstractMatrix = ls.A
+Base.Vector(ls::LinearSystem)::AbstractVector = ls.y
+
+"""
+    clear!(ls)
+
+Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
+"""
+function clear!(ls::LinearSystem)
+    Matrix(ls) .= alloc_j(Matrix(ls)[1, :], Vector(ls))
+    Vector(ls) .= alloc_x(Vector(ls))
+    nothing
+end
+
+"""
+    initialize!(ls, x)
+
+Initialize the [`LinearSystem`](@ref) `ls`. See [`clear!(::LinearSystem)`](@ref).
+"""
+function initialize!(ls::LinearSystem, ::AbstractVector)
+    clear!(ls)
+    ls
+end
 
 """
     NonlinearSystem
@@ -96,7 +153,9 @@ mutable struct NonlinearSystem{T, TF <: Callable, TJ <: Jacobian{T}, Tx <: Abstr
         x::Tx;
         f::Tf=alloc_f(x, F),
         j::Tj=alloc_j(x, f)) where {T, Tx<:AbstractArray{T}, Tf, Tj<:AbstractArray{T}}
-        new{T, typeof(F), typeof(J), Tx, Tf, Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
+        nls = new{T, typeof(F), typeof(J), Tx, Tf, Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
+        initialize!(nls, x)
+        nls
     end
 end
 
@@ -215,6 +274,12 @@ Similar to [`initialize!`](@ref), but with only one input argument.
 function clear!(nls::NonlinearSystem)
     _clear_f!(nls)
     _clear_j!(nls)
+    nothing
+end
+
+function initialize!(nls::NonlinearSystem, ::AbstractVector)
+    clear!(nls)
+
     nls
 end
 

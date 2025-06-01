@@ -38,6 +38,7 @@ We use the `LU` together with [`solve`](@ref) to solve a linear system:
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
 ls = LinearSystem(A, v)
+update!(ls, A, v)
 
 lu = LU()
 
@@ -133,6 +134,7 @@ end
 
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
     ls = LinearSystem(A, b)
+    update!(ls, A, b)
     solve(lu, ls)
 end
 
