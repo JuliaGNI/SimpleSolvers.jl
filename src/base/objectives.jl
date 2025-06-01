@@ -279,7 +279,7 @@ TemporaryUnivariateObjective{Tx}(f, d) where {Tx <: Number} = TemporaryUnivariat
 TemporaryUnivariateObjective(f, d, ::Tx=zero(Float64)) where {Tx <: Number} = TemporaryUnivariateObjective{Tx}(f, d)
 
 value(obj::TemporaryUnivariateObjective, x::Number) = obj.F(x)
-value(obj::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
+value(::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
 derivative(obj::TemporaryUnivariateObjective, x::Number) = obj.D(x)
 
 function value!(obj::TemporaryUnivariateObjective, x::Number)
@@ -350,11 +350,11 @@ end
 MultivariateObjective(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateObjective(F, x; kwargs...)
 
 function value!!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
-    obj.x_f .= x
+    f_argument(obj) .= x
     value(obj) .= value(obj, x)
 end
 function value!!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
-    obj.x_f .= x
+    f_argument(obj) .= x
     obj.f = value(obj, x)
 end
 
@@ -396,22 +396,22 @@ end
 
 function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     obj.f_calls = 0
-    obj.f = alloc_f(obj.x_f)
-    obj.x_f .= alloc_x(obj.x_f)
+    obj.f = alloc_f(f_argument(obj))
+    f_argument(obj) .= alloc_x(f_argument(obj))
     nothing
 end
 
 function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     obj.f_calls = 0
-    obj.f .= alloc_f(obj.x_f, obj.F)
-    obj.x_f .= alloc_x(obj.x_f)
+    obj.f .= alloc_f(f_argument(obj), obj.F)
+    f_argument(obj) .= alloc_x(f_argument(obj))
     nothing
 end
 
 function _clear_g!(obj::MultivariateObjective)
     obj.g_calls = 0
-    obj.g .= alloc_g(obj.x_g)
-    obj.x_g .= alloc_x(obj.x_g)
+    obj.g .= alloc_g(g_argument(obj))
+    g_argument(obj) .= alloc_x(g_argument(obj))
     nothing
 end
 
@@ -426,7 +426,7 @@ function clear!(obj::MultivariateObjective)
     obj
 end
 
-function initialize!(obj::MultivariateObjective, ::AbstractVector)
+function initialize!(obj::AbstractObjective, ::AbstractVector)
     clear!(obj)
 end
 
