@@ -191,11 +191,6 @@ function derivative!!(obj::UnivariateObjective, x::Number)
     obj.d = derivative(obj, x)
     derivative(obj)
 end
-# function derivative!!(obj::AbstractObjective, x::AbstractArray{<:Number})
-#     obj.x_d .= x
-#     obj.d = derivative(obj, x)
-#     derivative(obj)
-# end
 
 """
     derivative!(obj, x)
