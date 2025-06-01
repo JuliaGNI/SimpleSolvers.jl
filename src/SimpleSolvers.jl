@@ -15,6 +15,7 @@ module SimpleSolvers
     include("base/realcomplex.jl")
     include("base/initialize.jl")
 
+    export update!
     export solve!, solve
     export config, result, state, status
     export algorithm, objective

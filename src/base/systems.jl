@@ -33,7 +33,7 @@ LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([NaN NaN NaN; NaN NaN Na
 
 In order to initialize the system with values, we have to call [`update!`](@ref):
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: update!; A = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]; y = [1., 2., 3.]; ls = LinearSystem(A, y))
+```jldoctest; setup = :(using SimpleSolvers; A = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]; y = [1., 2., 3.]; ls = LinearSystem(A, y))
 update!(ls, A, y)
 
 # output

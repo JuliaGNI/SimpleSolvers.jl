@@ -19,7 +19,7 @@ solver = NewtonSolver(x, f)
 
 Note that all variables are [initialized with `NaN`s](@ref "Reasoning behind Initialization with `NaN`s").
 
-For the first step we therefore have to call [`SimpleSolvers.update!`](@ref)[^1]:
+For the first step we therefore have to call [`update!`](@ref)[^1]:
 
 [^1]: Also see the [page on the `update!` function](@ref "Updates").
 

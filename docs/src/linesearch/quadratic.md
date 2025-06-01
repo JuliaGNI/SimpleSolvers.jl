@@ -49,7 +49,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
+using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -384,7 +384,7 @@ Here we consider the same example as when discussing the [Bierlaire quadratic li
 
 ```@setup II
 using SimpleSolvers
-using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction
+using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction
 using LinearAlgebra: rmul!, ldiv!
 using Random
 Random.seed!(1234)

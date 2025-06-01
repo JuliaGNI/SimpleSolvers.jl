@@ -8,7 +8,9 @@ Objects of type [`LinearSolver`](@ref) are used to solve [`LinearSystem`](@ref)s
 
 is satisfied. 
 
-A linear system can be called with:
+A linear system can be called with[^1]:
+
+[^1]: Here we also have to *update* the [`LinearSystem`](@ref) by calling [`update!`](@ref). For more information see the [page on the `initialize!` function](@ref "Initialization").
 
 ```@example linear_system
 using SimpleSolvers
@@ -16,6 +18,7 @@ using SimpleSolvers
 A = [(0. + 1e-6) 1. 2.; 3. 4. 5.; 6. 7. 8.]
 y = [1., 2., 3.]
 ls = LinearSystem(A, y)
+update!(ls, A, y)
 nothing # hide
 ```
 
@@ -31,7 +34,13 @@ We first solve [`LinearSystem`](@ref) with an lu solver (using [`LU`](@ref) and 
 
 ```@example linear_system
 lu = LU(; pivot = false)
-solve(lu, ls)
+y¹ = solve(lu, ls)
+```
+
+We check the result:
+
+```@example linear_system
+A * y¹
 ```
 
 We now do the same in single precision:
@@ -40,14 +49,25 @@ We now do the same in single precision:
 Aˢ = Float32.(A)
 yˢ = Float32.(y)
 lsˢ = LinearSystem(Aˢ, yˢ)
-solve(lu, lsˢ)
+update!(lsˢ, Aˢ, yˢ)
+y² = solve(lu, lsˢ)
 ```
 
-As we can see the computation of the factorization returns `NaN`s. If we use pivoting however, the problem can also be solved with single precision:
+and again check the result:
+
+```@example linear_system
+Aˢ * y²
+```
+
+As we can see the computation of the factorization returns a wrong solution. If we use pivoting however, the problem can also be solved with single precision:
 
 ```@example linear_system
 lu = LU(; pivot = true)
-solve(lu, lsˢ)
+y³ = solve(lu, lsˢ)
+```
+
+```@example linear_system
+Aˢ * y³
 ```
 
 ## Solving the System with Built-In Functionality from the `LinearAlgebra` Package

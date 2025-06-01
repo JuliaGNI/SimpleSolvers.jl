@@ -28,6 +28,8 @@ end
     factorize!(lsolver)
 
 Factorize the matrix stored in the [`LinearSolverCache`](@ref) in `lsolver`.
+
+See [`factorize!(::LinearSolver{T, LUT}) where {T, LUT <: LU}`](@ref) for a concrete example.
 """
 function factorize!(lsolver::LinearSolver)
     error("No method `factorize!` implemented for method $(typeof(method(lsolver))).")

@@ -53,7 +53,7 @@ This updates the [`NewtonOptimizerCache`](@ref) contained in the [`NewtonOptimiz
 We show that after initializing, update has to be called together with a [`Gradient`](@ref) and a [`Hessian`](@ref):
 
 If we only call `update!` once there are still `NaN`s in the ...
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: update!, NewtonOptimizerState)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerState)
 f(x) = sum(x.^2)
 x = [1., 2.]
 state = NewtonOptimizerState(x)

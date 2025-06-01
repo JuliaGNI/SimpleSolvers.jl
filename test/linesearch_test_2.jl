@@ -1,5 +1,5 @@
 using SimpleSolvers
-using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, LinesearchState, Quadratic2
+using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, LinesearchState, Quadratic2
 using LinearAlgebra: rmul!, ldiv!
 using Test
 using Random 

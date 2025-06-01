@@ -49,10 +49,8 @@ For computational reasons we save the inverse of the Hessian, it can be accessed
 inv(hes)
 ```
 
-Similarly to [`HessianAutodiff`](@ref) we can call [`SimpleSolvers.update!`](@ref):
+Similarly to [`HessianAutodiff`](@ref) we can call [`update!`](@ref):
 
 ```@example hessian
-using SimpleSolvers: update!
-
 update!(hes, x)
 ```

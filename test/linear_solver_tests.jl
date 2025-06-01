@@ -1,6 +1,6 @@
 using LinearAlgebra: ldiv!
 using SimpleSolvers
-using SimpleSolvers: update!, LinearSolverMethod, LinearSolverCache
+using SimpleSolvers: LinearSolverMethod, LinearSolverCache
 using Test
 
 struct TestMethod <: LinearSolverMethod end
