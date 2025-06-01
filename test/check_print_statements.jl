@@ -43,7 +43,33 @@ function check_value_for_multivariate_objective(T::DataType)
     @test statement_we_have == statement_we_should_have
 end
 
+function check_value_for_nonlinearsolverstatus(T::DataType)
+    f(x::Number) = x^2
+    f(x::AbstractArray) = f.(x)
+    x = rand(T, 3)
+    
+    # s₁ = NewtonSolver(x₁, f)
+    s = NewtonSolver(x, f)
+    statement_we_should_have = 
+    "i=   0,
+x= NaN,
+f= NaN,
+rxₐ= NaN,
+rxᵣ= NaN,
+rfₐ= NaN,
+rfᵣ= NaN"
+    compare_statements(s, statement_we_should_have)
+end
+
+function compare_statements(s::NewtonSolver, statement_we_should_have::String)
+    io = IOBuffer()
+    show(io, s)
+    statement_we_have = String(take!(io))
+    @test statement_we_have == statement_we_should_have
+end
+
 for T in (Float32, Float64)
     check_value_for_univariate_objective(T)
     check_value_for_multivariate_objective(T)
+    check_value_for_nonlinearsolverstatus(T)
 end

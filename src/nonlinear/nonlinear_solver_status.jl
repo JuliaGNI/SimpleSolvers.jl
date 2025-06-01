@@ -139,24 +139,6 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status
 end
 
-Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT}) where {XT, YT, AXT <: Number} = print(io,
-                        (@sprintf "i=%4i" iteration_number(status)),  ",\n",
-                        (@sprintf "x=%4e" status.x),  ",\n",
-                        (@sprintf "f=%4e" status.f),  ",\n",
-                        (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
-                        (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
-                        (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
-                        (@sprintf "rfᵣ=%4e" status.rfᵣ))
-
-Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: Number} = print(io,
-                        (@sprintf "i=%4i" iteration_number(status)),  ",\n",
-                        (@sprintf "x=%4e" status.x[1]),  ",\n",
-                        (@sprintf "f=%4e" status.f),  ",\n",
-                        (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
-                        (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
-                        (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
-                        (@sprintf "rfᵣ=%4e" status.rfᵣ))
-
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, AXT <: AbstractArray, AYT <: AbstractArray} = print(io,
                         (@sprintf "i=%4i" iteration_number(status)),  ",\n",
                         (@sprintf "x=%4e" status.x[1]),  ",\n",
