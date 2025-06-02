@@ -80,11 +80,6 @@ function check_hessian(H::AbstractMatrix; digits::Integer = 5)
     println()
 end
 
-# function print_hessian(H::AbstractMatrix)
-#     display(H)
-#     println()
-# end
-
 """
     update!(hessian, x)
 
@@ -208,7 +203,7 @@ end
 
 Base.inv(H::HessianAutodiff) = inv(H.H)
 
-Base.:\(H::HessianAutodiff, b) = H.H \ b
+Base.:\(H::HessianAutodiff, b) = solve(LU(), H.H, b)
 
 LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
 
