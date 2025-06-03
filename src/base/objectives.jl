@@ -317,7 +317,7 @@ mutable struct MultivariateObjective{T, Tx <: AbstractVector{T}, TF <: Callable,
     g_calls::Int
 end
 
-function Base.show(io::IO, obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where{T, Tx, TF, TG, Tf <: Number}
+function Base.show(io::IO, obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     @printf io "MultivariateObjective (for vector-valued quantities only the first component is printed):\n"
     @printf io "\n"
     @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
