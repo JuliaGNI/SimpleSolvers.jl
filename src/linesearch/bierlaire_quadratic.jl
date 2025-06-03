@@ -4,6 +4,9 @@
 A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref). The constant recommended in [bierlaire2015optimization](@cite) is `1E-3`.
 
 Note that this constant may also depend on whether we deal with optimizers or solvers.
+
+!!! warn
+    We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
 """
 const DEFAULT_BIERLAIRE_ε::Float64 = eps(Float32)
 
@@ -12,8 +15,19 @@ const DEFAULT_BIERLAIRE_ε::Float64 = eps(Float32)
 
 A constant on basis of which the `b` in [`BierlaireQuadraticState`](@ref) is perturbed in order "to avoid stalling" (see [bierlaire2015optimization; Chapter 11.2.1](@cite); in this reference the author recommends ``10^{-7}`` as a value).
 Its value is $(DEFAULT_BIERLAIRE_ξ).
+
+!!! warn
+    We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
 """
 const DEFAULT_BIERLAIRE_ξ::Float64 = eps(Float32)
+
+function default_precision(::Type{Float32})
+    10eps(Float32)
+end
+
+function default_precision(::Type{Float64})
+    eps(Float64)
+end
 
 """
     BierlaireQuadraticState <: LinesearchState
@@ -30,8 +44,8 @@ struct BierlaireQuadraticState{T} <: LinesearchState{T}
     ξ::T
 
     function BierlaireQuadraticState(T₁::DataType=Float64; config = Options(),
-                    ε::T = DEFAULT_BIERLAIRE_ε,
-                    ξ::T = DEFAULT_BIERLAIRE_ξ) where {T}
+                    ε::T = default_precision(T₁),
+                    ξ::T = default_precision(T₁)) where {T}
         config₁ = Options(T₁, config)
         new{T₁}(config₁, T₁(ε), T₁(ξ))
     end
