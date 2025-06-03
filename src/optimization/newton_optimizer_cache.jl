@@ -52,6 +52,21 @@ Return the direction of the gradient step (i.e. `δ`) of an instance of [`Newton
 """
 direction(cache::NewtonOptimizerCache) = cache.δ
 
+@doc raw"""
+    update!(cache, x)
+
+Update `cache` (an instance of [`NewtonOptimizerCache`](@ref)) based on `x`.
+
+This does:
+```math
+\begin{aligned}
+\bar{x}^\mathtt{cache} & \gets x, \\
+x^\mathtt{cache} & \gets x, \\
+\delta^\mathtt{cache} & \gets 0, 
+\end{aligned}
+```
+where ``\delta^\mathtt{cache}`` is the [`direction`](@ref) stored in `cache`. 
+"""
 function update!(cache::NewtonOptimizerCache, x::AbstractVector)
     cache.x̄ .= x
     cache.x .= x

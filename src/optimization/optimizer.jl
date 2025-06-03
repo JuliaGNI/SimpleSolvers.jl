@@ -245,6 +245,7 @@ Too see the value of `x` after one iteration confer the docstring of [`solver_st
 function solve!(opt::Optimizer, x::AbstractVector)
     initialize!(opt, x)
 
+    initial_values_for_hessian!(opt)
     while (iteration_number(opt) == 0 || !meets_stopping_criteria(opt))
         increase_iteration_number!(result(opt))
         solver_step!(opt, x)
@@ -255,4 +256,21 @@ function solve!(opt::Optimizer, x::AbstractVector)
     print_status(status(opt), config(opt))
 
     x
+end
+
+initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ, HT <: Hessian} = opt
+
+"""
+    initial_values_for_hessian!(opt)
+
+Write initial values into the [`IterativeHessian`](@ref) in order to start optimization. [`Hessian`](@ref)s that are not [`IterativeHessian`](@ref)s do not need this extra step.
+Also note the difference to e.g. [`initialize!(::HessianBFGS, ::AbstractVector)`](@ref).
+"""
+function initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ, HT <: IterativeHessian}
+    z = zero(solution(hessian(opt)))
+    o = ones(T, length(z))
+    H = hessian(opt)
+    update!(H, z, gradient!(objective(H), z))
+    update!(H, o)
+    opt
 end

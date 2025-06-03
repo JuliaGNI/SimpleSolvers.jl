@@ -3,7 +3,7 @@
 
 
 """
-struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
+struct HessianDFP{T,VT,MT,OBJ} <: IterativeHessian{T}
     objective::OBJ
 
     x̄::VT    # previous solution
@@ -49,36 +49,27 @@ function initialize!(H::HessianDFP, x::AbstractVector)
     H.x .= x
     H.g .= gradient!(H.objective, x)
 
-    return H
+    H
+end
+
+function compute_outer_products!(H::HessianDFP)
+    outer!(H.γγ, H.γ, H.γ)
+    outer!(H.δδ, H.δ, H.δ)
 end
 
 function update!(H::HessianDFP, x::AbstractVector)
-    # copy previous data and compute new gradient
-    H.ḡ .= H.g
-    H.x̄ .= H.x
-    H.x .= x
-    H.g .= gradient!(H.objective, x)
+    update!(H, x, gradient!(objective(H), x))
 
-    # δ = x - x̄
-    H.δ .= H.x .- H.x̄
-
-    # γ = g - ḡ
-    H.γ .= H.g .- H.ḡ
-
-    # γQγ = γᵀQγ
-    γQγ = dot(H.γ, H.Q, H.γ)
-
-    # δγ = δᵀγ
-    δγ = H.δ ⋅ H.γ
+    γQγ = compute_γQγ(H)
+    δγ = compute_δγ(H)
 
     # DFP
     # Q = Q - ... + ...
     # H.Q .-= H.Q * H.γ * H.γ' * H.Q / (H.γ' * H.Q * H.γ) .-
     #         H.δ * H.δ' ./ δγ
 
-    if δγ ≠ 0 && γQγ ≠ 0
-        outer!(H.γγ, H.γ, H.γ)
-        outer!(H.δδ, H.δ, H.δ)
+    if !iszero(δγ) && !iszero(γQγ)
+        compute_outer_products!(H)
 
         mul!(H.T1, H.γγ, H.Q)
         mul!(H.T2, H.Q, H.T1)
