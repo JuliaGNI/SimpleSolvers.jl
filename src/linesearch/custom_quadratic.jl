@@ -61,6 +61,7 @@ function (ls::QuadraticState2{T})(obj::AbstractUnivariateObjective{T}, number_of
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
     αₜ = -p₁ / (2p₂) + a
+    !(l2norm(αₜ - x₀) < ls.ε) || return αₜ
 
     ls(obj, number_of_iterations + 1, αₜ, s * ls.s_reduction)
 end
