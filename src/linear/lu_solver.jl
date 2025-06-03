@@ -122,7 +122,7 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, A::Abst
 end
 
 function solve!(lsolver::LinearSolver{T, LUT}, args...)  where {T, LUT <: LU}
-    x = alloc_x(cache(lsolver).A[1, :])
+    x = alloc_x(@view cache(lsolver).A[1, :])
     solve!(x, lsolver, args...)
     x
 end
@@ -190,7 +190,7 @@ function factorize!(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU}
     n = size(cache(lsolver).A, 1)
 
     @inbounds for k ∈ axes(cache(lsolver).A, 1)
-        kp = method(lsolver).pivot ? find_maximum_value(cache(lsolver).A[:, k], k) : k
+        kp = method(lsolver).pivot ? find_maximum_value(@view(cache(lsolver).A[:, k]), k) : k
         
         cache(lsolver).pivots[k] = kp
         cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
