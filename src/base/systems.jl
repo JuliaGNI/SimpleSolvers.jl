@@ -103,7 +103,7 @@ Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
 function clear!(ls::LinearSystem)
     Matrix(ls) .= alloc_j(Matrix(ls)[1, :], Vector(ls))
     Vector(ls) .= alloc_x(Vector(ls))
-    nothing
+    ls
 end
 
 """
@@ -274,7 +274,7 @@ Similar to [`initialize!`](@ref), but with only one input argument.
 function clear!(nls::NonlinearSystem)
     _clear_f!(nls)
     _clear_j!(nls)
-    nothing
+    nls
 end
 
 function initialize!(nls::NonlinearSystem, ::AbstractVector)
