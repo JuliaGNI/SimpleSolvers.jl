@@ -5,7 +5,7 @@ An *objective* is a quantity to has to be made zero by a solver or minimized by 
 
 See [`AbstractUnivariateObjective`](@ref) and [`MultivariateObjective`](@ref).
 """
-abstract type AbstractObjective{T <: Number} <: AbstractProblem end
+abstract type AbstractObjective{T <: Number} end
 
 Base.Function(obj::AbstractObjective) = obj.F
 
