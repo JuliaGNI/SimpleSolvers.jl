@@ -21,12 +21,13 @@ struct QuadraticState{T} <: LinesearchState{T}
     σ₁::T
     c::T
 
-    function QuadraticState(T₁::DataType=Float64; config = Options(),
+    function QuadraticState(T₁::DataType=Float64;
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     σ₀::T = DEFAULT_ARMIJO_σ₀,
                     σ₁::T = DEFAULT_ARMIJO_σ₁,
-                    c::T = DEFAULT_WOLFE_c₁) where {T}
-        config₁ = Options(T₁, config)
+                    c::T = DEFAULT_WOLFE_c₁,
+                    options_kwargs...) where {T}
+        config₁ = Options(T₁; options_kwargs...)
         new{T₁}(config₁, T₁(α₀), T₁(σ₀), T₁(σ₁), T₁(c))
     end
 end

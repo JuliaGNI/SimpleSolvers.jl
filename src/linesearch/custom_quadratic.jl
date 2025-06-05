@@ -29,11 +29,12 @@ struct QuadraticState2{T} <: LinesearchState{T}
     s::T
     s_reduction::T
 
-    function QuadraticState2(T₁::DataType=Float64; config = Options(),
+    function QuadraticState2(T₁::DataType=Float64;
                     ε = eps(T₁),
                     s::T = DEFAULT_BRACKETING_s,
-                    s_reduction::T = DEFAULT_s_REDUCTION) where {T}
-        config₁ = Options(T₁, config)
+                    s_reduction::T = DEFAULT_s_REDUCTION,
+                    options_kwargs...) where {T}
+        config₁ = Options(T₁; options_kwargs...)
         new{T₁}(config₁, T₁(ε), T₁(s), T₁(s_reduction))
     end
 end

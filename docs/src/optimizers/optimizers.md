@@ -11,9 +11,8 @@ Random.seed!(123) # hide
 x = rand(3)
 obj = MultivariateObjective(x -> sum((x - [0., 0., 1.]) .^ 2), x)
 bt = Backtracking()
-config = Options()
 alg = Newton()
-opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config)
+opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
 ```
 
 ## Optimizer Constructor
@@ -27,7 +26,7 @@ result = OptimizerResult(x, value!(obj, x))
 initialize!(result, x)
 state = NewtonOptimizerState(x; linesearch = bt)
 hes = Hessian(alg, obj, x)
-opt₂ = Optimizer(alg, obj, hes, config, result, state)
+opt₂ = Optimizer(alg, obj, hes, result, state)
 ```
 
 If we want to solve the problem, we can call [`solve!`](@ref) on the [`Optimizer`](@ref) instance:

@@ -22,7 +22,6 @@ Random.seed!(123) # hide
 x = rand(3)
 obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.)) ^ 2, x)
 bt = Backtracking() # hide
-config = Options() # hide
 alg = Newton() # hide
 # opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config) # hide
 

@@ -19,12 +19,12 @@ struct NLsolveNewton{T, AT, JT, FT, DT, CT, LST, LT, TST} <: AbstractNewtonSolve
     status::TST
 
     function NLsolveNewton(x::AT, f::AT, J::JT, F!::FT, DF::DT, cache::CT,
-            line_search::ST, linear_solver::LT, config = Options()) where {
+            line_search::ST, linear_solver::LT; options_kwargs...) where {
                 T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}, FT, DT, CT, ST, LT
             }
 
         status = NonlinearSolverStatus{T}(length(x))
-        options = Options(T, config)
+        options = Options(T; options_kwargs...)
 
         new{T,AT,JT,FT,DT,CT,ST,LT, typeof(status)}(x, f, J, F!, DF, line_search, linear_solver, cache, options, status)
     end

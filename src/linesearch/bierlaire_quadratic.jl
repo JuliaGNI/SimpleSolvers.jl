@@ -29,10 +29,11 @@ struct BierlaireQuadraticState{T} <: LinesearchState{T}
     ε::T
     ξ::T
 
-    function BierlaireQuadraticState(T₁::DataType=Float64; config = Options(),
+    function BierlaireQuadraticState(T₁::DataType=Float64;
                     ε::T = DEFAULT_BIERLAIRE_ε,
-                    ξ::T = DEFAULT_BIERLAIRE_ξ) where {T}
-        config₁ = Options(T₁, config)
+                    ξ::T = DEFAULT_BIERLAIRE_ξ,
+                    options_kwargs...) where {T}
+        config₁ = Options(T₁; options_kwargs...)
         new{T₁}(config₁, T₁(ε), T₁(ξ))
     end
 end

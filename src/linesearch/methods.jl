@@ -32,7 +32,7 @@ The backtracking algorithm starts by setting ``y_0 \gets f(0)`` and ``d_0 \gets 
 
 The algorithm is executed by calling the functor of [`BacktrackingState`](@ref).
 
-The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` ([`MAX_ITERATIONS`](@ref) by default) is reached:
+The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
 
 ```julia
 if value!(obj, α) ≥ y₀ + ls.ϵ * α * d₀
