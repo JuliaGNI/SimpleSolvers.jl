@@ -121,16 +121,16 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.rfᵣ = YT(NaN)
     status.rfₛ = YT(NaN)
 
-    status.x̄ .= alloc_x(status.x)
-    status.x .= alloc_x(status.x)
-    status.δ .= alloc_x(status.x)
-    status.x̃ .= alloc_x(status.x)
+    status.x̄ .= XT(NaN)
+    status.x .= XT(NaN)
+    status.δ .= XT(NaN)
+    status.x̃ .= XT(NaN)
 
-    status.f₀ .= alloc_f(status.f)
-    status.f̄ .= alloc_f(status.f)
-    status.f .= alloc_f(status.f)
-    status.γ .= alloc_f(status.f)
-    status.f̃ .= alloc_f(status.f)
+    status.f₀ .= YT(NaN)
+    status.f̄ .= YT(NaN)
+    status.f .= YT(NaN)
+    status.γ .= YT(NaN)
+    status.f̃ .= YT(NaN)
 
     status.x_converged = false
     status.f_converged = false

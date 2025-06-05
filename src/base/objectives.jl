@@ -396,22 +396,22 @@ end
 
 function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     obj.f_calls = 0
-    obj.f = alloc_f(f_argument(obj))
-    f_argument(obj) .= alloc_x(f_argument(obj))
+    obj.f = T(NaN)
+    f_argument(obj) .= T(NaN)
     nothing
 end
 
 function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     obj.f_calls = 0
-    obj.f .= alloc_f(f_argument(obj), obj.F)
-    f_argument(obj) .= alloc_x(f_argument(obj))
+    obj.f .= T(NaN)
+    f_argument(obj) .= T(NaN)
     nothing
 end
 
-function _clear_g!(obj::MultivariateObjective)
+function _clear_g!(obj::MultivariateObjective{T}) where {T}
     obj.g_calls = 0
-    obj.g .= alloc_g(g_argument(obj))
-    g_argument(obj) .= alloc_x(g_argument(obj))
+    obj.g .= T(NaN)
+    g_argument(obj) .= T(NaN)
     nothing
 end
 

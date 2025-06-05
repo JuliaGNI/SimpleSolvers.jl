@@ -100,9 +100,9 @@ Base.Vector(ls::LinearSystem)::AbstractVector = ls.y
 
 Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
 """
-function clear!(ls::LinearSystem)
-    Matrix(ls) .= alloc_j(Matrix(ls)[1, :], Vector(ls))
-    Vector(ls) .= alloc_x(Vector(ls))
+function clear!(ls::LinearSystem{T}) where T
+    Matrix(ls) .= T(NaN)
+    Vector(ls) .= T(NaN)
     ls
 end
 
@@ -251,17 +251,17 @@ function jacobian!(nls::NonlinearSystem{T}, x::AbstractArray{T}) where {T <: Num
     jacobian(nls)
 end
 
-function _clear_f!(nls::NonlinearSystem)
+function _clear_f!(nls::NonlinearSystem{T}) where {T}
     nls.f_calls = 0
-    f_argument(nls) .= alloc_x(f_argument(nls))
-    value(nls) .= alloc_f(f_argument(nls))
+    f_argument(nls) .= T(NaN)
+    value(nls) .= T(NaN)
     nothing
 end
 
-function _clear_j!(nls::NonlinearSystem)
+function _clear_j!(nls::NonlinearSystem{T}) where {T}
     nls.j_calls = 0
-    j_argument(nls) .= alloc_x(j_argument(nls))
-    jacobian(nls) .= alloc_j(j_argument(nls), value(nls))
+    j_argument(nls) .= T(NaN)
+    jacobian(nls) .= T(NaN)
 
     nothing
 end

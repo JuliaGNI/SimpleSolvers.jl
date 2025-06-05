@@ -31,11 +31,8 @@ struct NewtonSolverCache{T, AT <: AbstractVector{T}} # , JT <: AbstractMatrix{T}
 
     rhs::AT
     y::AT
-    # J::JT
 
     function NewtonSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
-        # J = alloc_j(x, y)
-        # c = new{T,AT,typeof(J)}(zero(x), zero(x), zero(x), zero(y), zero(y), J)
         c = new{T, AT}(zero(x), zero(x), zero(x), zero(y), zero(y))
         initialize!(c, fill!(similar(x), NaN))
         c
@@ -70,14 +67,13 @@ Initialize the [`NewtonSolverCache`](@ref) based on `x`.
 
 This calls [`alloc_x`](@ref) to do all the initialization.
 """
-function initialize!(cache::NewtonSolverCache, x::AbstractVector)
-    cache.x̄ .= alloc_x(x)
-    solution(cache) .= alloc_x(x)
-    cache.δx .= alloc_x(x)
+function initialize!(cache::NewtonSolverCache{T}, ::AbstractVector{T}) where {T}
+    cache.x̄ .= T(NaN)
+    solution(cache) .= T(NaN)
+    cache.δx .= T(NaN)
 
-    cache.rhs .= alloc_x(x)
-    cache.y .= alloc_f(cache.y)
-    # cache.J .= alloc_j(x, cache.y)
+    cache.rhs .= T(NaN)
+    cache.y .= T(NaN)
 
     cache
 end

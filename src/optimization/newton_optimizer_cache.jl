@@ -105,11 +105,11 @@ function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::Union{Abstra
     cache
 end
 
-function initialize!(cache::NewtonOptimizerCache, x::AbstractVector)
-    cache.x̄ .= alloc_x(x)
-    cache.x .= copy(x)
-    cache.δ .= alloc_x(x)
-    cache.g .= alloc_g(x)
-    cache.rhs .= alloc_g(x)
+function initialize!(cache::NewtonOptimizerCache{T}, x::AbstractVector{T}) where {T}
+    cache.x̄ .= T(NaN)
+    cache.x .= T(NaN)
+    cache.δ .= T(NaN)
+    cache.g .= T(NaN)
+    cache.rhs .= T(NaN)
     cache
 end
