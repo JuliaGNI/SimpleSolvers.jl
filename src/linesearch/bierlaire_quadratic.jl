@@ -8,7 +8,7 @@ Note that this constant may also depend on whether we deal with optimizers or so
 !!! warn
     We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
 """
-const DEFAULT_BIERLAIRE_ε::Float64 = eps(Float32)
+const DEFAULT_BIERLAIRE_ε::Float64 = 2eps(Float32)
 
 """
     DEFAULT_BIERLAIRE_ξ
@@ -19,7 +19,42 @@ Its value is $(DEFAULT_BIERLAIRE_ξ).
 !!! warn
     We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
 """
-const DEFAULT_BIERLAIRE_ξ::Float64 = eps(Float32)
+const DEFAULT_BIERLAIRE_ξ::Float64 = 2eps(Float32)
+
+"""
+    default_precision(T)
+
+Compute the default precision used for [`BierlaireQuadraticState`](@ref).
+Compare this to the [`default_tolerance`](@ref) used in [`Options`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: default_precision)
+default_precision(Float64)
+
+# output
+
+2.220446049250313e-16
+```
+
+```jldoctest; setup = :(using SimpleSolvers: default_precision)
+default_precision(Float32)
+
+# output
+
+1.1920929f-6
+```
+
+```jldoctest; setup = :(using SimpleSolvers: default_precision)
+default_precision(Float16)
+
+# output
+
+ERROR: No default precision defined for Float16.
+[...]
+```
+"""
+default_precision
 
 function default_precision(::Type{Float32})
     10eps(Float32)
@@ -27,6 +62,10 @@ end
 
 function default_precision(::Type{Float64})
     eps(Float64)
+end
+
+function default_precision(::Type{T}) where {T <: AbstractFloat}
+    error("No default precision defined for $(T).")
 end
 
 """
@@ -44,8 +83,8 @@ struct BierlaireQuadraticState{T} <: LinesearchState{T}
     ξ::T
 
     function BierlaireQuadraticState(T₁::DataType=Float64;
-                    ε::T = DEFAULT_BIERLAIRE_ε,
-                    ξ::T = DEFAULT_BIERLAIRE_ξ,
+                    ε::T = default_precision(T₁), # DEFAULT_BIERLAIRE_ε,
+                    ξ::T = default_precision(T₁), # DEFAULT_BIERLAIRE_ξ,
                     options_kwargs...) where {T}
         config₁ = Options(T₁; options_kwargs...)
         new{T₁}(config₁, T₁(ε), T₁(ξ))
