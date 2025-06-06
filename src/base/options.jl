@@ -1,9 +1,3 @@
-# const X_ABSTOL::Real = 2eps()
-# const X_RELTOL::Real = 2eps()
-# const X_SUCTOL::Real = 2eps()
-# const F_ABSTOL::Real = 2eps()
-# const F_RELTOL::Real = 2eps()
-# const F_SUCTOL::Real = 2eps()
 """
     default_tolerance(T)
 
@@ -39,8 +33,9 @@ function default_tolerance(::Type{T}) where {T <: AbstractFloat}
     2eps(T)
 end
 
+const F_ABSTOL::Real = 1e-50
+const X_ABSTOL::Real = -Inf
 const F_MINDEC::Real = 1e-4
-const G_RESTOL::Real = sqrt(eps())
 const X_ABSTOL_BREAK::Real = Inf
 const X_RELTOL_BREAK::Real = Inf
 const F_ABSTOL_BREAK::Real = Inf
@@ -69,7 +64,7 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `x_abstol = 2eps(T)`: absolute tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref) and [`bisection`](@ref),
 - `x_reltol = 2eps(T)`: relative tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref),
 - `x_suctol = 2eps(T)`: succesive tolerance for `x`. Used in e.g. [`assess_convergence!`](@ref),
-- `f_abstol = 2eps(T)`: absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref),
+- `f_abstol = $(F_ABSTOL)`: absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref),
 - `f_reltol = 2eps(T)`: relative tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
 - `f_suctol = 2eps(T)`: succesive tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
 - `f_mindec = 2eps(T)`: minimum value by which the function has to decrease,
@@ -124,11 +119,11 @@ function Options(T = Float64;
         x_abstol::AbstractFloat = default_tolerance(T),
         x_reltol::AbstractFloat = default_tolerance(T),
         x_suctol::AbstractFloat = default_tolerance(T),
-        f_abstol::AbstractFloat = default_tolerance(T),
+        f_abstol::AbstractFloat = F_ABSTOL,
         f_reltol::AbstractFloat = default_tolerance(T),
         f_suctol::AbstractFloat = default_tolerance(T),
         f_mindec::AbstractFloat = default_tolerance(T),
-        g_restol::AbstractFloat = default_tolerance(T),
+        g_restol::AbstractFloat = √(default_tolerance(T) / 2),
         x_abstol_break::AbstractFloat = X_ABSTOL_BREAK,
         x_reltol_break::AbstractFloat = X_RELTOL_BREAK,
         f_abstol_break::AbstractFloat = G_ABSTOL_BREAK,
@@ -149,7 +144,7 @@ function Options(T = Float64;
 
     show_every = show_every > 0 ? show_every : 1
 
-    Options{T}(promote(    x_abstol, 
+    Options{T}(promote( x_abstol, 
                         x_reltol,  
                         x_suctol, 
                         f_abstol, 
