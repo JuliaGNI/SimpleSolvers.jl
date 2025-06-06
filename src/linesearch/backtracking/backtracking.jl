@@ -95,13 +95,14 @@ struct BacktrackingState{T} <: LinesearchState{T}
     ϵ::T
     p::T
 
-    function BacktrackingState(::Type{T₁}=Float64; config::Options = Options(),
+    function BacktrackingState(::Type{T₁}=Float64;
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     ϵ::T = DEFAULT_WOLFE_c₁,
-                    p::T = DEFAULT_ARMIJO_p) where {T₁, T}
+                    p::T = DEFAULT_ARMIJO_p,
+                    options_kwargs...) where {T₁, T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
-        configT = Options(T₁, config)
+        configT = Options(T₁; options_kwargs...)
         new{T₁}(configT, T₁(α₀), T₁(ϵ), T₁(p))
     end
 end

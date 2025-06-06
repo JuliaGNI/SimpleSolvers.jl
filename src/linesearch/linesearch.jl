@@ -82,8 +82,9 @@ struct Linesearch{ALG <: LinesearchMethod, OPT <: Options, OST <: LinesearchStat
     state::OST
 end
 
-function Linesearch(; algorithm = Static(), config = Options(), kwargs...)
-    state = LinesearchState(algorithm; kwargs...)
+function Linesearch(T::DataType=Float64; algorithm = Static(), options_kwargs...)
+    state = LinesearchState(algorithm; options_kwargs...)
+    config = Options(T; options_kwargs...)
     Linesearch(algorithm, config, state)
 end
 

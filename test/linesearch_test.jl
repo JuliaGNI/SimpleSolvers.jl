@@ -31,10 +31,8 @@ function test_linesearch(algorithm::LinesearchMethod, n::Integer = 1)
     x₀ = -3.
     x₁ = +3.0
     xₛ =  0.0
-
-    options = Options(x_abstol = zero(x₀))
     
-    ls = LinesearchState(algorithm; config = options)
+    ls = LinesearchState(algorithm; x_abstol = zero(x₀))
 
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())

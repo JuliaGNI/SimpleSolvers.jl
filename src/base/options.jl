@@ -1,26 +1,44 @@
-"Absolute tolerance for `x` (the function argument). Its value is $(X_ABSTOL). Used in e.g. [`assess_convergence!`](@ref) and [`bisection`](@ref)."
-const X_ABSTOL::Real = 2eps()
-"Relative tolerance for `x` (the function argument). Its value is $(X_RELTOL). Used in e.g. [`assess_convergence!`](@ref)"
-const X_RELTOL::Real = 2eps()
-"succesive tolerance for `x`. Its value is $(X_SUCTOL). Used in e.g. [`assess_convergence!`](@ref)"
-const X_SUCTOL::Real = 2eps()
-"Absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref). Its value is $(F_ABSTOL)."
-const F_ABSTOL::Real = 2eps()
-"Relative tolerance for the function value. Its value is $(F_RELTOL). Used in e.g. [`assess_convergence!`](@ref)."
-const F_RELTOL::Real = 2eps()
-"Succesive tolerance for the function value. Its value is $(F_RELTOL). Used in e.g. [`assess_convergence!`](@ref)."
-const F_SUCTOL::Real = 2eps()
-"Minimum value by which the function has to decrease. Its value is $(F_MINDEC)"
+"""
+    default_tolerance(T)
+
+Determine the default tolerance for a specific data type. This is used in the constructor of [`Options`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: default_tolerance)
+default_tolerance(Float64)
+
+# output
+
+4.440892098500626e-16
+```
+
+```jldoctest; setup = :(using SimpleSolvers: default_tolerance)
+default_tolerance(Float32)
+
+# output
+
+2.3841858f-7
+```
+
+```jldoctest; setup = :(using SimpleSolvers: default_tolerance)
+default_tolerance(Float16)
+
+# output
+
+Float16(0.001953)
+```
+"""
+function default_tolerance(::Type{T}) where {T <: AbstractFloat}
+    2eps(T)
+end
+
+const F_ABSTOL::Real = 1e-50
+const X_ABSTOL::Real = -Inf
 const F_MINDEC::Real = 1e-4
-"Tolerance for the residual (?) of the gradient. Its value is $(G_RESTOL)"
-const G_RESTOL::Real = sqrt(eps())
-"See [`meets_stopping_criteria`](@ref)."
 const X_ABSTOL_BREAK::Real = Inf
-"See [`meets_stopping_criteria`](@ref)."
 const X_RELTOL_BREAK::Real = Inf
-"See [`meets_stopping_criteria`](@ref)."
 const F_ABSTOL_BREAK::Real = Inf
-"See [`meets_stopping_criteria`](@ref)."
 const F_RELTOL_BREAK::Real = Inf
 const G_ABSTOL_BREAK::Real = Inf
 const G_RESTOL_BREAK::Real = Inf
@@ -29,7 +47,6 @@ const G_CALLS_LIMIT::Int = 0
 const H_CALLS_LIMIT::Int = 0
 const ALLOW_F_INCREASES::Bool = true
 const MIN_ITERATIONS::Int = 0
-"The maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`BacktrackingState`](@ref)."
 const MAX_ITERATIONS::Int = 1_000
 const WARN_ITERATIONS::Int = 1_000
 const SHOW_TRACE::Bool = false
@@ -39,26 +56,30 @@ const SHOW_EVERY::Int = 1
 const VERBOSITY::Int = 1
 
 """
+    Options
+
+# Keys
+
 Configurable options with defaults (values 0 and NaN indicate unlimited):
-- `x_abstol = $(X_ABSTOL)`,
-- `x_reltol = $(X_RELTOL)`,
-- `x_suctol = $(X_SUCTOL)`
-- `f_abstol = $(F_ABSTOL)`,
-- `f_reltol = $(F_RELTOL)`,
-- `f_suctol = $(F_SUCTOL)`,
-- `f_mindec = $(F_MINDEC)`,
-- `g_restol = $(G_RESTOL)`,
-- `x_abstol_break = $(X_ABSTOL_BREAK)`,
-- `x_reltol_break = $(X_RELTOL_BREAK)`,
-- `f_abstol_break = $(F_ABSTOL_BREAK)`,
-- `f_reltol_break = $(F_RELTOL_BREAK)`,
+- `x_abstol = 2eps(T)`: absolute tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref) and [`bisection`](@ref),
+- `x_reltol = 2eps(T)`: relative tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref),
+- `x_suctol = 2eps(T)`: succesive tolerance for `x`. Used in e.g. [`assess_convergence!`](@ref),
+- `f_abstol = $(F_ABSTOL)`: absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref),
+- `f_reltol = 2eps(T)`: relative tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
+- `f_suctol = 2eps(T)`: succesive tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
+- `f_mindec = 2eps(T)`: minimum value by which the function has to decrease,
+- `g_restol = 2eps(T)`: tolerance for the residual (?) of the gradient,
+- `x_abstol_break = $(X_ABSTOL_BREAK)`: see [`meets_stopping_criteria`](@ref),
+- `x_reltol_break = $(X_RELTOL_BREAK)`: see [`meets_stopping_criteria`](@ref),
+- `f_abstol_break = $(F_ABSTOL_BREAK)`: see [`meets_stopping_criteria`](@ref),
+- `f_reltol_break = $(F_RELTOL_BREAK)`: see [`meets_stopping_criteria`](@ref).,
 - `g_restol_break = $(G_RESTOL_BREAK)`,
 - `f_calls_limit = $(F_CALLS_LIMIT)`,
 - `g_calls_limit = $(G_CALLS_LIMIT)`,
 - `h_calls_limit = $(H_CALLS_LIMIT)`,
 - `allow_f_increases = $(ALLOW_F_INCREASES)`,
 - `min_iterations = $(MIN_ITERATIONS)`,
-- `max_iterations = $(MAX_ITERATIONS)`,
+- `max_iterations = $(MAX_ITERATIONS)`: the maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`BacktrackingState`](@ref),
 - `warn_iterations = $(WARN_ITERATIONS)`,
 - `show_trace = $(SHOW_TRACE)`,
 - `store_trace = $(STORE_TRACE)`,
@@ -94,23 +115,20 @@ struct Options{T}
     verbosity::Int
 end
 
-function Options(;
-        x_tol = nothing,
-        f_tol = nothing,
-        g_tol = nothing,
-        x_abstol::Real = X_ABSTOL,
-        x_reltol::Real = X_RELTOL,
-        x_suctol::Real = X_SUCTOL,
-        f_abstol::Real = F_ABSTOL,
-        f_reltol::Real = F_RELTOL,
-        f_suctol::Real = F_SUCTOL,
-        f_mindec::Real = F_MINDEC,
-        g_restol::Real = G_RESTOL,
-        x_abstol_break::Real = X_ABSTOL_BREAK,
-        x_reltol_break::Real = X_RELTOL_BREAK,
-        f_abstol_break::Real = G_ABSTOL_BREAK,
-        f_reltol_break::Real = F_RELTOL_BREAK,
-        g_restol_break::Real = G_RESTOL_BREAK,
+function Options(T = Float64;
+        x_abstol::AbstractFloat = default_tolerance(T),
+        x_reltol::AbstractFloat = default_tolerance(T),
+        x_suctol::AbstractFloat = default_tolerance(T),
+        f_abstol::AbstractFloat = F_ABSTOL,
+        f_reltol::AbstractFloat = default_tolerance(T),
+        f_suctol::AbstractFloat = default_tolerance(T),
+        f_mindec::AbstractFloat = default_tolerance(T),
+        g_restol::AbstractFloat = √(default_tolerance(T) / 2),
+        x_abstol_break::AbstractFloat = X_ABSTOL_BREAK,
+        x_reltol_break::AbstractFloat = X_RELTOL_BREAK,
+        f_abstol_break::AbstractFloat = G_ABSTOL_BREAK,
+        f_reltol_break::AbstractFloat = F_RELTOL_BREAK,
+        g_restol_break::AbstractFloat = G_RESTOL_BREAK,
         f_calls_limit::Integer = F_CALLS_LIMIT,
         g_calls_limit::Integer = G_CALLS_LIMIT,
         h_calls_limit::Integer = H_CALLS_LIMIT,
@@ -125,21 +143,8 @@ function Options(;
         verbosity::Integer = VERBOSITY)
 
     show_every = show_every > 0 ? show_every : 1
-    
-    if extended_trace
-       show_trace = true
-    end
-    if !isnothing(x_tol)
-        x_abstol = x_tol
-    end
-    if !isnothing(g_tol)
-        g_restol = g_tol
-    end
-    if !isnothing(f_tol)
-        f_reltol = f_tol
-    end
 
-    Options(promote(    x_abstol, 
+    Options{T}(promote( x_abstol, 
                         x_reltol,  
                         x_suctol, 
                         f_abstol, 
@@ -164,48 +169,6 @@ function Options(;
                         extended_trace, 
                         show_every, 
                         verbosity)
-end
-
-convert_float64_to_float32_if_necessary(a::Number) = convert_float64_to_float32_if_necessary(Val(a))
-
-convert_float64_to_float32_if_necessary(::Val{T}) where {T} = T
-
-convert_float64_to_float32_if_necessary(::Val{2eps(Float64)}) = 2eps(Float32)
-
-function Options(T::DataType, options::Options)
-
-    floatopts = (
-        convert_float64_to_float32_if_necessary(options.x_abstol),
-        convert_float64_to_float32_if_necessary(options.x_reltol),
-        convert_float64_to_float32_if_necessary(options.x_suctol),
-        convert_float64_to_float32_if_necessary(options.f_abstol),
-        convert_float64_to_float32_if_necessary(options.f_reltol),
-        convert_float64_to_float32_if_necessary(options.f_suctol),
-        convert_float64_to_float32_if_necessary(options.f_mindec),
-        convert_float64_to_float32_if_necessary(options.g_restol),
-        convert_float64_to_float32_if_necessary(options.x_abstol_break),
-        convert_float64_to_float32_if_necessary(options.x_reltol_break),
-        convert_float64_to_float32_if_necessary(options.f_abstol_break),
-        convert_float64_to_float32_if_necessary(options.f_reltol_break),
-        convert_float64_to_float32_if_necessary(options.g_restol_break),
-    )
-
-    nonfloats = (
-        options.f_calls_limit,
-        options.g_calls_limit,
-        options.h_calls_limit,
-        options.allow_f_increases,
-        options.min_iterations,
-        options.max_iterations,
-        options.warn_iterations,
-        options.show_trace,
-        options.store_trace,
-        options.extended_trace,
-        options.show_every,
-        options.verbosity,
-    )
-
-    Options(map(x -> convert(T, x), floatopts)..., nonfloats...)
 end
 
 function Base.show(io::IO, o::SimpleSolvers.Options)

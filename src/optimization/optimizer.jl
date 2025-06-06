@@ -73,20 +73,19 @@ struct Optimizer{T,
     result::RES
     state::AST
 
-    function Optimizer(algorithm::NonlinearMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, config::Options, result::OptimizerResult{T}, state::OptimizationAlgorithm) where {T}
-        config₁ = Options(T, config)
-        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(result), typeof(state)}(algorithm, objective, hessian, config₁, result, state)
+    function Optimizer(algorithm::NonlinearMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+        config = Options(T; options_kwargs...)
+        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(result), typeof(state)}(algorithm, objective, hessian, config, result, state)
     end
 end
 
-function Optimizer(x::VT, objective::MultivariateObjective; algorithm::NewtonMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), config = Options()) where {T, VT <: AbstractVector{T}}
+function Optimizer(x::VT, objective::MultivariateObjective; algorithm::NewtonMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(objective, x)
     result = OptimizerResult(x, y)
     clear!(result)
     astate = NewtonOptimizerState(x; linesearch = linesearch)
-    options = Options(T, config)
     hes = Hessian(algorithm, objective, x)
-    Optimizer(algorithm, objective, hes, options, result, astate)
+    Optimizer(algorithm, objective, hes, result, astate; options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)

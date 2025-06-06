@@ -121,16 +121,16 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.rfᵣ = YT(NaN)
     status.rfₛ = YT(NaN)
 
-    status.x̄ .= alloc_x(status.x)
-    status.x .= alloc_x(status.x)
-    status.δ .= alloc_x(status.x)
-    status.x̃ .= alloc_x(status.x)
+    status.x̄ .= XT(NaN)
+    status.x .= XT(NaN)
+    status.δ .= XT(NaN)
+    status.x̃ .= XT(NaN)
 
-    status.f₀ .= alloc_f(status.f)
-    status.f̄ .= alloc_f(status.f)
-    status.f .= alloc_f(status.f)
-    status.γ .= alloc_f(status.f)
-    status.f̃ .= alloc_f(status.f)
+    status.f₀ .= YT(NaN)
+    status.f̄ .= YT(NaN)
+    status.f .= YT(NaN)
+    status.γ .= YT(NaN)
+    status.f̃ .= YT(NaN)
 
     status.x_converged = false
     status.f_converged = false
@@ -187,14 +187,14 @@ isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_conv
     assess_convergence!(status, config)
 
 Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
-- `status.rxₐ ≤ config.x_abstol`. See [`X_ABSTOL`](@ref),
-- `status.rxᵣ ≤ config.x_reltol`. See [`X_RELTOL`](@ref),
-- `status.rxₛ ≤ config.x_suctol`. See [`X_SUCTOL`](@ref),
-- `status.rfₐ ≤ config.f_abstol`. See [`F_ABSTOL`](@ref),
-- `status.rfᵣ ≤ config.f_reltol`. See [`F_RELTOL`](@ref),
-- `status.rfₛ ≤ config.f_suctol`. See [`F_SUCTOL`](@ref).
+- `status.rxₐ ≤ config.x_abstol`,
+- `status.rxᵣ ≤ config.x_reltol`,
+- `status.rxₛ ≤ config.x_suctol`,
+- `status.rfₐ ≤ config.f_abstol`,
+- `status.rfᵣ ≤ config.f_reltol`,
+- `status.rfₛ ≤ config.f_suctol`.
 
-Also see [`meets_stopping_criteria`](@ref).
+Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
 function assess_convergence!(status::NonlinearSolverStatus, config::Options)
     x_converged = status.rxₐ ≤ config.x_abstol ||
@@ -227,10 +227,10 @@ The function `meets_stopping_criteria` returns `true` if one of the following is
 - `iteration_number(status) ≥ config.max_iterations`, 
 - if any component in `solution(status)` is `NaN`,
 - if any component in `status.f` is `NaN`,
-- `status.rxₐ > config.x_abstol_break` (see [`X_ABSTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`X_ABSTOL_BREAK`](@ref) is $(X_ABSTOL_BREAK),
-- `status.rxᵣ > config.x_reltol_break` (see [`X_RELTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`X_RELTOL_BREAK`](@ref) is $(X_RELTOL_BREAK), 
-- `status.rfₐ > config.f_abstol_break` (see [`F_ABSTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`F_ABSTOL_BREAK`](@ref) is $(F_ABSTOL_BREAK),
-- `status.rfᵣ > config.f_reltol_break` (see [`F_RELTOL_BREAK`](@ref)). In theory this returns `true` if the residual gets too big, but the default [`F_RELTOL_BREAK`](@ref) is $(F_RELTOL_BREAK).
+- `status.rxₐ > config.x_abstol_break` (by default $(X_ABSTOL_BREAK). In theory this returns `true` if the residual gets too big,
+- `status.rxᵣ > config.x_reltol_break` (by default $(X_RELTOL_BREAK). In theory this returns `true` if the residual gets too big, 
+- `status.rfₐ > config.f_abstol_break` (by default $(F_ABSTOL_BREAK). In theory this returns `true` if the residual gets too big,
+- `status.rfᵣ > config.f_reltol_break` (by default $(F_RELTOL_BREAK). In theory this returns `true` if the residual gets too big.
 So convergence is only one possible criterion for which [`meets_stopping_criteria`](@ref). We may also satisfy a stopping criterion without having convergence!
 
 # Examples

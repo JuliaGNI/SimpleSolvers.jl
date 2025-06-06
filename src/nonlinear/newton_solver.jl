@@ -52,8 +52,9 @@ struct NewtonSolver{T, AT, NLST <: NonlinearSystem{T}, LST <: LinearSystem{T}, L
     config::Options{T}
     status::NSST
 
-    function NewtonSolver(x::AT, nls::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options; refactorize::Integer = 1) where {T, AT <: AbstractVector{T}, NLST, LST, LSoT, LiSeT, CT}
+    function NewtonSolver(x::AT, nls::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; refactorize::Integer = 1, options_kwargs...) where {T, AT <: AbstractVector{T}, NLST, LST, LSoT, LiSeT, CT}
         status = NonlinearSolverStatus(x)
+        config = Options(T; options_kwargs...)
         new{T, AT, NLST, LST, LSoT, LiSeT, CT, typeof(status)}(nls, ls, linearsolver, linesearch, refactorize, cache, config, status)
     end
 end
@@ -65,17 +66,16 @@ end
 - `linear_solver_method`
 - `DF!`
 - `linesearch`
-- `config`
 - `mode`
+- `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AT, F::Callable, y::AT=F(x); linear_solver_method = LU(), DF! = missing, linesearch = Backtracking(), config = Options(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
+function NewtonSolver(x::AT, F::Callable, y::AT=F(x); linear_solver_method = LU(), DF! = missing, linesearch = Backtracking(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
     nls = ismissing(DF!) ? NonlinearSystem(F, x; mode = mode) : NonlinearSystem(F, DF!, x)
     cache = NewtonSolverCache(x, y)
     linearsystem = LinearSystem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = LinesearchState(linesearch; T = T)
-    options = Options(T, config)
-    NewtonSolver(x, nls, linearsystem, linearsolver, ls, cache, options; kwargs...)
+    NewtonSolver(x, nls, linearsystem, linearsolver, ls, cache; kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: AbstractVector{T}}
