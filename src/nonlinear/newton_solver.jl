@@ -23,9 +23,7 @@ i=   0,
 x= NaN,
 f= NaN,
 rxₐ= NaN,
-rxᵣ= NaN,
-rfₐ= NaN,
-rfᵣ= NaN
+rfₐ= NaN
 ```
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).

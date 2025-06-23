@@ -33,7 +33,7 @@ i=   0,
 x= NaN,
 f= NaN,
 rxₐ= NaN,
-rfₐ= NaN,
+rfₐ= NaN
 ```
 """
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}

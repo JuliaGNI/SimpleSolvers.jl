@@ -217,7 +217,7 @@ end
 
 Solve the optimization problem described by `opt::`[`Optimizer`](@ref) and store the result in `x`.
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!; using Random: seed!; seed!(123))
 f(x) = sum(x .^ 2 + x .^ 3 / 3)
 x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
@@ -226,18 +226,18 @@ solve!(opt, x)
 
 # output
 2-element Vector{Float32}:
- 0.0
- 4.656613f-10
+ 4.6478817f-8
+ 3.0517578f-5
 ```
 
 We can also check how many iterations it took:
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); solve!(opt, x))
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); solve!(opt, x))
 iteration_number(opt)
 
 # output
 
-15
+12
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
