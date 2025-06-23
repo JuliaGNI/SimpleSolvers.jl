@@ -19,7 +19,6 @@ Stores absolute, relative and successive residuals for `x` and `f`. It is used a
 - `f`: current function value,
 - `f̄`: previous function value,
 - `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref),
-- `f̃`: variable that gives the change in the function value via ``\gamma/f(x_0)``,
 - `x_converged::Bool`
 - `f_converged::Bool`
 - `g_converged::Bool`
@@ -74,7 +73,6 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     f::AYT
     f̄::AYT
     γ::AYT
-    f̃::AYT
 
     x_converged::Bool
     f_converged::Bool
@@ -88,7 +86,7 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
         zero(T), zero(T), zero(T), # residuals for x
         zero(T), zero(T), zero(T), # residuals for f
         zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for x
-        zeros(T, n), zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
+        zeros(T, n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
         false, false, false, false)
         clear!(status)
         status
@@ -130,7 +128,6 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     status.f̄ .= YT(NaN)
     status.f .= YT(NaN)
     status.γ .= YT(NaN)
-    status.f̃ .= YT(NaN)
 
     status.x_converged = false
     status.f_converged = false
@@ -298,7 +295,6 @@ function residual!(status::NonlinearSolverStatus)
 
     status.rfₐ = norm(status.f)
     status.rfᵣ = norm(status.f) / norm(status.f₀)
-    status.f̃ .= status.γ ./ status.f
     status.rfₛ = norm(status.γ)
 
     nothing
