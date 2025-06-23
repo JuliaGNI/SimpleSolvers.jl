@@ -6,7 +6,6 @@ Stores absolute, relative and successive residuals for `x` and `f`. It is used a
 # Keys
 - `i::Int`: iteration number,
 - `rxₐ`: absolute residual in `x`,
-- `rxᵣ`: relative residual in `x`,
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
 - `rfₛ`: successive residual in `f`,
@@ -34,7 +33,6 @@ i=   0,
 x= NaN,
 f= NaN,
 rxₐ= NaN,
-rxᵣ= NaN,
 rfₐ= NaN,
 ```
 """
@@ -42,7 +40,6 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     i::Int
 
     rxₐ::XT
-    rxᵣ::XT
     rxₛ::XT
 
     rfₐ::YT
@@ -67,7 +64,7 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
         
         status = new{T,T,Vector{T},Vector{T}}(
         0, 
-        zero(T), zero(T), zero(T), # residuals for x
+        zero(T), zero(T), # residuals for x
         zero(T), zero(T), # residuals for f
         zeros(T,n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for x
         zeros(T, n), zeros(T,n), zeros(T,n), zeros(T,n), # the ics for f
@@ -96,7 +93,6 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
     iteration_number(status) = 0
 
     status.rxₐ = XT(NaN)
-    status.rxᵣ = XT(NaN)
     status.rxₛ = XT(NaN)
 
     status.rfₐ = YT(NaN)
@@ -124,7 +120,6 @@ Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT, AYT}) where {XT, YT, 
                         (@sprintf "x=%4e" status.x[1]),  ",\n",
                         (@sprintf "f=%4e" status.f[1]),  ",\n",
                         (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
-                        (@sprintf "rxᵣ=%4e" status.rxᵣ), ",\n",
                         (@sprintf "rfₐ=%4e" status.rfₐ))
 
 @doc raw"""
@@ -167,7 +162,6 @@ isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_conv
 
 Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
 - `status.rxₐ ≤ config.x_abstol`,
-- `status.rxᵣ ≤ config.x_reltol`,
 - `status.rxₛ ≤ config.x_suctol`,
 - `status.rfₐ ≤ config.f_abstol`,
 - `status.rfₛ ≤ config.f_suctol`.
@@ -175,9 +169,7 @@ Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@r
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
 function assess_convergence!(status::NonlinearSolverStatus, config::Options)
-    x_converged = status.rxₐ ≤ config.x_abstol ||
-                  status.rxᵣ ≤ config.x_reltol ||
-                  status.rxₛ ≤ config.x_suctol
+    x_converged = status.rxₛ ≤ config.x_suctol
     
     f_converged = status.rfₐ ≤ config.f_abstol ||
                   status.rfₛ ≤ config.f_suctol
@@ -205,7 +197,6 @@ The function `meets_stopping_criteria` returns `true` if one of the following is
 - if any component in `solution(status)` is `NaN`,
 - if any component in `status.f` is `NaN`,
 - `status.rxₐ > config.x_abstol_break` (by default $(X_ABSTOL_BREAK). In theory this returns `true` if the residual gets too big,
-- `status.rxᵣ > config.x_reltol_break` (by default $(X_RELTOL_BREAK). In theory this returns `true` if the residual gets too big, 
 - `status.rfₐ > config.f_abstol_break` (by default $(F_ABSTOL_BREAK). In theory this returns `true` if the residual gets too big,
 So convergence is only one possible criterion for which [`meets_stopping_criteria`](@ref). We may also satisfy a stopping criterion without having convergence!
 
@@ -239,7 +230,6 @@ function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
     ( status.f_increased && !config.allow_f_increases ) ||
       iteration_number(status) ≥ config.max_iterations ||
       status.rxₐ > config.x_abstol_break ||
-      status.rxᵣ > config.x_reltol_break ||
       status.rfₐ > config.f_abstol_break ||
       any(isnan, solution(status)) ||
       any(isnan, status.f)
@@ -259,14 +249,12 @@ Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
 Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref).
 The computed residuals are the following:
 - `rxₐ`: absolute residual in ``x``,
-- `rxᵣ`: relative residual in ``x``,
 - `rxₛ` : successive residual (the norm of ``\delta``),
 - `rfₐ`: absolute residual in ``f``,
 - `rfₛ` : successive residual (the norm of ``\gamma``).
 """
 function residual!(status::NonlinearSolverStatus)
     status.rxₐ = norm(status.δ)
-    status.rxᵣ = status.rxₐ / norm(status.x)
     status.x̃ .= status.δ ./ status.x
     status.rxₛ = norm(status.δ)
 
