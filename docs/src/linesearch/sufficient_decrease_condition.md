@@ -65,7 +65,7 @@ ys = LinRange(1., 4., 100)
 zs = [f(vcat(x, y)) for x in xs, y in ys]
 surface!(ax, xs, ys, zs; alpha = .5)
 scatter!(ax, [x[1]], [x[2]], [f(x)]; color=mred, label=L"x_0")
-arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:origin)
+arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:tail)
 
 x1 = x + α₁ * p
 x2 = x + α₂ * p
