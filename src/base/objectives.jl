@@ -191,11 +191,6 @@ function derivative!!(obj::UnivariateObjective, x::Number)
     obj.d = derivative(obj, x)
     derivative(obj)
 end
-# function derivative!!(obj::AbstractObjective, x::AbstractArray{<:Number})
-#     obj.x_d .= x
-#     obj.d = derivative(obj, x)
-#     derivative(obj)
-# end
 
 """
     derivative!(obj, x)
@@ -228,18 +223,51 @@ end
 """
     clear!(obj)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(obj::AbstractUnivariateObjective)
     _clear_f!(obj)
     _clear_d!(obj)
-    nothing
+    obj
 end
 
 """
     TemporaryUnivariateObjective <: AbstractUnivariateObjective
 
 Like [`UnivariateObjective`](@ref) but doesn't store `f`, `d`, `x_f` and `x_d` as well as `f_calls` and `d_calls`.
+
+In practice `TemporaryUnivariateObjective`s are allocated by calling [`linesearch_objective`](@ref).
+
+# Constructors
+
+!!! warn "Calling line search objectives"
+    Below we show a few constructors that can be used to allocate `TemporaryUnivariateObjective`s. Note however that in practice one probably should not do that and instead call `linesearch_objective`.
+
+```jldoctest; setup = :(using SimpleSolvers: TemporaryUnivariateObjective, compute_new_iterate)
+f(x) = x^2 - 1
+g(x) = 2x
+δx(x) = - g(x) / 2
+x₀ = 3.
+_f(α) = f(compute_new_iterate(x₀, α, δx(x₀)))
+_d(α) = g(compute_new_iterate(x₀, α, δx(x₀)))
+ls_obj = TemporaryUnivariateObjective{typeof(x₀)}(_f, _d)
+
+# output
+
+TemporaryUnivariateObjective{Float64, typeof(_f), typeof(_d)}(_f, _d)
+```
+
+Alternatively one can also do:
+
+```jldoctest; setup = :(using SimpleSolvers: TemporaryUnivariateObjective, compute_new_iterate; f(x) = x^2 - 1; g(x) = 2x; δx(x) = - g(x) / 2; x₀ = 3.; _f(α) = f(compute_new_iterate(x₀, α, δx(x₀))); _d(α) = g(compute_new_iterate(x₀, α, δx(x₀))))
+ls_obj = TemporaryUnivariateObjective(_f, _d, x₀)
+
+# output
+
+TemporaryUnivariateObjective{Float64, typeof(_f), typeof(_d)}(_f, _d)
+```
+
+Here we wrote `ls_obj` to mean *line search objective*.
 """
 struct TemporaryUnivariateObjective{Tx <: Number, TF, TD} <: AbstractUnivariateObjective{Tx}
     F::TF
@@ -251,23 +279,21 @@ TemporaryUnivariateObjective{Tx}(f, d) where {Tx <: Number} = TemporaryUnivariat
 TemporaryUnivariateObjective(f, d, ::Tx=zero(Float64)) where {Tx <: Number} = TemporaryUnivariateObjective{Tx}(f, d)
 
 value(obj::TemporaryUnivariateObjective, x::Number) = obj.F(x)
-value(obj::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
+value(::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has to be called together with an x argument.")
 derivative(obj::TemporaryUnivariateObjective, x::Number) = obj.D(x)
 
 function value!(obj::TemporaryUnivariateObjective, x::Number)
-    @warn "Calling value! on a TemporaryUnivariateObjective just calls value."
     value(obj, x)
 end
 
 function derivative!(obj::TemporaryUnivariateObjective, x::Number)
-    @warn "Calling derivative! on a TemporaryUnivariateObjective just calls derivative."
     derivative(obj, x)
 end
 
 """
     MultivariateObjective <: AbstractObjective
 
-Like [`UnivariateObjective`](@ref), but stores *gradients* instead of *derivatives*.
+Like [`UnivariateObjective`](@ref), but stores *gradients* instead of *derivatives*. Also compare this to [`NonlinearSystem`](@ref).
 
 The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
@@ -289,7 +315,7 @@ mutable struct MultivariateObjective{T, Tx <: AbstractVector{T}, TF <: Callable,
     g_calls::Int
 end
 
-function Base.show(io::IO, obj::MultivariateObjective)
+function Base.show(io::IO, obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     @printf io "MultivariateObjective (for vector-valued quantities only the first component is printed):\n"
     @printf io "\n"
     @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
@@ -322,11 +348,11 @@ end
 MultivariateObjective(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateObjective(F, x; kwargs...)
 
 function value!!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
-    obj.x_f .= x
+    f_argument(obj) .= x
     value(obj) .= value(obj, x)
 end
 function value!!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
-    obj.x_f .= x
+    f_argument(obj) .= x
     obj.f = value(obj, x)
 end
 
@@ -343,14 +369,14 @@ function gradient(obj::MultivariateObjective, x::AbstractArray{<:Number})
 end
 
 """
-    gradient(obj::MultivariateObjective, x)
+    gradient!!(obj::MultivariateObjective, x)
 
 Like [`derivative!!`](@ref), but for [`MultivariateObjective`](@ref), not [`UnivariateObjective`](@ref).
 """
 function gradient!!(obj::MultivariateObjective, x::AbstractArray{<:Number})
     copyto!(obj.x_g, x)
     obj.g_calls += 1
-    gradient!(obj.g, x, obj.G)
+    gradient!(gradient(obj), x, obj.G)
     gradient(obj)
 end
 
@@ -368,35 +394,54 @@ end
 
 function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     obj.f_calls = 0
-    obj.f = alloc_f(obj.x_f)
-    obj.x_f .= alloc_x(obj.x_f)
+    obj.f = T(NaN)
+    f_argument(obj) .= T(NaN)
     nothing
 end
 
 function _clear_f!(obj::MultivariateObjective{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     obj.f_calls = 0
-    obj.f .= alloc_f(obj.x_f, obj.F)
-    obj.x_f .= alloc_x(obj.x_f)
+    obj.f .= T(NaN)
+    f_argument(obj) .= T(NaN)
     nothing
 end
 
-function _clear_g!(obj::MultivariateObjective)
+function _clear_g!(obj::MultivariateObjective{T}) where {T}
     obj.g_calls = 0
-    obj.g .= alloc_g(obj.x_g)
-    obj.x_g .= alloc_x(obj.x_g)
+    obj.g .= T(NaN)
+    g_argument(obj) .= T(NaN)
     nothing
 end
 
 """
     clear!(obj)
 
-Similar to [`initialize!`](@ref), but return `nothing`.
+Similar to [`initialize!`](@ref), but with only one input argument.
 """
 function clear!(obj::MultivariateObjective)
     _clear_f!(obj)
     _clear_g!(obj)
-    nothing
+    obj
 end
+
+function initialize!(obj::AbstractObjective, ::AbstractVector)
+    clear!(obj)
+end
+
+"""
+    update!(obj, x)
+
+Call [`value!`](@ref) and [`gradient!`](@ref) on `obj`.
+"""
+function update!(obj::MultivariateObjective, x::AbstractVector)
+    value!(obj, x)
+    gradient!(obj, x)
+
+    obj
+end
+
+f_argument(obj::AbstractObjective) = obj.x_f
+g_argument(obj::MultivariateObjective) = obj.x_g
 
 f_calls(o::AbstractObjective) = error("f_calls is not implemented for $(summary(o)).")
 f_calls(o::Union{UnivariateObjective, MultivariateObjective}) = o.f_calls
@@ -406,3 +451,5 @@ d_calls(o::UnivariateObjective) = o.d_calls
 
 g_calls(o::AbstractObjective) = error("g_calls is not implemented for $(summary(o)).")
 g_calls(o::MultivariateObjective) = o.g_calls
+
+Gradient(obj::MultivariateObjective) = obj.G

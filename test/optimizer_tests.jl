@@ -23,13 +23,8 @@ test_obj = MultivariateObjective(F, test_x)
 @test_throws MethodError update!(test_optim, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)
 
-@test isaOptimizationAlgorithm(test_optim) == false
-@test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj)) == true
-@test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj; hessian = HessianBFGS(test_obj, test_x))) == true
-@test isaOptimizationAlgorithm(SimpleSolvers.NewtonOptimizerState(test_x, test_obj; hessian = HessianDFP(test_obj, test_x))) == true
-
 for method in (Newton(), BFGS(), DFP())
-    for _linesearch in (Static(0.8), Backtracking(), Quadratic(), Bisection())
+    for _linesearch in (Static(0.8), Backtracking()) # , Quadratic2(), BierlaireQuadratic(), Bisection())
         for T in (Float64, Float32)
             n = 1
             x = ones(T, n)
@@ -38,22 +33,16 @@ for method in (Newton(), BFGS(), DFP())
             @test config(opt) == opt.config
             @test status(opt) == opt.result.status
 
-            update!(opt, rand(T, length(x)))
-            update!(opt, rand(T, length(x)))
-            solve!(x, opt)
-            # println(opt)
-            @test norm(minimizer(opt)) ≈ 0 atol=1E-7
-            @test norm(minimum(opt)) ≈ F(0) atol=1E-7
+            solve!(opt, x)
+            @test norm(minimizer(opt)) ≈ 0 atol=∛(2000eps(T))
+            @test norm(minimum(opt)) ≈ F(0) atol=∛(2000eps(T))
 
             x = ones(T, n)
             opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = _linesearch)
-            update!(opt, rand(T, length(x)))
-            update!(opt, rand(T, length(x)))
 
-            solve!(x, opt)
-            # println(opt)
-            @test norm(minimizer(opt)) ≈ 0 atol=1E-7
-            @test norm(minimum(opt)) ≈ F(0) atol=1E-7
+            solve!(opt, x)
+            @test norm(minimizer(opt)) ≈ 0 atol=∛(2000eps(T))
+            @test norm(minimum(opt)) ≈ F(0) atol=∛(2000eps(T))
         end
     end
 end

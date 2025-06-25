@@ -23,6 +23,15 @@ Additionaly the following function needs to be extended:
 LinesearchState(algorithm::LinesearchMethod; kwargs...)
 ```
 
+# Constructors
+
+The following is used to construct a specific line search state based on a [`LinesearchMethod`](@ref):
+
+```julia
+LinesearchState(algorithm::LinesearchMethod; T::DataType=Float64, kwargs...)
+```
+where the data type should be specified each time the constructor is called. This is done automatically when calling the constructor of [`NewtonSolver`](@ref) for example.
+
 # Functors
 
 The following functors are auxiliary helper functions:
@@ -34,7 +43,7 @@ ls(f::Callable, g::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, g);
 ls(f::Callable, g::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, g), x; kwargs...)
 ```
 """
-abstract type LinesearchState end
+abstract type LinesearchState{T} end
 
 LinesearchState(algorithm::LinesearchMethod; kwags...) = error("LinesearchState not implemented for algorithm $(typeof(algorithm)).")
 
@@ -73,8 +82,9 @@ struct Linesearch{ALG <: LinesearchMethod, OPT <: Options, OST <: LinesearchStat
     state::OST
 end
 
-function Linesearch(; algorithm = Static(), config = Options(), kwargs...)
-    state = LinesearchState(algorithm; kwargs...)
+function Linesearch(T::DataType=Float64; algorithm = Static(), options_kwargs...)
+    state = LinesearchState(algorithm; options_kwargs...)
+    config = Options(T; options_kwargs...)
     Linesearch(algorithm, config, state)
 end
 

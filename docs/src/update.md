@@ -1,6 +1,6 @@
 # Updates
 
-One of the most central objects in `SimpleSolvers` are [`SimpleSolvers.update!`](@ref) routines. They can be used together with many different `types` and `structs`:
+One of the most central objects in `SimpleSolvers` are [`update!`](@ref) routines. They can be used together with many different `types` and `structs`:
 - [`SimpleSolvers.update!(::Hessian, ::AbstractVector)`](@ref): this routine exists for most [`Hessian`](@ref)s, i.e. for [`HessianFunction`](@ref), [`HessianAutodiff`](@ref), [`HessianBFGS`](@ref) and [`HessianDFP`](@ref),
 - [`SimpleSolvers.update!(::SimpleSolvers.NewtonSolverCache, ::AbstractVector)`](@ref),
 - [`SimpleSolvers.update!(::SimpleSolvers.NonlinearSolverStatus, ::AbstractVector, ::Base.Callable)`](@ref),
@@ -8,7 +8,7 @@ One of the most central objects in `SimpleSolvers` are [`SimpleSolvers.update!`]
 - [`SimpleSolvers.update!(::SimpleSolvers.NewtonOptimizerState, ::AbstractVector)`](@ref).
 - [`SimpleSolvers.update!(::SimpleSolvers.OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 
-So [`SimpleSolvers.update!`](@ref) always takes an object that has to be updated and a single vector in the simplest case. For some methods more arguments need to be provided. 
+So [`update!`](@ref) always takes an object that has to be updated and a single vector in the simplest case. For some methods more arguments need to be provided. 
 
 ## Examples
 
@@ -20,7 +20,6 @@ If we look at the case of the [Hessian](@ref "Hessians"), we store a matrix ``H`
 
 ```@example update
 using SimpleSolvers # hide
-using SimpleSolvers: update! # hide
 using LinearAlgebra: norm # hide
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 x = [1., 0., 0.]
@@ -58,8 +57,8 @@ In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSol
 ```@example update
 using SimpleSolvers: NewtonOptimizerState # hide
 obj = MultivariateObjective(f, x)
-state = NewtonOptimizerState(x, obj)
-update!(state, x)
+state = NewtonOptimizerState(x)
+update!(state, x, Gradient(obj), hes)
 ```
 
 ### `OptimizerResult`
@@ -92,13 +91,13 @@ opt = Optimizer(x, obj)
 update!(opt, x)
 ```
 
-Equivalent to calling [`SimpleSolvers.update!`](@ref) on [`SimpleSolvers.OptimizerResult`](@ref), the diagnostics cannot be computed with only one iterations; we have to compute a second one:
+Equivalent to calling [`update!`](@ref) on [`SimpleSolvers.OptimizerResult`](@ref), the diagnostics cannot be computed with only one iterations; we have to compute a second one:
 
 ```@example update
 x₂ = [.9, 0., 0.]
 update!(opt, x₂)
 ```
 
-We note that simply calling [`SimpleSolvers.update!`](@ref) on an instance of [`SimpleSolvers.Optimizer`](@ref) is not enough to perform a complete iteration since the computation of a new ``x`` requires a [line search](@ref "Line Search") procedure in general.
+We note that simply calling [`update!`](@ref) on an instance of [`SimpleSolvers.Optimizer`](@ref) is not enough to perform a complete iteration since the computation of a new ``x`` requires a [line search](@ref "Line Search") procedure in general.
 
-We also note that [`SimpleSolvers.update!`](@ref) always returns the first input argument.
+We also note that [`update!`](@ref) always returns the first input argument.

@@ -21,6 +21,8 @@ As we assume that ``f(R_{x_k}(\alpha_k{}p_k)) \leq f(x_k)`` and ``g_{x_k}(c_1p_k
 
 making clear why this is called the *sufficient decrease condition*. The parameter ``c_1`` is typically chosen very small, around ``10^{-4}``. This is implemented as [`SimpleSolvers.SufficientDecreaseCondition`](@ref).
 
+## [Example](@id sdc_example_full)
+
 We can visualize the sufficient decrease condition with an example:
 
 ```@example sdc
@@ -63,7 +65,7 @@ ys = LinRange(1., 4., 100)
 zs = [f(vcat(x, y)) for x in xs, y in ys]
 surface!(ax, xs, ys, zs; alpha = .5)
 scatter!(ax, [x[1]], [x[2]], [f(x)]; color=mred, label=L"x_0")
-arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:origin)
+arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:tail)
 
 x1 = x + α₁ * p
 x2 = x + α₂ * p

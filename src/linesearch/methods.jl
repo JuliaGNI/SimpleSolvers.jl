@@ -32,7 +32,7 @@ The backtracking algorithm starts by setting ``y_0 \gets f(0)`` and ``d_0 \gets 
 
 The algorithm is executed by calling the functor of [`BacktrackingState`](@ref).
 
-The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` ([`MAX_ITERATIONS`](@ref) by default) is reached:
+The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
 
 ```julia
 if value!(obj, α) ≥ y₀ + ls.ϵ * α * d₀
@@ -71,14 +71,14 @@ See [`bisection`](@ref).
 struct Bisection <: LinesearchMethod end
 
 """
-    Quadractic <: LinesearchMethod
+    Quadratic <: LinesearchMethod
 
 The *quadratic* method. Compare this to [`BierlaireQuadratic`](@ref). The algorithm is taken from [kelley1995iterative](@cite).
 
 # Constructors
 
 ```julia
-Quadractic()
+Quadratic()
 ```
 
 # Extended help
@@ -86,11 +86,20 @@ Quadractic()
 struct Quadratic <: LinesearchMethod end
 
 """
+    Quadratic2 <: LinesearchMethod
+
+The second *quadratic* method. Compare this to [`Quadratic`](@ref).
+
+# Extended help
+"""
+struct Quadratic2 <: LinesearchMethod end
+
+"""
     BierlaireQuadratic <: LinesearchMethod
 
 Algorithm taken from [bierlaire2015optimization](@cite).
 """
-struct BierlaireQuadratic end
+struct BierlaireQuadratic <: LinesearchMethod end
 
 """
     Static <: LinesearchMethod
@@ -120,3 +129,4 @@ Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) 
 Base.show(io::IO, ::Backtracking) = print(io, "Backtracking")
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")
 Base.show(io::IO, ::Quadratic) = print(io, "Quadratic Polynomial")
+Base.show(io::IO, ::BierlaireQuadratic) = print(io, "Quadratic Polynomial (Bierlaire version).")

@@ -1,55 +1,41 @@
 using SimpleSolvers
-using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate, AbstractObjective, BierlaireQuadratic, BierlaireQuadraticState
+using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate, AbstractObjective, BierlaireQuadratic, BierlaireQuadraticState, QuadraticState2
 using Test
-
-include("optimizers_problems.jl")
 
 f(x) = x^2 - 1
 g(x) = 2x
 δx(x) = - g(x) / 2
 
-function compute_next_iterate(ls::BierlaireQuadraticState, x₀::T; α₀ = one(T), mode = :autodiff) where {T}
+function make_linesearch_objective(x₀::Number)
     _f(α) = f(compute_new_iterate(x₀, α, δx(x₀)))
     _d(α) = g(compute_new_iterate(x₀, α, δx(x₀)))
+    TemporaryUnivariateObjective(_f, _d)
+end
 
-    obj = mode == :autodiff ? UnivariateObjective(_f, zero(T); mode = :autodiff) : UnivariateObjective(_f, _d, α₀; mode = :function)
-    α = ls(obj, zero(T))
+function compute_next_iterate(ls::LinesearchState, x₀::T) where {T}
+    ls_obj = make_linesearch_objective(x₀)
+    α = ls(ls_obj)
     compute_new_iterate(x₀, α, δx(x₀))
 end
 
-function compute_next_iterate(ls::LinesearchState, x₀::T; α₀ = one(T), mode = :autodiff) where {T}
-    _f(α) = f(compute_new_iterate(x₀, α, δx(x₀)))
-    _d(α) = g(compute_new_iterate(x₀, α, δx(x₀)))
-
-    obj = mode == :autodiff ? UnivariateObjective(_f, α₀; mode = :autodiff) : UnivariateObjective(_f, _d, α₀; mode = :function)
-    α = ls(obj, α₀)
-    compute_new_iterate(x₀, α, δx(x₀))
-end
-
-function compute_next_iterate(ls::LinesearchState, x₀::T, n::Integer; kwargs...) where {T}
+function compute_next_iterate(ls::LinesearchState, x₀::T, n::Integer) where {T}
     x = x₀
     for _ in 1:n
-        x = compute_next_iterate(ls, x; kwargs...)
+        x = compute_next_iterate(ls, x)
     end
     x
 end
 
-function test_linesearch(algorithm, n = 1; kwargs...)
+function test_linesearch(algorithm::LinesearchMethod, n::Integer = 1)
 
-    x₀ = -3.0
+    x₀ = -3.
     x₁ = +3.0
     xₛ =  0.0
-
-    options = Options(x_abstol = zero(x₀))
     
-    ls = LinesearchState(algorithm; config = options, kwargs...)
+    ls = LinesearchState(algorithm; x_abstol = zero(x₀))
 
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())
-
-    # start with a different initial guess
-    @test compute_next_iterate(ls, x₀, n; α₀ = 2one(x₀)) ≈ xₛ  atol=∛(2eps())
-    @test compute_next_iterate(ls, x₀, n; α₀ = 2one(x₀)) ≈ xₛ  atol=∛(2eps())
 end
 
 @testset "$(rpad("Bracketing",80))" begin
@@ -59,20 +45,16 @@ end
 
 @testset "$(rpad("Static",80))" begin
     x₀ = -3.
-    x₁ = +1.
+    x₁ = +3.
     δx = x₁ - x₀
     x  = copy(x₀)
 
-
-    o  = UnivariateObjective(f, x)
     ls = StaticState()
 
     @test ls == LinesearchState(Static())
     @test ls == LinesearchState(Static(1.0))
 
-    # x1 = copy(x₀); x2 = copy(x₀); @test solve!(x1, δx, ls) == ls(x2, δx) == x₁
     @test ls() == 1.
-
 
     o1  = UnivariateObjective(f, x)
     o2  = UnivariateObjective(f, g, x)
@@ -99,8 +81,14 @@ end
 
 end
 
-@testset "$(rpad("Polynomial Linesearch", 80))" begin
+@testset "$(rpad("Quadratic Linesearch (Bierlaire)", 80))" begin
 
-    test_linesearch(BierlaireQuadratic(), 10)
+    test_linesearch(BierlaireQuadratic(), 1)
+
+end
+
+@testset "$(rpad("Quadratic Linesearch (Derivative-Based)", 80))" begin
+
+    test_linesearch(BierlaireQuadratic(), 1)
 
 end

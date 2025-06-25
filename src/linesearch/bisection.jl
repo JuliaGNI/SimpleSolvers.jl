@@ -3,7 +3,7 @@
 
 Perform bisection of `f` in the interval [`xmin`, `xmax`] with [`Options`](@ref) `config`.
 
-The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is [`F_ABSTOL`](@ref) by default).
+The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is determined by [`default_tolerance`](@ref) by default).
 
 # implementation
 
@@ -31,12 +31,12 @@ and then repeat:
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``x_0`` or ``x_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (see [`MAX_ITERATIONS`](@ref) and the [`Options`](@ref) struct).
+So the algorithm checks in each step where the sign change occurred and moves the ``x_0`` or ``x_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default""" * """$(MAX_ITERATIONS) and the [`Options`](@ref) struct).
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
 """
-function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <: Number}
+function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: Number}
     x₀ = xmin
     x₁ = xmax
     x  = zero(T)
@@ -67,13 +67,13 @@ function bisection(f::Callable, xmin::T, xmax::T; config = Options()) where {T <
 
         !isapprox(x₁ - x₀, zero(x), atol=config.x_abstol) || break
 
-        j != config.max_iterations || error("Max iteration number exceeded")
+        j != config.max_iterations || (println(x₀, " ", x₁, " ", x₁ - x₀); error("Max iteration number exceeded"))
     end
 
     x
 end
 
-bisection(obj::AbstractObjective, xmin::T, xmax::T; config = Options()) where {T <: Number} = bisection(obj.D, xmin, xmax; config = config)
+bisection(obj::AbstractObjective, xmin::T, xmax::T; config::Options) where {T <: Number} = bisection(obj.D, xmin, xmax; config = config)
 # bisection(obj::AbstractObjective, x::T; kwargs...) = bisection(obj.D, x; kwargs...)
 
 """
@@ -97,17 +97,18 @@ BisectionState(options)
 BisectionState(; options)
 ```
 """
-mutable struct BisectionState{OPT} <: LinesearchState where {OPT <: Options}
-    config::OPT
+mutable struct BisectionState{T} <: LinesearchState{T}
+    config::Options{T}
 end
 
-function BisectionState(; config = Options())
+function BisectionState(T::DataType=Float64; options_kwargs...)
+    config = Options(T; options_kwargs...)
     BisectionState(config)
 end
 
 Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(; kwargs...)
+LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(T; kwargs...)
 
 function (ls::BisectionState)(obj::UnivariateObjective{T}) where {T}
     # bisection(obj, 0., 1.; config = ls.config)

@@ -11,73 +11,55 @@ Random.seed!(123) # hide
 x = rand(3)
 obj = MultivariateObjective(x -> sum((x - [0., 0., 1.]) .^ 2), x)
 bt = Backtracking()
-config = Options()
 alg = Newton()
-opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config)
+opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
 ```
 
-## Optimization Algorithm
+## Optimizer Constructor
 
-Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizationAlgorithm`](@ref) and [`SimpleSolvers.OptimizerResult`](@ref). [`SimpleSolvers.OptimizationAlgorithm`](@ref) in turn calls [`SimpleSolvers.LinesearchState`](@ref) and [`Hessian`](@ref):
+Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.NewtonOptimizerState`](@ref) and [`Hessian`](@ref). We can also allocate these objects manually and then call a different constructor for [`Optimizer`](@ref):
 
 ```@example optimizer
-using SimpleSolvers: OptimizationAlgorithm
+using SimpleSolvers: NewtonOptimizerState, OptimizerResult, initialize!
 
-state = OptimizationAlgorithm(alg, obj, x; linesearch = bt)
+result = OptimizerResult(x, value!(obj, x))
+initialize!(result, x)
+state = NewtonOptimizerState(x; linesearch = bt)
+hes = Hessian(alg, obj, x)
+opt₂ = Optimizer(alg, obj, hes, result, state)
 ```
 
-The call above is equivalent to 
-
-```@example optimizer
-using SimpleSolvers: NewtonOptimizerCache, NewtonOptimizerState, LinesearchState, linesearch_objective, initialize!, update!
-
-cache = NewtonOptimizerCache(x)
-hess = Hessian(obj, x; mode = :autodiff)
-initialize!(hess, x)
-ls = LinesearchState(bt)
-value!(obj, x)
-gradient!(obj, x)
-lso = linesearch_objective(obj, cache)
-
-NewtonOptimizerState(obj, hess, ls, lso, cache)
-```
-
-Note that we use a separate objective here that only depends on ``\alpha`` (i.e. the step length for a single iteration) via [`SimpleSolvers.linesearch_objective`](@ref).
-
-Also note that:
-
-```@example optimizer
-NewtonOptimizerState <: OptimizationAlgorithm
-```
-
-If we want to use the [`Optimizer`](@ref) we can call:
+If we want to solve the problem, we can call [`solve!`](@ref) on the [`Optimizer`](@ref) instance:
 
 ```@example optimizer
 x₀ = copy(x)
-update!(opt, rand(3))
-update!(opt, rand(3))
 
-solve!(x, opt)
+solve!(opt, x₀)
 ```
 
-Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solver_step!`](@ref) (and [`SimpleSolvers.update!`](@ref)) until [`SimpleSolvers.meets_stopping_criteria`](@ref) is satisfied.
+Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solver_step!`](@ref) until [`SimpleSolvers.meets_stopping_criteria`](@ref) is satisfied.
 
 ```@example optimizer
 using SimpleSolvers: solver_step!
 
-update!(opt, rand(3))
-solver_step!(x, state)
+x = rand(3)
+solver_step!(opt, x)
 ```
 
 The function [`SimpleSolvers.solver_step!`](@ref) in turn does the following:
 
 ```julia
-update!(state, x)
-ldiv!(direction(state), hessian(state), rhs(state))
-ls = linesearch(state)
-α = ls(state.ls_objective)
-x .= x .+ α .* direction(state)
+# update objective, hessian, state and result
+update!(opt, x)
+# solve H δx = - ∇f
+ldiv!(direction(opt), hessian(opt), rhs(opt))
+# apply line search
+α = linesearch(state(opt))(linesearch_objective(objective(opt), cache(opt)))
+# compute new minimizer
+x .= compute_new_iterate(x, α, direction(opt))
 ```
+
+### Solving the Line Search Problem with Backtracking
 
 Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.AbstractUnivariateObjective`](@ref) in turn does:
 
@@ -94,9 +76,11 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 `sdc` is first allocated as:
 
 ```@example optimizer
-using SimpleSolvers: SufficientDecreaseCondition # hide
+using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_objective, objective, cache # hide
+ls = linesearch(opt)
 α = ls.α₀
 x₀ = zero(α)
+lso = linesearch_objective(objective(opt), cache(opt))
 y₀ = value!(lso, x₀)
 d₀ = derivative!(lso, x₀)
 

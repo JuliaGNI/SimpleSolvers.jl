@@ -89,20 +89,21 @@ where ``\epsilon`` is stored in `ls`.
 !!! info
     The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search objective.
 """
-struct BacktrackingState{OPT <: Options, T <: Number} <: LinesearchState
-    config::OPT
+struct BacktrackingState{T} <: LinesearchState{T}
+    config::Options{T}
     α₀::T
     ϵ::T
     p::T
 
-    function BacktrackingState(::Type{T₁}=Float64; config::Options = Options(),
+    function BacktrackingState(::Type{T₁}=Float64;
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     ϵ::T = DEFAULT_WOLFE_c₁,
-                    p::T = DEFAULT_ARMIJO_p) where {T₁, T}
+                    p::T = DEFAULT_ARMIJO_p,
+                    options_kwargs...) where {T₁, T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
-        configT = Options(T₁, config)
-        new{typeof(configT), T₁}(configT, T₁(α₀), T₁(ϵ), T₁(p))
+        configT = Options(T₁; options_kwargs...)
+        new{T₁}(configT, T₁(α₀), T₁(ϵ), T₁(p))
     end
 end
 
@@ -110,10 +111,10 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = 
 
 LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {OT, T}
+function (ls::BacktrackingState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {T}
     x₀ = zero(α)
-    y₀ = value!(obj, x₀)
-    d(α) = derivative!(obj, α)
+    y₀ = __value!(obj, x₀)
+    d(α) = __derivative!(obj, α)
     d₀ = d(x₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch objective.
@@ -123,7 +124,6 @@ function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α:
         if (sdc(α) && cc(α))
             break
         else
-            print(α)
             α *= ls.p
         end
     end
@@ -131,5 +131,7 @@ function (ls::BacktrackingState{OT, T})(obj::AbstractUnivariateObjective{T}, α:
     α
 end
 
-backtracking(o::AbstractUnivariateObjective, args...; kwargs...) = BacktrackingState(; kwargs...)(o, args...)
-backtracking(f::Callable, g::Callable, args...; kwargs...) = BacktrackingState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)
+__value!(obj::AbstractObjective, x₀) = value!(obj, x₀)
+__value!(obj::TemporaryUnivariateObjective, x₀) = value(obj, x₀)
+__derivative!(obj::AbstractObjective, x₀) = derivative!(obj, x₀)
+__derivative!(obj::TemporaryUnivariateObjective, x₀) = derivative(obj, x₀)

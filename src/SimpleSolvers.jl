@@ -2,19 +2,21 @@ module SimpleSolvers
 
     using Distances
     using ForwardDiff
+    using StaticArrays
     using LinearAlgebra
     using Printf
 
     import Base.minimum
     import Base.Callable
-    import GeometricBase: AbstractSolver, SolverMethod
+    import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, update!
     import GeometricBase: value
 
     include("utils.jl")
     include("base/realcomplex.jl")
     include("base/initialize.jl")
 
-    export solve!
+    export update!
+    export solve!, solve
     export config, result, state, status
     export algorithm, objective
     export solution, minimizer, minimum
@@ -85,9 +87,15 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    export LinearSolver, LUSolver, LUSolverLAPACK,
-           factorize!
+    include("base/systems.jl")
 
+    export LinearSystem, NonlinearSystem
+
+    export LinearSolver, LU, LUSolverLAPACK,
+           factorize!, linearsystem
+
+    include("linear/linear_solver_method.jl")
+    include("linear/linear_solver_cache.jl")
     include("linear/linear_solvers.jl")
     include("linear/lu_solver.jl")
     include("linear/lu_solver_lapack.jl")
@@ -98,9 +106,11 @@ module SimpleSolvers
     include("bracketing/triple_point_finder.jl")
 
     export Linesearch, Static
-    export Backtracking, backtracking,
-           Bisection, bisection,
-           Quadratic, quadratic
+    export Backtracking,
+           Bisection,
+           Quadratic,
+           Quadratic2,
+           BierlaireQuadratic
 
     include("linesearch/methods.jl")
     include("linesearch/linesearch.jl")
@@ -111,6 +121,7 @@ module SimpleSolvers
     include("linesearch/backtracking/curvature_condition.jl")
     include("linesearch/bisection.jl")
     include("linesearch/quadratic.jl")
+    include("linesearch/custom_quadratic.jl")
     include("linesearch/bierlaire_quadratic.jl")
 
     export NonlinearSolver, NonlinearSolverException,
@@ -123,9 +134,9 @@ module SimpleSolvers
 
     include("nonlinear/nonlinear_solver_status.jl")
     include("nonlinear/nonlinear_solver.jl")
-    include("nonlinear/abstract_newton_solver.jl")
+    include("nonlinear/newton_solver_cache.jl")
+    include("nonlinear/newton_solver_linesearch_objective.jl")
     include("nonlinear/newton_solver.jl")
-    include("nonlinear/quasi_newton_solver.jl")
 
     export Optimizer,
            OptimizationAlgorithm, isaOptimizationAlgorithm,
@@ -141,6 +152,8 @@ module SimpleSolvers
     include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
-    include("optimization/newton_optimizer.jl")
+    include("optimization/newton_optimizer_cache.jl")
+    include("optimization/newton_optimizer_linesearch_objective.jl")
+    include("optimization/newton_optimizer_state.jl")
 
 end

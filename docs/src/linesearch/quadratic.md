@@ -49,7 +49,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: update!, compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
+using SimpleSolvers: compute_jacobian!, factorize!, update!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -67,10 +67,10 @@ f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(cache(solver)))
+factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-obj = MultivariateObjective(f, x)
-ls_obj = linesearch_objective(obj, JacobianFunction(j!, x), cache(solver))
+nls = NonlinearSystem(f, x)
+ls_obj = linesearch_objective(nls, cache(solver))
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -377,3 +377,143 @@ save("f_with_iterate_opt3.png", fig)
 nothing # hide
 ```
 ![](f_with_iterate_opt3.png)
+
+## Example II
+
+Here we consider the same example as when discussing the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search").
+
+```@setup II
+using SimpleSolvers
+using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction
+using LinearAlgebra: rmul!, ldiv!
+using Random
+Random.seed!(1234)
+
+f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
+f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (.5 * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
+f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
+j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
+x = -10 * rand(1)
+solver = NewtonSolver(x, f.(x); F = f)
+update!(solver, x)
+compute_jacobian!(solver, x, j!; mode = :function)
+
+# compute rhs
+f!(cache(solver).rhs, x)
+rmul!(cache(solver).rhs, -1)
+
+# multiply rhs with jacobian
+factorize!(linearsolver(solver), jacobian(solver))
+ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
+
+nls = NonlinearSystem(f, x)
+nothing # hide
+```
+
+```@example II
+ls_obj = linesearch_objective(nls, cache(solver))
+fˡˢ = ls_obj.F
+∂fˡˢ∂α = ls_obj.D
+nothing # hide
+```
+
+We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. For this we first need to find a bracket; we again do this with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)[^2]:
+
+[^2]: Here we use [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) directly instead of using [`SimpleSolvers.determine_initial_α`](@ref).
+
+```@example II
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, 0.)
+```
+
+We plot the bracket:
+
+```@example II
+using CairoMakie
+mred = RGBf(214 / 256, 39 / 256, 40 / 256)
+mpurple = RGBf(148 / 256, 103 / 256, 189 / 256)
+mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
+mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
+morange = RGBf(255 / 256, 127 / 256, 14 / 256)
+
+fig = Figure()
+ax = Axis(fig[1, 1])
+alpha = -2.5:.01:3.
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
+scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
+scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
+ylims!(ax, (-1., 6.))
+axislegend(ax)
+save("f_ls_1.png", fig)
+nothing # hide
+```
+
+![](f_ls_1.png)
+
+We now build the polynomial:
+
+```@example II
+p₀ = fˡˢ(a)
+p₁ = ∂fˡˢ∂α(a)
+y = fˡˢ(b)
+p₂ = (y - p₀ - p₁*b) / b^2
+p(α) = p₀ + p₁ * α + p₂ * α^2
+nothing # hide
+```
+
+and compute its minimum:
+
+```@example II
+αₜ = -p₁ / (2p₂)
+```
+
+```@example II
+lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
+scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
+ylims!(ax, (-1., 6.))
+axislegend(ax)
+save("f_ls_2.png", fig)
+nothing # hide
+```
+
+![](f_ls_2.png)
+
+We now set ``a \gets \alpha_t`` and perform another iteration:
+
+```@example II
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, αₜ)
+```
+
+We again build the polynomial:
+
+```@example II
+p₀ = fˡˢ(a)
+p₁ = ∂fˡˢ∂α(a)
+y = fˡˢ(b)
+p₂ = (y - p₀ - p₁*(b-a)) / (b-a)^2
+p(α) = p₀ + p₁ * (α-a) + p₂ * (α-a)^2
+nothing # hide
+```
+
+and compute its minimum:
+
+```@example II
+αₜ = -p₁ / (2p₂) + a
+```
+
+```@setup II
+fig = Figure()
+ax = Axis(fig[1, 1])
+alpha = -2.5:.01:3.
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
+scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
+scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
+axislegend(ax)
+lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
+scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
+# ylims!(ax, (-1., 6.))
+axislegend(ax)
+save("f_ls_3.png", fig)
+nothing # hide
+```
+
+![](f_ls_3.png)

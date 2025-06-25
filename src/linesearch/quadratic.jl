@@ -13,21 +13,22 @@ Quadratic Polynomial line search.
 - `σ₁`: by default [`DEFAULT_ARMIJO_σ₁`](@ref)
 - `c`: by default [`DEFAULT_WOLFE_c₁`](@ref)
 """
-struct QuadraticState{T,OPT} <: LinesearchState where {T <: Number, OPT <: Options{T}}
-    config::OPT
+struct QuadraticState{T} <: LinesearchState{T}
+    config::Options{T}
 
     α₀::T
     σ₀::T
     σ₁::T
     c::T
 
-    function QuadraticState(T₁::DataType=Float64; config = Options(),
+    function QuadraticState(T₁::DataType=Float64;
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     σ₀::T = DEFAULT_ARMIJO_σ₀,
                     σ₁::T = DEFAULT_ARMIJO_σ₁,
-                    c::T = DEFAULT_WOLFE_c₁) where {T}
-        config₁ = Options(T₁, config)
-        new{T₁, typeof(config₁)}(config₁, T₁(α₀), T₁(σ₀), T₁(σ₁), T₁(c))
+                    c::T = DEFAULT_WOLFE_c₁,
+                    options_kwargs...) where {T}
+        config₁ = Options(T₁; options_kwargs...)
+        new{T₁}(config₁, T₁(α₀), T₁(σ₀), T₁(σ₁), T₁(c))
     end
 end
 
@@ -83,18 +84,17 @@ end
 Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
 This is used as a starting point for using the functor of [`QuadraticState`](@ref) and makes sure that `α` describes *a point past the minimum*.
 """
-function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, y₀::T=value(obj, zero(T))) where {T}
-    if derivative(obj, zero(T)) < zero(T)
-        BracketMinimumCriterion()(y₀, value(obj, α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, zero(T))[2]
+function determine_initial_α(obj::AbstractUnivariateObjective, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
+    if derivative(obj, x₀) < zero(T)
+        BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
     else
-        bracket_minimum_with_fixed_point(obj, zero(T))[1]
+        bracket_minimum_with_fixed_point(obj, x₀)[1]
     end
 end
 
-function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_iterations::Integer = 0, α::T = ls.α₀) where {T}
+function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_iterations::Integer = 0, α::T = ls.α₀, x₀::T=zero(T)) where {T}
     number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
-    x₀ = zero(T)
     y₀ = value!(obj, x₀)
     d₀ = derivative!(obj, x₀)
     p₀ = y₀
@@ -106,15 +106,12 @@ function (ls::QuadraticState{T})(obj::AbstractUnivariateObjective{T}, number_of_
     y₁ = value!(obj, α)
 
     # determine nonconstant coefficient of polynomial p(α) = p₀ + p₁α + p₂α²
-    p₂ = (y₁^2 - p₀ - p₁*α) / α^2
+    p₂ = (y₁^2 - p₀ - p₁*(α-x₀)) / (α-x₀)^2
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-    αₜ = - p₁ / (2p₂)
+    αₜ = - p₁ / (2p₂) + x₀
 
     α = adjust_α(ls, αₜ, α)
 
-    sdc(α) ? α : ls(obj, number_of_iterations + 1, α * DEFAULT_ARMIJO_p)
+    sdc(α) ? α : ls(obj, number_of_iterations + 1, α * DEFAULT_ARMIJO_p, x₀)
 end
-
-quadratic(o::AbstractUnivariateObjective, args...; kwargs...) = QuadraticState(; kwargs...)(o, args...)
-quadratic(f::Callable, g::Callable, args...; kwargs...) = QuadraticState(; kwargs...)(TemporaryUnivariateObjective(f, g), args...)
