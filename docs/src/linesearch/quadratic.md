@@ -49,7 +49,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
+using SimpleSolvers: compute_jacobian!, factorize!, update!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide

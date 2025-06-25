@@ -283,12 +283,10 @@ value(::TemporaryUnivariateObjective) = error("TemporaryUnivariateObjective has 
 derivative(obj::TemporaryUnivariateObjective, x::Number) = obj.D(x)
 
 function value!(obj::TemporaryUnivariateObjective, x::Number)
-    @warn "Calling value! on a TemporaryUnivariateObjective just calls value."
     value(obj, x)
 end
 
 function derivative!(obj::TemporaryUnivariateObjective, x::Number)
-    @warn "Calling derivative! on a TemporaryUnivariateObjective just calls derivative."
     derivative(obj, x)
 end
 

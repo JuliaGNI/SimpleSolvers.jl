@@ -55,9 +55,7 @@ function check_value_for_nonlinearsolverstatus(T::DataType)
 x= NaN,
 f= NaN,
 rxₐ= NaN,
-rxᵣ= NaN,
-rfₐ= NaN,
-rfᵣ= NaN"
+rfₐ= NaN"
     compare_statements(s, expected_statement)
 end
 
