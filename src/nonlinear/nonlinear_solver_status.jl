@@ -196,8 +196,8 @@ The function `meets_stopping_criteria` returns `true` if one of the following is
 - `iteration_number(status) ≥ config.max_iterations`, 
 - if any component in `solution(status)` is `NaN`,
 - if any component in `status.f` is `NaN`,
-- `status.rxₐ > config.x_abstol_break` (by default $(X_ABSTOL_BREAK). In theory this returns `true` if the residual gets too big,
-- `status.rfₐ > config.f_abstol_break` (by default $(F_ABSTOL_BREAK). In theory this returns `true` if the residual gets too big,
+- `status.rxₐ > config.x_abstol_break` (by default `Inf`. In theory this returns `true` if the residual gets too big,
+- `status.rfₐ > config.f_abstol_break` (by default `Inf`. In theory this returns `true` if the residual gets too big,
 So convergence is only one possible criterion for which [`meets_stopping_criteria`](@ref). We may also satisfy a stopping criterion without having convergence!
 
 # Examples
