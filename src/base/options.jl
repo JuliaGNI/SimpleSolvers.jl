@@ -33,8 +33,64 @@ function default_tolerance(::Type{T}) where {T <: AbstractFloat}
     2eps(T)
 end
 
-const F_ABSTOL::Real = 1e-50
-const F_MINDEC::Real = 1e-4
+"""
+    absolute_tolerance(T)
+
+Determine the absolute tolerance for a specific data type. This is used in the constructor of [`Options`](@ref).
+
+In comparison to [`default_tolerance`](@ref), this should return a very small number, close to zero (i.e. not just machine precision).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: absolute_tolerance)
+absolute_tolerance(Float64)
+
+# output
+
+0.0
+```
+
+```jldoctest; setup = :(using SimpleSolvers: absolute_tolerance)
+absolute_tolerance(Float32)
+
+# output
+
+0.0f0
+```
+"""
+function absolute_tolerance(::Type{T}) where {T <: AbstractFloat}
+    zero(T)
+end
+
+"""
+    minimum_decrease_threshold(T)
+
+The minimum value by which a function ``f`` should decrease during an iteration.
+
+The default value of ``10^-4`` is often used in the literature [bierlaire2015optimization], nocedal2006numerical(@cite).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: minimum_decrease_threshold)
+minimum_decrease_threshold(Float64)
+
+# output
+
+0.0001
+```
+
+```jldoctest; setup = :(using SimpleSolvers: minimum_decrease_threshold)
+minimum_decrease_threshold(Float32)
+
+# output
+
+0.0001f0
+```
+"""
+function minimum_decrease_threshold(::Type{T}) where {T <: AbstractFloat}
+    T(10)^-4
+end
+
 const F_CALLS_LIMIT::Int = 0
 const G_CALLS_LIMIT::Int = 0
 const H_CALLS_LIMIT::Int = 0
@@ -57,10 +113,10 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `x_abstol = 2eps(T)`: absolute tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref) and [`bisection`](@ref),
 - `x_reltol = 2eps(T)`: relative tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref),
 - `x_suctol = 2eps(T)`: succesive tolerance for `x`. Used in e.g. [`assess_convergence!`](@ref),
-- `f_abstol = $(F_ABSTOL)`: absolute tolerance for how close the function value should be to zero. Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref),
+- `f_abstol = zero(T)`: absolute tolerance for how close the function value should be to zero. See [`absolute_tolerance`](@ref). Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref),
 - `f_reltol = 2eps(T)`: relative tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
 - `f_suctol = 2eps(T)`: succesive tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
-- `f_mindec = 2eps(T)`: minimum value by which the function has to decrease,
+- `f_mindec = T(10)^-4`: minimum value by which the function has to decrease (also see [`minimum_decrease_threshold`](@ref)),
 - `g_restol = 2eps(T)`: tolerance for the residual (?) of the gradient,
 - `x_abstol_break = -Inf`: see [`meets_stopping_criteria`](@ref),
 - `x_reltol_break = Inf`: see [`meets_stopping_criteria`](@ref),
@@ -79,6 +135,8 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `extended_trace = $(EXTENDED_TRACE)`,
 - `show_every = $(SHOW_EVERY)`,
 - `verbosity = $(VERBOSITY)`
+
+Some of the constants are defined by the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
 """
 struct Options{T}
     x_abstol::T
@@ -112,10 +170,10 @@ function Options(T = Float64;
         x_abstol::AbstractFloat = default_tolerance(T),
         x_reltol::AbstractFloat = default_tolerance(T),
         x_suctol::AbstractFloat = default_tolerance(T),
-        f_abstol::AbstractFloat = -T(Inf),
+        f_abstol::AbstractFloat = absolute_tolerance(T),
         f_reltol::AbstractFloat = default_tolerance(T),
         f_suctol::AbstractFloat = default_tolerance(T),
-        f_mindec::AbstractFloat = default_tolerance(T),
+        f_mindec::AbstractFloat = minimum_decrease_threshold(T),
         g_restol::AbstractFloat = √(default_tolerance(T) / 2),
         x_abstol_break::AbstractFloat = T(Inf),
         x_reltol_break::AbstractFloat = T(Inf),
