@@ -149,9 +149,10 @@ module SimpleSolvers
 
     include("optimization/optimizer_status.jl")
     include("optimization/optimizer_result.jl")
-    include("optimization/optimizer.jl")
+    include("optimization/iterative_hessians.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
+    include("optimization/optimizer.jl")
     include("optimization/newton_optimizer_cache.jl")
     include("optimization/newton_optimizer_linesearch_objective.jl")
     include("optimization/newton_optimizer_state.jl")
