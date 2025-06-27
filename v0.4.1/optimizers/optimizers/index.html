@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Optimizers · SimpleSolvers.jl</title><meta name="title" content="Optimizers · SimpleSolvers.jl"/><meta property="og:title" content="Optimizers · SimpleSolvers.jl"/><meta property="twitter:title" content="Optimizers · SimpleSolvers.jl"/><meta name="description" content="Documentation for SimpleSolvers.jl."/><meta property="og:description" content="Documentation for SimpleSolvers.jl."/><meta property="twitter:description" content="Documentation for SimpleSolvers.jl."/><meta property="og:url" content="https://JuliaGNI.github.io/SimpleSolvers.jl/optimizers/optimizers/"/><meta property="twitter:url" content="https://JuliaGNI.github.io/SimpleSolvers.jl/optimizers/optimizers/"/><link rel="canonical" href="https://JuliaGNI.github.io/SimpleSolvers.jl/optimizers/optimizers/"/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">SimpleSolvers.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../objectives/">Objectives</a></li><li><a class="tocitem" href="../../gradients/">Gradients</a></li><li><a class="tocitem" href="../../jacobians/">Jacobians</a></li><li><a class="tocitem" href="../../hessians/">Hessians</a></li><li><span class="tocitem">Line Search</span><ul><li><a class="tocitem" href="../../linesearch/linesearch/">Line Searches</a></li><li><a class="tocitem" href="../../linesearch/static/">Static</a></li><li><a class="tocitem" href="../../linesearch/sufficient_decrease_condition/">The Sufficient Decrease Condition</a></li><li><a class="tocitem" href="../../linesearch/curvature_condition/">The Curvature Condition</a></li><li><a class="tocitem" href="../../linesearch/backtracking/">Backtracking</a></li><li><a class="tocitem" href="../../linesearch/bisections/">Bisections</a></li><li><a class="tocitem" href="../../linesearch/quadratic/">Quadratic</a></li><li><a class="tocitem" href="../../linesearch/bierlaire_quadratic/">Bierlaire Quadratic</a></li></ul></li><li><span class="tocitem">Optimizers</span><ul><li class="is-active"><a class="tocitem" href>Optimizers</a><ul class="internal"><li><a class="tocitem" href="#Optimizer-Constructor"><span>Optimizer Constructor</span></a></li></ul></li></ul></li><li><a class="tocitem" href="../../update/">Updates</a></li><li><a class="tocitem" href="../../initialize/">Initialization</a></li><li><a class="tocitem" href="../../linear/linear_solvers/">Linear Solvers</a></li><li><a class="tocitem" href="../../nonlinear_solver_status/">Solver Status</a></li><li><a class="tocitem" href="../../in_place_out_of_place/">In-place vs out-of-place</a></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Optimizers</a></li><li class="is-active"><a href>Optimizers</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Optimizers</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/JuliaGNI/SimpleSolvers.jl/blob/main/docs/src/optimizers/optimizers.md#L" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Optimizers"><a class="docs-heading-anchor" href="#Optimizers">Optimizers</a><a id="Optimizers-1"></a><a class="docs-heading-anchor-permalink" href="#Optimizers" title="Permalink"></a></h1><p>An <a href="../../#SimpleSolvers.Optimizer"><code>Optimizer</code></a> stores an <a href="../../#SimpleSolvers.OptimizationAlgorithm"><code>OptimizationAlgorithm</code></a>, a <a href="../../#SimpleSolvers.MultivariateObjective"><code>MultivariateObjective</code></a>, the <a href="../../#SimpleSolvers.OptimizerResult"><code>SimpleSolvers.OptimizerResult</code></a> and a <a href="../../#SimpleSolvers.NonlinearMethod"><code>SimpleSolvers.NonlinearMethod</code></a>. Its purposes are:</p><pre><code class="language-julia hljs">using SimpleSolvers
+using LinearAlgebra: norm
+
+x = rand(3)
+obj = MultivariateObjective(x -&gt; sum((x - [0., 0., 1.]) .^ 2), x)
+bt = Backtracking()
+alg = Newton()
+opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+ * Algorithm: Newton 
+
+ * Linesearch: Backtracking with α₀ = 1.0, ϵ = 0.0001and p = 0.5.
+
+ * Iterations
+
+    n = 0
+
+ * Convergence measures
+
+    |x - x&#39;|               = NaN ≰ 4.4e-16
+    |x - x&#39;|/|x&#39;|          = NaN ≰ 4.4e-16
+    |f(x) - f(x&#39;)|         = NaN ≰ 0.0e+00
+    |f(x) - f(x&#39;)|/|f(x&#39;)| = NaN ≰ 4.4e-16
+    |g(x)|                 = NaN ≰ 1.5e-08
+
+ * Candidate solution
+
+    Final solution value:     [NaN, NaN, NaN]
+    Final objective value:     NaN
+
+</code></pre><h2 id="Optimizer-Constructor"><a class="docs-heading-anchor" href="#Optimizer-Constructor">Optimizer Constructor</a><a id="Optimizer-Constructor-1"></a><a class="docs-heading-anchor-permalink" href="#Optimizer-Constructor" title="Permalink"></a></h2><p>Internally the constructor for <a href="../../#SimpleSolvers.Optimizer"><code>Optimizer</code></a> calls <a href="../../#SimpleSolvers.OptimizerResult"><code>SimpleSolvers.OptimizerResult</code></a> and <a href="../../#SimpleSolvers.NewtonOptimizerState"><code>SimpleSolvers.NewtonOptimizerState</code></a> and <a href="../../update/#Hessian"><code>Hessian</code></a>. We can also allocate these objects manually and then call a different constructor for <a href="../../#SimpleSolvers.Optimizer"><code>Optimizer</code></a>:</p><pre><code class="language-julia hljs">using SimpleSolvers: NewtonOptimizerState, OptimizerResult, initialize!
+
+result = OptimizerResult(x, value!(obj, x))
+initialize!(result, x)
+state = NewtonOptimizerState(x; linesearch = bt)
+hes = Hessian(alg, obj, x)
+opt₂ = Optimizer(alg, obj, hes, result, state)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">
+ * Algorithm: Newton 
+
+ * Linesearch: Backtracking with α₀ = 1.0, ϵ = 0.0001and p = 0.5.
+
+ * Iterations
+
+    n = 0
+
+ * Convergence measures
+
+    |x - x&#39;|               = NaN ≰ 4.4e-16
+    |x - x&#39;|/|x&#39;|          = NaN ≰ 4.4e-16
+    |f(x) - f(x&#39;)|         = NaN ≰ 0.0e+00
+    |f(x) - f(x&#39;)|/|f(x&#39;)| = NaN ≰ 4.4e-16
+    |g(x)|                 = NaN ≰ 1.5e-08
+
+ * Candidate solution
+
+    Final solution value:     [NaN, NaN, NaN]
+    Final objective value:     NaN
+
+</code></pre><p>If we want to solve the problem, we can call <a href="../../#SimpleSolvers.solve!-Tuple{AbstractVector, LinearSolver, AbstractMatrix, AbstractVector}"><code>solve!</code></a> on the <a href="../../#SimpleSolvers.Optimizer"><code>Optimizer</code></a> instance:</p><pre><code class="language-julia hljs">x₀ = copy(x)
+
+solve!(opt, x₀)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 1.0</code></pre><p>Internally <a href="../../#SimpleSolvers.solve!-Tuple{AbstractVector, LinearSolver, AbstractMatrix, AbstractVector}"><code>SimpleSolvers.solve!</code></a> repeatedly calls <a href="../../#SimpleSolvers.solver_step!-Union{Tuple{T}, Tuple{NewtonSolver, AbstractVector{T}}} where T"><code>SimpleSolvers.solver_step!</code></a> until <a href="../../#SimpleSolvers.meets_stopping_criteria-Tuple{SimpleSolvers.NonlinearSolverStatus, Options}"><code>SimpleSolvers.meets_stopping_criteria</code></a> is satisfied.</p><pre><code class="language-julia hljs">using SimpleSolvers: solver_step!
+
+x = rand(3)
+solver_step!(opt, x)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 1.0</code></pre><p>The function <a href="../../#SimpleSolvers.solver_step!-Union{Tuple{T}, Tuple{NewtonSolver, AbstractVector{T}}} where T"><code>SimpleSolvers.solver_step!</code></a> in turn does the following:</p><pre><code class="language-julia hljs"># update objective, hessian, state and result
+update!(opt, x)
+# solve H δx = - ∇f
+ldiv!(direction(opt), hessian(opt), rhs(opt))
+# apply line search
+α = linesearch(state(opt))(linesearch_objective(objective(opt), cache(opt)))
+# compute new minimizer
+x .= compute_new_iterate(x, α, direction(opt))</code></pre><h3 id="Solving-the-Line-Search-Problem-with-Backtracking"><a class="docs-heading-anchor" href="#Solving-the-Line-Search-Problem-with-Backtracking">Solving the Line Search Problem with Backtracking</a><a id="Solving-the-Line-Search-Problem-with-Backtracking-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-Line-Search-Problem-with-Backtracking" title="Permalink"></a></h3><p>Calling an instance of <a href="../../#SimpleSolvers.LinesearchState"><code>SimpleSolvers.LinesearchState</code></a> (in this case <a href="../../#SimpleSolvers.BacktrackingState"><code>SimpleSolvers.BacktrackingState</code></a>) on an <a href="../../#SimpleSolvers.AbstractUnivariateObjective"><code>SimpleSolvers.AbstractUnivariateObjective</code></a> in turn does:</p><pre><code class="language-julia hljs">α *= ls.p</code></pre><p>as long as the <a href="../../#SimpleSolvers.SufficientDecreaseCondition"><code>SimpleSolvers.SufficientDecreaseCondition</code></a> isn&#39;t satisfied. This condition checks the following:</p><pre><code class="language-julia hljs">fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ&#39; * sdc.gradₖ</code></pre><p><code>sdc</code> is first allocated as:</p><pre><code class="language-julia hljs">ls = linesearch(opt)
+α = ls.α₀
+x₀ = zero(α)
+lso = linesearch_objective(objective(opt), cache(opt))
+y₀ = value!(lso, x₀)
+d₀ = derivative!(lso, x₀)
+
+sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, d₀, obj)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SimpleSolvers.SufficientDecreaseCondition{Float64, Float64, Float64, MultivariateObjective{Float64, Vector{Float64}, Main.var&quot;#1#2&quot;, GradientAutodiff{Float64, Main.var&quot;#1#2&quot;, ForwardDiff.GradientConfig{ForwardDiff.Tag{Main.var&quot;#1#2&quot;, Float64}, Float64, 3, Vector{ForwardDiff.Dual{ForwardDiff.Tag{Main.var&quot;#1#2&quot;, Float64}, Float64, 3}}}}, Float64, Vector{Float64}}}(0.0001, 0.0, 0.6841489676563611, -1.3682979353127223, -1.3682979353127223, MultivariateObjective (for vector-valued quantities only the first component is printed):
+
+    f(x)              = 6.84e-01 
+    g(x)₁             = 3.82e-01 
+    x_f₁              = 1.91e-01 
+    x_g₁              = 1.91e-01 
+    number of f calls = 5 
+    number of g calls = 5 
+)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../linesearch/bierlaire_quadratic/">« Bierlaire Quadratic</a><a class="docs-footer-nextpage" href="../../update/">Updates »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.13.0 on <span class="colophon-date" title="Friday 27 June 2025 15:14">Friday 27 June 2025</span>. Using Julia version 1.11.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
