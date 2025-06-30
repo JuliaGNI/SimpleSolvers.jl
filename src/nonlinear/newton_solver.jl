@@ -36,9 +36,9 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
 - `cache::`[`NewtonSolverCache`](@ref)
 - `config::`[`Options`](@ref)
-- `status::`[`NonlinearSolverStatus`](@ref): 
+- `status::`[`NonlinearSolverStatus`](@ref):
 """
-struct NewtonSolver{T, AT, NLST <: NonlinearSystem{T}, LST <: LinearSystem{T}, LSoT <: LinearSolver{T}, LiSeT <: LinesearchState{T}, CT <: NewtonSolverCache{T}, NSST <: NonlinearSolverStatus{T}} <: NonlinearSolver
+struct NewtonSolver{T,AT,NLST<:NonlinearSystem{T},LST<:LinearSystem{T},LSoT<:LinearSolver{T},LiSeT<:LinesearchState{T},CT<:NewtonSolverCache{T},NSST<:NonlinearSolverStatus{T}} <: NonlinearSolver
     nonlinearsystem::NLST
     linearsystem::LST
     linearsolver::LSoT
@@ -50,10 +50,10 @@ struct NewtonSolver{T, AT, NLST <: NonlinearSystem{T}, LST <: LinearSystem{T}, L
     config::Options{T}
     status::NSST
 
-    function NewtonSolver(x::AT, nls::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; refactorize::Integer = 1, options_kwargs...) where {T, AT <: AbstractVector{T}, NLST, LST, LSoT, LiSeT, CT}
+    function NewtonSolver(x::AT, nls::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
         status = NonlinearSolverStatus(x)
         config = Options(T; options_kwargs...)
-        new{T, AT, NLST, LST, LSoT, LiSeT, CT, typeof(status)}(nls, ls, linearsolver, linesearch, refactorize, cache, config, status)
+        new{T,AT,NLST,LST,LSoT,LiSeT,CT,typeof(status)}(nls, ls, linearsolver, linesearch, refactorize, cache, config, status)
     end
 end
 
@@ -67,16 +67,16 @@ end
 - `mode`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AT, F::Callable, y::AT=F(x); linear_solver_method = LU(), DF! = missing, linesearch = Backtracking(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
-    nls = ismissing(DF!) ? NonlinearSystem(F, x; mode = mode) : NonlinearSystem(F, DF!, x)
+function NewtonSolver(x::AT, F::Callable, y::AT=F(x); linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), mode=:autodiff, kwargs...) where {T,AT<:AbstractVector{T}}
+    nls = ismissing(DF!) ? NonlinearSystem(F, x; mode=mode) : NonlinearSystem(F, DF!, x)
     cache = NewtonSolverCache(x, y)
     linearsystem = LinearSystem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
-    ls = LinesearchState(linesearch; T = T)
+    ls = LinesearchState(linesearch; T=T)
     NewtonSolver(x, nls, linearsystem, linearsolver, ls, cache; kwargs...)
 end
 
-function NewtonSolver(x::AT, y::AT; F = missing, kwargs...) where {T, AT <: AbstractVector{T}}
+function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
     !ismissing(F) || error("You have to provide an F.")
     NewtonSolver(x, F, y; kwargs...)
 end
@@ -93,7 +93,7 @@ function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
     update!(linearsystem(s), -value(nonlinearsystem(s)))
     rhs(cache(s)) .= rhs(linearsystem(s))
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    if (mod(iteration_number(s)-1, s.refactorize) == 0 || iteration_number(s) == 1)
+    if (mod(iteration_number(s) - 1, s.refactorize) == 0 || iteration_number(s) == 1)
         jacobian!(nonlinearsystem(s), x)
         update!(linearsystem(s), jacobian(s))
         factorize!(linearsolver(s), linearsystem(s))
@@ -179,7 +179,7 @@ function compute_jacobian!(s::NewtonSolver, x; kwargs...)
     compute_jacobian!(jacobian(s), x, Jacobian(s); kwargs...)
 end
 
-function compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian, Callable}; kwargs...)
+function compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian,Callable}; kwargs...)
     @warn "This function should not be called! Instead call `compute_jacobian!(s, x)`."
     compute_jacobian!(jacobian(nonlinearsystem(s)), x, jacobian!; kwargs...)
 end
@@ -221,6 +221,7 @@ function solve!(s::NewtonSolver, x::AbstractArray)
         residual!(status(s))
     end
 
+    print_status(status(s), config(s))
     warn_iteration_number(status(s), config(s))
 
     x
