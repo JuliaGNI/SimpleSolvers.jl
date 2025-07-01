@@ -7,25 +7,28 @@ Random.seed!(1234)
 
 f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (T(.5) * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
-f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
-j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
+f!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = y .= f.(x)
+function j!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
+    f_closure!(y, x) = f!(y, x, params)
+    SimpleSolvers.ForwardDiff.jacobian!(j, f_closure!, similar(x), x)
+end
 x = -10 * rand(1)
 
-function make_linesearch_objective(x::AbstractVector)
-    solver = NewtonSolver(x, f.(x); F = f)
-    update!(solver, x)
-    compute_jacobian!(solver, x, j!; mode = :function)
+function make_linesearch_objective(x::AbstractVector, params=nothing)
+    solver = NewtonSolver(x, f.(x); F = f!)
+    update!(solver, x, params)
+    compute_jacobian!(solver, x, j!, params; mode = :function)
 
     # compute rhs
-    f!(cache(solver).rhs, x)
+    f!(cache(solver).rhs, x, params)
     rmul!(cache(solver).rhs, -1)
 
     # multiply rhs with jacobian
     factorize!(linearsolver(solver), jacobian(solver))
     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-    nls = NonlinearSystem(f, x)
-    linesearch_objective(nls, cache(solver))
+    nls = NonlinearSystem(f!, x, f.(x))
+    linesearch_objective(nls, cache(solver), params)
 end
 
 function check_linesearch(ls::LinesearchState, ls_obj::TemporaryUnivariateObjective)

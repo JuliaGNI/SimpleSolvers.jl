@@ -13,10 +13,13 @@ f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (T(.5) * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
+F!(y, x, params) = f!(y, x)
+J!(j, x, params) = j!(j, x)
 x = -10 * rand(1)
-solver = NewtonSolver(x, f.(x); F = f)
-update!(solver, x)
-compute_jacobian!(solver, x, j!; mode = :function)
+solver = NewtonSolver(x, f.(x); F = F!)
+params = nothing
+update!(solver, x, params)
+compute_jacobian!(solver, x, J!, params; mode = :function)
 
 # compute rhs
 f!(cache(solver).rhs, x)
@@ -26,8 +29,8 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-nls = NonlinearSystem(f, x)
-ls_obj = linesearch_objective(nls, cache(solver))
+nls = NonlinearSystem(F!, x, f(x))
+ls_obj = linesearch_objective(nls, cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

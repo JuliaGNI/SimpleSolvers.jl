@@ -8,13 +8,14 @@ using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!,
 
 x = [3., 1.3]
 f = x -> tanh.(x)
-nls = NonlinearSystem(f, x)
+F!(y, x, params) = y .= f(x)
+nls = NonlinearSystem(F!, x, f(x))
 ```
 
 We now create an instance of [`NewtonSolver`](@ref) which also allocates a [`SimpleSolvers.NonlinearSolverStatus`](@ref):
 
 ```@example status
-solver = NewtonSolver(x, f)
+solver = NewtonSolver(x, f(x); F = F!)
 ```
 
 Note that all variables are [initialized with `NaN`s](@ref "Reasoning behind Initialization with `NaN`s").
@@ -24,12 +25,13 @@ For the first step we therefore have to call [`update!`](@ref)[^1]:
 [^1]: Also see the [page on the `update!` function](@ref "Updates").
 
 ```@example status
-update!(solver, x)
+params = nothing
+update!(solver, x, params)
 ```
 
 Note that the residuals are still `NaN`s however as we need to perform at least two updates in order to compute them. As a next step we write:
 
 ```@example status
 x = [2., 1.2]
-update!(solver, x)
+update!(solver, x, params)
 ```

@@ -52,9 +52,6 @@ LinesearchState(algorithm::LinesearchMethod; kwags...) = error("LinesearchState 
 (ls::LinesearchState)(f::Callable, g::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, g); kwargs...)
 (ls::LinesearchState)(f::Callable, g::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, g), x; kwargs...)
 
-# solve!(x, δx, ls::LinesearchState) = ls(x, δx)
-# solve!(x, δx, g, ls::LinesearchState) = ls(x, δx, g)
-
 # TODO: clarify why we need the extra struct `LineSearch`. Are `LinesearchMethod`s together with `LinesearchState` not enough?
 """
     Linesearch
@@ -89,5 +86,3 @@ function Linesearch(T::DataType=Float64; algorithm = Static(), options_kwargs...
 end
 
 (ls::Linesearch)(args...; kwargs...) = ls.state(args...; kwargs...)
-
-# solve!(x, δx, ls::Linesearch) = solve!(x, δx, ls.state)

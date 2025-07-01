@@ -287,10 +287,10 @@ The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
-function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem)
+function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem, params)
     next_iteration!(status)
     solution(status) .= x
-    value!(nls, x)
+    value!(nls, x, params)
     status.f .= value(nls)
     (iteration_number(status) != 0) || (status.f₀ .= value(nls))
 
