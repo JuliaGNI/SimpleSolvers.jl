@@ -39,29 +39,6 @@ This is used in combination with a [`MultivariateObjective`](@ref).
 """
 alloc_h
 
-"""
-    alloc_j(x, f)
-
-Allocate `NaN`s of the size of the Jacobian of `f` (with respect to `x`).
-
-This is used in combination with a [`MultivariateObjective`](@ref).
-
-# Examples
-
-```jldoctest; setup = :(using SimpleSolvers: alloc_j)
-x = rand(3)
-fₓ = rand(2)
-alloc_j(x, fₓ)
-
-# output
-
-2×3 Matrix{Float64}:
- NaN  NaN  NaN
- NaN  NaN  NaN
-```
-"""
-alloc_j
-
 alloc_x(x::Number) = typeof(x)(NaN)
 alloc_f(x::Number) = real(typeof(x))(NaN)
 alloc_d(x::Number) = typeof(x)(NaN)
@@ -69,14 +46,9 @@ alloc_d(x::Number) = typeof(x)(NaN)
 alloc_x(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
 alloc_f(::AbstractArray{T}) where {T <: Number} = real(T)(NaN)
 
-function alloc_f(x::AbstractArray{T}, f::Callable) where {T <: Number}
-    y = f(x)
-    alloc_x(y)
-end
-
 alloc_g(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x
 alloc_h(x::AbstractArray{T}) where {T <: Number} = T(NaN) .* x*x'
-alloc_j(x::AbstractArray{T}, f::AbstractArray{T}) where {T <: Number} = T(NaN) .* vec(f) .* vec(x)'
+alloc_j(x::AbstractVector{T}, y::AbstractVector) where {T <: Number} = T(NaN) .* y * x'
 
 function L2norm(x::Union{T, Array{T}}) where {T <: Number}
     l2 = zero(T)
