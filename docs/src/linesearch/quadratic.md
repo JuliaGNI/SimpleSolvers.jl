@@ -23,6 +23,7 @@ Here we treat the following problem:
 ```@example quadratic
 f(x::Union{T, Vector{T}}) where {T<:Number} = exp.(x) .* (x .^ 3 - 5x + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
+F!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = f!(y, x)
 nothing # hide
 ```
 
@@ -54,23 +55,24 @@ using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
 
-j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
+J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
 x = [0.]
 # allocate solver
-solver = NewtonSolver(x, f(x); F = f)
+solver = NewtonSolver(x, f(x); F = F!)
 # initialize solver
-update!(solver, x)
-compute_jacobian!(solver, x, j!; mode = :function)
+params = nothing
+update!(solver, x, params)
+compute_jacobian!(solver, x, J!, params; mode = :function)
 
 # compute rhs
-f!(cache(solver).rhs, x)
+F!(cache(solver).rhs, x, params)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-nls = NonlinearSystem(f, x)
-ls_obj = linesearch_objective(nls, cache(solver))
+nls = NonlinearSystem(F!, x, f(x))
+ls_obj = linesearch_objective(nls, cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -393,10 +395,14 @@ f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (.5 * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
+F!(y, x, params) = f!(y, x)
+J!(j, x, params) = j!(j, x)
+
 x = -10 * rand(1)
-solver = NewtonSolver(x, f.(x); F = f)
-update!(solver, x)
-compute_jacobian!(solver, x, j!; mode = :function)
+solver = NewtonSolver(x, f.(x); F = F!)
+params = nothing
+update!(solver, x, params)
+compute_jacobian!(solver, x, J!, params; mode = :function)
 
 # compute rhs
 f!(cache(solver).rhs, x)
@@ -406,12 +412,12 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-nls = NonlinearSystem(f, x)
+nls = NonlinearSystem(F!, x, f(x))
 nothing # hide
 ```
 
 ```@example II
-ls_obj = linesearch_objective(nls, cache(solver))
+ls_obj = linesearch_objective(nls, cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

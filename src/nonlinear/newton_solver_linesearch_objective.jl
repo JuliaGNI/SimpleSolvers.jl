@@ -1,5 +1,5 @@
 """
-    linesearch_objective(nls, cache)
+    linesearch_objective(nls, cache, params)
 
 Make a line search objective for a *Newton solver* (the `cache` here is an instance of [`NewtonSolverCache`](@ref)).
 
@@ -10,19 +10,19 @@ Make a line search objective for a *Newton solver* (the `cache` here is an insta
 
 Also see [`linesearch_objective(::MultivariateObjective{T}, ::NewtonOptimizerCache{T}) where {T}`](@ref).
 """
-function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{T}) where T
+function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{T}, params) where T
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
-        value!(nls, cache.x)
+        value!(nls, cache.x, params)
         cache.y .= value(nls)
         L2norm(cache.y)
     end
 
     function d(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
-        value!(nls, cache.x)
+        value!(nls, cache.x, params)
         cache.y .= value(nls)
-        jacobian!(nls, cache.x)
+        jacobian!(nls, cache.x, params)
         2 * dot(cache.y, jacobian(nls), direction(cache))
     end
 
@@ -31,8 +31,8 @@ function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{
 end
 
 """
-    linesearch_objective(nl::NonlinearSolver)
+    linesearch_objective(nl::NonlinearSolver, params)
 
 Build a line search objective based on a [`NonlinearSolver`](@ref) (almost always a [`NewtonSolver`](@ref) in practice).
 """
-linesearch_objective(nl::NonlinearSolver) = linesearch_objective(nonlinearsystem(nl), cache(nl))
+linesearch_objective(nl::NonlinearSolver, params) = linesearch_objective(nonlinearsystem(nl), cache(nl), params)
