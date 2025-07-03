@@ -49,7 +49,7 @@ solve(lu, ls) ≈ inv(A) * v
 true
 ```
 """
-struct LU{ST <: Union{Missing, Bool}} <: LinearSolverMethod 
+struct LU{ST<:Union{Missing,Bool}} <: LinearSolverMethod
     static::ST
     pivot::Bool
 
@@ -79,7 +79,7 @@ _static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD ? t
 - `perms`:
 - `info`
 """
-mutable struct LUSolverCache{T, AT <: AbstractMatrix{T}} <: LinearSolverCache{T}
+mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
     pivots::Vector{Int}
     perms::Vector{Int}
@@ -89,45 +89,45 @@ end
 function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Ā = _static(A) ? MMatrix{size(A)...}(copy(A)) : copy(A)
-    LUSolverCache{T, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Ā = lu.static ? MMatrix{size(A)...}(copy(A)) : copy(A)
-    LUSolverCache{T, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, ls::LinearSystem) where {T, LUT <: LU}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearSystem) where {T,LUT<:LU}
     cache(lsolver).A .= ls.A
     factorize!(lsolver)
     ldiv!(solution, lsolver, rhs(ls))
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, b::AbstractVector) where {T, LUT <: LU}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
     ldiv!(solution, lsolver, b)
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, A::AbstractMatrix, b::AbstractVector) where {T, LUT <: LU}
-    cache(lsolver).A .= A 
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
+    cache(lsolver).A .= A
     factorize!(lsolver)
     ldiv!(solution, lsolver, b)
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT}, A::AbstractMatrix) where {T, LUT <: LU}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix) where {T,LUT<:LU}
     solve!(solution, lsolver, A, rhs(cache(lsolver)))
 end
 
-function solve!(lsolver::LinearSolver{T, LUT}, args...)  where {T, LUT <: LU}
+function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
     x = alloc_x(@view cache(lsolver).A[1, :])
     solve!(x, lsolver, args...)
     x
 end
 
-function solve(lu::LU, ls::LinearSystem) 
+function solve(lu::LU, ls::LinearSystem)
     lsolver = LinearSolver(lu, ls)
     solve!(lsolver, ls)
 end
@@ -182,7 +182,7 @@ cache(lsolver).A
 
 Also note the difference between the output types of the two refactorized matrices. This is because we set the keyword `static` to false when calling [`LU`](@ref). Also see [`_static`](@ref).
 """
-function factorize!(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU}
+function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     @inbounds for i in eachindex(cache(lsolver).perms)
         cache(lsolver).perms[i] = i
     end
@@ -191,31 +191,31 @@ function factorize!(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU}
 
     @inbounds for k ∈ axes(cache(lsolver).A, 1)
         kp = method(lsolver).pivot ? find_maximum_value(@view(cache(lsolver).A[:, k]), k) : k
-        
+
         cache(lsolver).pivots[k] = kp
         cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
 
-        if cache(lsolver).A[kp,k] != 0
+        if cache(lsolver).A[kp, k] != 0
             if k != kp
                 # Interchange
                 for i in 1:n
-                    tmp = cache(lsolver).A[k,i]
-                    cache(lsolver).A[k,i] = cache(lsolver).A[kp, i]
-                    cache(lsolver).A[kp,i] = tmp
+                    tmp = cache(lsolver).A[k, i]
+                    cache(lsolver).A[k, i] = cache(lsolver).A[kp, i]
+                    cache(lsolver).A[kp, i] = tmp
                 end
             end
             # Scale first column
-            Akkinv = inv(cache(lsolver).A[k,k])
+            Akkinv = inv(cache(lsolver).A[k, k])
             for i in k+1:n
-                cache(lsolver).A[i,k] *= Akkinv
+                cache(lsolver).A[i, k] *= Akkinv
             end
-        elseif lu.info == 0
-            lu.info = k
+        elseif cache(lsolver).info == 0
+            cache(lsolver).info = k
         end
         # Update the rest
         for j in k+1:n
             for i in k+1:n
-                cache(lsolver).A[i,j] -= cache(lsolver).A[i,k] * cache(lsolver).A[k,j]
+                cache(lsolver).A[i, j] -= cache(lsolver).A[i, k] * cache(lsolver).A[k, j]
             end
         end
     end
@@ -223,21 +223,21 @@ function factorize!(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU}
     lsolver
 end
 
-function factorize!(lsolver::LinearSolver{T, LUT}, A::AbstractMatrix{T}) where {T, LUT <: LU}
+function factorize!(lsolver::LinearSolver{T,LUT}, A::AbstractMatrix{T}) where {T,LUT<:LU}
     copyto!(cache(lsolver).A, A)
-    
+
     factorize!(lsolver)
 end
 
-factorize!(lsolver::LinearSolver{T, LUT}, ls::LinearSystem{T}) where {T, LUT <: LU} = factorize!(lsolver, ls.A)
+factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearSystem{T}) where {T,LUT<:LU} = factorize!(lsolver, ls.A)
 
 """
     find_maximum_value(v, k)
 
-Find the maximum value of vector `v` starting from the index `k`. 
+Find the maximum value of vector `v` starting from the index `k`.
 This is used for *pivoting* in [`factorize!`](@ref).
 """
-function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T <: Number}
+function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T<:Number}
     kp = k
     amax = real(zero(T))
     for i in k:length(v)
@@ -255,8 +255,8 @@ end
 
 Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
 """
-function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LUT}, b::AbstractVector{T}) where {T, LUT <: LU}
-    @assert axes(x,1) == axes(b,1) == axes(cache(lsolver).A,1) == axes(cache(lsolver).A,2)
+function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
+    @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
 
     n = size(cache(lsolver).A, 1)
 
@@ -267,19 +267,19 @@ function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LUT}
     @inbounds for i in 2:n
         s = zero(T)
         for j in 1:i-1
-            s += cache(lsolver).A[i,j] * x[j]
+            s += cache(lsolver).A[i, j] * x[j]
         end
         x[i] -= s
     end
 
-    x[n] /= cache(lsolver).A[n,n]
+    x[n] /= cache(lsolver).A[n, n]
     @inbounds for i in n-1:-1:1
         s = zero(T)
         for j in i+1:n
-            s += cache(lsolver).A[i,j] * x[j]
+            s += cache(lsolver).A[i, j] * x[j]
         end
         x[i] -= s
-        x[i] /= cache(lsolver).A[i,i]
+        x[i] /= cache(lsolver).A[i, i]
     end
 
     x
