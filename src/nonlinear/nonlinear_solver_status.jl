@@ -290,7 +290,7 @@ See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem, params)
     next_iteration!(status)
     solution(status) .= x
-    value!(nls, x, params)
+    value!!(nls, x, params)
     status.f .= value(nls)
     (iteration_number(status) != 0) || (status.f₀ .= value(nls))
 
