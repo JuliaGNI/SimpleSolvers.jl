@@ -216,7 +216,7 @@ end
 # Extended help
 
 !!! info
-    The function `update!` calls `next_iteration!`.
+    The function `update!` calls [`increase_iteration_number!`](@ref).
 """
 solve!(s::NewtonSolver, x::AbstractArray) = solve!(s, x, NullParameters())
 

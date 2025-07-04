@@ -278,11 +278,12 @@ end
 """
     update!(status, x, nls)
 
-Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`NonlinearSystem`](@ref) `obj`. Internally this calls [`next_iteration!`](@ref).
+Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`NonlinearSystem`](@ref) `obj`.
 
 !!! info
    This also updates the objective `nls`!
 
+Sets `x̄` and `f̄` to `x` and `f` respectively and computes `δ` as well as `γ`.
 The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
@@ -290,8 +291,6 @@ See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem, params)
     status.x̄ .= solution(status)
     status.f̄ .= status.f
-    status.δ .= 0
-    status.γ .= 0
 
     solution(status) .= x
     value!!(nls, x, params)
@@ -305,14 +304,3 @@ function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::Nonlinea
 
     status
 end
-
-"""
-    next_iteration!(status)
-
-Call [`increase_iteration_number!`](@ref), set `x̄` and `f̄` to `x` and `f` respectively and `δ` as well as `γ` to 0.
-"""
-# function next_iteration!(status::NonlinearSolverStatus)
-#     increase_iteration_number!(status)
-
-#     status
-# end

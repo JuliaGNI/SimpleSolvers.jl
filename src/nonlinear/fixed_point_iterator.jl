@@ -1,3 +1,8 @@
+"""
+    FixedPointIteratorCache
+
+Stores the last solution `xₖ`.
+"""
 struct FixedPointIteratorCache{T,VT<:AbstractVector{T}}
     xₖ::VT
     FixedPointIteratorCache(x::VT) where {T,VT<:AbstractVector{T}} = new{T,VT}(copy(x))
@@ -94,7 +99,7 @@ end
 # Extended help
 
 !!! info
-    The function `update!` calls `next_iteration!`.
+    The function `update!` calls [`increase_iteration_number!`](@ref).
 """
 function solve!(it::FixedPointIterator, x::AbstractArray, params=NullParameters())
     initialize!(it, x)
