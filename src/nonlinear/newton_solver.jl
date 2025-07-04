@@ -225,6 +225,7 @@ function solve!(s::NewtonSolver, x::AbstractArray, params)
     update!(status(s), x, nonlinearsystem(s), params)
 
     while !meets_stopping_criteria(status(s), config(s))
+        increase_iteration_number!(status)
         solver_step!(s, x, params)
         update!(status(s), x, nonlinearsystem(s), params)
         residual!(status(s))

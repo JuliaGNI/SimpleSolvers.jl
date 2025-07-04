@@ -41,12 +41,12 @@ update!(ls, A, y)
 LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], [1.0, 2.0, 3.0])
 ```
 """
-mutable struct LinearSystem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <: AbstractProblem 
+mutable struct LinearSystem{T,VT<:AbstractVector{T},AT<:AbstractMatrix{T}} <: AbstractProblem
     A::AT
     y::VT
-    function LinearSystem(A::AT, y::VT) where {T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
+    function LinearSystem(A::AT, y::VT) where {T<:Number,VT<:AbstractVector{T},AT<:AbstractMatrix{T}}
         @assert (length(y)) == size(A, 2)
-        ls = new{T, VT, AT}(copy(A), copy(y))
+        ls = new{T,VT,AT}(copy(A), copy(y))
         initialize!(ls, y)
         ls
     end
@@ -100,7 +100,7 @@ Base.Vector(ls::LinearSystem)::AbstractVector = ls.y
 
 Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
 """
-function clear!(ls::LinearSystem{T}) where T
+function clear!(ls::LinearSystem{T}) where {T}
     Matrix(ls) .= T(NaN)
     Vector(ls) .= T(NaN)
     ls
@@ -136,7 +136,7 @@ A `NonlinearSystem` describes ``F(x) = y``, where we want to solve for ``x`` and
 - `j_calls`: accessed by calling [`j_calls`](@ref)`(nls)`.
 
 """
-mutable struct NonlinearSystem{T, FixedPoint, TF <: Callable, TJ <: Union{Jacobian{T}, Missing}, Tx <: AbstractVector{T}, Tf <: AbstractVector{T}, Tj <: AbstractMatrix{T}} <: AbstractProblem 
+mutable struct NonlinearSystem{T,FixedPoint,TF<:Callable,TJ<:Union{Jacobian{T},Missing},Tx<:AbstractVector{T},Tf<:AbstractVector{T},Tj<:AbstractMatrix{T}} <: AbstractProblem
     F::TF
     J::TJ
 
@@ -149,13 +149,13 @@ mutable struct NonlinearSystem{T, FixedPoint, TF <: Callable, TJ <: Union{Jacobi
     f_calls::Int
     j_calls::Int
 
-    function NonlinearSystem(F::Callable, J::Union{Jacobian, Missing},
+    function NonlinearSystem(F::Callable, J::Union{Jacobian,Missing},
         x::Tx,
         f::Tf;
         j::Tj=alloc_j(x, f),
-        fixed_point::Bool=false) where {T, Tx<:AbstractArray{T}, Tf, Tj<:AbstractArray{T}}
+        fixed_point::Bool=false) where {T,Tx<:AbstractArray{T},Tf,Tj<:AbstractArray{T}}
         applicable(F, f, x, NullParameters()) || error("The function needs to have the following signature: F(y, x, params).")
-        nls = new{T, fixed_point, typeof(F), typeof(J), Tx, Tf, Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
+        nls = new{T,fixed_point,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
         initialize!(nls, x)
         nls
     end
@@ -167,25 +167,27 @@ end
 function NonlinearSystem(F::Callable, J!::Callable,
     x::AbstractVector{T},
     f::AbstractVector{T};
-    kwargs...) where {T <: Number}
+    kwargs...) where {T<:Number}
     NonlinearSystem(F, JacobianFunction(J!, x), x, f; kwargs...)
 end
 
 """
     NonlinearSystem(F, x, f)
 """
-function NonlinearSystem(F::Callable, x::AbstractArray, f::AbstractArray; mode = :autodiff, kwargs...)
+function NonlinearSystem(F::Callable, x::AbstractArray, f::AbstractArray; mode=:autodiff, kwargs...)
     mode == :autodiff || mode == :finite || error("If you want to use a manual Jacobian, please use a different constructor!")
-    J = Jacobian(F, x; mode = mode, kwargs...)
+    J = Jacobian(F, x; mode=mode, kwargs...)
     NonlinearSystem(F, J, x, f)
 end
+
+isFixedPointFormat(nls::NonlinearSystem{T,FP}) where {T,FP} = FP
 
 function value!!(nls::NonlinearSystem{T}, x::AbstractArray{T}, params) where {T}
     f_argument(nls) .= x
     value(nls) .= value(nls, x, params)
 end
 
-function value(nls::NonlinearSystem{T}, x::AbstractVector{T}, params) where {T <: Number}
+function value(nls::NonlinearSystem{T}, x::AbstractVector{T}, params) where {T<:Number}
     nls.f_calls += 1
     f = zero(value(nls))
     Function(nls)(f, x, params)
@@ -201,7 +203,7 @@ Base.Function(nls::NonlinearSystem) = nls.F
 
 Check if `x` is not equal to `f_argument(nls)` and then apply [`value!!`](@ref). Else simply return `value(nls)`.
 """
-function value!(nls::NonlinearSystem{T}, x::AbstractVector{T}, params) where {T <: Number}
+function value!(nls::NonlinearSystem{T}, x::AbstractVector{T}, params) where {T<:Number}
     if x != f_argument(nls)
         value!!(nls, x, params)
     end
@@ -225,7 +227,7 @@ Return the [`Jacobian`](@ref) stored in `nls`. Also see [`jacobian(::NonlinearSy
 """
 Jacobian(nls::NonlinearSystem) = nls.J
 
-function jacobian(nls::NonlinearSystem{T}, x::AbstractArray{T}, params) where {T <: Number}
+function jacobian(nls::NonlinearSystem{T}, x::AbstractArray{T}, params) where {T<:Number}
     nls.j_calls += 1
     jacobian(x, Jacobian(nls), params)
 end
@@ -249,7 +251,7 @@ end
 Compute the Jacobian of `nls` at `x` and store it in `jacobian(nls)`. Note that the evaluation of the Jacobian is not necessarily enforced here (unlike calling [`jacobian!!`](@ref)).
 Like [`derivative!`](@ref) for [`MultivariateObjective`](@ref) and [`gradient!`](@ref) for [`UnivariateObjective`](@ref).
 """
-function jacobian!(nls::NonlinearSystem{T}, x::AbstractArray{T}, params) where {T <: Number}
+function jacobian!(nls::NonlinearSystem{T}, x::AbstractArray{T}, params) where {T<:Number}
     if x != j_argument(nls)
         jacobian!!(nls, x, params)
     end
@@ -337,7 +339,7 @@ f_calls(nls::NonlinearSystem) = nls.f_calls
 
 """
     j_calls(nls)
-    
+
 Like [`f_calls`](@ref) in relation to a [`NonlinearSystem`](@ref) `nls`, but for [`jacobian`](@ref) (or [`jacobian!`](@ref)).
 """
 j_calls(nls::NonlinearSystem) = nls.j_calls

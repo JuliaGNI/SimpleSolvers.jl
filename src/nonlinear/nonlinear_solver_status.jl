@@ -288,7 +288,11 @@ The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
 function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem, params)
-    next_iteration!(status)
+    status.x̄ .= solution(status)
+    status.f̄ .= status.f
+    status.δ .= 0
+    status.γ .= 0
+
     solution(status) .= x
     value!!(nls, x, params)
     status.f .= value(nls)
@@ -307,12 +311,8 @@ end
 
 Call [`increase_iteration_number!`](@ref), set `x̄` and `f̄` to `x` and `f` respectively and `δ` as well as `γ` to 0.
 """
-function next_iteration!(status::NonlinearSolverStatus)
-    increase_iteration_number!(status)
-    status.x̄ .= solution(status)
-    status.f̄ .= status.f
-    status.δ .= 0
-    status.γ .= 0
+# function next_iteration!(status::NonlinearSolverStatus)
+#     increase_iteration_number!(status)
 
-    status
-end
+#     status
+# end

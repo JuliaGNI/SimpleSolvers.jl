@@ -1,10 +1,10 @@
-struct FixedPointIteratorCache{T, VT <: AbstractVector{T}}
+struct FixedPointIteratorCache{T,VT<:AbstractVector{T}}
     xₖ::VT
 end
 
 solution(cache::FixedPointIteratorCache) = cache.xₖ
 
-function update!(cache::FixedPointIteratorCache{T, VT}, x::VT) where {T, VT <: AbstractVector{T}}
+function update!(cache::FixedPointIteratorCache{T,VT}, x::VT) where {T,VT<:AbstractVector{T}}
     solution(cache) .= x
     cache
 end
@@ -29,7 +29,7 @@ end
 # Keywords
 - `options_kwargs`: see [`Options`](@ref)
 """
-function FixedPointIterator(x::AT, F::Callable; kwargs...) where {T, AT <: AbstractVector{T}}
+function FixedPointIterator(x::AT, F::Callable; kwargs...) where {T,AT<:AbstractVector{T}}
     nls = NonlinearSystem(F, missing, x, x; fixed_point=true)
     cache = FixedPointIteratorCache(x)
     FixedPointIterator(x, nls, cache; kwargs...)
@@ -48,7 +48,8 @@ Solve the problem stored in an instance `it` of [`FixedPointIterator`](@ref).
 function solver_step!(it::FixedPointIterator{T}, x::AbstractVector{T}, params) where {T}
     update!(cache(it), x)
     value!(nonlinearsystem(it), x, params)
-    x .= value(nonlinearsystem(it)) # - solution(cache(it))
+    x .= value(nonlinearsystem(it))
+    isFixedPointFormat(nonlinearsystem(it)) || x .-= solution(cache(it))
     x
 end
 
@@ -94,13 +95,12 @@ end
 !!! info
     The function `update!` calls `next_iteration!`.
 """
-solve!(it::FixedPointIterator, x::AbstractArray) = solve!(it, x, NullParameters())
-
-function solve!(it::FixedPointIterator, x::AbstractArray, params)
+function solve!(it::FixedPointIterator, x::AbstractArray, params=NullParameters())
     initialize!(it, x)
     update!(status(it), x, nonlinearsystem(it), params)
 
     while !meets_stopping_criteria(status(it), config(it))
+        increase_iteration_number!(status)
         solver_step!(it, x, params)
         update!(status(it), x, nonlinearsystem(it), params)
         residual!(status(it))
