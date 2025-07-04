@@ -149,7 +149,7 @@ mutable struct NonlinearSystem{T, FixedPoint, TF <: Callable, TJ <: Union{Jacobi
     f_calls::Int
     j_calls::Int
 
-    function NonlinearSystem(F::Callable, J::Jacobian,
+    function NonlinearSystem(F::Callable, J::Union{Jacobian, Missing},
         x::Tx,
         f::Tf;
         j::Tj=alloc_j(x, f),

@@ -198,6 +198,9 @@ initialize!(s::NewtonSolver, x₀::AbstractArray) = initialize!(status(s), x₀)
 
 Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
 This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
+
+!!! info
+    At the moment this is neither used in `solver_step!` nor `solve!`.
 """
 function update!(s::NewtonSolver, x₀::AbstractArray, params)
     update!(status(s), x₀, nonlinearsystem(s), params)

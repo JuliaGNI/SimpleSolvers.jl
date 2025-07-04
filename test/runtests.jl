@@ -12,4 +12,5 @@ using SafeTestsets
 @safetestset "Line Searches                                                                   " begin include("linesearch_test.jl") end
 @safetestset "Line Searches (second test)                                                     " begin include("linesearch_test_2.jl") end
 @safetestset "Nonlinear Solvers                                                               " begin include("nonlinear_solver_tests.jl") end
+@safetestset "Fixed point iterator                                                            " begin include("fixed_point_iterator_tests.jl") end
 @safetestset "Optimizers                                                                      " begin include("optimizer_tests.jl") end
