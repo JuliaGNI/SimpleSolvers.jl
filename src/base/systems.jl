@@ -136,7 +136,7 @@ A `NonlinearSystem` describes ``F(x) = y``, where we want to solve for ``x`` and
 - `j_calls`: accessed by calling [`j_calls`](@ref)`(nls)`.
 
 """
-mutable struct NonlinearSystem{T, FixedPoint, TF <: Callable, TJ <: Jacobian{T}, Tx <: AbstractVector{T}, Tf <: AbstractVector{T}, Tj <: AbstractMatrix{T}} <: AbstractProblem 
+mutable struct NonlinearSystem{T, FixedPoint, TF <: Callable, TJ <: Union{Jacobian{T}, Missing}, Tx <: AbstractVector{T}, Tf <: AbstractVector{T}, Tj <: AbstractMatrix{T}} <: AbstractProblem 
     F::TF
     J::TJ
 
