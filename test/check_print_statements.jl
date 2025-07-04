@@ -46,10 +46,11 @@ end
 function check_value_for_nonlinearsolverstatus(T::DataType)
     f(x::Number) = x^2
     f(x::AbstractArray) = f.(x)
+    F(y::AbstractArray, x::AbstractArray, params) = y .= f(x)
     x = rand(T, 3)
     
     # s₁ = NewtonSolver(x₁, f)
-    s = NewtonSolver(x, f)
+    s = NewtonSolver(x, F, f(x))
     expected_statement = 
     "i=   0,
 x= NaN,

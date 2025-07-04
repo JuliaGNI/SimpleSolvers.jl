@@ -40,7 +40,7 @@ There are several constructors, the most generic (besides the default one) is:
 ```julia
 UnivariateObjective(F, D, x; f, d)
 ```
-Where no keys are inferred, except `x_f` and `x_d` (via [`alloc_f`](@ref) and [`alloc_d`](@ref)). `f_calls` and `d_calls` are set to zero.
+Where no keys are inferred, except `x_f` and `x_d`. `f_calls` and `d_calls` are set to zero.
 
 The most general constructor (i.e. the one the needs the least specification) is:
 
@@ -328,14 +328,14 @@ end
 
 function MultivariateObjective(F::Callable, G::Gradient,
                                x::Tx;
-                               f::Tf=alloc_f(x, F),
+                               f::Tf=eltype(x)(NaN),
                                g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
     MultivariateObjective{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
 end
 
 function MultivariateObjective(F::Callable, G!::Callable,
                                x::AbstractArray{<:Number};
-                               f::Number=alloc_f(x, F),
+                               f::Number=eltype(x)(NaN),
                                g::AbstractArray{<:Number}=alloc_g(x))
     MultivariateObjective(F, GradientFunction(G!, x), x; f = f, g = g)
 end

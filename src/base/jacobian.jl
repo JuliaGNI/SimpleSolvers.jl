@@ -29,11 +29,11 @@ Examples include:
 abstract type Jacobian{T} end
 
 """
-    compute_jacobian!(j, x, jacobian::Jacobian)
+    compute_jacobian!(j, x, jacobian::Jacobian, params)
 
 Apply the [`Jacobian`](@ref) and store the result in `j`.
 """
-compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian::Jacobian{T}) where {T} = jacobian(j,x)
+compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian::Jacobian{T}, params) where {T} = jacobian(j,x, params)
 
 """
     check_jacobian(J)
@@ -62,11 +62,6 @@ function check_jacobian(J::AbstractMatrix; digits = 5)
     println()
 end
 
-# function print_jacobian(J::AbstractMatrix)
-#     display(J)
-#     println()
-# end
-
 """
     JacobianFunction <: Jacobian
 
@@ -89,6 +84,9 @@ struct JacobianFunction{T, JT <: Callable} <: Jacobian{T}
     DF!::JT
 
     function JacobianFunction{T}(DF!::Callable) where T
+        j = zeros(T, 3, 3)
+        x = zeros(T, 3)
+        applicable(DF!, j, x, NullParameters()) || error("The function needs to have the following signature: DF!(j, x, params).")
         new{T, typeof(DF!)}(DF!)
     end
 end
@@ -97,8 +95,8 @@ function JacobianFunction(DF!::Callable, ::AbstractArray{T}) where {T}
     JacobianFunction{T}(DF!)
 end
 
-function (jac::JacobianFunction{T})(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
-    jac.DF!(j, x)
+function (jac::JacobianFunction{T})(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
+    jac.DF!(j, x, params)
 end
 
 """
@@ -134,13 +132,10 @@ struct JacobianAutodiff{T, FT <: Callable, JT <: ForwardDiff.JacobianConfig, YT 
     ty::YT
 
     function JacobianAutodiff(F::CT, x::YT, y::YT) where {T, YT <: AbstractArray{T}, CT <: Callable}
-        function F!(y, x)
-            !applicable(F, y, x) || return F(y, x)
-            y .= F(x)
-        end
+        applicable(F, y, x, nothing) || error("The function needs to have the following signature: F(y, x, params).")
 
-        Jconfig = ForwardDiff.JacobianConfig(F!, y, x)
-        new{T, typeof(F!), typeof(Jconfig), YT}(F!, Jconfig, y)
+        Jconfig = ForwardDiff.JacobianConfig(nothing, y, x)
+        new{T, typeof(F), typeof(Jconfig), YT}(F, Jconfig, y)
     end
 end
 
@@ -152,8 +147,10 @@ end
 
 JacobianAutodiff{T}(F, n::Integer) where {T} = JacobianAutodiff{T}(F, n, n)
 
-function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
-    ForwardDiff.jacobian!(J, jac.F, jac.ty, x, jac.Jconfig)
+function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
+    F!(j, x) = jac.F(j, x, params)
+    F_closure(y, x) = jac.F(y, x, params)
+    ForwardDiff.jacobian!(J, F_closure, jac.ty, x, jac.Jconfig)
 end
 
 @doc raw"""
@@ -218,7 +215,7 @@ end
 
 JacobianFiniteDifferences{T}(n; kwargs...) where {T} = JacobianFiniteDifferences{T}(n, n; kwargs...)
 
-function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
+function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
     local ϵⱼ::T
 
     for j in eachindex(x)
@@ -226,18 +223,17 @@ function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVe
         fill!(jac.e, 0)
         jac.e[j] = 1
         jac.tx .= x .- ϵⱼ .* jac.e
-        jac.F(jac.f1, jac.tx)
+        jac.F(jac.f1, jac.tx, params)
         jac.tx .= x .+ ϵⱼ .* jac.e
-        jac.F(jac.f2, jac.tx)
+        jac.F(jac.f2, jac.tx, params)
         for i in eachindex(x)
             J[i,j] = (jac.f2[i] - jac.f1[i]) / (2ϵⱼ)
         end
     end
+    J
 end
 
-(jac::Jacobian)(J::AbstractMatrix, x::AbstractVector, place_holder) = jac(J, x)
-
-function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode, kwargs...) where {T}
+function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode = :autodiff, kwargs...) where {T}
     if mode == :autodiff
         return JacobianAutodiff{T}(F, nx, ny)
     elseif mode == :finite
@@ -247,16 +243,17 @@ function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode, kwargs...) whe
     end
 end
 
-Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; mode = :autodiff, kwargs...)
+Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
 
-Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x), length(F(x)); mode = :autodiff, kwargs...)
+Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x); kwargs...)
+Jacobian(F::Callable, x::AbstractVector{T}, y::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x), length(y); kwargs...)
 
 """
-    compute_jacobian!(j, x, ForJ)
+    compute_jacobian!(j, x, ForJ, params)
 
 Allocate a [`Jacobian`](@ref) object, apply it to `x`, and store the result in `j`.
 """
-function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable; mode = :autodiff, kwargs...) where {T}
+function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable, params; mode = :autodiff, kwargs...) where {T}
     jacobian = Jacobian{T}(ForJ, size(j,1), size(j,2); mode = mode, kwargs...)
-    compute_jacobian!(j, x, jacobian)
+    compute_jacobian!(j, x, jacobian, params)
 end

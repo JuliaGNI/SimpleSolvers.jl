@@ -13,9 +13,12 @@ A `struct` that comprises all Newton solvers. Those typically differ in the way 
 The `NewtonSolver` can be called with an [`NonlinearSystem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
 ```jldoctest; setup=:(using SimpleSolvers)
 linesearch = Quadratic()
-F(x) = tanh.(x)
+F(y, x, params) = y .= tanh.(x)
 x = [.5, .5]
-NewtonSolver(x, F(x); F = F, linesearch = linesearch)
+y = zero(x)
+F(y, x, nothing)
+
+NewtonSolver(x, y; F = F, linesearch = linesearch)
 
 # output
 
@@ -67,8 +70,8 @@ end
 - `mode`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AT, F::Callable, y::AT=F(x); linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), mode=:autodiff, kwargs...) where {T,AT<:AbstractVector{T}}
-    nls = ismissing(DF!) ? NonlinearSystem(F, x; mode=mode) : NonlinearSystem(F, DF!, x)
+function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method = LU(), DF! = missing, linesearch = Backtracking(), mode = :autodiff, kwargs...) where {T, AT <: AbstractVector{T}}
+    nls = ismissing(DF!) ? NonlinearSystem(F, x, y; mode = mode) : NonlinearSystem(F, DF!, x, y)
     cache = NewtonSolverCache(x, y)
     linearsystem = LinearSystem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
@@ -82,24 +85,24 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
 end
 
 """
-    solver_step!(s, x)
+    solver_step!(s, x, params)
 
 Compute one Newton step for `f` based on the [`Jacobian`](@ref) `jacobian!`.
 """
-function solver_step!(s::NewtonSolver, x::AbstractVector{T}) where {T}
+function solver_step!(s::NewtonSolver, x::AbstractVector{T}, params) where {T}
     update!(cache(s), x)
-    value!(nonlinearsystem(s), x)
+    value!(nonlinearsystem(s), x, params)
     # first we update the rhs of the linearsystem
     update!(linearsystem(s), -value(nonlinearsystem(s)))
     rhs(cache(s)) .= rhs(linearsystem(s))
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    if (mod(iteration_number(s) - 1, s.refactorize) == 0 || iteration_number(s) == 1)
-        jacobian!(nonlinearsystem(s), x)
+    if (mod(iteration_number(s)-1, s.refactorize) == 0 || iteration_number(s) == 1)
+        jacobian!(nonlinearsystem(s), x, params)
         update!(linearsystem(s), jacobian(s))
         factorize!(linearsolver(s), linearsystem(s))
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearsystem(s)))
-    α = linesearch(s)(linesearch_objective(s))
+    α = linesearch(s)(linesearch_objective(s, params))
     x .= compute_new_iterate(x, α, direction(cache(s)))
     x
 end
@@ -164,7 +167,8 @@ Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`NewtonSolver`](@r
 x = rand(3)
 y = rand(3)
 F(x) = tanh.(x)
-s = NewtonSolver(x, y; F = F)
+F!(y, x, params) = y .= F(x)
+s = NewtonSolver(x, y; F = F!)
 linearsolver(s)
 
 # output
@@ -175,13 +179,13 @@ LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, StaticAr
 linearsolver(solver::NewtonSolver) = solver.linearsolver
 linesearch(solver::NewtonSolver) = solver.linesearch
 
-function compute_jacobian!(s::NewtonSolver, x; kwargs...)
-    compute_jacobian!(jacobian(s), x, Jacobian(s); kwargs...)
+function compute_jacobian!(s::NewtonSolver, x::AbstractVector, params; kwargs...)
+    compute_jacobian!(jacobian(s), x, Jacobian(s), params; kwargs...)
 end
 
-function compute_jacobian!(s::NewtonSolver, x, jacobian!::Union{Jacobian,Callable}; kwargs...)
-    @warn "This function should not be called! Instead call `compute_jacobian!(s, x)`."
-    compute_jacobian!(jacobian(nonlinearsystem(s)), x, jacobian!; kwargs...)
+function compute_jacobian!(s::NewtonSolver, x::AbstractVector, jacobian!::Union{Jacobian, Callable}, params; kwargs...)
+    @warn "This function should not be called! Instead call `compute_jacobian!(s, x, params)`."
+    compute_jacobian!(jacobian(nonlinearsystem(s)), x, jacobian!, params; kwargs...)
 end
 
 check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
@@ -190,14 +194,14 @@ print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
 initialize!(s::NewtonSolver, x₀::AbstractArray) = initialize!(status(s), x₀)
 
 """
-    update!(solver, x)
+    update!(solver, x, params)
 
 Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
 This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
 """
-function update!(s::NewtonSolver, x₀::AbstractArray)
-    update!(status(s), x₀, nonlinearsystem(s))
-    update!(nonlinearsystem(s), x₀)
+function update!(s::NewtonSolver, x₀::AbstractArray, params)
+    update!(status(s), x₀, nonlinearsystem(s), params)
+    update!(nonlinearsystem(s), x₀, params)
     update!(cache(s), x₀)
 
     s
@@ -211,13 +215,15 @@ end
 !!! info
     The function `update!` calls `next_iteration!`.
 """
-function solve!(s::NewtonSolver, x::AbstractArray)
+solve!(s::NewtonSolver, x::AbstractArray) = solve!(s, x, NullParameters())
+
+function solve!(s::NewtonSolver, x::AbstractArray, params)
     initialize!(s, x)
-    update!(status(s), x, nonlinearsystem(s))
+    update!(status(s), x, nonlinearsystem(s), params)
 
     while !meets_stopping_criteria(status(s), config(s))
-        solver_step!(s, x)
-        update!(status(s), x, nonlinearsystem(s))
+        solver_step!(s, x, params)
+        update!(status(s), x, nonlinearsystem(s), params)
         residual!(status(s))
     end
 

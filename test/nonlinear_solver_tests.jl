@@ -16,18 +16,19 @@ test_solver = NonlinearSolverTest{Float64}()
 
 f(x::T) where {T<:Number} = exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 F(x) = f.(x)
-F!(y, x) = y .= F(x)
+F!(y, x, params) = y .= F(x)
 
 n = 1
 x₀ = rand(n)
 root₁ = 0.76131284
 root₂ = -4.7350357537069865
 
-function J!(g, x)
+function J!(g, x, params)
     g .= 0
     for i in eachindex(x)
         g[i, i] = ForwardDiff.derivative(f, x[i])
     end
+    g
 end
 
 for T ∈ (Float64, Float32)
@@ -46,7 +47,7 @@ for T ∈ (Float64, Float32)
 
         x = T.(copy(x₀))
         y = F(x)
-        nl = Solver(x, y; F = F, kwarguments...)
+        nl = Solver(x, y; F = F!, kwarguments...)
 
         @test config(nl) == nl.config
         @test status(nl) == nl.status
@@ -58,7 +59,7 @@ for T ∈ (Float64, Float32)
 
         x .= T.(x₀)
         # use custom Jacobian
-        nl = Solver(x, y; F = F, DF! = J!, kwarguments...)
+        nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
         solve!(nl, x)
         println(Solver, kwarguments)
         for _x in x

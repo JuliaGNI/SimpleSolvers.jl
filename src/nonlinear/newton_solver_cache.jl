@@ -19,10 +19,6 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 ```julia
 NewtonSolverCache(x, y)
 ```
-
-# Implementation
-
-`J` is allocated by calling [`alloc_j`](@ref).
 """
 struct NewtonSolverCache{T, AT <: AbstractVector{T}} # , JT <: AbstractMatrix{T}}
     x̄::AT
