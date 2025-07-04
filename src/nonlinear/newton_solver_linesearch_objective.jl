@@ -10,7 +10,7 @@ Make a line search objective for a *Newton solver* (the `cache` here is an insta
 
 Also see [`linesearch_objective(::MultivariateObjective{T}, ::NewtonOptimizerCache{T}) where {T}`](@ref).
 """
-function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{T}, params) where T
+function linesearch_objective(nls::NonlinearSystem{T}, cache::NewtonSolverCache{T}, params) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
         value!(nls, cache.x, params)
