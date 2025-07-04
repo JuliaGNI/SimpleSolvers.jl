@@ -155,7 +155,7 @@ mutable struct NonlinearSystem{T,FixedPoint,TF<:Callable,TJ<:Union{Jacobian{T},M
         j::Tj=alloc_j(x, f),
         fixed_point::Bool=false) where {T,Tx<:AbstractArray{T},Tf,Tj<:AbstractArray{T}}
         applicable(F, f, x, NullParameters()) || error("The function needs to have the following signature: F(y, x, params).")
-        nls = new{T,fixed_point,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
+        nls = new{T,fixed_point,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, alloc_x(f), j, alloc_x(x), alloc_x(x), 0, 0)
         initialize!(nls, x)
         nls
     end

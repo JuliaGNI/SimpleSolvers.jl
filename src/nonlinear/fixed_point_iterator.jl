@@ -1,5 +1,6 @@
 struct FixedPointIteratorCache{T,VT<:AbstractVector{T}}
     xₖ::VT
+    FixedPointIteratorCache(x::VT) where {T,VT<:AbstractVector{T}} = new{T,VT}(copy(x))
 end
 
 solution(cache::FixedPointIteratorCache) = cache.xₖ
@@ -49,7 +50,7 @@ function solver_step!(it::FixedPointIterator{T}, x::AbstractVector{T}, params) w
     update!(cache(it), x)
     value!(nonlinearsystem(it), x, params)
     x .= value(nonlinearsystem(it))
-    isFixedPointFormat(nonlinearsystem(it)) || x .-= solution(cache(it))
+    isFixedPointFormat(nonlinearsystem(it)) || (x .-= solution(cache(it)))
     x
 end
 
@@ -100,7 +101,7 @@ function solve!(it::FixedPointIterator, x::AbstractArray, params=NullParameters(
     update!(status(it), x, nonlinearsystem(it), params)
 
     while !meets_stopping_criteria(status(it), config(it))
-        increase_iteration_number!(status)
+        increase_iteration_number!(status(it))
         solver_step!(it, x, params)
         update!(status(it), x, nonlinearsystem(it), params)
         residual!(status(it))

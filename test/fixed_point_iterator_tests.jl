@@ -17,13 +17,17 @@ root₁ = 0.1
 for T ∈ (Float64, Float32)
     # x = T.(copy(x₀))
     x = ones(T, n)
+    # println(x)
     y = F(x)
+    # println(x)
     it = FixedPointIterator(x; F=F!)
+    # println(x)
 
     @test config(it) == it.config
     @test status(it) == it.status
 
     solve!(it, x)
+    # println(x)
     for _x in x
         @test _x ≈ T(root₁) atol = ∛(2eps(T))
     end
