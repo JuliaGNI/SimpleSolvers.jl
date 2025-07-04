@@ -136,7 +136,7 @@ A `NonlinearSystem` describes ``F(x) = y``, where we want to solve for ``x`` and
 - `j_calls`: accessed by calling [`j_calls`](@ref)`(nls)`.
 
 """
-mutable struct NonlinearSystem{T, TF <: Callable, TJ <: Jacobian{T}, Tx <: AbstractVector{T}, Tf <: AbstractVector{T}, Tj <: AbstractMatrix{T}} <: AbstractProblem 
+mutable struct NonlinearSystem{T, FixedPoint, TF <: Callable, TJ <: Jacobian{T}, Tx <: AbstractVector{T}, Tf <: AbstractVector{T}, Tj <: AbstractMatrix{T}} <: AbstractProblem 
     F::TF
     J::TJ
 
@@ -152,9 +152,10 @@ mutable struct NonlinearSystem{T, TF <: Callable, TJ <: Jacobian{T}, Tx <: Abstr
     function NonlinearSystem(F::Callable, J::Jacobian,
         x::Tx,
         f::Tf;
-        j::Tj=alloc_j(x, f)) where {T, Tx<:AbstractArray{T}, Tf, Tj<:AbstractArray{T}}
+        j::Tj=alloc_j(x, f),
+        fixed_point::Bool=false) where {T, Tx<:AbstractArray{T}, Tf, Tj<:AbstractArray{T}}
         applicable(F, f, x, NullParameters()) || error("The function needs to have the following signature: F(y, x, params).")
-        nls = new{T, typeof(F), typeof(J), Tx, Tf, Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
+        nls = new{T, fixed_point, typeof(F), typeof(J), Tx, Tf, Tj}(F, J, f, j, alloc_x(x), alloc_x(x), 0, 0)
         initialize!(nls, x)
         nls
     end
@@ -166,8 +167,8 @@ end
 function NonlinearSystem(F::Callable, J!::Callable,
     x::AbstractVector{T},
     f::AbstractVector{T};
-    j::AbstractMatrix{T}=alloc_j(x, f)) where {T <: Number}
-    NonlinearSystem(F, JacobianFunction(J!, x), x, f; j = j)
+    kwargs...) where {T <: Number}
+    NonlinearSystem(F, JacobianFunction(J!, x), x, f; kwargs...)
 end
 
 """
