@@ -1,7 +1,7 @@
 name = "SimpleSolvers"
 uuid = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
 authors = ["Michael Kraus"]
-version = "0.5.2"
+version = "0.5.4"
 
 [deps]
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
@@ -14,8 +14,8 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 Distances = "0.10"
-ForwardDiff = "1"
-GeometricBase = "0.10, 0.11"
+ForwardDiff = "0.10, 1"
+GeometricBase = "0.10, 0.11, 0.12"
 Random = "1"
 SafeTestsets = "0.1.0"
 StaticArrays = "1.9.13"
