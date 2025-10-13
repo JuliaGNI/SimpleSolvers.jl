@@ -86,7 +86,7 @@ struct JacobianFunction{T, JT <: Callable} <: Jacobian{T}
     function JacobianFunction{T}(DF!::Callable) where T
         j = zeros(T, 3, 3)
         x = zeros(T, 3)
-        applicable(DF!, j, x, NullParameters()) || error("The function needs to have the following signature: DF!(j, x, params).")
+        hasmethod(DF!, Tuple{typeof(j), typeof(x), OptionalParameters}) || error("The function needs to have the following signature: DF!(j, x, params).")
         new{T, typeof(DF!)}(DF!)
     end
 end
