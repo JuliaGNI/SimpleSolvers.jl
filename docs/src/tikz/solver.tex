@@ -15,10 +15,10 @@
     % note that `sibling angle' can only be defined in
     % `level 1 concept/.append style={}'
     % note that the `concept color' is passed to the `child'(!)
-    child[concept color=mblue] {node[concept] {\texttt{nonlinearsystem::\\Nonlinear-\\System}} [clockwise from=-30] child[concept color=mgreen] { node[concept] {\texttt{j::Jacobian}}}}
+    child[concept color=mblue] {node[concept] {\texttt{nonlinear-\\system::\\Nonlinear-\\System}} [clockwise from=-30] child[concept color=mgreen] { node[concept] {\texttt{j::Jacobian}}}}
     child[concept color=morange] {node[concept] {\texttt{cache::\\NewtonSolver-\\Cache}} }
     child[concept color=mpurple] {node[concept] {\texttt{config::\\Options}}}
     child[concept color=morange!50!mgreen] {node[concept] {\texttt{linesearch::\\Linesearch-\\State}}}
-    child[concept color=morange!50!mpurple] {node[concept] {\texttt{status::\\Optimizer-\\Status}}};
+    child[concept color=morange!50!mblue] {node[concept] {\texttt{status::\\Optimizer-\\Status}}};
 \end{tikzpicture}
 \end{document}
