@@ -22,7 +22,6 @@ module SimpleSolvers
     export solution, minimizer, minimum
     
     export SolverMethod
-    export BracketingMethod
     export LinearMethod, DirectMethod, IterativeMethod
     export NonlinearMethod, PicardMethod, LinesearchMethod
 
