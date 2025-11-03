@@ -22,7 +22,7 @@ module SimpleSolvers
     export solution, minimizer, minimum
     
     export SolverMethod
-    export LinearMethod, DirectMethod, IterativeMethod
+    export LinearMethod, IterativeMethod
     export NonlinearMethod, PicardMethod, LinesearchMethod
 
     export NewtonMethod, Newton, DFP, BFGS
