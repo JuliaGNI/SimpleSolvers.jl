@@ -8,9 +8,16 @@ abstract type IterativeMethod <: LinearMethod end
 abstract type NewtonMethod <: NonlinearMethod end
 abstract type PicardMethod <: NonlinearMethod end
 
-struct Newton <: NewtonMethod end
-struct DFP <: NewtonMethod end
-struct BFGS <: NewtonMethod end
+"""
+    OptimizerMethod <: SolverMethod
+
+The `OptimizerMethod` is used in [`Optimizer`](@ref) and determines the algorithm that is used.
+"""
+abstract type OptimizerMethod <: SolverMethod end
+
+struct Newton <: OptimizerMethod end
+struct DFP <: OptimizerMethod end
+struct BFGS <: OptimizerMethod end
 
 Base.show(io::IO, alg::Newton) = print(io, "Newton")
 Base.show(io::IO, alg::DFP) = print(io, "DFP")

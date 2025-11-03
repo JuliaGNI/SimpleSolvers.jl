@@ -61,7 +61,7 @@ The optimizer that stores all the information needed for an optimization problem
 - `state::`[`OptimizationAlgorithm`](@ref).
 """
 struct Optimizer{T,
-                 ALG <: NonlinearMethod,
+                 ALG <: OptimizerMethod,
                  OBJ <: MultivariateObjective{T},
                  HT <: Hessian{T},
                  RES <: OptimizerResult{T},
@@ -73,13 +73,13 @@ struct Optimizer{T,
     result::RES
     state::AST
 
-    function Optimizer(algorithm::NonlinearMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
         new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(result), typeof(state)}(algorithm, objective, hessian, config, result, state)
     end
 end
 
-function Optimizer(x::VT, objective::MultivariateObjective; algorithm::NewtonMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
+function Optimizer(x::VT, objective::MultivariateObjective; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(objective, x)
     result = OptimizerResult(x, y)
     clear!(result)
