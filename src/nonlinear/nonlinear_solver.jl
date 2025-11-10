@@ -10,7 +10,7 @@ abstract type NonlinearSolverCache{T} end
 """
     NonlinearSolver
 
-A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref) and [`QuasiNewtonMethod`](@ref)) and for example the *fixed point iterator* (see [`PicardMethod`](@ref)).
+A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)) and the *fixed point iterator* (see [`PicardMethod`](@ref)).
 
 # Constructors
 
