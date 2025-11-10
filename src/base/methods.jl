@@ -8,28 +8,24 @@ abstract type NonlinearSolverMethod <: SolverMethod end
 # abstract type DirectMethod <: LinearMethod end
 # abstract type IterativeMethod <: LinearMethod end
 
-"""
-    NewtonMethod()
-
-To be used together with [`NonlinearSolver`](@ref).
-"""
-struct NewtonMethod <: NonlinearSolverMethod end
 
 """
-    QuasiNewtonMethod(refactorize)
+    NewtonMethod(refactorize)
 
 Make an instance of a *quasi Newton solver* based on an integer *refactorize* that determines how often the rhs is refactored.
 """
-struct QuasiNewtonMethod <: NonlinearSolverMethod
+struct NewtonMethod <: NonlinearSolverMethod
     refactorize::Int
 end
+
+NewtonMethod() = NewtonMethod(1)
 
 """
 The default number of iterations before the [`Jacobian`](@ref) is refactored in the [`QuasiNewtonSolver`](@ref)
 """
 const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
 
-QuasiNewtonMethod() = QuasiNewtonMethod(DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER)
+QuasiNewtonMethod() = NewtonMethod(DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER)
 
 """
     PicardMethod()
