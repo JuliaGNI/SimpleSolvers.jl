@@ -1,4 +1,3 @@
-
 abstract type BracketingMethod <: SolverMethod end
 abstract type LinearMethod <: SolverMethod end
 "A supertype collecting all nonlinear methods, including `NewtonMethod`s."
@@ -24,6 +23,13 @@ Make an instance of a *quasi Newton solver* based on an integer *refactorize* th
 struct QuasiNewtonMethod <: NonlinearSolverMethod
     refactorize::Int
 end
+
+"""
+The default number of iterations before the [`Jacobian`](@ref) is refactored in the [`QuasiNewtonSolver`](@ref)
+"""
+const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
+
+QuasiNewtonMethod() = QuasiNewtonMethod(DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER)
 
 """
     PicardMethod()

@@ -65,7 +65,7 @@ struct Optimizer{T,
                  OBJ <: MultivariateObjective{T},
                  HT <: Hessian{T},
                  RES <: OptimizerResult{T},
-                 AST <: OptimizationAlgorithm} <: NonlinearSolver
+                 AST <: OptimizationAlgorithm} <: AbstractSolver
     algorithm::ALG
     objective::OBJ
     hessian::HT

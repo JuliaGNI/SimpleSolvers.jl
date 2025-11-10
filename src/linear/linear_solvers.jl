@@ -1,3 +1,7 @@
+abstract type AbstractLinearSolver <: AbstractSolver end
+
+struct DummyLinearSolver <: AbstractLinearSolver end
+
 """
     LinearSolver <: AbstractSolver
 
@@ -17,7 +21,7 @@ LinearSolver(method, x)
 
 You can manually factorize by either calling [`factorize!`](@ref) or [`solve!`](@ref).
 """
-struct LinearSolver{T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache} <: AbstractSolver 
+struct LinearSolver{T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache} <: AbstractLinearSolver 
     method::LSMT
     cache::LSCT
 
