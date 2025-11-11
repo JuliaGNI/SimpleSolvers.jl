@@ -8,7 +8,9 @@
 \definecolor{mgreen}{RGB}{44,160,44}
 
 \begin{document}
-\begin{tikzpicture}
+\begin{tikzpicture}[mindmap, concept color=black, text=white,%
+                   level 1 concept/.append style={sibling angle=50},%
+                   level 2 concept/.append style={sibling angle=50}]
   \path[mindmap,concept color=black,text=white]
     node[concept] {\texttt{Optimizer <: \\AbstractSolver}}
     [clockwise from=0]
