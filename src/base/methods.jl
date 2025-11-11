@@ -41,23 +41,23 @@ The `OptimizerMethod` is used in [`Optimizer`](@ref) and determines the algorith
 abstract type OptimizerMethod <: SolverMethod end
 
 """
-    QuasiNewtonMethod <: OptimizerMethod
+    QuasiNewtonOptimizerMethod <: OptimizerMethod
 
 Includes [`BFGS`](@ref) and [`DFP`](@ref).
 """
-abstract type QuasiNewtonMethod <: OptimizerMethod end
+abstract type QuasiNewtonOptimizerMethod <: OptimizerMethod end
 
 struct Newton <: OptimizerMethod end
 
 """
 Algorithm taken from [nocedal2006numerical](@cite).
 """
-struct DFP <: QuasiNewtonMethod end
+struct DFP <: QuasiNewtonOptimizerMethod end
 
 """
 Algorithm taken from [nocedal2006numerical](@cite).
 """
-struct BFGS <: QuasiNewtonMethod end
+struct BFGS <: QuasiNewtonOptimizerMethod end
 
 Base.show(io::IO, alg::Newton) = print(io, "Newton")
 Base.show(io::IO, alg::DFP) = print(io, "DFP")
