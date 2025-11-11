@@ -3,7 +3,7 @@
 
 Stores the last solution `xₖ`.
 """
-struct FixedPointIteratorCache{T,VT<:AbstractVector{T}}
+struct FixedPointIteratorCache{T,VT<:AbstractVector{T}} <: NonlinearSolverCache{T}
     xₖ::VT
     FixedPointIteratorCache(x::VT) where {T,VT<:AbstractVector{T}} = new{T,VT}(copy(x))
 end
@@ -15,18 +15,11 @@ function update!(cache::FixedPointIteratorCache{T,VT}, x::VT) where {T,VT<:Abstr
     cache
 end
 
-struct FixedPointIterator{T,AT,NLST<:NonlinearSystem{T},CT<:FixedPointIteratorCache{T},NSST<:NonlinearSolverStatus{T}} <: NonlinearSolver
-    nonlinearsystem::NLST
+const FixedPointIterator{T} = NonlinearSolver{T, PicardMethod}
 
-    cache::CT
-    config::Options{T}
-    status::NSST
-
-    function FixedPointIterator(x::AT, nls::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
-        status = NonlinearSolverStatus(x)
-        config = Options(T; options_kwargs...)
-        new{T,AT,NLST,CT,typeof(status)}(nls, cache, config, status)
-    end
+function FixedPointIterator(x::AT, nls::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
+    cache = FixedPointIteratorCache(x)
+    NonlinearSolver(x, nls, NoLinearSystem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
 end
 
 """

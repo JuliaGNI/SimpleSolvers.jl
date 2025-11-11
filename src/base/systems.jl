@@ -1,4 +1,14 @@
 """
+Encompasses the [`NoLinearSystem`](@ref) and the [`LinearSystem`](@ref).
+"""
+abstract type AbstractLinearSystem <: AbstractProblem end
+
+"""
+A *dummy linear system* used for the *fixed point iterator* ([`PicardMethod`](@ref)).
+"""
+struct NoLinearSystem <: AbstractLinearSystem end
+
+"""
     LinearSystem
 
 A `LinearSystem` describes ``Ax = y``, where we want to solve for ``x``.
@@ -41,7 +51,7 @@ update!(ls, A, y)
 LinearSystem{Float64, Vector{Float64}, Matrix{Float64}}([1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], [1.0, 2.0, 3.0])
 ```
 """
-mutable struct LinearSystem{T,VT<:AbstractVector{T},AT<:AbstractMatrix{T}} <: AbstractProblem
+mutable struct LinearSystem{T,VT<:AbstractVector{T},AT<:AbstractMatrix{T}} <: AbstractLinearSystem
     A::AT
     y::VT
     function LinearSystem(A::AT, y::VT) where {T<:Number,VT<:AbstractVector{T},AT<:AbstractMatrix{T}}

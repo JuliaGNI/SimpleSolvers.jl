@@ -122,6 +122,7 @@ module SimpleSolvers
     include("linesearch/quadratic.jl")
     include("linesearch/custom_quadratic.jl")
     include("linesearch/bierlaire_quadratic.jl")
+    include("linesearch/dummy_linesearch.jl")
 
     export NonlinearSolver, NonlinearSolverException,
            AbstractNewtonSolver, NewtonSolver, QuasiNewtonSolver,

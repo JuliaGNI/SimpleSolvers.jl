@@ -20,7 +20,7 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 NewtonSolverCache(x, y)
 ```
 """
-struct NewtonSolverCache{T, AT <: AbstractVector{T}} # , JT <: AbstractMatrix{T}}
+struct NewtonSolverCache{T, AT <: AbstractVector{T}} <: NonlinearSolverCache{T} # , JT <: AbstractMatrix{T}}
     x̄::AT
     x::AT
     δx::AT
