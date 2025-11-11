@@ -205,6 +205,7 @@ Base.inv(H::HessianAutodiff) = inv(H.H)
 
 Base.:\(H::HessianAutodiff, b) = solve(LU(), H.H, b)
 
+# TODO: replace the "\" with something that has better performance (and doesn't produce as many allocations)
 LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
 
 function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
