@@ -31,7 +31,7 @@ for method in (Newton(), BFGS(), DFP())
             opt = Optimizer(x, F; algorithm = method, linesearch = _linesearch)
 
             @test config(opt) == opt.config
-            @test status(opt) == opt.result.status
+            @test status(opt) == opt.status
 
             solve!(opt, x)
             @test norm(minimizer(opt)) ≈ 0 atol=∛(2000eps(T))

@@ -76,6 +76,11 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status
 end
 
+function initialize!(status::OptimizerStatus{XT,YT}, ::AbstractVector{XT}) where {XT, YT}
+    clear!(status)
+end
+
+
 """
     residual!(status, x, x̄, f, f̄, g, ḡ)
 

@@ -64,28 +64,31 @@ struct Optimizer{T,
                  ALG <: OptimizerMethod,
                  OBJ <: MultivariateObjective{T},
                  HT <: Hessian{T},
+                 OST <: OptimizerStatus,
                  RES <: OptimizerResult{T},
                  AST <: OptimizationAlgorithm} <: AbstractSolver
     algorithm::ALG
     objective::OBJ
     hessian::HT
     config::Options{T}
+    status::OptimizerStatus
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(result), typeof(state)}(algorithm, objective, hessian, config, result, state)
+        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(status), typeof(result), typeof(state)}(algorithm, objective, hessian, config, status, result, state)
     end
 end
 
 function Optimizer(x::VT, objective::MultivariateObjective; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(objective, x)
+    status = OptimizerStatus{T}()
     result = OptimizerResult(x, y)
     clear!(result)
     astate = NewtonOptimizerState(x; linesearch = linesearch)
     hes = Hessian(algorithm, objective, x)
-    Optimizer(algorithm, objective, hes, result, astate; options_kwargs...)
+    Optimizer(algorithm, objective, hes, status, result, astate; options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)
@@ -96,7 +99,7 @@ end
 
 config(opt::Optimizer) = opt.config
 result(opt::Optimizer) = opt.result
-status(opt::Optimizer) = opt.result.status
+status(opt::Optimizer) = opt.status
 state(opt::Optimizer) = opt.state
 objective(opt::Optimizer) = opt.objective
 algorithm(opt::Optimizer) = opt.algorithm
@@ -150,6 +153,7 @@ meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), c
 
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(objective(opt), x)
+    initialize!(status(opt), x)
     initialize!(result(opt), x)
     initialize!(state(opt), x)
     initialize!(hessian(opt), x)
@@ -169,6 +173,8 @@ function update!(opt::Optimizer, x::AbstractVector)
     update!(objective(opt), x)
     update!(hessian(opt), x)
     update!(state(opt), x, gradient(objective(opt)), hessian(opt))
+    increase_iteration_number!(status(opt))
+    residual!(status(opt), x, result(opt).x, value(objective(opt)), result(opt).f, gradient(objective(opt)), result(opt).g)
     update!(result(opt), x, value(objective(opt)), gradient(objective(opt)))
 
     opt
@@ -246,7 +252,7 @@ function solve!(opt::Optimizer, x::AbstractVector)
 
     initial_values_for_hessian!(opt)
     while (iteration_number(opt) == 0 || !meets_stopping_criteria(opt))
-        increase_iteration_number!(result(opt))
+        increase_iteration_number!(status(opt))
         solver_step!(opt, x)
         update!(opt, x)
     end
