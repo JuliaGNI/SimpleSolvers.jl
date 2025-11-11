@@ -1,6 +1,6 @@
 abstract type AbstractLinearSolver <: AbstractSolver end
 
-struct DummyLinearSolver <: AbstractLinearSolver end
+struct NoLinearSolver <: AbstractLinearSolver end
 
 """
     LinearSolver <: AbstractSolver

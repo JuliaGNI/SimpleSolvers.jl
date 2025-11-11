@@ -1,12 +1,12 @@
 """
-Encompasses the [`DummyLinearSystem`](@ref) and the [`LinearSystem`](@ref).
+Encompasses the [`NoLinearSystem`](@ref) and the [`LinearSystem`](@ref).
 """
 abstract type AbstractLinearSystem <: AbstractProblem end
 
 """
 A *dummy linear system* used for the *fixed point iterator* ([`PicardMethod`](@ref)).
 """
-struct DummyLinearSystem <: AbstractLinearSystem end
+struct NoLinearSystem <: AbstractLinearSystem end
 
 """
     LinearSystem

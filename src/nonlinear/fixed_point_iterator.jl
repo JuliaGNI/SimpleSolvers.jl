@@ -19,7 +19,7 @@ const FixedPointIterator{T} = NonlinearSolver{T, PicardMethod}
 
 function FixedPointIterator(x::AT, nls::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
     cache = FixedPointIteratorCache(x)
-    NonlinearSolver(x, nls, DummyLinearSystem(), DummyLinearSolver(), DummyLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
+    NonlinearSolver(x, nls, NoLinearSystem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
 end
 
 """
