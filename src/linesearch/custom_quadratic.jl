@@ -43,7 +43,7 @@ Base.show(io::IO, ::QuadraticState2) = print(io, "Polynomial quadratic (second v
 
 LinesearchState(algorithm::Quadratic2; T::DataType=Float64, kwargs...) = QuadraticState2(T; kwargs...)
 
-function (ls::QuadraticState2{T})(obj::AbstractUnivariateObjective{T}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T}
+function (ls::QuadraticState2{T})(obj::AbstractUnivariateProblem{T}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T}
     number_of_iterations != MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(obj, x₀; s = s)
@@ -67,4 +67,4 @@ function (ls::QuadraticState2{T})(obj::AbstractUnivariateObjective{T}, number_of
     ls(obj, number_of_iterations + 1, αₜ, s * ls.s_reduction)
 end
 
-(ls::QuadraticState2{T})(obj::AbstractUnivariateObjective{T}, x₀::T, s::T=ls.s) where {T} = ls(obj, 0, x₀, s)
+(ls::QuadraticState2{T})(obj::AbstractUnivariateProblem{T}, x₀::T, s::T=ls.s) where {T} = ls(obj, 0, x₀, s)

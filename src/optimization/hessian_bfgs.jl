@@ -21,7 +21,7 @@ A `struct` derived from [`Hessian`](@ref) to be used for an [`Optimizer`](@ref).
 Also compare those fields with the ones of [`NewtonOptimizerCache`](@ref).
 """
 struct HessianBFGS{T,VT,MT,OBJ} <: IterativeHessian{T}
-    objective::OBJ
+    problem::OBJ
 
     x̄::VT    # previous solution
     x::VT    # current solution
@@ -39,7 +39,7 @@ struct HessianBFGS{T,VT,MT,OBJ} <: IterativeHessian{T}
     δγ::MT
     δδ::MT
 
-    function HessianBFGS(objective::MultivariateObjective, x::AbstractVector{T}) where {T}
+    function HessianBFGS(problem::MultivariateOptimizerProblem, x::AbstractVector{T}) where {T}
         Q  = alloc_h(x)
         
         T1 = zero(Q)
@@ -48,13 +48,13 @@ struct HessianBFGS{T,VT,MT,OBJ} <: IterativeHessian{T}
         δγ = zero(Q)
         δδ = zero(Q)
             
-        new{T,typeof(x),typeof(Q),typeof(objective)}(objective, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, T3, δγ, δδ)
+        new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, T3, δγ, δδ)
     end
 end
 
-HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(MultivariateObjective(F, x), x)
+HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(MultivariateOptimizerProblem(F, x), x)
 
-Hessian(::BFGS, ForOBJ::Union{Callable, MultivariateObjective}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
+Hessian(::BFGS, ForOBJ::Union{Callable, MultivariateOptimizerProblem}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
 @doc raw"""
     initialize!(H, x)
@@ -99,7 +99,7 @@ function compute_outer_products!(H::HessianBFGS)
 end
 
 function update!(H::HessianBFGS, x::AbstractVector)
-    update!(H, x, gradient!(objective(H), x))
+    update!(H, x, gradient!(problem(H), x))
 
     δγ = compute_δγ(H)
 

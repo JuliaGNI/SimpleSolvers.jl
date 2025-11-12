@@ -22,7 +22,7 @@ The second functor is shorthand for `sdc(compute_new_iterate(sdc.xₖ, αₖ, sd
 We call the constant that pertains to the sufficient decrease condition ``c``. This is typically called ``c_1`` in the literature [nocedal2006numerical](@cite).
 See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
 """
-mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TVT<:Union{T, AbstractArray{T}}, OT <:AbstractObjective{T}} <: BacktrackingCondition{T}
+mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TVT<:Union{T, AbstractArray{T}}, OT <:AbstractOptimizerProblem{T}} <: BacktrackingCondition{T}
     c::T
     xₖ::VT
     fₖ::T
@@ -35,7 +35,7 @@ mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TV
                                                                                                     T<:Number,
                                                                                                     VT <:Union{T₁, AbstractArray{T₁}},
                                                                                                     TVT<:Union{T, AbstractArray{T}},
-                                                                                                    OT <: AbstractObjective}
+                                                                                                    OT <: AbstractOptimizerProblem}
         T != T₁ ? (@warn "You are computing with mixed precision ($(T) and $(T₁)). This is probably not intended.") : nothing
         xₖ_transformed = T.(xₖ)
         new{T, typeof(xₖ_transformed), TVT, OT}(T(c₁), xₖ_transformed, fₖ, gradₖ, pₖ, obj)

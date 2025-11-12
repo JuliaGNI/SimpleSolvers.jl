@@ -4,15 +4,15 @@
 
 ## Example
 
-We consider the same example as we had when demonstrating [backtracking line search](@ref "Backtracking Line Search for a Line Search Objective"):
+We consider the same example as we had when demonstrating [backtracking line search](@ref "Backtracking Line Search for a Line Search Problem"):
 
 ```@setup bisection
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = MultivariateObjective(f, x)
+obj = MultivariateOptimizerProblem(f, x)
 value!(obj, x)
 hes = Hessian(obj, x; mode = :autodiff)
 update!(hes, x)
@@ -35,14 +35,14 @@ mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
-using SimpleSolvers: linesearch_objective, NewtonOptimizerCache, LinesearchState, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 update!(cache, x, obj.g, hes)
 nothing # hide
 ```
 
 ```@example bisection
-ls_obj = linesearch_objective(obj, cache)
+ls_obj = linesearch_problem(obj, cache)
 nothing # hide
 ```
 

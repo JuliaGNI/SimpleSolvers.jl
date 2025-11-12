@@ -19,7 +19,7 @@ const FixedPointIterator{T} = NonlinearSolver{T, PicardMethod}
 
 function FixedPointIterator(x::AT, nls::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
     cache = FixedPointIteratorCache(x)
-    NonlinearSolver(x, nls, NoLinearSystem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
+    NonlinearSolver(x, nls, NoLinearProblem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
 end
 
 """
@@ -29,7 +29,7 @@ end
 - `options_kwargs`: see [`Options`](@ref)
 """
 function FixedPointIterator(x::AT, F::Callable; kwargs...) where {T,AT<:AbstractVector{T}}
-    nls = NonlinearSystem(F, missing, x, x; fixed_point=true)
+    nls = NonlinearProblem(F, missing, x, x; fixed_point=true)
     cache = FixedPointIteratorCache(x)
     FixedPointIterator(x, nls, cache; kwargs...)
 end
@@ -46,9 +46,9 @@ Solve the problem stored in an instance `it` of [`FixedPointIterator`](@ref).
 """
 function solver_step!(it::FixedPointIterator{T}, x::AbstractVector{T}, params) where {T}
     update!(cache(it), x)
-    value!(nonlinearsystem(it), x, params)
-    x .= value(nonlinearsystem(it))
-    isFixedPointFormat(nonlinearsystem(it)) || (x .-= solution(cache(it)))
+    value!(nonlinearproblem(it), x, params)
+    x .= value(nonlinearproblem(it))
+    isFixedPointFormat(nonlinearproblem(it)) || (x .-= solution(cache(it)))
     x
 end
 
@@ -57,13 +57,13 @@ config(solver::FixedPointIterator)::Options = solver.config
 status(solver::FixedPointIterator)::NonlinearSolverStatus = solver.status
 
 """
-    nonlinearsystem(it)
+    nonlinearproblem(it)
 
-Return the [`NonlinearSystem`](@ref) contained in the [`FixedPointIterator`](@ref). Compare this to [`linearsolver`](@ref).
+Return the [`NonlinearProblem`](@ref) contained in the [`FixedPointIterator`](@ref). Compare this to [`linearsolver`](@ref).
 """
-nonlinearsystem(it::FixedPointIterator)::NonlinearSystem = it.nonlinearsystem
+nonlinearproblem(it::FixedPointIterator)::NonlinearProblem = it.nonlinearproblem
 
-value(it::FixedPointIterator) = value(nonlinearsystem(it))
+value(it::FixedPointIterator) = value(nonlinearproblem(it))
 
 iteration_number(it::FixedPointIterator)::Integer = iteration_number(status(it))
 
@@ -79,8 +79,8 @@ This updates the cache (instance of type [`FixedPointIteratorCache`](@ref)) and 
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
 function update!(it::FixedPointIterator, x₀::AbstractArray, params)
-    update!(status(it), x₀, nonlinearsystem(it), params)
-    update!(nonlinearsystem(it), x₀, params)
+    update!(status(it), x₀, nonlinearproblem(it), params)
+    update!(nonlinearproblem(it), x₀, params)
     update!(cache(it), x₀)
 
     it
@@ -96,12 +96,12 @@ end
 """
 function solve!(it::FixedPointIterator, x::AbstractArray, params=NullParameters())
     initialize!(it, x)
-    update!(status(it), x, nonlinearsystem(it), params)
+    update!(status(it), x, nonlinearproblem(it), params)
 
     while !meets_stopping_criteria(status(it), config(it))
         increase_iteration_number!(status(it))
         solver_step!(it, x, params)
-        update!(status(it), x, nonlinearsystem(it), params)
+        update!(status(it), x, nonlinearproblem(it), params)
         residual!(status(it))
     end
 

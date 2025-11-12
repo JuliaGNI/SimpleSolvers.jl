@@ -11,12 +11,12 @@ Stores absolute, relative and successive residuals for `x` and `f`. It is used a
 - `rfₛ`: successive residual in `f`,
 - `x`: the *current solution* (can also be accessed by calling [`solution`](@ref)),
 - `x̄`: previous solution
-- `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref),
+- `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref),
 - `x̃`: a variable that gives the *component-wise change* via ``\delta/x``,
 - `f₀`: initial function value,
 - `f`: current function value,
 - `f̄`: previous function value,
-- `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref),
+- `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref),
 - `x_converged::Bool`
 - `f_converged::Bool`
 - `g_converged::Bool`
@@ -246,7 +246,7 @@ end
     residual!(status)
 
 Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
-Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearSystem)`](@ref).
+Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref).
 The computed residuals are the following:
 - `rxₐ`: absolute residual in ``x``,
 - `rxₛ` : successive residual (the norm of ``\delta``),
@@ -278,17 +278,17 @@ end
 """
     update!(status, x, nls)
 
-Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`NonlinearSystem`](@ref) `obj`.
+Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`NonlinearProblem`](@ref) `obj`.
 
 !!! info
-   This also updates the objective `nls`!
+   This also updates the problem `nls`!
 
 Sets `x̄` and `f̄` to `x` and `f` respectively and computes `δ` as well as `γ`.
 The new `x` and `x̄` stored in `status` are used to compute `δ`.
 The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
-function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearSystem, params)
+function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearProblem, params)
     status.x̄ .= solution(status)
     status.f̄ .= status.f
 

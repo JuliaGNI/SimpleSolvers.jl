@@ -2,12 +2,12 @@
 
 This page is largely a summary of [nocedal2006numerical; Chapter 3](@cite). We summarize this reference by omitting proofs, but also aim to extend it to manifolds.
 
-A line search method has the goal of minimizing an objective (either a [`UnivariateObjective`](@ref) or a [`MultivariateObjective`](@ref)) approximately, based on a *search direction*[^1].
+A line search method has the goal of minimizing an optimizer problem (either a [`UnivariateProblem`](@ref) or a [`MultivariateOptimizerProblem`](@ref)) approximately, based on a *search direction*[^1].
 
 [^1]: in [nocedal2006numerical](@cite) (and other references) a *search direction* is called a *descent direction*.
 
 !!! info "Definition"
-    For an objective ``f:\mathcal{M}\to\mathbb{R}`` on a manifold ``\mathcal{M}`` a **search direction** at point ``x_k\in\mathcal{M}`` is a vector ``p_k\in{}T_{x_k}\mathcal{M}`` for which we have
+    For an optimizer problem ``f:\mathcal{M}\to\mathbb{R}`` on a manifold ``\mathcal{M}`` a **search direction** at point ``x_k\in\mathcal{M}`` is a vector ``p_k\in{}T_{x_k}\mathcal{M}`` for which we have
     ```math
         g_{x_k}(p_k, \mathrm{grad}^g_{x_k}f) < 0,
     ```
@@ -29,9 +29,9 @@ where ``\mathcal{R}_{x_k}:T_{x_k}\mathcal{M}\to\mathcal{M}`` is a retraction at 
 
 In practice we will not be able to find the ideal ``\alpha`` at every step, but only an approximation thereof. Examples of line search algorithms that aim at finding this ``\alpha`` are the [static line search](@ref "Static Line Search") and the [backtracking line search](@ref "Backtracking Line Search").
 
-## Line Search Objective
+## Line Search Problem
 
-`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`TemporaryUnivariateObjective`](@ref) that realizes the function ``f^\mathrm{ls}`` described above.
+`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`LinesearchProblem`](@ref) that realizes the function ``f^\mathrm{ls}`` described above.
 
 ## Search Directions for Optimizers
 

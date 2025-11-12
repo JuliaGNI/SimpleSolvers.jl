@@ -22,7 +22,7 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
-        "Objectives" => "objectives.md",
+        "Optimizer Problems" => "optimizer_problems.md",
         "Gradients" => "gradients.md",
         "Jacobians" => "jacobians.md",
         "Hessians" => "hessians.md",

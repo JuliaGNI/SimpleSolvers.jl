@@ -14,12 +14,12 @@ that initialize and update the state of the algorithm and perform an actual opti
 
 Further the following convenience methods should be implemented,
 ```
-objective(alg::OptimizationAlgorithm)
+problem(alg::OptimizationAlgorithm)
 gradient(alg::OptimizationAlgorithm)
 hessian(alg::OptimizationAlgorithm)
 linesearch(alg::OptimizationAlgorithm)
 ```
-which return the objective to optimize, its gradient and (approximate) Hessian as well as the
+which return the problem to optimize, its gradient and (approximate) Hessian as well as the
 linesearch algorithm used in conjunction with the optimization algorithm if any.
 
 See [`NewtonOptimizerState`](@ref) for a `struct` that was derived from `OptimizationAlgorithm`.
@@ -42,7 +42,7 @@ function isaOptimizationAlgorithm(alg)
     applicable(gradient, alg) &&
     applicable(hessian, alg) &&
     applicable(linesearch, alg) &&
-    applicable(objective, alg) &&
+    applicable(problem, alg) &&
     applicable(initialize!, alg, x) &&
     applicable(update!, alg, x) &&
     applicable(solver_step!, x, alg)
@@ -55,53 +55,53 @@ The optimizer that stores all the information needed for an optimization problem
 
 # Keys
 - `algorithm::`[`OptimizationAlgorithm`](@ref),
-- `objective::`[`MultivariateObjective`](@ref),
+- `problem::`[`MultivariateOptimizerProblem`](@ref),
 - `config::`[`Options`](@ref),
 - `result::`[`OptimizerResult`](@ref),
 - `state::`[`OptimizationAlgorithm`](@ref).
 """
 struct Optimizer{T,
                  ALG <: OptimizerMethod,
-                 OBJ <: MultivariateObjective{T},
+                 OBJ <: MultivariateOptimizerProblem{T},
                  HT <: Hessian{T},
                  OST <: OptimizerStatus,
                  RES <: OptimizerResult{T},
                  AST <: OptimizationAlgorithm} <: AbstractSolver
     algorithm::ALG
-    objective::OBJ
+    problem::OBJ
     hessian::HT
     config::Options{T}
     status::OptimizerStatus
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, objective::MultivariateObjective{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, objective::MultivariateOptimizerProblem{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(status), typeof(result), typeof(state)}(algorithm, objective, hessian, config, status, result, state)
+        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(result), typeof(state)}(algorithm, objective, hessian, config, result, state)
     end
 end
 
-function Optimizer(x::VT, objective::MultivariateObjective; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
+function Optimizer(x::VT, objective::MultivariateOptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(objective, x)
     status = OptimizerStatus{T}()
     result = OptimizerResult(x, y)
     clear!(result)
     astate = NewtonOptimizerState(x; linesearch = linesearch)
-    hes = Hessian(algorithm, objective, x)
-    Optimizer(algorithm, objective, hes, status, result, astate; options_kwargs...)
+    hes = Hessian(algorithm, problem, x)
+    Optimizer(algorithm, problem, hes, status, result, astate; options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)
     G = Gradient(∇F!, F, x)
-    objective = MultivariateObjective(F, G, x)
-    Optimizer(x, objective; kwargs...)
+    problem = MultivariateOptimizerProblem(F, G, x)
+    Optimizer(x, problem; kwargs...)
 end
 
 config(opt::Optimizer) = opt.config
 result(opt::Optimizer) = opt.result
 status(opt::Optimizer) = opt.status
 state(opt::Optimizer) = opt.state
-objective(opt::Optimizer) = opt.objective
+problem(opt::Optimizer) = opt.problem
 algorithm(opt::Optimizer) = opt.algorithm
 linesearch(opt::Optimizer) = linesearch(state(opt))
 hessian(opt::Optimizer) = opt.hessian
@@ -109,7 +109,7 @@ direction(opt::Optimizer) = direction(state(opt))
 rhs(opt::Optimizer) = rhs(state(opt))
 cache(opt::Optimizer) = cache(state(opt))
 iteration_number(opt::Optimizer) = iteration_number(status(opt))
-gradient(::Optimizer) = error("There is an ambiguity in calling gradient on Optimizer at the moment, as the cache, the result and the objective all store this information.")
+gradient(::Optimizer) = error("There is an ambiguity in calling gradient on Optimizer at the moment, as the cache, the result and the problem all store this information.")
 
 Base.minimum(opt::Optimizer) = minimum(result(opt))
 minimizer(opt::Optimizer) = minimizer(result(opt))
@@ -139,13 +139,13 @@ function Base.show(io::IO, opt::Optimizer)
     @printf io " * Candidate solution\n"
     @printf io "\n"
     length(minimizer(opt)) > SOLUTION_MAX_PRINT_LENGTH || @printf io  "    Final solution value:     [%s]\n" join([@sprintf "%e" x for x in minimizer(opt)], ", ")
-    @printf io "    Final objective value:     %e\n" minimum(opt)
+    @printf io "    Final problem value:     %e\n" minimum(opt)
     @printf io "\n"
 
 end
 
-check_gradient(opt::Optimizer) = check_gradient(gradient(objective(opt)))
-print_gradient(opt::Optimizer) = print_gradient(gradient(objective(opt)))
+check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
+print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 print_status(opt::Optimizer) = print_status(status(opt), config(opt))
 
 assess_convergence(opt::Optimizer) = assess_convergence(status(opt), config(opt))
@@ -164,18 +164,18 @@ end
 """
     update!(opt, x)
 
-Compute objective and gradient at new solution and update result.
+Compute problem and gradient at new solution and update result.
 
 This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref) and then [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 """
 function update!(opt::Optimizer, x::AbstractVector)
-    update!(objective(opt), x)
+    update!(problem(opt), x)
     update!(hessian(opt), x)
     update!(state(opt), x, gradient(objective(opt)), hessian(opt))
     increase_iteration_number!(status(opt))
-    residual!(status(opt), x, result(opt).x, value(objective(opt)), result(opt).f, gradient(objective(opt)), result(opt).g)
-    update!(result(opt), x, value(objective(opt)), gradient(objective(opt)))
+    residual!(status(opt), x, result(opt).x, value(problem(opt)), result(opt).f, gradient(problem(opt)), result(opt).g)
+    update!(result(opt), x, value(problem(opt)), gradient(problem(opt)))
 
     opt
 end
@@ -204,7 +204,7 @@ solver_step!(opt, x)
 ```
 """
 function solver_step!(opt::Optimizer, x::VT)::VT where {VT <: AbstractVector}
-    # update objective, hessian, state and result
+    # update problem, hessian, state and result
     update!(opt, x)
 
     # solve H δx = - ∇f
@@ -212,7 +212,7 @@ function solver_step!(opt::Optimizer, x::VT)::VT where {VT <: AbstractVector}
     ldiv!(direction(opt), hessian(opt), rhs(opt))
 
     # apply line search
-    α = linesearch(state(opt))(linesearch_objective(objective(opt), cache(opt)))
+    α = linesearch(state(opt))(linesearch_problem(problem(opt), cache(opt)))
 
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))

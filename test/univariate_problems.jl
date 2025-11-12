@@ -8,24 +8,24 @@ const x = Float64(π)
 const y = f(x)
 const z = d(x)
 
-obj1 = UnivariateObjective(f, x)
-obj2 = UnivariateObjective(f, d, x)
-obj3 = TemporaryUnivariateObjective(f, d, x)
+obj1 = UnivariateProblem(f, x)
+obj2 = UnivariateProblem(f, d, x)
+obj3 = LinesearchProblem(f, d, x)
 
-function f_d_calls_initialization(obj1::UnivariateObjective, obj2::UnivariateObjective)
+function f_d_calls_initialization(obj1::UnivariateProblem, obj2::UnivariateProblem)
     @test f_calls(obj1) == f_calls(obj2) == 0
     @test d_calls(obj1) == d_calls(obj2) == 0
 end
 
 # test if the correct value is returned and if the counter goes up
-function return_correct_value(obj1::UnivariateObjective, obj2::UnivariateObjective, obj3::TemporaryUnivariateObjective, x::Number, y::Number)
+function return_correct_value(obj1::UnivariateProblem, obj2::UnivariateProblem, obj3::LinesearchProblem, x::Number, y::Number)
     @test value(obj1, x) == value(obj2, x) == value(obj3, x) == y
     @test f_calls(obj1) == f_calls(obj2) == 1
     @test d_calls(obj1) == d_calls(obj2) == 0
 end
 
 # similar to above, but inplace.
-function return_correct_value_inplace(obj1::UnivariateObjective, obj2::UnivariateObjective, obj3::TemporaryUnivariateObjective, x::Number, y::Number)
+function return_correct_value_inplace(obj1::UnivariateProblem, obj2::UnivariateProblem, obj3::LinesearchProblem, x::Number, y::Number)
     @test value!(obj1, x) == value!(obj2, x) == value!(obj3, x) == y
     @test value(obj1) == value(obj2) == value(obj3, x) == y
     @test f_calls(obj1) == f_calls(obj2) == 2
@@ -41,13 +41,13 @@ for (x_temp, y_temp) ∈ zip((x, 2x), (y, f(2x)))
     SimpleSolvers.clear!(obj2)
 end
 
-function return_correct_derivatives(obj1::UnivariateObjective, obj2::UnivariateObjective, obj3::TemporaryUnivariateObjective, x::Number, z::Number)
+function return_correct_derivatives(obj1::UnivariateProblem, obj2::UnivariateProblem, obj3::LinesearchProblem, x::Number, z::Number)
     @test derivative(obj1, x) == derivative(obj2, x) == derivative(obj3, x) == z
     @test f_calls(obj1) == f_calls(obj2) == 0
     @test d_calls(obj1) == d_calls(obj2) == 1
 end
 
-function return_correct_derivatives_inplace(obj1::UnivariateObjective, obj2::UnivariateObjective, obj3::TemporaryUnivariateObjective, x::Number, z::Number)
+function return_correct_derivatives_inplace(obj1::UnivariateProblem, obj2::UnivariateProblem, obj3::LinesearchProblem, x::Number, z::Number)
 @test derivative!(obj1, x) == derivative!(obj2, x) == derivative!(obj3, x) == z
 @test f_calls(obj1) == f_calls(obj2) == 0
 @test d_calls(obj1) == d_calls(obj2) == 2

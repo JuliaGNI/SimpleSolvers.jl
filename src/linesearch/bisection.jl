@@ -73,8 +73,8 @@ function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: N
     x
 end
 
-bisection(obj::AbstractObjective, xmin::T, xmax::T; config::Options) where {T <: Number} = bisection(obj.D, xmin, xmax; config = config)
-# bisection(obj::AbstractObjective, x::T; kwargs...) = bisection(obj.D, x; kwargs...)
+bisection(obj::AbstractOptimizerProblem, xmin::T, xmax::T; config::Options) where {T <: Number} = bisection(obj.D, xmin, xmax; config = config)
+# bisection(obj::AbstractOptimizerProblem, x::T; kwargs...) = bisection(obj.D, x; kwargs...)
 
 """
     bisection(f, x)
@@ -110,22 +110,22 @@ Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
 LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(T; kwargs...)
 
-function (ls::BisectionState)(obj::UnivariateObjective{T}) where {T}
+function (ls::BisectionState)(obj::UnivariateProblem{T}) where {T}
     # bisection(obj, 0., 1.; config = ls.config)
-    # call the objective on zero if it hasn't been called before
+    # call the problem on zero if it hasn't been called before
     obj.f_calls ≠ 0 || value!(obj, zero(T))
     ls(obj, obj.x_f)
 end
 
-function (ls::BisectionState)(obj::TemporaryUnivariateObjective{T}) where {T}
+function (ls::BisectionState)(obj::LinesearchProblem{T}) where {T}
     # initialize on 0.
     ls(obj, zero(T))
 end
 
-function (ls::BisectionState)(obj::AbstractUnivariateObjective, x)
+function (ls::BisectionState)(obj::AbstractUnivariateProblem, x)
     ls(obj, bracket_minimum(obj.F, x)...)
 end
 
-function (ls::BisectionState)(obj::AbstractUnivariateObjective, x₀, x₁)
+function (ls::BisectionState)(obj::AbstractUnivariateProblem, x₀, x₁)
     bisection(obj, x₀, x₁; config = ls.config)
 end

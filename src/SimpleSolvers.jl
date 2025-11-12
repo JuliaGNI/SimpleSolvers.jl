@@ -18,7 +18,7 @@ module SimpleSolvers
     export update!
     export solve!, solve
     export config, result, state, status
-    export algorithm, objective
+    export algorithm, problem
     export solution, minimizer, minimum
     
     export SolverMethod
@@ -43,9 +43,9 @@ module SimpleSolvers
     
     include("base/gradient.jl")
 
-    export UnivariateObjective,
-           TemporaryUnivariateObjective,
-           MultivariateObjective
+    export UnivariateProblem,
+           LinesearchProblem,
+           MultivariateOptimizerProblem
 
     export value, value!, value!!,
            derivative, derivative!, derivative!!,
@@ -53,7 +53,7 @@ module SimpleSolvers
            hessian, hessian!, hessian!!,
            d_calls, f_calls, g_calls, h_calls
 
-    include("base/objectives.jl")
+    include("base/optimizer_problems.jl")
 
     export Options
 
@@ -86,9 +86,9 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    include("base/systems.jl")
+    include("base/solver_problems.jl")
 
-    export LinearSystem, NonlinearSystem
+    export LinearProblem, NonlinearProblem
 
     export LinearSolver, LU, LUSolverLAPACK,
            factorize!, linearsystem
@@ -137,7 +137,7 @@ module SimpleSolvers
     include("nonlinear/nonlinear_solver_status.jl")
     include("nonlinear/nonlinear_solver.jl")
     include("nonlinear/newton_solver_cache.jl")
-    include("nonlinear/newton_solver_linesearch_objective.jl")
+    include("nonlinear/newton_solver_linesearch_problem.jl")
     include("nonlinear/fixed_point_iterator.jl")
     include("nonlinear/newton_solver.jl")
 
@@ -157,7 +157,7 @@ module SimpleSolvers
     include("optimization/hessian_dfp.jl")
     include("optimization/optimizer.jl")
     include("optimization/newton_optimizer_cache.jl")
-    include("optimization/newton_optimizer_linesearch_objective.jl")
+    include("optimization/newton_optimizer_linesearch_problem.jl")
     include("optimization/newton_optimizer_state.jl")
 
 end

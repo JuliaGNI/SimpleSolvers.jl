@@ -11,17 +11,17 @@ using SimpleSolvers # hide
 
 x = [1., 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
-obj = MultivariateObjective(f, x)
+obj = MultivariateOptimizerProblem(f, x)
 
 α = .1
 sl = Static(α)
 nothing # hide
 ```
 
-`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`SimpleSolvers.TemporaryUnivariateObjective`](@ref) that only depends on ``\alpha``:
+`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
 ```@example static
-using SimpleSolvers: linesearch_objective, NewtonOptimizerCache, LinesearchState, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 
 update!(cache, x)
@@ -29,7 +29,7 @@ x₂ = [.9, 0., 0.]
 update!(cache, x₂)
 value!(obj, x₂)
 gradient!(obj, x₂)
-ls_obj = linesearch_objective(obj, cache)
+ls_obj = linesearch_problem(obj, cache)
 nothing # hide
 ```
 

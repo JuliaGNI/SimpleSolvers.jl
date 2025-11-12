@@ -21,12 +21,12 @@ const b₁ = [1., 1., 2.]
 const A₂ = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]
 const b₂ = [1., 1., 1.]
 
-const sys₁ = NonlinearSystem(F, A₁[:, 1], A₁[1, :]; mode = :autodiff)
-const sys₂ = NonlinearSystem(F, A₁[:, 1], A₁[1, :]; mode = :finite)
+const sys₁ = NonlinearProblem(F, A₁[:, 1], A₁[1, :]; mode = :autodiff)
+const sys₂ = NonlinearProblem(F, A₁[:, 1], A₁[1, :]; mode = :finite)
 const jac₃ = Jacobian{eltype(A₁)}(DF!, size(A₁, 1); mode = :user)
-const sys₃ = NonlinearSystem(F, jac₃, A₁[:, 1], A₁[1, :])
+const sys₃ = NonlinearProblem(F, jac₃, A₁[:, 1], A₁[1, :])
 
-function test_various_nonlinearsystems(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
+function test_various_nonlinearproblems(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
     params = (A = A, b = b)
     x = rand(T, length(A[1, :]))
 
@@ -35,5 +35,5 @@ function test_various_nonlinearsystems(A::AbstractMatrix{T}, b::AbstractVector{T
 end
 
 for (A, b) in ((A₁, b₁), (A₂, b₂))
-    test_various_nonlinearsystems(A, b)
+    test_various_nonlinearproblems(A, b)
 end

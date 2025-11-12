@@ -7,9 +7,9 @@ A *backtracking line search method* determines the amount to move in a given sea
 !!! info
     We note that for the static line search we always just return ``\alpha``.
 
-## Backtracking Line Search for a Line Search Objective
+## Backtracking Line Search for a Line Search Problem
 
-We note that when performing backtracking on a [line search objective](@ref "Line Search Objective") care needs to be taken. This is because we need to find equivalent quantities for ``\mathrm{grad}_{x_k}f`` and ``p``. We first look at the derivative of the line search objective:
+We note that when performing backtracking on a [line search problem](@ref "Line Search Problem") care needs to be taken. This is because we need to find equivalent quantities for ``\mathrm{grad}_{x_k}f`` and ``p``. We first look at the derivative of the line search problem:
 
 ```math
 \frac{d}{d\alpha}f^\mathrm{ls}(\alpha) = \frac{d}{d\alpha}f(\mathcal{R}_{x_k}(\alpha{}p)) = \langle d|_{\mathcal{R}_{x_k}(\alpha{}p)}f, \alpha{}p \rangle,
@@ -18,15 +18,15 @@ because the tangent map of a retraction is the identity at zero [absil2008optimi
 
 [^2]: If we are not dealing with general Riemannian manifolds but only vector spaces then ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f`` simply becomes ``\nabla_{\mathcal{R}_{x_k}(\alpha{}p)}f`` and we further have ``\langle A, B\rangle = A^T B``.
 
-We again look at [the example introduced when talking about the sufficient decrease condition](@ref sdc_example_full) and cast it in the form of a *line search objective*:
+We again look at [the example introduced when talking about the sufficient decrease condition](@ref sdc_example_full) and cast it in the form of a *line search problem*:
 
 ```@setup ls_obj
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = MultivariateObjective(f, x)
+obj = MultivariateOptimizerProblem(f, x)
 value!(obj, x)
 hes = Hessian(obj, x; mode = :autodiff)
 update!(hes, x)
@@ -49,18 +49,18 @@ mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
-using SimpleSolvers: linesearch_objective, NewtonOptimizerCache, LinesearchState, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 update!(cache, x, obj.g, hes)
 nothing # hide
 ```
 
 ```@example ls_obj
-ls_obj = linesearch_objective(obj, cache)
+ls_obj = linesearch_problem(obj, cache)
 nothing # hide
 ```
 
-This objective only depends on the parameter ``\alpha``. We plot it:
+This optimizer problem only depends on the parameter ``\alpha``. We plot it:
 
 ```@setup ls_obj
 alpha = 0.:.01:1.5
@@ -97,7 +97,7 @@ sl = Backtracking()
 nothing # hide
 ```
 
-`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_objective`](@ref) that allocates a [`SimpleSolvers.TemporaryUnivariateObjective`](@ref) that only depends on ``\alpha``:
+`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
 We now use this to compute a *backtracking line search*[^4]:
 

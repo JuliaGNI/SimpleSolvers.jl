@@ -22,7 +22,7 @@ grad = Gradient(f, x; mode = :autodiff)
 
 When calling an instance of [`Gradient`](@ref) we can use the functions [`gradient`](@ref) and [`gradient!`](@ref)[^1]:
 
-[^1]: Internally these functions call functors that are implemented for the individual `struct`s derived from [`Gradient`](@ref), but for consistency (especially with regards to [`MultivariateObjective`](@ref)s) we recommend using the functions [`gradient`](@ref) and [`gradient!`](@ref).
+[^1]: Internally these functions call functors that are implemented for the individual `struct`s derived from [`Gradient`](@ref), but for consistency (especially with regards to [`MultivariateOptimizerProblem`](@ref)s) we recommend using the functions [`gradient`](@ref) and [`gradient!`](@ref).
 
 ```@example gradient
 gradient(x, grad)

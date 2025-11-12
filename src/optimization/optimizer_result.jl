@@ -15,7 +15,7 @@ function OptimizerResult(x::VT, y::YT) where {XT, YT, VT <: AbstractVector{XT}}
     clear!(result)
 end
 
-OptimizerResult(x::AbstractVector, obj::AbstractObjective) = OptimizerResult(x, obj(x))
+OptimizerResult(x::AbstractVector, obj::AbstractOptimizerProblem) = OptimizerResult(x, obj(x))
 
 solution(result::OptimizerResult) = result.x
 minimizer(result::OptimizerResult) = result.x
@@ -60,4 +60,4 @@ function update!(result::OptimizerResult, x::AbstractVector, f::Number, g::Abstr
 end
 
 update!(result::OptimizerResult, x::AbstractVector, f::Number, grad::Gradient) = update!(result, x, f, gradient(x, grad))
-update!(result::OptimizerResult, x::AbstractVector, obj::AbstractObjective, g) = update!(result, x, obj(x), g)
+update!(result::OptimizerResult, x::AbstractVector, obj::AbstractOptimizerProblem, g) = update!(result, x, obj(x), g)

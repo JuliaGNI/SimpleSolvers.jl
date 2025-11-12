@@ -1,6 +1,6 @@
 # Optimizers
 
-An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`MultivariateObjective`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
+An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`MultivariateOptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
 
 ```@example optimizer
 using SimpleSolvers
@@ -9,7 +9,7 @@ import Random # hide
 Random.seed!(123) # hide
 
 x = rand(3)
-obj = MultivariateObjective(x -> sum((x - [0., 0., 1.]) .^ 2), x)
+obj = MultivariateOptimizerProblem(x -> sum((x - [0., 0., 1.]) .^ 2), x)
 bt = Backtracking()
 alg = Newton()
 opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
@@ -49,19 +49,19 @@ solver_step!(opt, x)
 The function [`SimpleSolvers.solver_step!`](@ref) in turn does the following:
 
 ```julia
-# update objective, hessian, state and result
+# update problem, hessian, state and result
 update!(opt, x)
 # solve H δx = - ∇f
 ldiv!(direction(opt), hessian(opt), rhs(opt))
 # apply line search
-α = linesearch(state(opt))(linesearch_objective(objective(opt), cache(opt)))
+α = linesearch(state(opt))(linesearch_problem(problem(opt), cache(opt)))
 # compute new minimizer
 x .= compute_new_iterate(x, α, direction(opt))
 ```
 
 ### Solving the Line Search Problem with Backtracking
 
-Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.AbstractUnivariateObjective`](@ref) in turn does:
+Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.AbstractUnivariateProblem`](@ref) in turn does:
 
 ```julia
 α *= ls.p
@@ -76,11 +76,11 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 `sdc` is first allocated as:
 
 ```@example optimizer
-using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_objective, objective, cache # hide
+using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, cache # hide
 ls = linesearch(opt)
 α = ls.α₀
 x₀ = zero(α)
-lso = linesearch_objective(objective(opt), cache(opt))
+lso = linesearch_problem(problem(opt), cache(opt))
 y₀ = value!(lso, x₀)
 d₀ = derivative!(lso, x₀)
 
