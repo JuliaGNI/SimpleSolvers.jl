@@ -6,7 +6,7 @@ Make a line search problem for a *Newton solver* (the `cache` here is an instanc
 # Implementation
 
 !!! info "Producing a single-valued output"
-    Different from the `linesearch_problem` for `NewtonOptimizerCache`s, we apply `l2norm` to the output of `objective!`. This is because the solver operates on an objective with multiple outputs from which we have to find roots, whereas an optimizer operates on an objective with a single output of which we should find a minimum.
+    Different from the `linesearch_problem` for `NewtonOptimizerCache`s, we apply `l2norm` to the output of `problem!`. This is because the solver operates on an optimizer problem with multiple outputs from which we have to find roots, whereas an optimizer operates on an optimizer problem with a single output of which we should find a minimum.
 
 Also see [`linesearch_problem(::MultivariateOptimizerProblem{T}, ::NewtonOptimizerCache{T}) where {T}`](@ref).
 """
@@ -26,7 +26,7 @@ function linesearch_problem(nls::NonlinearProblem{T}, cache::NewtonSolverCache{T
         2 * dot(cache.y, jacobian(nls), direction(cache))
     end
 
-    # the last argument is to specify the "type" in the objective
+    # the last argument is to specify the "type" in the problem
     LinesearchProblem(f, d, zero(T))
 end
 

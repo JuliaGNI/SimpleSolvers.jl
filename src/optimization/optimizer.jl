@@ -75,14 +75,14 @@ struct Optimizer{T,
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, objective::MultivariateOptimizerProblem{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::MultivariateOptimizerProblem{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(objective), typeof(hessian), typeof(result), typeof(state)}(algorithm, objective, hessian, config, result, state)
+        new{T, typeof(algorithm), typeof(problem), typeof(hessian), typeof(status), typeof(result), typeof(state)}(algorithm, problem, hessian, config, status, result, state)
     end
 end
 
-function Optimizer(x::VT, objective::MultivariateOptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
-    y = value(objective, x)
+function Optimizer(x::VT, problem::MultivariateOptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
+    y = value(problem, x)
     status = OptimizerStatus{T}()
     result = OptimizerResult(x, y)
     clear!(result)
@@ -152,7 +152,7 @@ assess_convergence(opt::Optimizer) = assess_convergence(status(opt), config(opt)
 meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), config(opt))
 
 function initialize!(opt::Optimizer, x::AbstractVector)
-    initialize!(objective(opt), x)
+    initialize!(problem(opt), x)
     initialize!(status(opt), x)
     initialize!(result(opt), x)
     initialize!(state(opt), x)
@@ -172,7 +172,7 @@ We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](
 function update!(opt::Optimizer, x::AbstractVector)
     update!(problem(opt), x)
     update!(hessian(opt), x)
-    update!(state(opt), x, gradient(objective(opt)), hessian(opt))
+    update!(state(opt), x, gradient(problem(opt)), hessian(opt))
     increase_iteration_number!(status(opt))
     residual!(status(opt), x, result(opt).x, value(problem(opt)), result(opt).f, gradient(problem(opt)), result(opt).g)
     update!(result(opt), x, value(problem(opt)), gradient(problem(opt)))
@@ -275,7 +275,7 @@ function initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, 
     z = zero(solution(hessian(opt)))
     o = ones(T, length(z))
     H = hessian(opt)
-    update!(H, z, gradient!(objective(H), z))
+    update!(H, z, gradient!(problem(H), z))
     update!(H, o)
     opt
 end

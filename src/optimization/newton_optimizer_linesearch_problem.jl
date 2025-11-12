@@ -1,7 +1,7 @@
 @doc raw"""
-    linesearch_problem(objective, cache)
+    linesearch_problem(problem, cache)
 
-Create [`LinesearchProblem`](@ref) for linesearch algorithm. The variable on which this objective depends is ``\alpha``.
+Create [`LinesearchProblem`](@ref) for linesearch algorithm. The variable on which this problem depends is ``\alpha``.
 
 # Example
 
@@ -35,16 +35,16 @@ In the example above we have to apply [`update!`](@ref) twice on the instance of
 
 Calling the function and derivative stored in the [`LinesearchProblem`](@ref) created with `linesearch_problem` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
-function linesearch_problem(objective::MultivariateOptimizerProblem{T}, cache::NewtonOptimizerCache{T}) where {T}
+function linesearch_problem(problem::MultivariateOptimizerProblem{T}, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
-        value!(objective, cache.x)
+        value!(problem, cache.x)
     end
 
     function d(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
-        gradient!(objective, cache.x)
-        cache.g .= objective.g
+        gradient!(problem, cache.x)
+        cache.g .= problem.g
         dot(cache.g, direction(cache))
     end
 

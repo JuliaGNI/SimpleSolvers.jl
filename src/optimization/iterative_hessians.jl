@@ -6,7 +6,7 @@ Its main purpose is defining a supertype that encompasses [`HessianBFGS`](@ref) 
 """
 abstract type IterativeHessian{T} <: Hessian{T} end
 
-objective(H::IterativeHessian) = H.objective
+problem(H::IterativeHessian) = H.problem
 solution(H::IterativeHessian) = H.x
 gradient(H::IterativeHessian) = H.g
 direction(H::IterativeHessian) = H.δ
