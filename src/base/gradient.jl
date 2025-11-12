@@ -280,6 +280,7 @@ function Gradient{T}(ForG, nx::Int; mode = :autodiff, kwargs...) where {T}
     end
 end
 
+
 Gradient{T}(∇F!, F, nx::Int; kwargs...) where {T} = Gradient{T}(∇F!, nx; mode = :user, kwargs...)
 
 Gradient{T}(∇F!::Nothing, F, nx::Int; kwargs...) where {T} = Gradient{T}(F, nx;  mode = :autodiff, kwargs...)

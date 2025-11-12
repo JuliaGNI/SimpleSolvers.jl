@@ -86,12 +86,19 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
+    export value, value!, value!!,
+           derivative, derivative!, derivative!!,
+           gradient, gradient!, gradient!!,
+           hessian, hessian!, hessian!!,
+           d_calls, f_calls, g_calls, h_calls
+
+
     include("base/solver_problems.jl")
 
     export LinearProblem, NonlinearProblem
 
     export LinearSolver, LU, LUSolverLAPACK,
-           factorize!, linearsystem
+           factorize!
 
     include("linear/linear_solver_method.jl")
     include("linear/linear_solver_cache.jl")
