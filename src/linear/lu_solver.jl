@@ -1,7 +1,7 @@
 """
     struct LU <: LinearSolverMethod
 
-A custom implementation of an LU solver, meant to solve a [`LinearSystem`](@ref).
+A custom implementation of an LU solver, meant to solve a [`LinearProblem`](@ref).
 
 Routines that use the LU solver include [`factorize!`](@ref), [`ldiv!`](@ref) and [`solve!`](@ref).
 In practice the `LU` solver is used by calling the [`LinearSolver`](@ref) constructor and [`ldiv!`](@ref) or [`solve!`](@ref), or with an instance of `LU` as an argument directly, as shown in the *Example section* of this docstring.
@@ -37,7 +37,7 @@ We use the `LU` together with [`solve`](@ref) to solve a linear system:
 ```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv, update!; Random.seed!(123))
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
-ls = LinearSystem(A, v)
+ls = LinearProblem(A, v)
 update!(ls, A, v)
 
 lu = LU()
@@ -98,7 +98,7 @@ function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearSystem) where {T,LUT<:LU}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearProblem) where {T,LUT<:LU}
     cache(lsolver).A .= ls.A
     factorize!(lsolver)
     ldiv!(solution, lsolver, rhs(ls))
@@ -127,13 +127,13 @@ function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
     x
 end
 
-function solve(lu::LU, ls::LinearSystem)
+function solve(lu::LU, ls::LinearProblem)
     lsolver = LinearSolver(lu, ls)
     solve!(lsolver, ls)
 end
 
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
-    ls = LinearSystem(A, b)
+    ls = LinearProblem(A, b)
     update!(ls, A, b)
     solve(lu, ls)
 end
@@ -229,7 +229,7 @@ function factorize!(lsolver::LinearSolver{T,LUT}, A::AbstractMatrix{T}) where {T
     factorize!(lsolver)
 end
 
-factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearSystem{T}) where {T,LUT<:LU} = factorize!(lsolver, ls.A)
+factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearProblem{T}) where {T,LUT<:LU} = factorize!(lsolver, ls.A)
 
 """
     find_maximum_value(v, k)

@@ -133,7 +133,7 @@ function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k:
     bracket(f, a, BracketMinimumCriterion(); s=s, k=k, nmax=nmax)
 end
 
-function bracket_minimum(obj::AbstractObjective{T}, x::T=T(0.0); kwargs...) where {T <: Number}
+function bracket_minimum(obj::AbstractOptimizerProblem{T}, x::T=T(0.0); kwargs...) where {T <: Number}
     bracket_minimum(obj.F, x; kwargs...)
 end
 
@@ -183,7 +183,7 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T=0.0; s::T=T(DEFAULT_
     error("Unable to bracket f starting at x = $x.")
 end
 
-function bracket_minimum_with_fixed_point(obj::AbstractObjective{T}, x::T=T(0.0); kwargs...) where {T <: Number}
+function bracket_minimum_with_fixed_point(obj::AbstractOptimizerProblem{T}, x::T=T(0.0); kwargs...) where {T <: Number}
     bracket_minimum_with_fixed_point(obj.F, x; kwargs...)
 end
 

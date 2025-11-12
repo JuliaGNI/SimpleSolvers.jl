@@ -11,7 +11,7 @@ A `LinesearchMethod` always goes together with a [`LinesearchState`](@ref) and e
 ```julia
 ls(obj, α)
 ```
-where obj is a [`AbstractUnivariateObjective`](@ref) and `α` is an initial *step size*. The output of this functor is then a final step size that is used for updating the parameters.
+where obj is a [`AbstractUnivariateProblem`](@ref) and `α` is an initial *step size*. The output of this functor is then a final step size that is used for updating the parameters.
 """
 abstract type LinesearchMethod <: NonlinearMethod end
 

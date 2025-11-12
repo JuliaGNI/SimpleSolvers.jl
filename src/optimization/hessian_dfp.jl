@@ -4,7 +4,7 @@
 
 """
 struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
-    objective::OBJ
+    problem::OBJ
 
     x̄::VT    # previous solution
     x::VT    # current solution
@@ -21,7 +21,7 @@ struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
     γγ::MT
     δδ::MT
 
-    function HessianDFP(objective::MultivariateObjective, x::AbstractVector{T}) where {T}
+    function HessianDFP(problem::MultivariateOptimizerProblem, x::AbstractVector{T}) where {T}
         Q = alloc_h(x)
 
         T1 = zero(Q)
@@ -29,14 +29,14 @@ struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
         γγ = zero(Q)
         δδ = zero(Q)
             
-        new{T,typeof(x),typeof(Q),typeof(objective)}(objective, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, γγ, δδ)
+        new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, γγ, δδ)
     end
 end
 
 
-HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(MultivariateObjective(F, x), x)
+HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(MultivariateOptimizerProblem(F, x), x)
 
-Hessian(::DFP, ForOBJ::Union{Callable, MultivariateObjective}, x::AbstractVector) = HessianDFP(ForOBJ, x)
+Hessian(::DFP, ForOBJ::Union{Callable, MultivariateOptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
 function initialize!(H::HessianDFP, x::AbstractVector)
     H.Q .= Matrix(1.0I, size(H.Q)...)
@@ -47,7 +47,7 @@ function initialize!(H::HessianDFP, x::AbstractVector)
     H.γ .= eltype(x)(NaN)
 
     H.x .= x
-    H.g .= gradient!(H.objective, x)
+    H.g .= gradient!(H.problem, x)
 
     return H
 end
@@ -57,7 +57,7 @@ function update!(H::HessianDFP, x::AbstractVector)
     H.ḡ .= H.g
     H.x̄ .= H.x
     H.x .= x
-    H.g .= gradient!(H.objective, x)
+    H.g .= gradient!(H.problem, x)
 
     # δ = x - x̄
     H.δ .= H.x .- H.x̄

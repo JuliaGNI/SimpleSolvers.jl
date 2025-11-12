@@ -7,7 +7,7 @@ using SimpleSolvers
 using LinearAlgebra: norm
 
 x = rand(3)
-obj = MultivariateObjective(x -> norm(x - vcat(0., 0., 1.))  ^ 2, x)
+obj = MultivariateOptimizerProblem(x -> norm(x - vcat(0., 0., 1.))  ^ 2, x)
 hes = HessianAutodiff(obj, x)
 ```
 

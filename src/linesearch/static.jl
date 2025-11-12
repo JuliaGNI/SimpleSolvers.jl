@@ -5,7 +5,7 @@ The state for [`Static`](@ref).
 
 # Functors
 
-For a `Number` `a` and an [`AbstractUnivariateObjective`](@ref) `obj` we have the following functors:
+For a `Number` `a` and an [`AbstractUnivariateProblem`](@ref) `obj` we have the following functors:
 ```julia
 ls.(a) = ls.α
 ls.(obj, a) = ls.α
@@ -23,6 +23,6 @@ LinesearchState(algorithm::Static{T₁}; T::DataType=T₁, kwargs...) where {T�
 Base.show(io::IO, state::StaticState) = show(io, Static(state.α))
 
 (ls::StaticState)(::Number = 0) = ls.α
-(ls::StaticState)(::AbstractUnivariateObjective, ::Number = 0) = ls.α
+(ls::StaticState)(::AbstractUnivariateProblem, ::Number = 0) = ls.α
 
 # (ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.α .* δx

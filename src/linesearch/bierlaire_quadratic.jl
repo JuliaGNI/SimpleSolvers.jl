@@ -40,7 +40,7 @@ end
 
 LinesearchState(algorithm::BierlaireQuadratic; T::DataType=Float64, kwargs...) = BierlaireQuadraticState(T; kwargs...)
 
-function (ls::BierlaireQuadraticState{T})(obj::AbstractUnivariateObjective{T}, a::T, b::T, c::T, iteration_number::Integer=1) where {T}
+function (ls::BierlaireQuadraticState{T})(obj::AbstractUnivariateProblem{T}, a::T, b::T, c::T, iteration_number::Integer=1) where {T}
     ls(obj.F, a, b, c, iteration_number)
 end
 

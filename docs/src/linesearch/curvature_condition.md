@@ -34,11 +34,11 @@ We use the [same example that we had when we explained the sufficient decrease c
 
 ```@example cc
 using SimpleSolvers # hide
-using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective, ldiv! # hide
+using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = MultivariateObjective(f, x)
+obj = MultivariateOptimizerProblem(f, x)
 hes = Hessian(obj, x; mode = :autodiff)
 update!(hes, x)
 

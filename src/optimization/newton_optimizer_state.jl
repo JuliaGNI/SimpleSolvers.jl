@@ -2,7 +2,7 @@
     NewtonOptimizerState <: OptimizationAlgorithm
 
 The optimizer state is needed to update the [`Optimizer`](@ref). This is different to [`OptimizerStatus`](@ref) and [`OptimizerResult`](@ref) which serve as diagnostic tools.
-It stores a [`LinesearchState`](@ref) and a [`NewtonOptimizerCache`](@ref) which is used to compute the line search objective at each iteration.
+It stores a [`LinesearchState`](@ref) and a [`NewtonOptimizerCache`](@ref) which is used to compute the line search problem at each iteration.
 
 # Keys
 
@@ -57,7 +57,7 @@ If we only call `update!` once there are still `NaN`s in the ...
 f(x) = sum(x.^2)
 x = [1., 2.]
 state = NewtonOptimizerState(x)
-obj = MultivariateObjective(f, x)
+obj = MultivariateOptimizerProblem(f, x)
 g = gradient!(obj, x)
 hes = HessianAutodiff(obj, x)
 update!(hes, x)

@@ -1,6 +1,6 @@
 # Linear Solvers
 
-Objects of type [`LinearSolver`](@ref) are used to solve [`LinearSystem`](@ref)s, i.e. we want to find ``x`` for given ``A`` and ``y`` such that
+Objects of type [`LinearSolver`](@ref) are used to solve [`LinearProblem`](@ref)s, i.e. we want to find ``x`` for given ``A`` and ``y`` such that
 
 ```math
     Ax = y
@@ -10,14 +10,14 @@ is satisfied.
 
 A linear system can be called with[^1]:
 
-[^1]: Here we also have to *update* the [`LinearSystem`](@ref) by calling [`update!`](@ref). For more information see the [page on the `initialize!` function](@ref "Initialization").
+[^1]: Here we also have to *update* the [`LinearProblem`](@ref) by calling [`update!`](@ref). For more information see the [page on the `initialize!` function](@ref "Initialization").
 
 ```@example linear_system
 using SimpleSolvers
 
 A = [(0. + 1e-6) 1. 2.; 3. 4. 5.; 6. 7. 8.]
 y = [1., 2., 3.]
-ls = LinearSystem(A, y)
+ls = LinearProblem(A, y)
 update!(ls, A, y)
 nothing # hide
 ```
@@ -30,7 +30,7 @@ A = \begin{pmatrix} 0 + \varepsilon & 1 & 2 \\ 3 & 4 & 5 \\ 6 & 7 & 8 \end{pmatr
 
 This matrix would be singular if we had ``\varepsilon = 0`` because ``2\cdot\begin{pmatrix} 3 \\ 4 \\ 5 \end{pmatrix} - \begin{pmatrix} 6 \\ 7 \\ 8 \end{pmatrix} = \begin{pmatrix} 0 \\ 1 \\ 2 \end{pmatrix}.`` So by choosing ``\varepsilon = 10^{-6}`` the matrix is *ill-conditioned*.
 
-We first solve [`LinearSystem`](@ref) with an lu solver (using [`LU`](@ref) and [`solve`](@ref)) in double precision and without pivoting:
+We first solve [`LinearProblem`](@ref) with an lu solver (using [`LU`](@ref) and [`solve`](@ref)) in double precision and without pivoting:
 
 ```@example linear_system
 lu = LU(; pivot = false)
@@ -48,7 +48,7 @@ We now do the same in single precision:
 ```@example linear_system
 Aˢ = Float32.(A)
 yˢ = Float32.(y)
-lsˢ = LinearSystem(Aˢ, yˢ)
+lsˢ = LinearProblem(Aˢ, yˢ)
 update!(lsˢ, Aˢ, yˢ)
 y² = solve(lu, lsˢ)
 ```

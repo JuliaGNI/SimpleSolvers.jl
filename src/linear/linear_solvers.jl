@@ -5,14 +5,14 @@ struct NoLinearSolver <: AbstractLinearSolver end
 """
     LinearSolver <: AbstractSolver
 
-A struct that stores [`LinearSolverMethod`](@ref)s and [`LinearSolverCache`](@ref)s. [`LinearSolver`](@ref)s are used to solve [`LinearSystem`](@ref)s.
+A struct that stores [`LinearSolverMethod`](@ref)s and [`LinearSolverCache`](@ref)s. [`LinearSolver`](@ref)s are used to solve [`LinearProblem`](@ref)s.
 
 # Constructors
 
 ```julia
 LinearSolver(method, cache)
 LinearSolver(method, A)
-LinearSolver(method, ls::LinearSystem)
+LinearSolver(method, ls::LinearProblem)
 LinearSolver(method, x)
 ```
 
@@ -60,7 +60,7 @@ function LinearSolver(method::LinearSolverMethod, A::AbstractArray{T}) where {T}
     LinearSolver(method, cache)
 end
 
-function LinearSolver(method::LinearSolverMethod, ls::LinearSystem)
+function LinearSolver(method::LinearSolverMethod, ls::LinearProblem)
     LinearSolver(method, ls.A)
 end
 
@@ -70,19 +70,19 @@ function LinearSolver(method::LinearSolverMethod, x::AbstractVector{T}) where {T
 end
 
 """
-    solve!(x, ls::LinearSolver, lsys::LinearSystem)
+    solve!(x, ls::LinearSolver, lsys::LinearProblem)
 
-Solve the [`LinearSystem`](@ref) `lsys` with the [`LinearSolver`](@ref) `ls` and store the result in `x`.
-Also see [`solve!(::LinearSolver, ::LinearSystem)`](@ref).
+Solve the [`LinearProblem`](@ref) `lsys` with the [`LinearSolver`](@ref) `ls` and store the result in `x`.
+Also see [`solve!(::LinearSolver, ::LinearProblem)`](@ref).
 """
-function solve!(::AbstractVector, ::LinearSolver, ::LinearSystem)
+function solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)
     error("No method for solve! implemented for this combination of input arguments.")
 end
 
 """
     solve!(ls::LinearSolver, args...)
 
-Solve the [`LinearSystem`](@ref) with the [`LinearSolver`](@ref) `ls`.
+Solve the [`LinearProblem`](@ref) with the [`LinearSolver`](@ref) `ls`.
 """
 function solve!(::LinearSolver, args...)
     error("No method for solve! implemented for this combination of input arguments $(typeof(args...)).")

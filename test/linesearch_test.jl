@@ -1,19 +1,19 @@
 using SimpleSolvers
-using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate, AbstractObjective, BierlaireQuadratic, BierlaireQuadraticState, QuadraticState2
+using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate, AbstractOptimizerProblem, BierlaireQuadratic, BierlaireQuadraticState, QuadraticState2
 using Test
 
 f(x) = x^2 - 1
 g(x) = 2x
 δx(x) = - g(x) / 2
 
-function make_linesearch_objective(x₀::Number)
+function make_linesearch_problem(x₀::Number)
     _f(α) = f(compute_new_iterate(x₀, α, δx(x₀)))
     _d(α) = g(compute_new_iterate(x₀, α, δx(x₀)))
-    TemporaryUnivariateObjective(_f, _d)
+    LinesearchProblem(_f, _d)
 end
 
 function compute_next_iterate(ls::LinesearchState, x₀::T) where {T}
-    ls_obj = make_linesearch_objective(x₀)
+    ls_obj = make_linesearch_problem(x₀)
     α = ls(ls_obj)
     compute_new_iterate(x₀, α, δx(x₀))
 end
@@ -56,8 +56,8 @@ end
 
     @test ls() == 1.
 
-    o1  = UnivariateObjective(f, x)
-    o2  = UnivariateObjective(f, g, x)
+    o1  = UnivariateProblem(f, x)
+    o2  = UnivariateProblem(f, g, x)
     
     ls1 = Linesearch(algorithm = Static())
     ls2 = Linesearch(algorithm = Static(1.0))

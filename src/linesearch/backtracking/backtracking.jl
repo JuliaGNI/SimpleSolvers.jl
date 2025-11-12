@@ -37,7 +37,7 @@ const DEFAULT_ARMIJO_p  = 0.5
 @doc raw"""
     const DEFAULT_WOLFE_c₁
 
-A constant ``\epsilon`` on which a finite difference approximation of the derivative of the objective is computed. This is then used in the following stopping criterion:
+A constant ``\epsilon`` on which a finite difference approximation of the derivative of the problem is computed. This is then used in the following stopping criterion:
 
 ```math
 \frac{f(\alpha) - f(\alpha_0)}{\epsilon} < \alpha\cdot{}f'(\alpha_0).
@@ -59,7 +59,7 @@ Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
 The keys are:
 - `config::`[`Options`](@ref)
 - `α₀`: 
-- `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the objective. Also see [`DEFAULT_WOLFE_c₁`](@ref).
+- `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
 # Functor
@@ -80,14 +80,14 @@ y_0 \gets f(x_0),
 d_0 \gets f'(x_0),
 \alpha \gets \alpha_0,
 ```
-where ``f`` is the *univariate objective* (of type [`AbstractUnivariateObjective`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
+where ``f`` is the *univariate optimizer problem* (of type [`AbstractUnivariateProblem`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
 ```math
     f(\alpha) < y_0 + \epsilon \cdot \alpha \cdot d_0,
 ```
 where ``\epsilon`` is stored in `ls`.
 
 !!! info
-    The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search objective.
+    The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search problem.
 """
 struct BacktrackingState{T} <: LinesearchState{T}
     config::Options{T}
@@ -111,13 +111,13 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = 
 
 LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState{T})(obj::AbstractUnivariateObjective{T}, α::T = ls.α₀) where {T}
+function (ls::BacktrackingState{T})(obj::AbstractUnivariateProblem{T}, α::T = ls.α₀) where {T}
     x₀ = zero(α)
     y₀ = __value!(obj, x₀)
     d(α) = __derivative!(obj, α)
     d₀ = d(x₀)
 
-    # note that we set pₖ ← 0 here as this is the descent direction for the linesearch objective.
+    # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
     sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)
     cc = CurvatureCondition(T(.9), x₀, d₀, one(α), obj, d; mode=:Standard)
     for _ in 1:ls.config.max_iterations
@@ -131,7 +131,7 @@ function (ls::BacktrackingState{T})(obj::AbstractUnivariateObjective{T}, α::T =
     α
 end
 
-__value!(obj::AbstractObjective, x₀) = value!(obj, x₀)
-__value!(obj::TemporaryUnivariateObjective, x₀) = value(obj, x₀)
-__derivative!(obj::AbstractObjective, x₀) = derivative!(obj, x₀)
-__derivative!(obj::TemporaryUnivariateObjective, x₀) = derivative(obj, x₀)
+__value!(obj::AbstractOptimizerProblem, x₀) = value!(obj, x₀)
+__value!(obj::LinesearchProblem, x₀) = value(obj, x₀)
+__derivative!(obj::AbstractOptimizerProblem, x₀) = derivative!(obj, x₀)
+__derivative!(obj::LinesearchProblem, x₀) = derivative(obj, x₀)

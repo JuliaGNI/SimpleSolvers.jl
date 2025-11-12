@@ -27,11 +27,11 @@ We can visualize the sufficient decrease condition with an example:
 
 ```@example sdc
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = MultivariateObjective(f, x)
+obj = MultivariateOptimizerProblem(f, x)
 hes = Hessian(obj, x; mode = :autodiff)
 update!(hes, x)
 

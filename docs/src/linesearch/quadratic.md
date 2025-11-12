@@ -1,6 +1,6 @@
 # Quadratic Line Search
 
-Quadratic [line search](@ref "Line Search") is based on making a quadratic approximation to an objective and then pick the minimum of this quadratic approximation as the next iteration of ``\alpha``.
+Quadratic [line search](@ref "Line Search") is based on making a quadratic approximation to an optimizer problem and then pick the minimum of this quadratic approximation as the next iteration of ``\alpha``.
 
 The quadratic polynomial is built the following way[^1]:
 
@@ -46,11 +46,11 @@ nothing # hide
 
 ![](f.png)
 
-We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We compute the Jacobian of ``f`` and initialize a [line search objective](@ref "Line Search Objective"):
+We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We compute the Jacobian of ``f`` and initialize a [line search problem](@ref "Line Search Problem"):
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, update!, linearsolver, jacobian, cache, linesearch_objective, direction, determine_initial_α # hide
+using SimpleSolvers: compute_jacobian!, factorize!, update!, linearsolver, jacobian, cache, linesearch_problem, direction, determine_initial_α # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -71,8 +71,8 @@ rmul!(cache(solver).rhs, -1)
 # multiply rhs with jacobian
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-nls = NonlinearSystem(F!, x, f(x))
-ls_obj = linesearch_objective(nls, cache(solver), params)
+nls = NonlinearProblem(F!, x, f(x))
+ls_obj = linesearch_problem(nls, cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -199,13 +199,13 @@ And we see that we already very close to the root.
 
 ## Example for Optimization
 
-We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_objective`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
+We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
 ```@example quadratic
 using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient
 
 x₀, x₁ = [0.], x
-obj = MultivariateObjective(sum∘f, x₀)
+obj = MultivariateOptimizerProblem(sum∘f, x₀)
 gradient!(obj, x₀)
 value!(obj, x₀)
 _cache = NewtonOptimizerCache(x₀)
@@ -216,7 +216,7 @@ gradient!(obj, x₁)
 value!(obj, x₁)
 update!(hess, x₁)
 update!(_cache, x₁, gradient(obj), hess)
-ls_obj = linesearch_objective(obj, _cache)
+ls_obj = linesearch_problem(obj, _cache)
 
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
@@ -236,7 +236,7 @@ nothing # hide
 ![](f_ls_optimizer.png)
 
 !!! info
-    Note the different shape of the line search objective in the case of the optimizer, especially that the line search objective can take negative values in this case!
+    Note the different shape of the line search problem in the case of the optimizer, especially that the line search problem can take negative values in this case!
 
 We now again want to find the minimum with quadratic line search and repeat the procedure above:
 
@@ -304,7 +304,7 @@ gradient!(obj, x)
 value!(obj, x)
 update!(hess, x)
 update!(_cache, x, gradient(obj), hess)
-ls_obj = linesearch_objective(obj, _cache)
+ls_obj = linesearch_problem(obj, _cache)
 
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
@@ -350,7 +350,7 @@ gradient!(obj, x)
 value!(obj, x)
 update!(hess, x)
 update!(_cache, x, gradient(obj), hess)
-ls_obj = linesearch_objective(obj, _cache)
+ls_obj = linesearch_problem(obj, _cache)
 
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
@@ -386,7 +386,7 @@ Here we consider the same example as when discussing the [Bierlaire quadratic li
 
 ```@setup II
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction
+using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction
 using LinearAlgebra: rmul!, ldiv!
 using Random
 Random.seed!(1234)
@@ -412,12 +412,12 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-nls = NonlinearSystem(F!, x, f(x))
+nls = NonlinearProblem(F!, x, f(x))
 nothing # hide
 ```
 
 ```@example II
-ls_obj = linesearch_objective(nls, cache(solver), params)
+ls_obj = linesearch_problem(nls, cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

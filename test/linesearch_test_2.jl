@@ -1,5 +1,5 @@
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_objective, direction, LinesearchState, Quadratic2
+using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, LinesearchState, Quadratic2
 using LinearAlgebra: rmul!, ldiv!
 using Test
 using Random 
@@ -14,7 +14,7 @@ function j!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
 end
 x = -10 * rand(1)
 
-function make_linesearch_objective(x::AbstractVector, params=nothing)
+function make_linesearch_problem(x::AbstractVector, params=nothing)
     solver = NewtonSolver(x, f.(x); F = f!)
     update!(solver, x, params)
     compute_jacobian!(solver, x, j!, params; mode = :function)
@@ -27,11 +27,11 @@ function make_linesearch_objective(x::AbstractVector, params=nothing)
     factorize!(linearsolver(solver), jacobian(solver))
     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-    nls = NonlinearSystem(f!, x, f.(x))
-    linesearch_objective(nls, cache(solver), params)
+    nls = NonlinearProblem(f!, x, f.(x))
+    linesearch_problem(nls, cache(solver), params)
 end
 
-function check_linesearch(ls::LinesearchState, ls_obj::TemporaryUnivariateObjective)
+function check_linesearch(ls::LinesearchState, ls_obj::LinesearchProblem)
     α = ls(ls_obj)
     T = eltype(α)
     @test ≈(ls_obj.D(α), zero(T); atol = atol=∛(2eps(T)))
@@ -40,7 +40,7 @@ end
 for T ∈ (Float32, Float64)
     for ls_method ∈ (Bisection(), Quadratic2(), BierlaireQuadratic())
         ls = LinesearchState(ls_method; T = T)
-        ls_obj = make_linesearch_objective(T.(x))
+        ls_obj = make_linesearch_problem(T.(x))
         check_linesearch(ls, ls_obj)
     end
 end

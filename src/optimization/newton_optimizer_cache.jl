@@ -4,12 +4,12 @@
 # Keys
 
 - `x̄`: the previous iterate,
-- `x`: current iterate (this stores the guess called by the functions generated with [`linesearch_objective`](@ref)),
+- `x`: current iterate (this stores the guess called by the functions generated with [`linesearch_problem`](@ref)),
 - `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
-- `g`: gradient value (this stores the gradient associated with `x` called by the *derivative part* of [`linesearch_objective`](@ref)),
+- `g`: gradient value (this stores the gradient associated with `x` called by the *derivative part* of [`linesearch_problem`](@ref)),
 - `rhs`: the right hand side used to compute the update.
 
-To understand how these are used in practice see e.g. [`linesearch_objective`](@ref).
+To understand how these are used in practice see e.g. [`linesearch_problem`](@ref).
 
 Also compare this to [`NewtonSolverCache`](@ref).
 """
@@ -27,8 +27,8 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     end
 
     # we probably don't need this constructor
-    function NewtonOptimizerCache(x::AT, objective::MultivariateObjective) where {T <: Number, AT <: AbstractArray{T}}
-        g = gradient!(objective, x)
+    function NewtonOptimizerCache(x::AT, problem::MultivariateOptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
+        g = gradient!(problem, x)
         new{T, AT}(copy(x), copy(x), zero(x), g, -g)
     end
 end

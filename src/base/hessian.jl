@@ -162,9 +162,9 @@ function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
     HessianAutodiff{T}(F, alloc_h(x), Hconfig)
 end
 
-HessianAutodiff(F::MultivariateObjective, x) = HessianAutodiff(F.F, x)
+HessianAutodiff(F::MultivariateOptimizerProblem, x) = HessianAutodiff(F.F, x)
 
-Hessian(::Newton, ForOBJ::Union{Callable, MultivariateObjective}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
+Hessian(::Newton, ForOBJ::Union{Callable, MultivariateOptimizerProblem}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
 
 HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff{T}(F, zeros(T, nx))
 

@@ -1,6 +1,6 @@
 using LinearAlgebra
 using SimpleSolvers
-using SimpleSolvers: gradient, hessian, linesearch, objective, initialize!, update!, solver_step!
+using SimpleSolvers: gradient, hessian, linesearch, problem, initialize!, update!, solver_step!
 using Test
 using Random
 Random.seed!(123)
@@ -11,12 +11,12 @@ struct OptimizerTest{T} <: OptimizationAlgorithm end
 
 test_optim = OptimizerTest{Float64}()
 test_x = zeros(3)
-test_obj = MultivariateObjective(F, test_x)
+test_obj = MultivariateOptimizerProblem(F, test_x)
 
 @test_throws MethodError gradient(test_optim)
 @test_throws MethodError hessian(test_optim)
 @test_throws MethodError linesearch(test_optim)
-@test_throws MethodError objective(test_optim)
+@test_throws MethodError problem(test_optim)
 
 # test if the correct error is thrown when calling `initialize!` on an `OptimizationAlgorithm`.
 @test_throws ErrorException initialize!(test_optim, test_x)

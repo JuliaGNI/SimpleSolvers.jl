@@ -1,15 +1,15 @@
 # Solver Status
 
-In `SimpleSolvers` we can use the [`SimpleSolvers.NonlinearSolverStatus`](@ref) to provide a diagnostic tool for a [`NonlinearSolver`](@ref). We first make an instance of [`NonlinearSystem`](@ref):
+In `SimpleSolvers` we can use the [`SimpleSolvers.NonlinearSolverStatus`](@ref) to provide a diagnostic tool for a [`NonlinearSolver`](@ref). We first make an instance of [`NonlinearProblem`](@ref):
 
 ```@example status
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_objective, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> tanh.(x)
 F!(y, x, params) = y .= f(x)
-nls = NonlinearSystem(F!, x, f(x))
+nls = NonlinearProblem(F!, x, f(x))
 ```
 
 We now create an instance of [`NewtonSolver`](@ref) which also allocates a [`SimpleSolvers.NonlinearSolverStatus`](@ref):

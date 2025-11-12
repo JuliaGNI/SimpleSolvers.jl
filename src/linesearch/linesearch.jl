@@ -14,7 +14,7 @@ A `struct` that is subtyped from `LinesearchState` needs to implement the functo
 
 ```julia
 ls(x; kwargs...)
-ls(obj::AbstractUnivariateObjective, x; kwargs...)
+ls(obj::AbstractUnivariateProblem, x; kwargs...)
 ```
 
 Additionaly the following function needs to be extended:
@@ -37,20 +37,20 @@ where the data type should be specified each time the constructor is called. Thi
 The following functors are auxiliary helper functions:
 
 ```julia
-ls(f::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, missing); kwargs...)
-ls(f::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), x; kwargs...)
-ls(f::Callable, g::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, g); kwargs...)
-ls(f::Callable, g::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, g), x; kwargs...)
+ls(f::Callable; kwargs...) = ls(LinesearchProblem(f, missing); kwargs...)
+ls(f::Callable, x::Number; kwargs...) = ls(LinesearchProblem(f, missing), x; kwargs...)
+ls(f::Callable, g::Callable; kwargs...) = ls(LinesearchProblem(f, g); kwargs...)
+ls(f::Callable, g::Callable, x::Number; kwargs...) = ls(LinesearchProblem(f, g), x; kwargs...)
 ```
 """
 abstract type LinesearchState{T} end
 
 LinesearchState(algorithm::LinesearchMethod; kwags...) = error("LinesearchState not implemented for algorithm $(typeof(algorithm)).")
 
-(ls::LinesearchState)(f::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, missing); kwargs...)
-(ls::LinesearchState)(f::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, missing), x; kwargs...)
-(ls::LinesearchState)(f::Callable, g::Callable; kwargs...) = ls(TemporaryUnivariateObjective(f, g); kwargs...)
-(ls::LinesearchState)(f::Callable, g::Callable, x::Number; kwargs...) = ls(TemporaryUnivariateObjective(f, g), x; kwargs...)
+(ls::LinesearchState)(f::Callable; kwargs...) = ls(LinesearchProblem(f, missing); kwargs...)
+(ls::LinesearchState)(f::Callable, x::Number; kwargs...) = ls(LinesearchProblem(f, missing), x; kwargs...)
+(ls::LinesearchState)(f::Callable, g::Callable; kwargs...) = ls(LinesearchProblem(f, g); kwargs...)
+(ls::LinesearchState)(f::Callable, g::Callable, x::Number; kwargs...) = ls(LinesearchProblem(f, g), x; kwargs...)
 
 # TODO: clarify why we need the extra struct `LineSearch`. Are `LinesearchMethod`s together with `LinesearchState` not enough?
 """

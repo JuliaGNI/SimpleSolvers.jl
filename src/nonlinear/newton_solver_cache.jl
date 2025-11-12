@@ -8,11 +8,11 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 # Keys
 
 - `x̄`: the previous iterate,
-- `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_objective`](@ref),
+- `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_problem`](@ref),
 - `δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
 - `rhs`: the right-hand-side (this can be accessed by calling [`rhs`](@ref)), 
-- `y`: the objective evaluated at `x`. This is used in [`linesearch_objective`](@ref),
-- `J::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_objective`](@ref). Note that this is not of type [`Jacobian`](@ref)!
+- `y`: the problem evaluated at `x`. This is used in [`linesearch_problem`](@ref),
+- `J::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_problem`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
 # Constructor
 

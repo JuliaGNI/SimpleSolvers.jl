@@ -6,7 +6,7 @@ import LinearAlgebra.BLAS: BlasFloat, BlasInt, liblapack, @blasfunc
 
 The LU Solver taken from `LinearAlgebra.BLAS`.
 """
-struct LUSolverLAPACK{T <: BlasFloat, LST <: LinearSystem{T}}
+struct LUSolverLAPACK{T <: BlasFloat, LST <: LinearProblem{T}}
     n::BlasInt
     linearsystem::LST
     pivots::Vector{BlasInt}
@@ -15,19 +15,19 @@ end
 
 linearsystem(lu::LUSolverLAPACK) = lu.linearsystem
 
-function LUSolverLAPACK(ls::LST) where {T, LST <: LinearSystem{T}}
+function LUSolverLAPACK(ls::LST) where {T, LST <: LinearProblem{T}}
     n = checksquare(Matrix(ls))
     lu = LUSolverLAPACK{T, LST}(n, ls, zeros(BlasInt, n), BlasInt(0))
     solve!(lu)
 end
 
 function LUSolverLAPACK{T}(n::BlasInt) where {T}
-    ls = LinearSystem{T}(n)
+    ls = LinearProblem{T}(n)
     LUSolverLAPACK(ls)
 end
 
 function LUSolverLAPACK(A::AbstractMatrix)
-    LUSolverLAPACK(LinearSystem(A))
+    LUSolverLAPACK(LinearProblem(A))
 end
 
 ## LAPACK LU factorization and solver for general matrices (GE)

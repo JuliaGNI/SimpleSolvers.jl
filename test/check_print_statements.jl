@@ -3,13 +3,13 @@ using Random
 
 Random.seed!(123)
 
-function check_value_for_univariate_objective(T::DataType)
+function check_value_for_univariate_problem(T::DataType)
     f(x::Number) = x ^ 2
     x = rand(T)
-    obj = UnivariateObjective(f, x)
+    obj = UnivariateProblem(f, x)
     y = value(obj, x)
     expected_statement = 
-    "UnivariateObjective:
+    "UnivariateProblem:
 
     f(x)              = NaN 
     d(x)              = NaN 
@@ -23,13 +23,13 @@ function check_value_for_univariate_objective(T::DataType)
     @test statement_we_have == expected_statement
 end
 
-function check_value_for_multivariate_objective(T::DataType)
+function check_value_for_multivariate_problem(T::DataType)
     f(x::AbstractArray) = sum(x .^ 2)
     x = rand(T, 3)
     
-    obj = MultivariateObjective(f, x)
+    obj = MultivariateOptimizerProblem(f, x)
     expected_statement = 
-    "MultivariateObjective (for vector-valued quantities only the first component is printed):
+    "MultivariateOptimizerProblem (for vector-valued quantities only the first component is printed):
 
     f(x)              = NaN 
     g(x)₁             = NaN 
@@ -68,7 +68,7 @@ function compare_statements(s::NewtonSolver, expected_statement::String)
 end
 
 for T in (Float32, Float64)
-    check_value_for_univariate_objective(T)
-    check_value_for_multivariate_objective(T)
+    check_value_for_univariate_problem(T)
+    check_value_for_multivariate_problem(T)
     check_value_for_nonlinearsolverstatus(T)
 end

@@ -18,21 +18,21 @@ A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)) and the 
 NonlinearSolver(x, nls, ls, linearsolver, linesearch, cache; method)
 ```
 
-The `NonlinearSolver` can be called with an [`NonlinearSystem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future. See [`NewtonSolver`](@ref) for examples.
+The `NonlinearSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future. See [`NewtonSolver`](@ref) for examples.
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 
 It's arguments are:
-- `nls::`[`NonlinearSystem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearsystem`](@ref),
-- `ls::`[`LinearSystem`](@ref),
+- `nls::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
+- `ls::`[`LinearProblem`](@ref),
 - `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`LinesearchState`](@ref)
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
-struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearSystem{T},LST<:AbstractLinearSystem,LSoT<:AbstractLinearSolver,LiSeT<:LinesearchState{T},CT<:NonlinearSolverCache{T},NSST<:NonlinearSolverStatus{T}} <: AbstractSolver
-    nonlinearsystem::NLST
+struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:LinesearchState{T},CT<:NonlinearSolverCache{T},NSST<:NonlinearSolverStatus{T}} <: AbstractSolver
+    nonlinearproblem::NLST
     linearsystem::LST
     linearsolver::LSoT
     linesearch::LiSeT
