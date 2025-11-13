@@ -24,11 +24,11 @@ mutable struct CurvatureCondition{T, VT <: Union{T, AbstractArray{T}}, TVT <: Un
     obj::OT
     grad::GT
     gradₖ₊₁::TVT
-    function CurvatureCondition(c::T, xₖ::VT, gradₖ::TVT, pₖ::TVT, obj::OT, grad::GT; mode=:Standard) where {T <: Number, VT <: AbstractArray{T}, TVT <: AbstractArray{T}, OT <: MultivariateOptimizerProblem{T}, GT <: Gradient{T}}
+    function CurvatureCondition(c::T, xₖ::VT, gradₖ::TVT, pₖ::TVT, obj::OT, grad::GT; mode=:Standard) where {T <: Number, VT <: AbstractArray{T}, TVT <: AbstractArray{T}, OT <: OptimizerProblem{T}, GT <: Gradient{T}}
         @assert ((mode == :Standard) || (mode == :Strong)) "Mode has to be either :Strong or :Standard!"
         new{T, VT, TVT, OT, GT, mode}(c, xₖ, gradₖ, pₖ, obj, grad, alloc_g(xₖ))
     end
-    function CurvatureCondition(c::T, xₖ::T, dₖ::T, pₖ::T, obj::OT, d::DT; mode=:Standard) where {T <: Number, DT, OT <: AbstractUnivariateProblem}
+    function CurvatureCondition(c::T, xₖ::T, dₖ::T, pₖ::T, obj::OT, d::DT; mode=:Standard) where {T <: Number, DT, OT <: LinesearchProblem}
         @assert ((mode == :Standard) || (mode == :Strong)) "Mode has to be either :Strong or :Standard!"
         new{T, T, T, OT, DT, mode}(c, xₖ, dₖ, pₖ, obj, d, alloc_d(xₖ))
     end

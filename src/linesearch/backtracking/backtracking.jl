@@ -80,7 +80,7 @@ y_0 \gets f(x_0),
 d_0 \gets f'(x_0),
 \alpha \gets \alpha_0,
 ```
-where ``f`` is the *univariate optimizer problem* (of type [`AbstractUnivariateProblem`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
+where ``f`` is the *univariate optimizer problem* (of type [`LinesearchProblem`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
 ```math
     f(\alpha) < y_0 + \epsilon \cdot \alpha \cdot d_0,
 ```
@@ -111,7 +111,7 @@ Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = 
 
 LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState{T})(obj::AbstractUnivariateProblem{T}, α::T = ls.α₀) where {T}
+function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T = ls.α₀) where {T}
     x₀ = zero(α)
     y₀ = __value!(obj, x₀)
     d(α) = __derivative!(obj, α)

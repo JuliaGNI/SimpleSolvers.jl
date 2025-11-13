@@ -11,7 +11,7 @@ struct OptimizerTest{T} <: OptimizationAlgorithm end
 
 test_optim = OptimizerTest{Float64}()
 test_x = zeros(3)
-test_obj = MultivariateOptimizerProblem(F, test_x)
+test_obj = OptimizerProblem(F, test_x)
 
 @test_throws MethodError gradient(test_optim)
 @test_throws MethodError hessian(test_optim)

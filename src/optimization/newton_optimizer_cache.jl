@@ -27,7 +27,7 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
     end
 
     # we probably don't need this constructor
-    function NewtonOptimizerCache(x::AT, problem::MultivariateOptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
+    function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
         g = gradient!(problem, x)
         new{T, AT}(copy(x), copy(x), zero(x), g, -g)
     end

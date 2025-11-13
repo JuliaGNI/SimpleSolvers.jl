@@ -110,22 +110,15 @@ Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
 
 LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(T; kwargs...)
 
-function (ls::BisectionState)(obj::UnivariateProblem{T}) where {T}
-    # bisection(obj, 0., 1.; config = ls.config)
-    # call the problem on zero if it hasn't been called before
-    obj.f_calls ≠ 0 || value!(obj, zero(T))
-    ls(obj, obj.x_f)
-end
-
 function (ls::BisectionState)(obj::LinesearchProblem{T}) where {T}
     # initialize on 0.
     ls(obj, zero(T))
 end
 
-function (ls::BisectionState)(obj::AbstractUnivariateProblem, x)
+function (ls::BisectionState)(obj::LinesearchProblem, x)
     ls(obj, bracket_minimum(obj.F, x)...)
 end
 
-function (ls::BisectionState)(obj::AbstractUnivariateProblem, x₀, x₁)
+function (ls::BisectionState)(obj::LinesearchProblem, x₀, x₁)
     bisection(obj, x₀, x₁; config = ls.config)
 end

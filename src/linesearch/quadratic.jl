@@ -3,7 +3,7 @@
 
 Quadratic Polynomial line search.
 
-*Quadratic line search* works by fitting a polynomial to a univariate problem (see [`AbstractUnivariateProblem`](@ref)) and then finding the minimum of that polynomial. Also compare this to [`BierlaireQuadraticState`](@ref). The algorithm is taken from [kelley1995iterative](@cite).
+*Quadratic line search* works by fitting a polynomial to a univariate problem (see [`LinesearchProblem`](@ref)) and then finding the minimum of that polynomial. Also compare this to [`BierlaireQuadraticState`](@ref). The algorithm is taken from [kelley1995iterative](@cite).
 
 # Keywords
 
@@ -84,7 +84,7 @@ end
 Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
 This is used as a starting point for using the functor of [`QuadraticState`](@ref) and makes sure that `α` describes *a point past the minimum*.
 """
-function determine_initial_α(obj::AbstractUnivariateProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
+function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
     if derivative(obj, x₀) < zero(T)
         BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
     else
@@ -92,7 +92,7 @@ function determine_initial_α(obj::AbstractUnivariateProblem, α₀::T, x₀::T=
     end
 end
 
-function (ls::QuadraticState{T})(obj::AbstractUnivariateProblem{T}, number_of_iterations::Integer = 0, α::T = ls.α₀, x₀::T=zero(T)) where {T}
+function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, α::T = ls.α₀, x₀::T=zero(T)) where {T}
     number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
     y₀ = value!(obj, x₀)

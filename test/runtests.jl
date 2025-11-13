@@ -6,7 +6,6 @@ using SafeTestsets
 @safetestset "Jacobians with parameter-dependent functions                                    " begin include("jacobian_for_parameter_dependent_functions_tests.jl") end
 @safetestset "Nonlinear Systems for parameter-dependent functions                             " begin include("nonlinear_systems_for_parameter_dependent_functions_tests.jl") end
 @safetestset "Hessians                                                                        " begin include("hessian_tests.jl") end
-@safetestset "Univariate problems                                                             " begin include("univariate_problems.jl") end
 @safetestset "Multivariate problems                                                           " begin include("multivariate_problems.jl") end
 @safetestset "Linear Solvers                                                                  " begin include("linear_solver_tests.jl") end
 @safetestset "Line Searches                                                                   " begin include("linesearch_test.jl") end

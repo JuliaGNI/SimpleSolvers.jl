@@ -21,7 +21,7 @@ struct HessianDFP{T,VT,MT,OBJ} <: IterativeHessian{T}
     γγ::MT
     δδ::MT
 
-    function HessianDFP(problem::MultivariateOptimizerProblem, x::AbstractVector{T}) where {T}
+    function HessianDFP(problem::OptimizerProblem, x::AbstractVector{T}) where {T}
         Q = alloc_h(x)
 
         T1 = zero(Q)
@@ -34,9 +34,9 @@ struct HessianDFP{T,VT,MT,OBJ} <: IterativeHessian{T}
 end
 
 
-HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(MultivariateOptimizerProblem(F, x), x)
+HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(OptimizerProblem(F, x), x)
 
-Hessian(::DFP, ForOBJ::Union{Callable, MultivariateOptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
+Hessian(::DFP, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
 function initialize!(H::HessianDFP, x::AbstractVector)
     H.Q .= Matrix(1.0I, size(H.Q)...)
