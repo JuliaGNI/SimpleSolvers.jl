@@ -22,7 +22,8 @@ module SimpleSolvers
     export solution, minimizer, minimum
     
     export SolverMethod
-    export LinearMethod, IterativeMethod
+    export BracketingMethod
+    export LinearMethod, DirectMethod, IterativeMethod
     export NonlinearMethod, PicardMethod, LinesearchMethod
 
     export NewtonMethod, Newton, DFP, BFGS
@@ -43,9 +44,8 @@ module SimpleSolvers
     
     include("base/gradient.jl")
 
-    export UnivariateProblem,
-           LinesearchProblem,
-           MultivariateOptimizerProblem
+    export LinesearchProblem,
+           OptimizerProblem
 
     export value, value!, value!!,
            derivative, derivative!, derivative!!,
@@ -86,19 +86,12 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    export value, value!, value!!,
-           derivative, derivative!, derivative!!,
-           gradient, gradient!, gradient!!,
-           hessian, hessian!, hessian!!,
-           d_calls, f_calls, g_calls, h_calls
-
-
     include("base/solver_problems.jl")
 
     export LinearProblem, NonlinearProblem
 
     export LinearSolver, LU, LUSolverLAPACK,
-           factorize!
+           factorize!, linearsystem
 
     include("linear/linear_solver_method.jl")
     include("linear/linear_solver_cache.jl")
@@ -159,10 +152,9 @@ module SimpleSolvers
 
     include("optimization/optimizer_status.jl")
     include("optimization/optimizer_result.jl")
-    include("optimization/iterative_hessians.jl")
+    include("optimization/optimizer.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
-    include("optimization/optimizer.jl")
     include("optimization/newton_optimizer_cache.jl")
     include("optimization/newton_optimizer_linesearch_problem.jl")
     include("optimization/newton_optimizer_state.jl")
