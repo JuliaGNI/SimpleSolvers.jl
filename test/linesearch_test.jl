@@ -55,17 +55,14 @@ end
     @test ls == LinesearchState(Static(1.0))
 
     @test ls() == 1.
-
-    o1  = UnivariateProblem(f, x)
-    o2  = UnivariateProblem(f, g, x)
     
     ls1 = Linesearch(algorithm = Static())
     ls2 = Linesearch(algorithm = Static(1.0))
     ls3 = Linesearch(algorithm = Static(0.8))
 
-    @test ls1(o1) == ls1(o2) == ls1(f,g) == 1
-    @test ls2(o1) == ls2(o2) == ls2(f,g) == 1
-    @test ls3(o1) == ls3(o2) == ls3(f,g) == 0.8
+    @test ls1(f,g) == 1
+    @test ls2(f,g) == 1
+    @test ls3(f,g) == 0.8
 
 end
 

@@ -20,7 +20,7 @@ struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
     δγ::MT
     δδ::MT
 
-    function HessianBFGS(problem::MultivariateOptimizerProblem, x::AbstractVector{T}) where {T}
+    function HessianBFGS(problem::OptimizerProblem, x::AbstractVector{T}) where {T}
         Q  = alloc_h(x)
         
         T1 = zero(Q)
@@ -33,9 +33,9 @@ struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
     end
 end
 
-HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(MultivariateOptimizerProblem(F, x), x)
+HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(OptimizerProblem(F, x), x)
 
-Hessian(::BFGS, ForOBJ::Union{Callable, MultivariateOptimizerProblem}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
+Hessian(::BFGS, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
 function initialize!(H::HessianBFGS, x::AbstractVector)
     H.Q .= Matrix(1.0I, size(H.Q)...)

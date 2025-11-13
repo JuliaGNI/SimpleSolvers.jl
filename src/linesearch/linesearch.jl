@@ -14,7 +14,7 @@ A `struct` that is subtyped from `LinesearchState` needs to implement the functo
 
 ```julia
 ls(x; kwargs...)
-ls(obj::AbstractUnivariateProblem, x; kwargs...)
+ls(obj::LinesearchProblem, x; kwargs...)
 ```
 
 Additionaly the following function needs to be extended:

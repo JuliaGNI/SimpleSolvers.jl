@@ -205,7 +205,7 @@ We look again at the same example as before, but this time we want to find a min
 using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient
 
 x₀, x₁ = [0.], x
-obj = MultivariateOptimizerProblem(sum∘f, x₀)
+obj = OptimizerProblem(sum∘f, x₀)
 gradient!(obj, x₀)
 value!(obj, x₀)
 _cache = NewtonOptimizerCache(x₀)

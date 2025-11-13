@@ -57,7 +57,7 @@ If we only call `update!` once there are still `NaN`s in the ...
 f(x) = sum(x.^2)
 x = [1., 2.]
 state = NewtonOptimizerState(x)
-obj = MultivariateOptimizerProblem(f, x)
+obj = OptimizerProblem(f, x)
 g = gradient!(obj, x)
 hes = HessianAutodiff(obj, x)
 update!(hes, x)
