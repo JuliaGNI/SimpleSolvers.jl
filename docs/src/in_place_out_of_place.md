@@ -29,13 +29,13 @@ nothing # hide
 
 ![](f.png)
 
-If we now allocate a [`MultivariateOptimizerProblem`](@ref) based on this, we get a series of in-place functions based on this. For example [`value!`](@ref)[^1]:
+If we now allocate a [`OptimizerProblem`](@ref) based on this, we get a series of in-place functions based on this. For example [`value!`](@ref)[^1]:
 
 [^1]: See the [section on optimizer problems](@ref "Optimizer Problems") for an explanation of how to use [`value!`](@ref) and [`value`](@ref).
 
 ```@example in_place
 x = [0.]
-obj = MultivariateOptimizerProblem(f, x)
+obj = OptimizerProblem(f, x)
 y = [0.]
 value!(obj, x)
 @assert value(obj) == f(x) # hide

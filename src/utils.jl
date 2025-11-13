@@ -26,7 +26,7 @@ alloc_d
 
 Allocate `NaN`s of the size of the gradient of `f` (with respect to `x`).
 
-This is used in combination with a [`MultivariateOptimizerProblem`](@ref).
+This is used in combination with a [`OptimizerProblem`](@ref).
 """
 alloc_g
 
@@ -35,7 +35,7 @@ alloc_g
 
 Allocate `NaN`s of the size of the Hessian of `f` (with respect to `x`).
 
-This is used in combination with a [`MultivariateOptimizerProblem`](@ref).
+This is used in combination with a [`OptimizerProblem`](@ref).
 """
 alloc_h
 

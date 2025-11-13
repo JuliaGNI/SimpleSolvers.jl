@@ -55,14 +55,14 @@ The optimizer that stores all the information needed for an optimization problem
 
 # Keys
 - `algorithm::`[`OptimizationAlgorithm`](@ref),
-- `problem::`[`MultivariateOptimizerProblem`](@ref),
+- `problem::`[`OptimizerProblem`](@ref),
 - `config::`[`Options`](@ref),
 - `result::`[`OptimizerResult`](@ref),
 - `state::`[`OptimizationAlgorithm`](@ref).
 """
 struct Optimizer{T,
                  ALG <: OptimizerMethod,
-                 OBJ <: MultivariateOptimizerProblem{T},
+                 OBJ <: OptimizerProblem{T},
                  HT <: Hessian{T},
                  RES <: OptimizerResult{T},
                  AST <: OptimizationAlgorithm} <: AbstractSolver
@@ -73,13 +73,13 @@ struct Optimizer{T,
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::MultivariateOptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
         new{T, typeof(algorithm), typeof(problem), typeof(hessian), typeof(result), typeof(state)}(algorithm, problem, hessian, config, result, state)
     end
 end
 
-function Optimizer(x::VT, problem::MultivariateOptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
+function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(problem, x)
     result = OptimizerResult(x, y)
     clear!(result)
@@ -90,7 +90,7 @@ end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)
     G = Gradient(∇F!, F, x)
-    problem = MultivariateOptimizerProblem(F, G, x)
+    problem = OptimizerProblem(F, G, x)
     Optimizer(x, problem; kwargs...)
 end
 

@@ -56,7 +56,7 @@ In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSol
 
 ```@example update
 using SimpleSolvers: NewtonOptimizerState # hide
-obj = MultivariateOptimizerProblem(f, x)
+obj = OptimizerProblem(f, x)
 state = NewtonOptimizerState(x)
 update!(state, x, Gradient(obj), hes)
 ```
@@ -81,9 +81,9 @@ update!(result, x₂, obj, grad)
 ```
 
 !!! warn
-    `NewtonOptimizerCache`, `OptimizerResult` and `NewtonOptimizerState` (through `MultivariateOptimizerProblem`) all store things that are somewhat similar, for example `x`. This may make it somewhat difficult to keep track of all the things that happen during optimization.
+    `NewtonOptimizerCache`, `OptimizerResult` and `NewtonOptimizerState` (through `OptimizerProblem`) all store things that are somewhat similar, for example `x`. This may make it somewhat difficult to keep track of all the things that happen during optimization.
 
-An [`Optimizer`](@ref) stores a [`MultivariateOptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizationAlgorithm`](@ref) (and therefore the [`MultivariateOptimizerProblem`](@ref) again). We also give an example:
+An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizationAlgorithm`](@ref) (and therefore the [`OptimizerProblem`](@ref) again). We also give an example:
 
 ```@example update
 opt = Optimizer(x, obj)

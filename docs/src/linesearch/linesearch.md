@@ -2,7 +2,7 @@
 
 This page is largely a summary of [nocedal2006numerical; Chapter 3](@cite). We summarize this reference by omitting proofs, but also aim to extend it to manifolds.
 
-A line search method has the goal of minimizing an optimizer problem (either a [`LinesearchProblem`](@ref) or a [`MultivariateOptimizerProblem`](@ref)) approximately, based on a *search direction*[^1].
+A line search method has the goal of minimizing an optimizer problem (either a [`LinesearchProblem`](@ref) or a [`OptimizerProblem`](@ref)) approximately, based on a *search direction*[^1].
 
 [^1]: in [nocedal2006numerical](@cite) (and other references) a *search direction* is called a *descent direction*.
 

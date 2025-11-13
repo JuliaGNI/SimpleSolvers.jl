@@ -11,7 +11,7 @@ using SimpleSolvers # hide
 
 x = [1., 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
-obj = MultivariateOptimizerProblem(f, x)
+obj = OptimizerProblem(f, x)
 
 α = .1
 sl = Static(α)

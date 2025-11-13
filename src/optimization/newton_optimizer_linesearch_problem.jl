@@ -8,7 +8,7 @@ Create [`LinesearchProblem`](@ref) for linesearch algorithm. The variable on whi
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerCache, linesearch_problem, update!)
 x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
-obj = MultivariateOptimizerProblem(f, x)
+obj = OptimizerProblem(f, x)
 gradient!(obj, x)
 value!(obj, x)
 cache = NewtonOptimizerCache(x)
@@ -35,7 +35,7 @@ In the example above we have to apply [`update!`](@ref) twice on the instance of
 
 Calling the function and derivative stored in the [`LinesearchProblem`](@ref) created with `linesearch_problem` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
-function linesearch_problem(objective::MultivariateOptimizerProblem{T}, cache::NewtonOptimizerCache{T}) where {T}
+function linesearch_problem(objective::OptimizerProblem{T}, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
         value!(objective, cache.x)

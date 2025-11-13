@@ -31,7 +31,7 @@ using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!,
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = MultivariateOptimizerProblem(f, x)
+obj = OptimizerProblem(f, x)
 hes = Hessian(obj, x; mode = :autodiff)
 update!(hes, x)
 

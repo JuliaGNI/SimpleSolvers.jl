@@ -129,10 +129,10 @@ end
 """
     NonlinearProblem
 
-A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` and ``F`` is in nonlinear in general (also compare this to [`LinearProblem`](@ref) and [`MultivariateOptimizerProblem`](@ref)).
+A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` and ``F`` is in nonlinear in general (also compare this to [`LinearProblem`](@ref) and [`OptimizerProblem`](@ref)).
 
 !!! info
-    `NonlinearProblem`s are used for *solvers* whereas `MultivariateOptimizerProblem`s are their equivalent for *optimizers*.
+    `NonlinearProblem`s are used for *solvers* whereas `OptimizerProblem`s are their equivalent for *optimizers*.
 
 
 # Keys
@@ -224,7 +224,7 @@ end
     jacobian(nls::NonlinearProblem)
 
 Return the value of the jacobian stored in `nls` (instance of [`NonlinearProblem`](@ref)).
-Like [`gradient`](@ref) for [`MultivariateOptimizerProblem`](@ref).
+Like [`gradient`](@ref) for [`OptimizerProblem`](@ref).
 
 Also see [`Jacobian(::NonlinearProblem)`](@ref).
 """
@@ -246,7 +246,7 @@ end
     jacobian!!(nls::NonlinearProblem, x)
 
 Force the evaluation of the jacobian for a [`NonlinearProblem`](@ref).
-Like [`gradient!!`](@ref) for [`MultivariateOptimizerProblem`](@ref).
+Like [`gradient!!`](@ref) for [`OptimizerProblem`](@ref).
 """
 function jacobian!!(nls::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
     copyto!(j_argument(nls), x)
@@ -259,7 +259,7 @@ end
     jacobian!(nls::NonlinearProblem, x)
 
 Compute the Jacobian of `nls` at `x` and store it in `jacobian(nls)`. Note that the evaluation of the Jacobian is not necessarily enforced here (unlike calling [`jacobian!!`](@ref)).
-Like [`derivative!`](@ref) for [`MultivariateOptimizerProblem`](@ref).
+Like `derivative!` for [`OptimizerProblem`](@ref).
 """
 function jacobian!(nls::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T<:Number}
     if x != j_argument(nls)

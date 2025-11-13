@@ -20,7 +20,7 @@ import Random # hide
 Random.seed!(123) # hide
 
 x = rand(3)
-obj = MultivariateOptimizerProblem(x -> norm(x - vcat(0., 0., 1.)) ^ 2, x)
+obj = OptimizerProblem(x -> norm(x - vcat(0., 0., 1.)) ^ 2, x)
 bt = Backtracking() # hide
 alg = Newton() # hide
 # opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config) # hide

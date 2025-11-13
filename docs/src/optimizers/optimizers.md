@@ -1,6 +1,6 @@
 # Optimizers
 
-An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`MultivariateOptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
+An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`OptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
 
 ```@example optimizer
 using SimpleSolvers
@@ -9,7 +9,7 @@ import Random # hide
 Random.seed!(123) # hide
 
 x = rand(3)
-obj = MultivariateOptimizerProblem(x -> sum((x - [0., 0., 1.]) .^ 2), x)
+obj = OptimizerProblem(x -> sum((x - [0., 0., 1.]) .^ 2), x)
 bt = Backtracking()
 alg = Newton()
 opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)

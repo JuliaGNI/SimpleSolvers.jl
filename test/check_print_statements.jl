@@ -7,9 +7,9 @@ function check_value_for_multivariate_problem(T::DataType)
     f(x::AbstractArray) = sum(x .^ 2)
     x = rand(T, 3)
     
-    obj = MultivariateOptimizerProblem(f, x)
+    obj = OptimizerProblem(f, x)
     expected_statement = 
-    "MultivariateOptimizerProblem (for vector-valued quantities only the first component is printed):
+    "OptimizerProblem (for vector-valued quantities only the first component is printed):
 
     f(x)              = NaN 
     g(x)₁             = NaN 

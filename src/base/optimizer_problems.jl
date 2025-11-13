@@ -3,7 +3,7 @@
 
 An *optimizer problem* is a quantity to has to be made zero by a solver or minimized by an optimizer.
 
-See [`LinesearchProblem`](@ref) and [`MultivariateOptimizerProblem`](@ref).
+See [`LinesearchProblem`](@ref) and [`OptimizerProblem`](@ref).
 """
 abstract type AbstractOptimizerProblem{T <: Number} <: AbstractProblem end
 
@@ -107,7 +107,7 @@ function derivative!(obj::LinesearchProblem, x::Number)
 end
 
 """
-    MultivariateOptimizerProblem <: AbstractOptimizerProblem
+    OptimizerProblem <: AbstractOptimizerProblem
 
 Stores *gradients*. Also compare this to [`NonlinearProblem`](@ref).
 
@@ -115,9 +115,9 @@ The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
 # Functor
 
-If `MultivariateOptimizerProblem` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
+If `OptimizerProblem` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
 """
-mutable struct MultivariateOptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Gradient{T}, Tf, Tg} <: AbstractOptimizerProblem{T}
+mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Gradient{T}, Tf, Tg} <: AbstractOptimizerProblem{T}
     F::TF
     G::TG
 
@@ -131,8 +131,8 @@ mutable struct MultivariateOptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Ca
     g_calls::Int
 end
 
-function Base.show(io::IO, obj::MultivariateOptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
-    @printf io "MultivariateOptimizerProblem (for vector-valued quantities only the first component is printed):\n"
+function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
+    @printf io "OptimizerProblem (for vector-valued quantities only the first component is printed):\n"
     @printf io "\n"
     @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
     @printf io "    g(x)₁             = %.2e %s" gradient(obj)[1] "\n" 
@@ -142,54 +142,54 @@ function Base.show(io::IO, obj::MultivariateOptimizerProblem{T, Tx, TF, TG, Tf})
     @printf io "    number of g calls = %s %s" obj.g_calls "\n" 
 end
 
-function MultivariateOptimizerProblem(F::Callable, G::Gradient,
+function OptimizerProblem(F::Callable, G::Gradient,
                                x::Tx;
                                f::Tf=eltype(x)(NaN),
                                g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
-    MultivariateOptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
+    OptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
 end
 
-function MultivariateOptimizerProblem(F::Callable, G!::Callable,
+function OptimizerProblem(F::Callable, G!::Callable,
                                x::AbstractArray{<:Number};
                                f::Number=eltype(x)(NaN),
                                g::AbstractArray{<:Number}=alloc_g(x))
-    MultivariateOptimizerProblem(F, GradientFunction(G!, x), x; f = f, g = g)
+    OptimizerProblem(F, GradientFunction(G!, x), x; f = f, g = g)
 end
 
-function MultivariateOptimizerProblem(F::Callable, x::AbstractArray; kwargs...)
+function OptimizerProblem(F::Callable, x::AbstractArray; kwargs...)
     G = Gradient(F, x; kwargs...)
-    MultivariateOptimizerProblem(F, G, x; kwargs...)
+    OptimizerProblem(F, G, x; kwargs...)
 end
 
-MultivariateOptimizerProblem(F, G::Nothing, x::AbstractArray; kwargs...) = MultivariateOptimizerProblem(F, x; kwargs...)
+OptimizerProblem(F, G::Nothing, x::AbstractArray; kwargs...) = OptimizerProblem(F, x; kwargs...)
 
-function value!!(obj::MultivariateOptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
+function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     f_argument(obj) .= x
     value(obj) .= value(obj, x)
 end
-function value!!(obj::MultivariateOptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
+function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
     f_argument(obj) .= x
     obj.f = value(obj, x)
 end
 
 """
-    gradient(x, obj::MultivariateOptimizerProblem)
+    gradient(x, obj::OptimizerProblem)
 
-Like [`derivative`](@ref), but for [`MultivariateOptimizerProblem`](@ref).
+Like `derivative`, but for [`OptimizerProblem`](@ref).
 """
-gradient(obj::MultivariateOptimizerProblem) = obj.g
+gradient(obj::OptimizerProblem) = obj.g
 
-function gradient(obj::MultivariateOptimizerProblem, x::AbstractArray{<:Number})
+function gradient(obj::OptimizerProblem, x::AbstractArray{<:Number})
     obj.g_calls += 1
     gradient(x, obj.G)
 end
 
 """
-    gradient!!(obj::MultivariateOptimizerProblem, x)
+    gradient!!(obj::OptimizerProblem, x)
 
-Like [`derivative!!`](@ref), but for [`MultivariateOptimizerProblem`](@ref).
+Like `derivative!!`, but for [`OptimizerProblem`](@ref).
 """
-function gradient!!(obj::MultivariateOptimizerProblem, x::AbstractArray{<:Number})
+function gradient!!(obj::OptimizerProblem, x::AbstractArray{<:Number})
     copyto!(obj.x_g, x)
     obj.g_calls += 1
     gradient!(gradient(obj), x, obj.G)
@@ -197,32 +197,32 @@ function gradient!!(obj::MultivariateOptimizerProblem, x::AbstractArray{<:Number
 end
 
 """
-gradient!(obj::MultivariateOptimizerProblem, x)
+gradient!(obj::OptimizerProblem, x)
 
-Like [`derivative!`](@ref), but for [`MultivariateOptimizerProblem`](@ref).
+Like `derivative!`, but for [`OptimizerProblem`](@ref).
 """
-function gradient!(obj::MultivariateOptimizerProblem, x::AbstractArray{<:Number})
+function gradient!(obj::OptimizerProblem, x::AbstractArray{<:Number})
     if x != obj.x_g
         gradient!!(obj, x)
     end
     gradient(obj)
 end
 
-function _clear_f!(obj::MultivariateOptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
+function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
     obj.f_calls = 0
     obj.f = T(NaN)
     f_argument(obj) .= T(NaN)
     nothing
 end
 
-function _clear_f!(obj::MultivariateOptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
+function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     obj.f_calls = 0
     obj.f .= T(NaN)
     f_argument(obj) .= T(NaN)
     nothing
 end
 
-function _clear_g!(obj::MultivariateOptimizerProblem{T}) where {T}
+function _clear_g!(obj::OptimizerProblem{T}) where {T}
     obj.g_calls = 0
     obj.g .= T(NaN)
     g_argument(obj) .= T(NaN)
@@ -234,7 +234,7 @@ end
 
 Similar to [`initialize!`](@ref), but with only one input argument.
 """
-function clear!(obj::MultivariateOptimizerProblem)
+function clear!(obj::OptimizerProblem)
     _clear_f!(obj)
     _clear_g!(obj)
     obj
@@ -249,7 +249,7 @@ end
 
 Call [`value!`](@ref) and [`gradient!`](@ref) on `obj`.
 """
-function update!(obj::MultivariateOptimizerProblem, x::AbstractVector)
+function update!(obj::OptimizerProblem, x::AbstractVector)
     value!(obj, x)
     gradient!(obj, x)
 
@@ -257,14 +257,14 @@ function update!(obj::MultivariateOptimizerProblem, x::AbstractVector)
 end
 
 f_argument(obj::AbstractOptimizerProblem) = obj.x_f
-g_argument(obj::MultivariateOptimizerProblem) = obj.x_g
+g_argument(obj::OptimizerProblem) = obj.x_g
 
 f_calls(o::AbstractOptimizerProblem) = error("f_calls is not implemented for $(summary(o)).")
-f_calls(o::MultivariateOptimizerProblem) = o.f_calls
+f_calls(o::OptimizerProblem) = o.f_calls
 
 d_calls(o::AbstractOptimizerProblem) = error("d_calls is not implemented for $(summary(o)).")
 
 g_calls(o::AbstractOptimizerProblem) = error("g_calls is not implemented for $(summary(o)).")
-g_calls(o::MultivariateOptimizerProblem) = o.g_calls
+g_calls(o::OptimizerProblem) = o.g_calls
 
-Gradient(obj::MultivariateOptimizerProblem) = obj.G
+Gradient(obj::OptimizerProblem) = obj.G
