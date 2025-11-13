@@ -4,7 +4,7 @@
 A `struct` derived from [`Hessian`](@ref) to be used for an [`Optimizer`](@ref).
 
 # Fields
-- `problem::`[`MultivariateOptimizerProblem`](@ref): 
+- `problem::`[`OptimizerProblem`](@ref): 
 - `x̄`: previous solution,
 - `x`: current solution,
 - `δ`: *descent direction*,
