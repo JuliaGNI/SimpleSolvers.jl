@@ -33,7 +33,7 @@ It's arguments are:
 """
 struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:LinesearchState{T},CT<:NonlinearSolverCache{T},NSST<:NonlinearSolverStatus{T}} <: AbstractSolver
     nonlinearproblem::NLST
-    linearsystem::LST
+    linearproblem::LST
     linearsolver::LSoT
     linesearch::LiSeT
     method::MT

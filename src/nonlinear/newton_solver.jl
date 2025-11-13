@@ -60,10 +60,10 @@ end
 function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), mode=:autodiff, kwargs...) where {T,AT<:AbstractVector{T}}
     nls = ismissing(DF!) ? NonlinearProblem(F, x, y; mode=mode) : NonlinearProblem(F, DF!, x, y)
     cache = NewtonSolverCache(x, y)
-    linearsystem = LinearProblem(alloc_j(x, y))
+    linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = LinesearchState(linesearch; T=T)
-    NewtonSolver(x, nls, linearsystem, linearsolver, ls, cache; kwargs...)
+    NewtonSolver(x, nls, linearproblem, linearsolver, ls, cache; kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
@@ -74,16 +74,16 @@ end
 function solver_step!(s::NewtonSolver, x::AbstractVector{T}, params) where {T}
     update!(cache(s), x)
     value!!(nonlinearproblem(s), x, params)
-    # first we update the rhs of the linearsystem
-    update!(linearsystem(s), -value(nonlinearproblem(s)))
-    rhs(cache(s)) .= rhs(linearsystem(s))
+    # first we update the rhs of the linearproblem
+    update!(linearproblem(s), -value(nonlinearproblem(s)))
+    rhs(cache(s)) .= rhs(linearproblem(s))
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
     if (mod(iteration_number(s) - 1, method(s).refactorize) == 0 || iteration_number(s) == 1)
         jacobian!(nonlinearproblem(s), x, params)
-        update!(linearsystem(s), jacobian(s))
-        factorize!(linearsolver(s), linearsystem(s))
+        update!(linearproblem(s), jacobian(s))
+        factorize!(linearsolver(s), linearproblem(s))
     end
-    ldiv!(direction(cache(s)), linearsolver(s), rhs(linearsystem(s)))
+    ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
     α = linesearch(s)(linesearch_problem(s, params))
     x .= compute_new_iterate(x, α, direction(cache(s)))
     x
@@ -109,7 +109,7 @@ cache(solver::NewtonSolver)::NewtonSolverCache = solver.cache
 config(solver::NewtonSolver)::Options = solver.config
 status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
 
-linearsystem(solver::NewtonSolver) = solver.linearsystem
+linearproblem(solver::NewtonSolver) = solver.linearproblem
 
 """
     nonlinearproblem(solver)
