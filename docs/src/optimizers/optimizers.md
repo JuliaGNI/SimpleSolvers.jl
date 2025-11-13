@@ -61,7 +61,7 @@ x .= compute_new_iterate(x, α, direction(opt))
 
 ### Solving the Line Search Problem with Backtracking
 
-Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.AbstractUnivariateProblem`](@ref) in turn does:
+Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.LinesearchProblem`](@ref) in turn does:
 
 ```julia
 α *= ls.p

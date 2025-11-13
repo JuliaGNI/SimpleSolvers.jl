@@ -30,6 +30,6 @@ function triple_point_finder(f::Callable, x₀::T=0.0; δ::T=T(DEFAULT_BRACKETIN
     error("Unable to find a triple point for quadratic line search starting at x = $x₀.")
 end
 
-function triple_point_finder(obj::AbstractUnivariateProblem{T}, x₀::T=T(0.0); δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
+function triple_point_finder(obj::LinesearchProblem{T}, x₀::T=T(0.0); δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
     triple_point_finder(obj.F, x₀; δ = δ, nmax = nmax)
 end

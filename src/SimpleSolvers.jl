@@ -44,8 +44,7 @@ module SimpleSolvers
     
     include("base/gradient.jl")
 
-    export UnivariateProblem,
-           LinesearchProblem,
+    export LinesearchProblem,
            MultivariateOptimizerProblem
 
     export value, value!, value!!,

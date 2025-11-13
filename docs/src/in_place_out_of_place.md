@@ -42,9 +42,7 @@ value!(obj, x)
 value(obj) == f(x)
 ```
 
-To compute the derivative we can use [`gradient!`](@ref)[^2]:
-
-[^2]: Note that we are using a [`MultivariateOptimizerProblem`](@ref) and therefore [`gradient!`](@ref). A [`UnivariateProblem`](@ref) has to be used together with [`derivative`](@ref).
+To compute the derivative we can use [`gradient!`](@ref):
 
 ```@example in_place
 x = [[x] for x in -7.:.1:7.]

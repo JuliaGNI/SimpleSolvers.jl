@@ -17,7 +17,7 @@ alloc_f
 
 Allocate `NaN`s of the size of the derivative of `f` (with respect to `x`).
 
-This is used in combination with a [`AbstractUnivariateProblem`](@ref).
+This is used in combination with a [`LinesearchProblem`](@ref).
 """
 alloc_d
 
