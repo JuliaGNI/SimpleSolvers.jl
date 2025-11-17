@@ -137,7 +137,7 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 
 # Keys
 - `F`: accessed by calling `Function(nls)`,
-- `J::`[`Jacobian`](@ref): accessed by calling `Jacobian(nls)`,
+- `J::Union{Callable, Missing}`: accessed by calling `Jacobian(nls)`,
 - `f`: accessed by calling [`value`](@ref)`(nls)`,
 - `j`: accessed by calling [`jacobian`](@ref)`(nls)`,
 - `x_f`: accessed by calling [`f_argument`](@ref)`(nls)`,
@@ -146,7 +146,7 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 - `j_calls`: accessed by calling [`j_calls`](@ref)`(nls)`.
 
 """
-mutable struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Jacobian{T},Missing},Tx<:AbstractVector{T},Tf<:AbstractVector{T},Tj<:AbstractMatrix{T}} <: AbstractProblem
+mutable struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Callable,Missing},Tx<:AbstractVector{T},Tf<:AbstractVector{T},Tj<:AbstractMatrix{T}} <: AbstractProblem
     F::TF
     J::TJ
 
@@ -159,7 +159,7 @@ mutable struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Jacobian{T},
     f_calls::Int
     j_calls::Int
 
-    function NonlinearProblem(F::Callable, J::Union{Jacobian,Missing},
+    function NonlinearProblem(F::Callable, J::Union{Callable,Missing},
         x::Tx,
         f::Tf;
         j::Tj=alloc_j(x, f),
@@ -171,23 +171,16 @@ mutable struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Jacobian{T},
     end
 end
 
-"""
-    NonlinearProblem(F, J!, x, f)
-"""
-function NonlinearProblem(F::Callable, J!::Callable,
-    x::AbstractVector{T},
-    f::AbstractVector{T};
-    kwargs...) where {T<:Number}
-    NonlinearProblem(F, JacobianFunction(J!, x), x, f; kwargs...)
-end
+NonlinearProblem{T}(F::Callable, J::Union{Callable, Missing}, n₁::Integer, n₂::Integer; kwargs...) where {T} = NonlinearProblem(F, J, zeros(T, n₁), zeros(T, n₂); kwargs...)
+NonlinearProblem{T}(F::Callable, n₁::Integer, n₂::Integer; kwargs...) where {T} = NonlinearProblem{T}(F, missing, n₁, n₂)
 
-"""
+@doc raw"""
     NonlinearProblem(F, x, f)
+
+Set `jacobian` ``\gets`` `missing` and call the [`NonlinearProblem`](@ref) constructor.
 """
-function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray; mode=:autodiff, kwargs...)
-    mode == :autodiff || mode == :finite || error("If you want to use a manual Jacobian, please use a different constructor!")
-    J = Jacobian(F, x; mode=mode, kwargs...)
-    NonlinearProblem(F, J, x, f)
+function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray)
+    NonlinearProblem(F, missing, x, f)
 end
 
 isFixedPointFormat(nls::NonlinearProblem{T,FP}) where {T,FP} = FP
@@ -231,9 +224,12 @@ Also see [`Jacobian(::NonlinearProblem)`](@ref).
 jacobian(nls::NonlinearProblem) = nls.j
 
 """
-    Jacobian(x, nls::NonlinearProblem)
+    Jacobian(nls::NonlinearProblem)
 
-Return the [`Jacobian`](@ref) stored in `nls`. Also see [`jacobian(::NonlinearProblem)`](@ref).
+Return the *Jacobian function* stored in `nls`. Also see [`jacobian(::NonlinearProblem)`](@ref).
+
+!!! warn
+   Note that this is different from the [`Jacobian`](@ref) used in the [`NonlinearSolver`](@ref)! There the [`Jacobian`](@ref) is a separate `struct`.
 """
 Jacobian(nls::NonlinearProblem) = nls.J
 
@@ -243,27 +239,38 @@ function jacobian(nls::NonlinearProblem{T}, x::AbstractArray{T}, params) where {
 end
 
 """
-    jacobian!!(nls::NonlinearProblem, x)
+    jacobian!!(nls::NonlinearProblem, jacobian::Jacobian, x, prams)
 
 Force the evaluation of the jacobian for a [`NonlinearProblem`](@ref).
 Like [`gradient!!`](@ref) for [`OptimizerProblem`](@ref).
 """
-function jacobian!!(nls::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
+function jacobian!!(nls::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, x::AbstractArray{T}, params) where {T}
     copyto!(j_argument(nls), x)
     nls.j_calls += 1
-    compute_jacobian!(jacobian(nls), x, Jacobian(nls), params)
+    compute_jacobian!(jacobian(nls), x, jacobian_instance, params)
     jacobian(nls)
 end
 
+function jacobian!!(nlp::NonlinearProblem{T}, ::JacobianFunction{T}, x::AbstractArray{T}, params) where {T}
+    copyto!(j_argument(nlp), x)
+    nlp.j_calls += 1
+    Jacobian(nlp)(jacobian(nlp), x, params)
+    jacobian(nlp)
+end
+
+function jacobian!!(nlp::NonlinearProblem{T,FixedPoint,TF,Missing}, ::JacobianFunction{T}, x::AbstractArray{T}, params) where {T, FixedPoint, TF<:Callable}
+    error("There is no analytic Jacobian stored in the system!")
+end
+
 """
-    jacobian!(nls::NonlinearProblem, x)
+    jacobian!(nls::NonlinearProblem, jacobian_instance, x, params)
 
 Compute the Jacobian of `nls` at `x` and store it in `jacobian(nls)`. Note that the evaluation of the Jacobian is not necessarily enforced here (unlike calling [`jacobian!!`](@ref)).
 Like `derivative!` for [`OptimizerProblem`](@ref).
 """
-function jacobian!(nls::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T<:Number}
+function jacobian!(nls::NonlinearProblem{T}, jacobian_instance::Jacobian, x::AbstractArray{T}, params) where {T<:Number}
     if x != j_argument(nls)
-        jacobian!!(nls, x, params)
+        jacobian!!(nls, jacobian_instance, x, params)
     end
     jacobian(nls)
 end
@@ -354,8 +361,8 @@ Like [`f_calls`](@ref) in relation to a [`NonlinearProblem`](@ref) `nls`, but fo
 """
 j_calls(nls::NonlinearProblem) = nls.j_calls
 
-function update!(nls::NonlinearProblem{T}, x::AbstractVector{T}, params) where {T}
+function update!(nls::NonlinearProblem{T}, jacobian::Jacobian{T}, x::AbstractVector{T}, params) where {T}
     value!(nls, x, params)
-    jacobian!(nls, x, params)
+    jacobian!(nls, jacobian, x, params)
     nls
 end

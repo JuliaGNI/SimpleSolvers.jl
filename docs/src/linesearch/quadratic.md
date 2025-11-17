@@ -58,11 +58,11 @@ Random.seed!(123) # hide
 J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
 x = [0.]
 # allocate solver
-solver = NewtonSolver(x, f(x); F = F!)
+solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
 # initialize solver
 params = nothing
 update!(solver, x, params)
-compute_jacobian!(solver, x, J!, params; mode = :function)
+compute_jacobian!(solver, x, params)
 
 # compute rhs
 F!(cache(solver).rhs, x, params)
@@ -71,8 +71,8 @@ rmul!(cache(solver).rhs, -1)
 # multiply rhs with jacobian
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-nls = NonlinearProblem(F!, x, f(x))
-ls_obj = linesearch_problem(nls, cache(solver), params)
+nls = NonlinearProblem(F!, J!, x, f(x))
+ls_obj = linesearch_problem(nls, Jacobian(solver), cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -399,10 +399,10 @@ F!(y, x, params) = f!(y, x)
 J!(j, x, params) = j!(j, x)
 
 x = -10 * rand(1)
-solver = NewtonSolver(x, f.(x); F = F!)
+solver = NewtonSolver(x, f.(x); F = F!, DF! = J!)
 params = nothing
 update!(solver, x, params)
-compute_jacobian!(solver, x, J!, params; mode = :function)
+compute_jacobian!(solver, x, params)
 
 # compute rhs
 f!(cache(solver).rhs, x)
@@ -412,12 +412,12 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-nls = NonlinearProblem(F!, x, f(x))
+nls = NonlinearProblem(F!, J!, x, f(x))
 nothing # hide
 ```
 
 ```@example II
-ls_obj = linesearch_problem(nls, cache(solver), params)
+ls_obj = linesearch_problem(nls, JacobianFunction{Float64}(), cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

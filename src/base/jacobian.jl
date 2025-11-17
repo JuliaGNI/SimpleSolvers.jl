@@ -33,7 +33,7 @@ abstract type Jacobian{T} end
 
 Apply the [`Jacobian`](@ref) and store the result in `j`.
 """
-compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian::Jacobian{T}, params) where {T} = jacobian(j,x, params)
+compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian::Jacobian{T}, params) where {T} = jacobian(j, x, params)
 
 """
     check_jacobian(J)
@@ -65,38 +65,20 @@ end
 """
     JacobianFunction <: Jacobian
 
-A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function.
-
-# Keys
-
-The `struct` stores:
-- `DF!`: a function that can be applied in place.
+A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function taken from the [`NonlinearProblem`](@ref).
 
 # Functor
 
-The functor does:
-
-```julia
-jac(g, x) = jac.DF!(g, x)
-```
+There is no functor associated to `JacobianFunction`.
 """
-struct JacobianFunction{T, JT <: Callable} <: Jacobian{T}
-    DF!::JT
+struct JacobianFunction{T} <: Jacobian{T} end
 
-    function JacobianFunction{T}(DF!::Callable) where T
-        j = zeros(T, 3, 3)
-        x = zeros(T, 3)
-        hasmethod(DF!, Tuple{typeof(j), typeof(x), OptionalParameters}) || error("The function needs to have the following signature: DF!(j, x, params).")
-        new{T, typeof(DF!)}(DF!)
-    end
+function JacobianFunction(T::DataType)
+    JacobianFunction{T}()
 end
 
-function JacobianFunction(DF!::Callable, ::AbstractArray{T}) where {T}
-    JacobianFunction{T}(DF!)
-end
-
-function (jac::JacobianFunction{T})(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
-    jac.DF!(j, x, params)
+function JacobianFunction(::AbstractArray{T}) where {T}
+    JacobianFunction{T}()
 end
 
 """
@@ -115,7 +97,7 @@ The `struct` stores:
 
 ```julia
 JacobianAutodiff(F, y::AbstractVector)
-JacobianAutodiff(F, nx::Integer)
+JacobianAutodiff{T}(F, nx::Integer)
 ```
 
 # Functor
@@ -146,6 +128,10 @@ function JacobianAutodiff{T}(F::Callable, nx::Integer, ny::Integer) where {T}
 end
 
 JacobianAutodiff{T}(F, n::Integer) where {T} = JacobianAutodiff{T}(F, n, n)
+
+function JacobianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
+    JacobianAutodiff{T}(F, length(x))
+end
 
 function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
     F!(j, x) = jac.F(j, x, params)
@@ -239,7 +225,7 @@ function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode = :autodiff, kw
     elseif mode == :finite
         return JacobianFiniteDifferences{T}(F, nx, ny; kwargs...)
     else
-        return JacobianFunction{T}(F)
+        return JacobianFunction{T}()
     end
 end
 
@@ -253,7 +239,6 @@ Jacobian(F::Callable, x::AbstractVector{T}, y::AbstractVector{T}; kwargs...) whe
 
 Allocate a [`Jacobian`](@ref) object, apply it to `x`, and store the result in `j`.
 """
-function compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, ForJ::Callable, params; mode = :autodiff, kwargs...) where {T}
-    jacobian = Jacobian{T}(ForJ, size(j,1), size(j,2); mode = mode, kwargs...)
-    compute_jacobian!(j, x, jacobian, params)
+function compute_jacobian!(::AbstractMatrix{T}, ::AbstractVector{T}, ::JacobianFunction{T}, params) where {T}
+    error("You have to provide a `NonlinearProblem` when using `JacobianFunction`!")
 end
