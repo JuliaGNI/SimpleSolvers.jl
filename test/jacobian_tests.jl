@@ -20,9 +20,9 @@ function J!(g::AbstractMatrix, x::AbstractVector, params)
 end
 
 
-JPAD = Jacobian{T}(F!, n; mode = :autodiff)
-JPFD = Jacobian{T}(F!, n; mode = :finite)
-JPUS = Jacobian{T}(J!, n; mode = :user)
+JPAD = JacobianAutodiff{T}(F!, n, n)
+JPFD = JacobianFiniteDifferences{T}(F!, n, n)
+JPUS = JacobianFunction{T}()
 
 @test typeof(JPAD) <: JacobianAutodiff
 @test typeof(JPFD) <: JacobianFiniteDifferences
@@ -57,10 +57,6 @@ compute_jacobian!(jfd1, x, JPFD, nothing)
 jad2 = zero(j)
 jfd2 = zero(j)
 jus2 = zero(j)
-
-JPAD = Jacobian{T}(F!, n; mode = :autodiff)
-JPFD = Jacobian{T}(F!, n; mode = :finite)
-JPUS = Jacobian{T}(J!, n; mode = :user)
 
 compute_jacobian!(jad2, x, JPAD, nothing)
 compute_jacobian!(jfd2, x, JPFD, nothing)

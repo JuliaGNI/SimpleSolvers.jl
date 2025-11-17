@@ -16,12 +16,6 @@ x = rand(dim)
 jac = JacobianAutodiff{eltype(x)}(F, dim)
 ```
 
-Instead of calling `JacobianAutodiff(f, x)` we can equivalently do:
-
-```@example jacobian
-jac = Jacobian{eltype(x)}(F, dim; mode = :autodiff)
-```
-
 When calling an instance of [`Jacobian`](@ref) we can use the function [`compute_jacobian!`]:
 
 ```@example jacobian

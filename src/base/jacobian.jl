@@ -219,16 +219,6 @@ function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVe
     J
 end
 
-function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode = :autodiff, kwargs...) where {T}
-    if mode == :autodiff
-        return JacobianAutodiff{T}(F, nx, ny)
-    elseif mode == :finite
-        return JacobianFiniteDifferences{T}(F, nx, ny; kwargs...)
-    else
-        return JacobianFunction{T}()
-    end
-end
-
 Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
 
 Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x); kwargs...)
