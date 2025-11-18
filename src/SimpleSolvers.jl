@@ -50,9 +50,8 @@ module SimpleSolvers
     export value, value!, value!!,
            derivative, derivative!, derivative!!,
            gradient, gradient!, gradient!!,
-           hessian, hessian!, hessian!!,
-           h_calls
-
+           hessian, hessian!, hessian!!
+           
     include("base/optimizer_problems.jl")
 
     export Options

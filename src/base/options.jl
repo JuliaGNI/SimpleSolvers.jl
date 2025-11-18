@@ -91,9 +91,6 @@ function minimum_decrease_threshold(::Type{T}) where {T <: AbstractFloat}
     T(10)^-4
 end
 
-const F_CALLS_LIMIT::Int = 0
-const G_CALLS_LIMIT::Int = 0
-const H_CALLS_LIMIT::Int = 0
 const ALLOW_F_INCREASES::Bool = true
 const MIN_ITERATIONS::Int = 0
 const MAX_ITERATIONS::Int = 1_000
@@ -123,7 +120,6 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `f_abstol_break = Inf`: see [`meets_stopping_criteria`](@ref),
 - `f_reltol_break = Inf`: see [`meets_stopping_criteria`](@ref).,
 - `g_restol_break = Inf`,
-- `h_calls_limit = $(H_CALLS_LIMIT)`,
 - `allow_f_increases = $(ALLOW_F_INCREASES)`,
 - `min_iterations = $(MIN_ITERATIONS)`,
 - `max_iterations = $(MAX_ITERATIONS)`: the maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`BacktrackingState`](@ref),
@@ -150,7 +146,6 @@ struct Options{T}
     f_abstol_break::T
     f_reltol_break::T
     g_restol_break::T
-    h_calls_limit::Int
     allow_f_increases::Bool
     min_iterations::Int
     max_iterations::Int
@@ -176,7 +171,6 @@ function Options(T = Float64;
         f_abstol_break::AbstractFloat = T(Inf),
         f_reltol_break::AbstractFloat = T(Inf),
         g_restol_break::AbstractFloat = T(Inf),
-        h_calls_limit::Integer = H_CALLS_LIMIT,
         allow_f_increases::Bool = ALLOW_F_INCREASES,
         min_iterations::Integer = MIN_ITERATIONS,
         max_iterations::Integer = MAX_ITERATIONS,
@@ -202,7 +196,6 @@ function Options(T = Float64;
                         f_abstol_break, 
                         f_reltol_break, 
                         g_restol_break)...,
-                        h_calls_limit, 
                         allow_f_increases, 
                         min_iterations, 
                         max_iterations, 
