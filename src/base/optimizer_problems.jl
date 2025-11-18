@@ -71,8 +71,8 @@ end
 Set `obj.x_f` to `x` and `obj.f` to `value(obj, x)` and return `value(obj)`.
 """
 function value!!(obj::LinesearchProblem, x::Number)
-    obj.x_f = x
-    obj.f = value(obj, x)
+    copyto!(obj.x_f, x)
+    copyto!(obj.f, value(obj, x))
 end
 
 """
@@ -125,8 +125,6 @@ mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <
 
     x_f::Tx
     x_g::Tx
-
-    g_calls::Int
 end
 
 function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
@@ -136,14 +134,13 @@ function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, T
     @printf io "    g(x)₁             = %.2e %s" gradient(obj)[1] "\n" 
     @printf io "    x_f₁              = %.2e %s" obj.x_f[1] "\n" 
     @printf io "    x_g₁              = %.2e %s" obj.x_g[1] "\n" 
-    @printf io "    number of g calls = %s %s" obj.g_calls "\n" 
 end
 
 function OptimizerProblem(F::Callable, G::Gradient,
                                x::Tx;
                                f::Tf=eltype(x)(NaN),
                                g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
-    OptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0)
+    OptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x))
 end
 
 function OptimizerProblem(F::Callable, G!::Callable,
@@ -161,11 +158,11 @@ end
 OptimizerProblem(F, G::Nothing, x::AbstractArray; kwargs...) = OptimizerProblem(F, x; kwargs...)
 
 function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
-    f_argument(obj) .= x
-    value(obj) .= value(obj, x)
+    copyto!(f_argument(obj), x)
+    copyto!(value(obj), value(obj, x))
 end
 function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
-    f_argument(obj) .= x
+    copyto!(f_argument(obj), x)
     obj.f = value(obj, x)
 end
 
@@ -177,7 +174,6 @@ Like `derivative`, but for [`OptimizerProblem`](@ref).
 gradient(obj::OptimizerProblem) = obj.g
 
 function gradient(obj::OptimizerProblem, x::AbstractArray{<:Number})
-    obj.g_calls += 1
     gradient(x, obj.G)
 end
 
@@ -188,7 +184,6 @@ Like `derivative!!`, but for [`OptimizerProblem`](@ref).
 """
 function gradient!!(obj::OptimizerProblem, x::AbstractArray{<:Number})
     copyto!(obj.x_g, x)
-    obj.g_calls += 1
     gradient!(gradient(obj), x, obj.G)
     gradient(obj)
 end
@@ -218,7 +213,6 @@ function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, T
 end
 
 function _clear_g!(obj::OptimizerProblem{T}) where {T}
-    obj.g_calls = 0
     obj.g .= T(NaN)
     g_argument(obj) .= T(NaN)
     nothing
@@ -253,10 +247,5 @@ end
 
 f_argument(obj::AbstractOptimizerProblem) = obj.x_f
 g_argument(obj::OptimizerProblem) = obj.x_g
-
-d_calls(o::AbstractOptimizerProblem) = error("d_calls is not implemented for $(summary(o)).")
-
-g_calls(o::AbstractOptimizerProblem) = error("g_calls is not implemented for $(summary(o)).")
-g_calls(o::OptimizerProblem) = o.g_calls
 
 Gradient(obj::OptimizerProblem) = obj.G

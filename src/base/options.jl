@@ -124,7 +124,6 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `f_reltol_break = Inf`: see [`meets_stopping_criteria`](@ref).,
 - `g_restol_break = Inf`,
 - `f_calls_limit = $(F_CALLS_LIMIT)`,
-- `g_calls_limit = $(G_CALLS_LIMIT)`,
 - `h_calls_limit = $(H_CALLS_LIMIT)`,
 - `allow_f_increases = $(ALLOW_F_INCREASES)`,
 - `min_iterations = $(MIN_ITERATIONS)`,
@@ -153,7 +152,6 @@ struct Options{T}
     f_reltol_break::T
     g_restol_break::T
     f_calls_limit::Int
-    g_calls_limit::Int
     h_calls_limit::Int
     allow_f_increases::Bool
     min_iterations::Int
@@ -181,7 +179,6 @@ function Options(T = Float64;
         f_reltol_break::AbstractFloat = T(Inf),
         g_restol_break::AbstractFloat = T(Inf),
         f_calls_limit::Integer = F_CALLS_LIMIT,
-        g_calls_limit::Integer = G_CALLS_LIMIT,
         h_calls_limit::Integer = H_CALLS_LIMIT,
         allow_f_increases::Bool = ALLOW_F_INCREASES,
         min_iterations::Integer = MIN_ITERATIONS,
@@ -209,7 +206,6 @@ function Options(T = Float64;
                         f_reltol_break, 
                         g_restol_break)...,
                         f_calls_limit, 
-                        g_calls_limit, 
                         h_calls_limit, 
                         allow_f_increases, 
                         min_iterations, 
