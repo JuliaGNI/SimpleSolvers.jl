@@ -21,17 +21,20 @@ const b₁ = [1., 1., 2.]
 const A₂ = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]
 const b₂ = [1., 1., 1.]
 
-const sys₁ = NonlinearProblem(F, A₁[:, 1], A₁[1, :]; mode = :autodiff)
-const sys₂ = NonlinearProblem(F, A₁[:, 1], A₁[1, :]; mode = :finite)
-const jac₃ = Jacobian{eltype(A₁)}(DF!, size(A₁, 1); mode = :user)
-const sys₃ = NonlinearProblem(F, jac₃, A₁[:, 1], A₁[1, :])
+const sys₁ = NonlinearProblem(F, A₁[:, 1], A₁[1, :])
+const sys₂ = NonlinearProblem(F, DF!, A₁[:, 1], A₁[1, :]) # the analytic Jacobian is stored in the problem
+
+const jac₁ = JacobianFunction(A₁[:, 1])
+const jac₂ = JacobianAutodiff(F, A₁[:, 1])
+const jac₃ = JacobianFiniteDifferences{Float64}(DF!, size(A₁, 1), size(A₁, 2))
 
 function test_various_nonlinearproblems(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
     params = (A = A, b = b)
     x = rand(T, length(A[1, :]))
 
-    @test value!(sys₁, x, params) ≈ value!(sys₂, x, params) ≈ value!(sys₃, x, params) ≈ F(zero(x), x, params)
-    @test jacobian!(sys₁, x, params) ≈ jacobian!(sys₂, x, params) ≈ jacobian!(sys₃, x, params)
+    @test value!(sys₁, x, params) ≈ value!(sys₂, x, params) ≈ F(zero(x), x, params)
+    @test_throws "There is no analytic Jacobian stored in the system!" jacobian!(sys₁, jac₁, x, params)
+    @test jacobian!(sys₂, jac₁, x, params) ≈ jacobian!(sys₁, jac₂, x, params) ≈ jacobian!(sys₂, jac₂, x, params) ≈ jacobian!(sys₁, jac₃, x, params) ≈ jacobian!(sys₂, jac₃, x, params)
 end
 
 for (A, b) in ((A₁, b₁), (A₂, b₂))

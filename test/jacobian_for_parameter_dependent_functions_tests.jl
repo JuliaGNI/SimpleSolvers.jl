@@ -1,4 +1,5 @@
 using SimpleSolvers
+using SimpleSolvers: jacobian!
 using Test
 
 function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T} 
@@ -20,9 +21,11 @@ const b₁ = [1., 1., 2.]
 const A₂ = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]
 const b₂ = [1., 1., 1.]
 
-const jac₁ = Jacobian{eltype(A₁)}(F, size(A₁)[2], size(A₁)[1]; mode = :autodiff)
-const jac₂ = Jacobian{eltype(A₁)}(F, size(A₁)[2], size(A₁)[1]; mode = :finite)
-const jac₃ = Jacobian{eltype(A₁)}(DF!, size(A₁)[2], size(A₁)[1]; mode = :user)
+const jac₁ = JacobianAutodiff{eltype(A₁)}(F, size(A₁)[2], size(A₁)[1])
+const jac₂ = JacobianFiniteDifferences{eltype(A₁)}(F, size(A₁)[2], size(A₁)[1])
+const jac₃ = JacobianFunction{eltype(A₁)}()
+
+const sys₃ = NonlinearProblem{eltype(A₁)}(F, DF!, size(A₁)[2], size(A₁)[1])
 
 function test_various_jacobians(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
     params = (A = A, b = b)
@@ -31,7 +34,7 @@ function test_various_jacobians(A::AbstractMatrix{T}, b::AbstractVector{T}) wher
     j₂ = zero(A)
     j₃ = zero(A)
 
-    @test compute_jacobian!(j₁, x, jac₁, params) ≈ compute_jacobian!(j₂, x, jac₂, params) ≈ compute_jacobian!(j₃, x, jac₃, params)
+    @test compute_jacobian!(j₁, x, jac₁, params) ≈ compute_jacobian!(j₂, x, jac₂, params) ≈ jacobian!(sys₃, jac₃, x, params)
 end
 
 for (A, b) in ((A₁, b₁), (A₂, b₂))

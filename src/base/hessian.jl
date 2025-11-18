@@ -21,8 +21,6 @@ Examples include:
 - [`HessianAutodiff`](@ref)
 - [`HessianBFGS`](@ref)
 - [`HessianDFP`](@ref)
-
-These examples can also be called with e.g. `Hessian(x; mode = :autodiff)`.
 """
 abstract type Hessian{T} end
 
@@ -38,7 +36,7 @@ initialize!(hes::Hessian, ::AbstractVector) = error("initialize! not defined for
 
 Compute the Hessian and store it in `h`.
 """
-compute_hessian!(h::AbstractMatrix, x::AbstractVector, hessian::Hessian) = hessian(h,x)
+compute_hessian!(h::AbstractMatrix{T}, x::AbstractVector{T}, hessian::Hessian{T}) where {T <: Number} = hessian(h,x)
 
 """
     compute_hessian(x, hessian)
@@ -47,7 +45,7 @@ Compute the Hessian at point `x` and return the result.
 
 Internally this calls [`compute_hessian!`](@ref).
 """
-function compute_hessian(x, hessian::Hessian)
+function compute_hessian(x::AbstractVector{T}, hessian::Hessian{T}) where {T <: Number}
     h = alloc_h(x)
     compute_hessian!(h, x, hessian)
     h
@@ -111,6 +109,8 @@ end
 
 HessianFunction(H!::HT, ::AbstractVector{T}) where {T,HT} = HessianFunction{T,HT}(H!)
 
+HessianFunction{T}(H!, n::Integer) where {T} = HessianFunction(H!, zeros(T, n))
+
 function (hes::HessianFunction{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     hes.H!(H, x)
 end
@@ -161,7 +161,7 @@ HessianAutodiff(F::OptimizerProblem, x) = HessianAutodiff(F.F, x)
 
 Hessian(::Newton, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
 
-HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff{T}(F, zeros(T, nx))
+HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff(F, zeros(T, nx))
 
 function (hes::HessianAutodiff{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
@@ -208,31 +208,6 @@ Base.:\(H::HessianAutodiff, b) = solve(LU(), H.H, b)
 # TODO: replace the "\" with something that has better performance (and doesn't produce as many allocations)
 LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
 
-function Hessian(ForH, x::AbstractVector{T}; mode = :autodiff, kwargs...) where {T}
-    if mode == :autodiff
-        HessianAutodiff(ForH, x)
-    elseif mode == :function
-        HessianFunction(ForH, x)
-    elseif mode == :user
-        @warn "Use the label :function instead of :user!"
-        HessianFunction(ForH, x)
-    elseif mode == :BFGS
-        HessianBFGS(ForH, x)
-    else
-        error("Hessian for mode $(mode) not defined!")
-    end
-end
-
-Hessian(H!::Callable, F::Nothing, x::AbstractVector; kwargs...) = Hessian(H!, length(x); mode = :user, kwargs...)
-
-Hessian(H!::Nothing, F, x::AbstractVector; kwargs...) = Hessian(F, length(x);  mode = :autodiff, kwargs...)
-
-Hessian{T}(ForH, nx::Int; kwargs...) where {T} = Hessian(ForH, zeros(T, nx); kwargs...)
-
-Hessian{T}(H!, F, nx::Int; kwargs...) where {T} = Hessian(H!, nx; kwargs...)
-
-Hessian{T}(H!::Nothing, F, nx::Int; kwargs...) where {T} = Hessian(F, nx; kwargs...)
-
 """
     compute_hessian!(h, x, ForH)
 
@@ -242,8 +217,14 @@ Compute the hessian of function `ForH` at `x` and store it in `h`.
 
 Internally this allocates a [`Hessian`](@ref) object.
 """
-function compute_hessian!(H::AbstractMatrix, x::AbstractVector, ForH; kwargs...)
-    hessian = Hessian(ForH, x; kwargs...)
+function compute_hessian!(H::AbstractMatrix{T}, x::AbstractVector{T}, ForH; mode = :autodiff) where {T<:Number}
+    hessian = if mode == :autodiff
+        HessianAutodiff(ForH, x)
+    elseif mode == :finite
+        HessianFiniteDifferences(ForH, x)
+    else
+        HessianFunction(ForH, x)
+    end
     hessian(H, x)
 end
 
@@ -256,7 +237,7 @@ Also see [`gradient_ad!`](@ref) for the [`Gradient`](@ref) version.
 
 # Implementation
 
-This is using [`compute_hessian!`](@ref) with the keyword `mode` set to `autodiff`.
+This is using [`compute_hessian!`](@ref) with the [`HessianAutodiff`](@ref).
 """
 function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
     compute_hessian!(H, x, F; mode = :autodiff, kwargs...)

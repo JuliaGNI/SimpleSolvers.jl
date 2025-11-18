@@ -14,10 +14,11 @@ function j!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
 end
 x = -10 * rand(1)
 
-function make_linesearch_problem(x::AbstractVector, params=nothing)
-    solver = NewtonSolver(x, f.(x); F = f!)
+function make_linesearch_problem(x::AbstractVector{T}, params=nothing) where {T}
+    jacobian_instance = JacobianFunction{T}()
+    solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian_instance)
     update!(solver, x, params)
-    compute_jacobian!(solver, x, j!, params; mode = :function)
+    compute_jacobian!(solver, x, params)
 
     # compute rhs
     f!(cache(solver).rhs, x, params)
@@ -27,8 +28,8 @@ function make_linesearch_problem(x::AbstractVector, params=nothing)
     factorize!(linearsolver(solver), jacobian(solver))
     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-    nls = NonlinearProblem(f!, x, f.(x))
-    linesearch_problem(nls, cache(solver), params)
+    nlp = NonlinearProblem(f!, j!, x, f.(x))
+    linesearch_problem(nlp, jacobian_instance, cache(solver), params)
 end
 
 function check_linesearch(ls::LinesearchState, ls_obj::LinesearchProblem)

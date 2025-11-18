@@ -39,7 +39,7 @@ using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, gradient
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
-hes = Hessian(obj, x; mode = :autodiff)
+hes = HessianAutodiff(obj, x)
 update!(hes, x)
 
 c₂ = .9

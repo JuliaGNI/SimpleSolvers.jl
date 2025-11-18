@@ -12,7 +12,7 @@ obj = OptimizerProblem(f, x)
 gradient!(obj, x)
 value!(obj, x)
 cache = NewtonOptimizerCache(x)
-hess = Hessian(obj, x; mode = :autodiff)
+hess = HessianAutodiff(obj, x)
 update!(hess, x)
 update!(cache, x, obj.g, hess)
 x₂ = [.9, 0., 0.]

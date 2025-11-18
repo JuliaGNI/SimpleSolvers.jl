@@ -50,9 +50,8 @@ module SimpleSolvers
     export value, value!, value!!,
            derivative, derivative!, derivative!!,
            gradient, gradient!, gradient!!,
-           hessian, hessian!, hessian!!,
-           d_calls, f_calls, g_calls, h_calls
-
+           hessian, hessian!, hessian!!
+           
     include("base/optimizer_problems.jl")
 
     export Options
@@ -91,7 +90,7 @@ module SimpleSolvers
     export LinearProblem, NonlinearProblem
 
     export LinearSolver, LU, LUSolverLAPACK,
-           factorize!, linearsystem
+           factorize!, linearproblem
 
     include("linear/linear_solver_method.jl")
     include("linear/linear_solver_cache.jl")

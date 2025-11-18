@@ -16,10 +16,10 @@ j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.Forward
 F!(y, x, params) = f!(y, x)
 J!(j, x, params) = j!(j, x)
 x = -10 * rand(1)
-solver = NewtonSolver(x, f.(x); F = F!)
+solver = NewtonSolver(x, f.(x); F = F!, DF! = J!)
 params = nothing
 update!(solver, x, params)
-compute_jacobian!(solver, x, J!, params; mode = :function)
+compute_jacobian!(solver, x, params)
 
 # compute rhs
 f!(cache(solver).rhs, x)
@@ -29,8 +29,8 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-nls = NonlinearProblem(F!, x, f(x))
-ls_obj = linesearch_problem(nls, cache(solver), params)
+nlp = NonlinearProblem(F!, x, f(x))
+ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
