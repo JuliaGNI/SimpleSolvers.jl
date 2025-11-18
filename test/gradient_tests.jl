@@ -21,9 +21,9 @@ function ∇F!(g::Vector, x::Vector)
 end
 
 
-∇PAD = Gradient{T}(F, n; mode = :autodiff)
-∇PFD = Gradient{T}(F, n; mode = :finite)
-∇PUS = Gradient{T}(∇F!, n; mode = :user)
+∇PAD = GradientAutodiff{T}(F, n)
+∇PFD = GradientFiniteDifferences{T}(F, n)
+∇PUS = GradientFunction{T}(∇F!, n)
 
 @test typeof(∇PAD) <: GradientAutodiff
 @test typeof(∇PFD) <: GradientFiniteDifferences
@@ -54,8 +54,8 @@ gad1 = zero(g)
 gfd1 = zero(g)
 gus1 = zero(g)
 
-SimpleSolvers.compute_gradient!(gad1, x, F; mode = :autodiff, diff_type = :forward)
-SimpleSolvers.compute_gradient!(gfd1, x, F; mode = :autodiff, diff_type = :finite)
+SimpleSolvers.compute_gradient!(gad1, x, F; mode = :autodiff)
+SimpleSolvers.compute_gradient!(gfd1, x, F; mode = :finite)
 SimpleSolvers.compute_gradient!(gus1, x, ∇F!; mode = :user)
 
 test_grad(gad, gad1, 0)

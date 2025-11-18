@@ -25,7 +25,7 @@ bt = Backtracking() # hide
 alg = Newton() # hide
 # opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config) # hide
 
-hes = Hessian(obj, x; mode = :autodiff)
+hes = HessianAutodiff(obj, x)
 initialize!(hes, x)
 hes.H
 ```

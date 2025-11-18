@@ -150,12 +150,11 @@ function OptimizerProblem(F::Callable, G!::Callable,
     OptimizerProblem(F, GradientFunction(G!, x), x; f = f, g = g)
 end
 
-function OptimizerProblem(F::Callable, x::AbstractArray; kwargs...)
-    G = Gradient(F, x; kwargs...)
-    OptimizerProblem(F, G, x; kwargs...)
+function OptimizerProblem(F::Callable, x::AbstractArray; gradient = GradientAutodiff(F, x))
+    OptimizerProblem(F, gradient, x)
 end
 
-OptimizerProblem(F, G::Nothing, x::AbstractArray; kwargs...) = OptimizerProblem(F, x; kwargs...)
+OptimizerProblem(F, ::Nothing, x::AbstractArray; kwargs...) = OptimizerProblem(F, x; kwargs...)
 
 function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     copyto!(f_argument(obj), x)

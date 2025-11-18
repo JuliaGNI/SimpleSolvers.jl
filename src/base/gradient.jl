@@ -270,25 +270,13 @@ function gradient_fd!(g::AbstractVector{T}, x::AbstractVector{T}, F::FT; kwargs.
     grad(g,x)
 end
 
-function Gradient{T}(ForG, nx::Int; mode = :autodiff, kwargs...) where {T}
-    if mode == :autodiff
-        return GradientAutodiff{T}(ForG, nx)
+function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG; mode = :autodiff) where {T}
+    grad = if mode == :autodiff
+        GradientAutodiff{T}(ForG, length(x))
     elseif mode == :finite
-        return GradientFiniteDifferences{T}(ForG, nx; kwargs...)
+        GradientFiniteDifferences{T}(ForG, length(x))
     else
-        return GradientFunction{T, typeof(ForG)}(ForG)
+        GradientFunction{T}(ForG, length(x))
     end
-end
-
-Gradient{T}(∇F!, F, nx::Int; kwargs...) where {T} = Gradient{T}(∇F!, nx; mode = :user, kwargs...)
-
-Gradient{T}(∇F!::Nothing, F, nx::Int; kwargs...) where {T} = Gradient{T}(F, nx;  mode = :autodiff, kwargs...)
-
-Gradient(∇F!, F, x::AbstractVector{T}; kwargs...) where {T} = Gradient{T}(∇F!, F, length(x); kwargs...)
-
-Gradient(F, x::AbstractVector{T}; kwargs...) where {T} = Gradient{T}(F, length(x); kwargs...)
-
-function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG; kwargs...) where {T}
-    grad = Gradient{T}(ForG, length(x); kwargs...)
     grad(g,x)
 end
