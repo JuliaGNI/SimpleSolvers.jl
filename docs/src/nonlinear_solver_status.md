@@ -9,7 +9,7 @@ using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!,
 x = [3., 1.3]
 f = x -> tanh.(x)
 F!(y, x, params) = y .= f(x)
-nls = NonlinearProblem(F!, x, f(x))
+nlp = NonlinearProblem(F!, x, f(x))
 ```
 
 We now create an instance of [`NewtonSolver`](@ref) which also allocates a [`SimpleSolvers.NonlinearSolverStatus`](@ref):

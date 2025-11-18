@@ -1,5 +1,5 @@
 """
-    linesearch_problem(nls, cache, params)
+    linesearch_problem(nlp, cache, params)
 
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NewtonSolverCache`](@ref)).
 
@@ -10,20 +10,20 @@ Make a line search problem for a *Newton solver* (the `cache` here is an instanc
 
 Also see [`linesearch_problem(::OptimizerProblem{T}, ::NewtonOptimizerCache{T}) where {T}`](@ref).
 """
-function linesearch_problem(nls::NonlinearProblem{T}, cache::NewtonSolverCache{T}, params) where {T}
+function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NewtonSolverCache{T}, params) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
-        value!(nls, cache.x, params)
-        cache.y .= value(nls)
+        value!(nlp, cache.x, params)
+        cache.y .= value(nlp)
         L2norm(cache.y)
     end
 
     function d(α)
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
-        value!(nls, cache.x, params)
-        cache.y .= value(nls)
-        jacobian!(nls, cache.x, params)
-        2 * dot(cache.y, jacobian(nls), direction(cache))
+        value!(nlp, cache.x, params)
+        cache.y .= value(nlp)
+        jacobian!(nlp, jacobian_instance, cache.x, params)
+        2 * dot(cache.y, jacobian(nlp), direction(cache))
     end
 
     # the last argument is to specify the "type" in the objective
@@ -35,4 +35,4 @@ end
 
 Build a line search problem based on a [`NonlinearSolver`](@ref) (almost always a [`NewtonSolver`](@ref) in practice).
 """
-linesearch_problem(nl::NonlinearSolver, params) = linesearch_problem(nonlinearproblem(nl), cache(nl), params)
+linesearch_problem(nl::NonlinearSolver, params) = linesearch_problem(nonlinearproblem(nl), Jacobian(nl), cache(nl), params)

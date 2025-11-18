@@ -17,9 +17,9 @@ end
 
 const FixedPointIterator{T} = NonlinearSolver{T, PicardMethod}
 
-function FixedPointIterator(x::AT, nls::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
+function FixedPointIterator(x::AT, nlp::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
     cache = FixedPointIteratorCache(x)
-    NonlinearSolver(x, nls, NoLinearProblem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
+    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
 end
 
 """
@@ -29,9 +29,9 @@ end
 - `options_kwargs`: see [`Options`](@ref)
 """
 function FixedPointIterator(x::AT, F::Callable; kwargs...) where {T,AT<:AbstractVector{T}}
-    nls = NonlinearProblem(F, missing, x, x; fixed_point=true)
+    nlp = NonlinearProblem(F, missing, x, x; fixed_point=true)
     cache = FixedPointIteratorCache(x)
-    FixedPointIterator(x, nls, cache; kwargs...)
+    FixedPointIterator(x, nlp, cache; kwargs...)
 end
 
 function FixedPointIterator(x::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}

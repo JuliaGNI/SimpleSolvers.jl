@@ -91,7 +91,7 @@ module SimpleSolvers
     export LinearProblem, NonlinearProblem
 
     export LinearSolver, LU, LUSolverLAPACK,
-           factorize!, linearsystem
+           factorize!, linearproblem
 
     include("linear/linear_solver_method.jl")
     include("linear/linear_solver_cache.jl")
