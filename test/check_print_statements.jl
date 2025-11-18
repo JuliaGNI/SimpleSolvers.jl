@@ -14,9 +14,7 @@ function check_value_for_multivariate_problem(T::DataType)
     f(x)              = NaN 
     g(x)₁             = NaN 
     x_f₁              = NaN 
-    x_g₁              = NaN 
-    number of f calls = 0 
-    number of g calls = 0 \n"
+    x_g₁              = NaN \n"
     io = IOBuffer()
     show(io, obj)
     statement_we_have = String(take!(io))
