@@ -28,8 +28,8 @@ function make_linesearch_problem(x::AbstractVector{T}, params=nothing) where {T}
     factorize!(linearsolver(solver), jacobian(solver))
     ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-    nls = NonlinearProblem(f!, j!, x, f.(x))
-    linesearch_problem(nls, jacobian_instance, cache(solver), params)
+    nlp = NonlinearProblem(f!, j!, x, f.(x))
+    linesearch_problem(nlp, jacobian_instance, cache(solver), params)
 end
 
 function check_linesearch(ls::LinesearchState, ls_obj::LinesearchProblem)

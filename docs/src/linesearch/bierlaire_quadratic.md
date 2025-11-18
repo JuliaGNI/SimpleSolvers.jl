@@ -29,8 +29,8 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
-nls = NonlinearProblem(F!, x, f(x))
-ls_obj = linesearch_problem(nls, Jacobian(solver), cache(solver), params)
+nlp = NonlinearProblem(F!, x, f(x))
+ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

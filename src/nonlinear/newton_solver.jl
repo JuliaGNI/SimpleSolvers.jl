@@ -38,13 +38,13 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 """
 const NewtonSolver{T} = NonlinearSolver{T, NewtonMethod}
 
-function NewtonSolver(x::AT, nls::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nls.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
+function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     cache = NewtonSolverCache(x, x)
-    NonlinearSolver(x, nls, ls, linearsolver, linesearch, cache; method = NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method = NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
 end
 
-function QuasiNewtonSolver(x, nls, ls, linearsolver, linesearch, cache; options_kwargs...)
-    NewtonSolver(x, nls, ls, linearsolver, linesearch, cache; refactorize = DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...)
+function QuasiNewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; options_kwargs...)
+    NewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; refactorize = DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...)
 end
 
 """
@@ -58,13 +58,13 @@ end
 - `options_kwargs`: see [`Options`](@ref)
 """
 function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
-    nls = ismissing(DF!) ? NonlinearProblem(F, x, y) : NonlinearProblem(F, DF!, x, y)
+    nlp = ismissing(DF!) ? NonlinearProblem(F, x, y) : NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}()
     cache = NewtonSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = LinesearchState(linesearch; T=T)
-    NewtonSolver(x, nls, linearproblem, linearsolver, ls, cache; jacobian = jacobian, kwargs...)
+    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian = jacobian, kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
