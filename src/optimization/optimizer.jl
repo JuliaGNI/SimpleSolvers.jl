@@ -88,8 +88,16 @@ function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod 
     Optimizer(algorithm, problem, hes, result, astate; options_kwargs...)
 end
 
-function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, kwargs...)
-    G = Gradient(∇F!, F, x)
+function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :autodiff, kwargs...)
+    G = if (ismissing(∇F!)|isnothing(∇F!))
+            if mode == :autodiff
+                GradientAutodiff(F, x)
+            else
+                GradientFiniteDifferences(F, x)
+            end
+        else
+            GradientFunction(∇F!, x)
+        end
     problem = OptimizerProblem(F, G, x)
     Optimizer(x, problem; kwargs...)
 end

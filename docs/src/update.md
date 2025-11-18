@@ -23,7 +23,7 @@ using SimpleSolvers # hide
 using LinearAlgebra: norm # hide
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 x = [1., 0., 0.]
-hes = Hessian(f, x; mode = :autodiff)
+hes = HessianAutodiff(f, x)
 hes.H
 ```
 
@@ -41,7 +41,7 @@ In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) w
 
 ```@example update
 using SimpleSolvers: initialize!, NewtonOptimizerCache # hide
-grad = Gradient(f, x; mode = :autodiff)
+grad = GradientAutodiff(f, x)
 cache = NewtonOptimizerCache(x)
 update!(cache, x, grad, hes)
 ```
