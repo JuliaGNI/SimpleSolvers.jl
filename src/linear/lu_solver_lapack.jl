@@ -8,12 +8,12 @@ The LU Solver taken from `LinearAlgebra.BLAS`.
 """
 struct LUSolverLAPACK{T <: BlasFloat, LST <: LinearProblem{T}}
     n::BlasInt
-    linearsystem::LST
+    linearproblem::LST
     pivots::Vector{BlasInt}
     info::BlasInt
 end
 
-linearsystem(lu::LUSolverLAPACK) = lu.linearsystem
+linearproblem(lu::LUSolverLAPACK) = lu.linearproblem
 
 function LUSolverLAPACK(ls::LST) where {T, LST <: LinearProblem{T}}
     n = checksquare(Matrix(ls))
@@ -38,11 +38,11 @@ for (getrf, getrs, elty) in
      (:cgetrf_,:cgetrs_,:ComplexF32))
     @eval begin
         function factorize!(lu::LUSolverLAPACK{$elty}, A::AbstractMatrix{$elty})
-            copy!(Matrix(linearsystem(lu)), A)
+            copy!(Matrix(linearproblem(lu)), A)
             ccall((@blasfunc($getrf), liblapack), Nothing,
                   (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
                    Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}),
-                   Ref(lu.n), Ref(lu.n), Matrix(linearsystem(lu)), Ref(lu.n), lu.pivots, Ref(lu.info))
+                   Ref(lu.n), Ref(lu.n), Matrix(linearproblem(lu)), Ref(lu.n), lu.pivots, Ref(lu.info))
 
             if lu.info > 0
                 throw(SingularException(lu.info))
@@ -59,7 +59,7 @@ for (getrf, getrs, elty) in
             ccall((@blasfunc($getrs), liblapack), Nothing,
                   (Ptr{UInt8}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt},
                    Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-                   Ref(trans), Ref(lu.n), Ref(nrhs), Matrix(linearsystem(lu)), Ref(lu.n), lu.pivots, x, Ref(lu.n), Ref(lu.info))
+                   Ref(trans), Ref(lu.n), Ref(nrhs), Matrix(linearproblem(lu)), Ref(lu.n), lu.pivots, x, Ref(lu.n), Ref(lu.info))
 
             if lu.info < 0
                 throw(ArgumentError(lu.info))
@@ -69,14 +69,14 @@ for (getrf, getrs, elty) in
     end
 end
 
-solution(lu::LUSolverLAPACK) = solution(linearsystem(lu))
+solution(lu::LUSolverLAPACK) = solution(linearproblem(lu))
 
 function solve!(lu::LUSolverLAPACK)
-    !status(linearsystem(lu)) || error("System has already been solved.")
+    !status(linearproblem(lu)) || error("System has already been solved.")
     factorize!(lu)
-    ldiv!(solution(lu), lu, rhs(linearsystem(lu)))
-    linearsystem(lu).solved = true
+    ldiv!(solution(lu), lu, rhs(linearproblem(lu)))
+    linearproblem(lu).solved = true
     lu
 end
 
-factorize!(lu::LUSolverLAPACK) = factorize!(lu, Matrix(linearsystem(lu)))
+factorize!(lu::LUSolverLAPACK) = factorize!(lu, Matrix(linearproblem(lu)))
