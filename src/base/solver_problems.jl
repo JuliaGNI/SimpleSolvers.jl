@@ -142,7 +142,6 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 - `j`: accessed by calling [`jacobian`](@ref)`(nlp)`,
 - `x_f`: accessed by calling [`f_argument`](@ref)`(nlp)`,
 - `x_j`: accessed by calling [`j_argument`](@ref)`(nlp)`,
-- `f_calls`: accessed by calling [`f_calls`](@ref)`(nlp)`,
 - `j_calls`: accessed by calling [`j_calls`](@ref)`(nlp)`.
 
 """
@@ -156,7 +155,6 @@ mutable struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Callable,Mis
     x_f::Tx
     x_j::Tx
 
-    f_calls::Int
     j_calls::Int
 
     function NonlinearProblem(F::Callable, J::Union{Callable,Missing},
@@ -165,7 +163,7 @@ mutable struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Callable,Mis
         j::Tj=alloc_j(x, f),
         fixed_point::Bool=false) where {T,Tx<:AbstractArray{T},Tf,Tj<:AbstractArray{T}}
         hasmethod(F, Tuple{Tf, Tx, OptionalParameters}) || error("The function needs to have the following signature: F(y, x, params).")
-        nlp = new{T,fixed_point,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, alloc_x(f), j, alloc_x(x), alloc_x(x), 0, 0)
+        nlp = new{T,fixed_point,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, alloc_x(f), j, alloc_x(x), alloc_x(x), 0)
         initialize!(nlp, x)
         nlp
     end
@@ -191,7 +189,6 @@ function value!!(nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T
 end
 
 function value(nlp::NonlinearProblem{T}, x::AbstractVector{T}, params) where {T<:Number}
-    nlp.f_calls += 1
     f = zero(value(nlp))
     Function(nlp)(f, x, params)
     f
@@ -276,7 +273,6 @@ function jacobian!(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian, x::Abs
 end
 
 function _clear_f!(nlp::NonlinearProblem{T}) where {T}
-    nlp.f_calls = 0
     f_argument(nlp) .= T(NaN)
     value(nlp) .= T(NaN)
     nothing
@@ -321,43 +317,11 @@ Return the argument that was last used for evaluating [`jacobian!`](@ref) for th
 """
 j_argument(nlp::NonlinearProblem) = nlp.x_j
 
-"""
-    f_calls(nlp)
-
-Tell how many times `Function(nlp)` has been called.
-
-# Examples
-
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearProblem, f_calls)
-F(x) = tanh.(x)
-x = [1., 2., 3.]
-F!(y, x, params) = y .= F(x)
-nlp = NonlinearProblem(F!, x, F(x))
-
-f_calls(nlp)
-
-# output
-
-0
-```
-
-After calling [`value`](@ref) once we get:
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearProblem, f_calls; F(x) = tanh.(x); F!(y, x, params) = y .= F(x); x = [1., 2., 3.]; nlp = NonlinearProblem(F!, x, F(x)))
-value!(nlp, x, nothing)
-
-f_calls(nlp)
-
-# output
-
-1
-```
-"""
-f_calls(nlp::NonlinearProblem) = nlp.f_calls
 
 """
     j_calls(nlp)
 
-Like [`f_calls`](@ref) in relation to a [`NonlinearProblem`](@ref) `nlp`, but for [`jacobian`](@ref) (or [`jacobian!`](@ref)).
+Like `f_calls` in relation to a [`NonlinearProblem`](@ref) `nlp`, but for [`jacobian`](@ref) (or [`jacobian!`](@ref)).
 """
 j_calls(nlp::NonlinearProblem) = nlp.j_calls
 
