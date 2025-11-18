@@ -22,14 +22,12 @@ obj1 = OptimizerProblem(F, x)
 obj2 = OptimizerProblem(F, G!, x)
 
 function f_g_calls_initialization(obj1::OptimizerProblem, obj2::OptimizerProblem)
-    @test f_calls(obj1) == f_calls(obj2) == 0
     @test g_calls(obj1) == g_calls(obj2) == 0
 end
 
 # test if the correct value is returned and if the counter goes up
 function return_correct_value(obj1::OptimizerProblem, obj2::OptimizerProblem, x::AbstractVector, y::Number)
     @test value(obj1, x) == value(obj2, x) == y
-    @test f_calls(obj1) == f_calls(obj2) == 1
     @test g_calls(obj1) == g_calls(obj2) == 0
 end
 
@@ -37,7 +35,6 @@ end
 function return_correct_value_inplace(obj1::OptimizerProblem, obj2::OptimizerProblem, x::AbstractVector, y::Number)
     @test value!(obj1, x) == value!(obj2, x) == y
     @test value(obj1) == value(obj2) == y
-    @test f_calls(obj1) == f_calls(obj2) == 2
     @test g_calls(obj1) == g_calls(obj2) == 0
 end
 
@@ -52,13 +49,11 @@ end
 
 function return_correct_gradients(obj1::OptimizerProblem, obj2::OptimizerProblem, x::AbstractVector, z::AbstractVector)
     @test gradient(obj1, x) == gradient(obj2, x) == z
-    @test f_calls(obj1) == f_calls(obj2) == 0
     @test g_calls(obj1) == g_calls(obj2) == 1
 end
 
 function return_correct_gradients_inplace(obj1::OptimizerProblem, obj2::OptimizerProblem, x::AbstractVector, z::AbstractVector)
 @test gradient!(obj1, x) == gradient!(obj2, x) == z
-@test f_calls(obj1) == f_calls(obj2) == 0
 @test g_calls(obj1) == g_calls(obj2) == 2
 end
 

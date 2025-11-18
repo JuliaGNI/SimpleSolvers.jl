@@ -51,7 +51,7 @@ module SimpleSolvers
            derivative, derivative!, derivative!!,
            gradient, gradient!, gradient!!,
            hessian, hessian!, hessian!!,
-           d_calls, f_calls, g_calls, h_calls
+           d_calls, g_calls, h_calls
 
     include("base/optimizer_problems.jl")
 

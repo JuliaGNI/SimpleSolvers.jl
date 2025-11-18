@@ -17,7 +17,6 @@ clear!(::CT) where {CT <: Callable} = error("No method `clear!` implemented for 
 Evaluates the value at `x` (i.e. computes `obj.F(x)`).
 """
 function value(obj::AbstractOptimizerProblem, x::Union{Number, AbstractArray{<:Number}})
-    obj.f_calls += 1
     obj.F(x)
 end
 
@@ -26,7 +25,7 @@ value(obj::AbstractOptimizerProblem) = obj.f
 """
     LinesearchProblem <: AbstractOptimizerProblem
 
-Doesn't store `f`, `d`, `x_f` and `x_d` as well as `f_calls` and `d_calls`.
+Doesn't store `f`, `d`, `x_f`, `x_d` and `d_calls`.
 
 In practice `LinesearchProblem`s are allocated by calling [`linesearch_problem`](@ref).
 
@@ -127,7 +126,6 @@ mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <
     x_f::Tx
     x_g::Tx
 
-    f_calls::Int
     g_calls::Int
 end
 
@@ -138,7 +136,6 @@ function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, T
     @printf io "    g(x)₁             = %.2e %s" gradient(obj)[1] "\n" 
     @printf io "    x_f₁              = %.2e %s" obj.x_f[1] "\n" 
     @printf io "    x_g₁              = %.2e %s" obj.x_g[1] "\n" 
-    @printf io "    number of f calls = %s %s" obj.f_calls "\n" 
     @printf io "    number of g calls = %s %s" obj.g_calls "\n" 
 end
 
@@ -146,7 +143,7 @@ function OptimizerProblem(F::Callable, G::Gradient,
                                x::Tx;
                                f::Tf=eltype(x)(NaN),
                                g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
-    OptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0, 0)
+    OptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x), 0)
 end
 
 function OptimizerProblem(F::Callable, G!::Callable,
@@ -209,14 +206,12 @@ function gradient!(obj::OptimizerProblem, x::AbstractArray{<:Number})
 end
 
 function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
-    obj.f_calls = 0
     obj.f = T(NaN)
     f_argument(obj) .= T(NaN)
     nothing
 end
 
 function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
-    obj.f_calls = 0
     obj.f .= T(NaN)
     f_argument(obj) .= T(NaN)
     nothing
@@ -258,9 +253,6 @@ end
 
 f_argument(obj::AbstractOptimizerProblem) = obj.x_f
 g_argument(obj::OptimizerProblem) = obj.x_g
-
-f_calls(o::AbstractOptimizerProblem) = error("f_calls is not implemented for $(summary(o)).")
-f_calls(o::OptimizerProblem) = o.f_calls
 
 d_calls(o::AbstractOptimizerProblem) = error("d_calls is not implemented for $(summary(o)).")
 
