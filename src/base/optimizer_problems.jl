@@ -25,7 +25,7 @@ value(obj::AbstractOptimizerProblem) = obj.f
 """
     LinesearchProblem <: AbstractOptimizerProblem
 
-Doesn't store `f`, `d`, `x_f`, `x_d` and `d_calls`.
+Doesn't store `f`, `d`, `x_f` and `x_d`.
 
 In practice `LinesearchProblem`s are allocated by calling [`linesearch_problem`](@ref).
 
