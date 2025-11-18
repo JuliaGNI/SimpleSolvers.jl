@@ -8,7 +8,7 @@ const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
 """
     Gradient
 
-Abstract type. `strcut`s that are derived from this need an assoicated functor that computes the gradient of a function (in-place).
+Abstract type. `struct`s that are derived from this need an associated functor that computes the gradient of a function (in-place).
 
 # Implementation
 

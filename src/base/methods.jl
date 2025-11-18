@@ -1,4 +1,3 @@
-abstract type BracketingMethod <: SolverMethod end
 abstract type LinearMethod <: SolverMethod end
 "A supertype collecting all nonlinear methods, including `NewtonMethod`s."
 abstract type NonlinearMethod <: SolverMethod end
@@ -34,11 +33,31 @@ Make an instance of a *Picard solver* (fixed point iterator).
 """
 struct PicardMethod <: NonlinearSolverMethod end
 
+"""
+    OptimizerMethod <: SolverMethod
+
+The `OptimizerMethod` is used in [`Optimizer`](@ref) and determines the algorithm that is used.
+"""
 abstract type OptimizerMethod <: SolverMethod end
 
+"""
+    QuasiNewtonOptimizerMethod <: OptimizerMethod
+
+Includes [`BFGS`](@ref) and [`DFP`](@ref).
+"""
+abstract type QuasiNewtonOptimizerMethod <: OptimizerMethod end
+
 struct Newton <: OptimizerMethod end
-struct DFP <: OptimizerMethod end
-struct BFGS <: OptimizerMethod end
+
+"""
+Algorithm taken from [nocedal2006numerical](@cite).
+"""
+struct DFP <: QuasiNewtonOptimizerMethod end
+
+"""
+Algorithm taken from [nocedal2006numerical](@cite).
+"""
+struct BFGS <: QuasiNewtonOptimizerMethod end
 
 Base.show(io::IO, alg::Newton) = print(io, "Newton")
 Base.show(io::IO, alg::DFP) = print(io, "DFP")

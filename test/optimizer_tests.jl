@@ -24,14 +24,14 @@ test_obj = OptimizerProblem(F, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)
 
 for method in (Newton(), BFGS(), DFP())
-    for _linesearch in (Static(0.8), Backtracking()) # , Quadratic2(), BierlaireQuadratic(), Bisection())
+    for _linesearch in (Static(0.8), Backtracking(), Quadratic2(), BierlaireQuadratic(), Bisection())
         for T in (Float64, Float32)
             n = 1
             x = ones(T, n)
             opt = Optimizer(x, F; algorithm = method, linesearch = _linesearch)
 
             @test config(opt) == opt.config
-            @test status(opt) == opt.result.status
+            @test status(opt) == opt.status
 
             solve!(opt, x)
             @test norm(minimizer(opt)) ≈ 0 atol=∛(2000eps(T))

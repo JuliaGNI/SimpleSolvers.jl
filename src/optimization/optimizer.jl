@@ -64,28 +64,31 @@ struct Optimizer{T,
                  ALG <: OptimizerMethod,
                  OBJ <: OptimizerProblem{T},
                  HT <: Hessian{T},
+                 OST <: OptimizerStatus,
                  RES <: OptimizerResult{T},
                  AST <: OptimizationAlgorithm} <: AbstractSolver
     algorithm::ALG
     problem::OBJ
     hessian::HT
     config::Options{T}
+    status::OptimizerStatus
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(hessian), typeof(result), typeof(state)}(algorithm, problem, hessian, config, result, state)
+        new{T, typeof(algorithm), typeof(problem), typeof(hessian), typeof(status), typeof(result), typeof(state)}(algorithm, problem, hessian, config, status, result, state)
     end
 end
 
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(problem, x)
+    status = OptimizerStatus{T}()
     result = OptimizerResult(x, y)
     clear!(result)
     astate = NewtonOptimizerState(x; linesearch = linesearch)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, result, astate; options_kwargs...)
+    Optimizer(algorithm, problem, hes, status, result, astate; options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :autodiff, kwargs...)
@@ -104,7 +107,7 @@ end
 
 config(opt::Optimizer) = opt.config
 result(opt::Optimizer) = opt.result
-status(opt::Optimizer) = opt.result.status
+status(opt::Optimizer) = opt.status
 state(opt::Optimizer) = opt.state
 problem(opt::Optimizer) = opt.problem
 algorithm(opt::Optimizer) = opt.algorithm
@@ -158,6 +161,7 @@ meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), c
 
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(problem(opt), x)
+    initialize!(status(opt), x)
     initialize!(result(opt), x)
     initialize!(state(opt), x)
     initialize!(hessian(opt), x)
@@ -177,6 +181,8 @@ function update!(opt::Optimizer, x::AbstractVector)
     update!(problem(opt), x)
     update!(hessian(opt), x)
     update!(state(opt), x, gradient(problem(opt)), hessian(opt))
+    increase_iteration_number!(status(opt))
+    residual!(status(opt), x, result(opt).x, value(problem(opt)), result(opt).f, gradient(problem(opt)), result(opt).g)
     update!(result(opt), x, value(problem(opt)), gradient(problem(opt)))
 
     opt
@@ -252,8 +258,9 @@ Too see the value of `x` after one iteration confer the docstring of [`solver_st
 function solve!(opt::Optimizer, x::AbstractVector)
     initialize!(opt, x)
 
+    initial_values_for_hessian!(opt)
     while (iteration_number(opt) == 0 || !meets_stopping_criteria(opt))
-        increase_iteration_number!(result(opt))
+        increase_iteration_number!(status(opt))
         solver_step!(opt, x)
         update!(opt, x)
     end
@@ -262,4 +269,21 @@ function solve!(opt::Optimizer, x::AbstractVector)
     print_status(status(opt), config(opt))
 
     x
+end
+
+initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ, HT <: Hessian} = opt
+
+"""
+    initial_values_for_hessian!(opt)
+
+Write initial values into the [`IterativeHessian`](@ref) in order to start optimization. [`Hessian`](@ref)s that are not [`IterativeHessian`](@ref)s do not need this extra step.
+Also note the difference to e.g. [`initialize!(::HessianBFGS, ::AbstractVector)`](@ref).
+"""
+function initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ, HT <: IterativeHessian}
+    z = zero(solution(hessian(opt)))
+    o = ones(T, length(z))
+    H = hessian(opt)
+    update!(H, z, gradient!(problem(H), z))
+    update!(H, o)
+    opt
 end
