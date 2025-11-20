@@ -48,11 +48,14 @@ To compute the derivative we can use [`gradient!`](@ref):
 x = [[x] for x in -7.:.1:7.]
 y = Vector{Float64}[]
 for x_sing in x
-    gradient!(obj, x_sing)
+    gradient!(obj, GradientAutodiff{Float64}(obj.F, length(x_sing)), x_sing)
     push!(y, copy(gradient(obj)))
 end
 nothing # hide
 ```
+
+!!! warn
+    Note that here we used `GradientAutodiff` to compute the gradient. We can also use `GradientFunction` and `GradientFiniteDifferences`.
 
 ```@setup in_place
 fig = Figure()

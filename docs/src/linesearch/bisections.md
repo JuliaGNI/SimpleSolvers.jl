@@ -18,7 +18,8 @@ hes = HessianAutodiff(obj, x)
 update!(hes, x)
 
 c₁ = 1e-4
-g = gradient!(obj, x)
+grad = GradientAutodiff{Float64}(obj.F, length(x))
+g = gradient!(obj, grad, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
@@ -37,12 +38,12 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
-update!(cache, x, obj.g, hes)
+update!(cache, obj, grad, hes, x)
 nothing # hide
 ```
 
 ```@example bisection
-ls_obj = linesearch_problem(obj, cache)
+ls_obj = linesearch_problem(obj, grad, cache)
 nothing # hide
 ```
 
