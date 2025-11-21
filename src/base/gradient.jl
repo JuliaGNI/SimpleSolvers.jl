@@ -256,18 +256,6 @@ function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractV
     end
 end
 
-"""
-    gradient_fd!(g, x, F)
-
-Build a [`GradientFiniteDifferences`](@ref) object based on `F` and apply it to `x`. The result is stored in `g`.
-
-Also see [`gradient_ad!`](@ref) for the autodiff version.
-"""
-function gradient_fd!(g::AbstractVector{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
-    grad = GradientFiniteDifferences{T}(F, length(x); kwargs...)
-    grad(g,x)
-end
-
 # TODO: remove this! (it's here for the moment to keep the tests as close to what they were before as possible)
 function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG::Union{Callable, Missing}; mode = :autodiff) where {T}
     grad = if mode == :autodiff
