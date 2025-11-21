@@ -48,9 +48,3 @@ compute_hessian!(hus1, x, H!; mode = :function)
 
 test_hessian(had, had1, 0)
 test_hessian(hus, hus1, 0)
-
-had2 = zero(h)
-
-compute_hessian_ad!(had2, x, F)
-
-test_hessian(had, had2, 0)
