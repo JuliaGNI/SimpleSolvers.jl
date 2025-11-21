@@ -9,18 +9,17 @@ Create [`LinesearchProblem`](@ref) for linesearch algorithm. The variable on whi
 x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
-gradient!(obj, x)
+grad = GradientAutodiff{Float64}(obj.F, length(x))
 value!(obj, x)
 cache = NewtonOptimizerCache(x)
 hess = HessianAutodiff(obj, x)
 update!(hess, x)
-update!(cache, x, obj.g, hess)
+update!(cache, obj, grad, hess, x)
 x₂ = [.9, 0., 0.]
-gradient!(obj, x₂)
 value!(obj, x₂)
 update!(hess, x₂)
-update!(cache, x₂, obj.g, hess)
-ls_obj = linesearch_problem(obj, cache)
+update!(cache, obj, grad, hess, x₂)
+ls_obj = linesearch_problem(obj, grad, cache)
 α = .1
 (ls_obj.F(α), ls_obj.D(α))
 
@@ -35,7 +34,7 @@ In the example above we have to apply [`update!`](@ref) twice on the instance of
 
 Calling the function and derivative stored in the [`LinesearchProblem`](@ref) created with `linesearch_problem` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
-function linesearch_problem(objective::OptimizerProblem{T}, cache::NewtonOptimizerCache{T}) where {T}
+function linesearch_problem(objective::OptimizerProblem{T}, gradient_instance::Gradient, cache::NewtonOptimizerCache{T}) where {T}
     function f(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
         value!(objective, cache.x)
@@ -43,7 +42,7 @@ function linesearch_problem(objective::OptimizerProblem{T}, cache::NewtonOptimiz
 
     function d(α)
         cache.x .= compute_new_iterate(cache.x̄, α, direction(cache))
-        gradient!(objective, cache.x)
+        gradient!(objective, gradient_instance, cache.x)
         cache.g .= objective.g
         dot(cache.g, direction(cache))
     end

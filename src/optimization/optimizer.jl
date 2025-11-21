@@ -63,19 +63,21 @@ The optimizer that stores all the information needed for an optimization problem
 struct Optimizer{T,
                  ALG <: OptimizerMethod,
                  OBJ <: OptimizerProblem{T},
+                 GT <: Gradient{T},
                  HT <: Hessian{T},
                  RES <: OptimizerResult{T},
                  AST <: OptimizationAlgorithm} <: AbstractSolver
     algorithm::ALG
     problem::OBJ
+    gradient::GT
     hessian::HT
     config::Options{T}
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; gradient = GradientAutodiff{T}(problem.F, length(result.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(hessian), typeof(result), typeof(state)}(algorithm, problem, hessian, config, result, state)
+        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(result), typeof(state)}(algorithm, problem, gradient, hessian, config, result, state)
     end
 end
 
@@ -96,10 +98,10 @@ function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :auto
                 GradientFiniteDifferences(F, x)
             end
         else
-            GradientFunction(∇F!, x)
+            GradientFunction(x)
         end
-    problem = OptimizerProblem(F, G, x)
-    Optimizer(x, problem; kwargs...)
+    problem = (ismissing(∇F!)|isnothing(∇F!)) ? OptimizerProblem(F, x) : OptimizerProblem(F, ∇F!, x)
+    Optimizer(x, problem; gradient = G, kwargs...)
 end
 
 config(opt::Optimizer) = opt.config
@@ -114,7 +116,7 @@ direction(opt::Optimizer) = direction(state(opt))
 rhs(opt::Optimizer) = rhs(state(opt))
 cache(opt::Optimizer) = cache(state(opt))
 iteration_number(opt::Optimizer) = iteration_number(status(opt))
-gradient(::Optimizer) = error("There is an ambiguity in calling gradient on Optimizer at the moment, as the cache, the result and the problem all store this information.")
+gradient(opt::Optimizer) = opt.gradient
 
 Base.minimum(opt::Optimizer) = minimum(result(opt))
 minimizer(opt::Optimizer) = minimizer(result(opt))
@@ -174,9 +176,9 @@ This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 """
 function update!(opt::Optimizer, x::AbstractVector)
-    update!(problem(opt), x)
+    update!(problem(opt), gradient(opt), x)
     update!(hessian(opt), x)
-    update!(state(opt), x, gradient(problem(opt)), hessian(opt))
+    update!(state(opt), problem(opt), gradient(opt), hessian(opt), x)
     update!(result(opt), x, value(problem(opt)), gradient(problem(opt)))
 
     opt
@@ -214,7 +216,7 @@ function solver_step!(opt::Optimizer, x::VT)::VT where {VT <: AbstractVector}
     ldiv!(direction(opt), hessian(opt), rhs(opt))
 
     # apply line search
-    α = linesearch(state(opt))(linesearch_problem(problem(opt), cache(opt)))
+    α = linesearch(state(opt))(linesearch_problem(problem(opt), gradient(opt), cache(opt)))
 
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))

@@ -58,18 +58,18 @@ f(x) = sum(x.^2)
 x = [1., 2.]
 state = NewtonOptimizerState(x)
 obj = OptimizerProblem(f, x)
-g = gradient!(obj, x)
+grad = GradientAutodiff{Float64}(obj.F, length(x))
 hes = HessianAutodiff(obj, x)
 update!(hes, x)
-update!(state, x, g, hes)
+update!(state, obj, grad, hes, x)
 
 # output
 
 NewtonOptimizerState{Float64, SimpleSolvers.BacktrackingState{Float64}, SimpleSolvers.NewtonOptimizerCache{Float64, Vector{Float64}}}(Backtracking with α₀ = 1.0, ϵ = 0.0001and p = 0.5., SimpleSolvers.NewtonOptimizerCache{Float64, Vector{Float64}}([1.0, 2.0], [1.0, 2.0], [-1.0, -2.0], [2.0, 4.0], [-2.0, -4.0]))
 ```
 """
-function update!(state::NewtonOptimizerState, x::AbstractVector, g::Union{AbstractVector, Gradient}, hes::Hessian)
-    update!(cache(state), x, g, hes)
+function update!(state::NewtonOptimizerState, obj::OptimizerProblem, g::Gradient, hes::Hessian, x::AbstractVector)
+    update!(cache(state), obj::OptimizerProblem, g, hes, x)
 
     state
 end
