@@ -36,9 +36,7 @@ module SimpleSolvers
            GradientFunction
            
     export compute_gradient,
-           compute_gradient!,
-           compute_gradient_ad!,
-           compute_gradient_fd!
+           compute_gradient!
 
     export check_gradient
     
@@ -63,9 +61,8 @@ module SimpleSolvers
            HessianFunction
 
     export compute_hessian,
-           compute_hessian!,
-           compute_hessian_ad!
-
+           compute_hessian!
+           
     export check_hessian,
            print_hessian
 
@@ -76,9 +73,7 @@ module SimpleSolvers
            JacobianFiniteDifferences,
            JacobianFunction
 
-    export compute_jacobian!,
-           compute_jacobian_ad!,
-           compute_jacobian_fd!
+    export compute_jacobian!
 
     export check_jacobian,
            print_jacobian

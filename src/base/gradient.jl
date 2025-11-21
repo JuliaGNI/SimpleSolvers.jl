@@ -180,18 +180,6 @@ function (grad::GradientAutodiff{T})(g::AbstractVector{T}, x::AbstractVector{T})
     ForwardDiff.gradient!(g, grad.F, x, grad.∇config)
 end
 
-"""
-    gradient_ad!(g, x, F)
-
-Build a [`GradientAutodiff`](@ref) object based on `F` and apply it to `x`. The result is stored in `g`.
-
-Also see [`gradient_fd!`](@ref) for the finite differences version.
-"""
-function gradient_ad!(g::AbstractVector{T}, x::AbstractVector{T}, F::Callable) where {T <: Number}
-    grad = GradientAutodiff{T}(F, length(x))
-    grad(g,x)
-end
-
 @doc raw"""
     GradientFiniteDifferences <: Gradient
 
@@ -256,18 +244,6 @@ function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractV
         f2 = grad.F(grad.tx)
         g[j] = (f2 - f1) / (2ϵⱼ)
     end
-end
-
-"""
-    gradient_fd!(g, x, F)
-
-Build a [`GradientFiniteDifferences`](@ref) object based on `F` and apply it to `x`. The result is stored in `g`.
-
-Also see [`gradient_ad!`](@ref) for the autodiff version.
-"""
-function gradient_fd!(g::AbstractVector{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
-    grad = GradientFiniteDifferences{T}(F, length(x); kwargs...)
-    grad(g,x)
 end
 
 function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG; mode = :autodiff) where {T}

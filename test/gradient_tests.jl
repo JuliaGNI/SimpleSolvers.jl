@@ -61,13 +61,3 @@ SimpleSolvers.compute_gradient!(gus1, x, ∇F!; mode = :user)
 test_grad(gad, gad1, 0)
 test_grad(gfd, gfd1, 0)
 test_grad(gus, gus1, 0)
-
-
-gad2 = zero(g)
-gfd2 = zero(g)
-
-SimpleSolvers.gradient_ad!(gad2, x, F)
-SimpleSolvers.gradient_fd!(gfd2, x, F)
-
-test_grad(gad, gad2, 0)
-test_grad(gfd, gfd2, 0)
