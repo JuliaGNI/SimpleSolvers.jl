@@ -13,7 +13,7 @@ To understand how these are used in practice see e.g. [`linesearch_problem`](@re
 
 Also compare this to [`NewtonSolverCache`](@ref).
 """
-struct NewtonOptimizerCache{T, AT <: AbstractArray{T}}
+struct NewtonOptimizerCache{T, AT <: AbstractArray{T}} <: OptimizerCache{T}
     x̄::AT
     x::AT
     δ::AT

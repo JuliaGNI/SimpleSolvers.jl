@@ -69,15 +69,16 @@ We also show how to update an instance of [`SimpleSolvers.OptimizerResult`](@ref
 using SimpleSolvers: OptimizerResult # hide
 
 result = OptimizerResult(x, obj)
+cache = NewtonOptimizerCache(x)
 
-update!(result, x, value(obj, x), grad)
+update!(result, cache, x, value(obj, x), grad)
 ```
 
 Note that the residuals are still `NaN`s here. In order to get proper values for these we have to *perform two updating steps*:
 
 ```@example update
 x₂ = [.9, 0., 0.]
-update!(result, x₂, value(obj, x), grad)
+update!(result, cache, x₂, value(obj, x), grad)
 ```
 
 !!! warn

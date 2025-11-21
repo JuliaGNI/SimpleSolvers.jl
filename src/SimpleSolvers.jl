@@ -149,6 +149,7 @@ module SimpleSolvers
            HessianBFGS,
            HessianDFP
 
+    include("optimization/optimizer_cache.jl")
     include("optimization/optimizer_status.jl")
     include("optimization/optimizer_result.jl")
     include("optimization/optimizer.jl")
