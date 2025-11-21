@@ -52,7 +52,7 @@ module SimpleSolvers
            gradient, gradient!, gradient!!,
            hessian, hessian!, hessian!!
            
-    include("base/optimizer_problems.jl")
+    include("optimization/optimizer_problems.jl")
 
     export Options
 
@@ -85,7 +85,7 @@ module SimpleSolvers
 
     include("base/jacobian.jl")
 
-    include("base/solver_problems.jl")
+    include("nonlinear/solver_problems.jl")
 
     export LinearProblem, NonlinearProblem
 
