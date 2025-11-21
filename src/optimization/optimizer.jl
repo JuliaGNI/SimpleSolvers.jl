@@ -179,7 +179,7 @@ function update!(opt::Optimizer, x::AbstractVector)
     update!(problem(opt), gradient(opt), x)
     update!(hessian(opt), x)
     update!(state(opt), problem(opt), gradient(opt), hessian(opt), x)
-    update!(result(opt), x, value(problem(opt)), gradient(problem(opt)))
+    update!(result(opt), cache(opt), x, value(problem(opt)), gradient(problem(opt)))
 
     opt
 end
