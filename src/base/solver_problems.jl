@@ -248,7 +248,7 @@ function jacobian!!(nlp::NonlinearProblem{T}, ::JacobianFunction{T}, x::Abstract
     jacobian(nlp)
 end
 
-function jacobian!!(nlp::NonlinearProblem{T,FixedPoint,TF,Missing}, ::JacobianFunction{T}, x::AbstractArray{T}, params) where {T, FixedPoint, TF<:Callable}
+function jacobian!!(::NonlinearProblem{T,FixedPoint,TF,Missing}, ::JacobianFunction{T}, x::AbstractArray{T}, params) where {T, FixedPoint, TF<:Callable}
     error("There is no analytic Jacobian stored in the system!")
 end
 

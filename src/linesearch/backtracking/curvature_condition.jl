@@ -35,11 +35,11 @@ mutable struct CurvatureCondition{T, VT <: Union{T, AbstractArray{T}}, TVT <: Un
 end
 
 function standard_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-    gradient!(cc.gradₖ₊₁, xₖ₊₁, cc.grad)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
+    gradient!(cc.gradₖ₊₁, cc.grad, xₖ₊₁)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
 end
 
 function strong_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-    abs(gradient!(cc.gradₖ₊₁, xₖ₊₁, cc.grad)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
+    abs(gradient!(cc.gradₖ₊₁, cc.grad, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
 end
 
 function standard_curvature_condition(cc::CurvatureCondition{T, T, T, OT, GT}, xₖ₊₁::T, αₖ::T) where {T, OT, GT}
