@@ -36,6 +36,8 @@ OptimizerStatus{T}() where {T} = OptimizerStatus{T,T}()
 
 OptimizerStatus(::AbstractArray{T₁}, ::AbstractArray{T₂}) where {T₁, T₂} = OptimizerStatus{T₁, T₂}()
 
+OptimizerStatus(::AbstractArray{T₁}, ::T₂) where {T₁ <: Number, T₂ <: Number} = OptimizerStatus{T₁, T₂}()
+
 iterations(status::OptimizerStatus) = status.i
 x_abschange(status::OptimizerStatus) = status.rxₐ
 x_relchange(status::OptimizerStatus) = status.rxᵣ
@@ -76,33 +78,35 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
     status
 end
 
-"""
-    residual!(status, x, x̄, f, f̄, g, ḡ)
+initialize!(status::OptimizerStatus, ::AbstractArray) = clear!(status)
 
-Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) and current iterates (`x`, `f`, `g`).
+"""
+    residual!(status, state, cache, f)
+
+Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in e.g. [`NewtonOptimizerState`](@ref)) and current iterates (`x`, `f`, `g`) (partly stored in e.g. [`NewtonOptimizerCache`](@ref)).
 
 Also see [`assess_convergence!`](@ref) and [`meets_stopping_criteria`](@ref).
 """
-function residual!(status::OS, x::XT, x̄::XT, f::FT, f̄::FT, g::GT, ḡ::GT)::OS where {OS <: OptimizerStatus, XT, FT, GT}
-    Δx = x - x̄
+function residual!(status::OS, state::OST, cache::OCT, f::T)::OS where {T, OS <: OptimizerStatus{T}, OST <: OptimizerState, OCT <: OptimizerCache{T}}
+    Δx = cache.x - state.x̄
     status.rxₐ = norm(Δx)
-    status.rxᵣ = status.rxₐ / norm(x)
+    status.rxᵣ = status.rxₐ / norm(cache.x)
 
-    status.Δf  = f - f̄
-    status.Δf̃ = ḡ ⋅ Δx
+    status.Δf  = f - state.f̄
+    status.Δf̃ = state.ḡ ⋅ Δx
 
     status.rfₐ = norm(status.Δf)
     status.rfᵣ = status.rfₐ / norm(f)
 
-    Δg = g - ḡ
+    Δg = cache.g - state.ḡ
     status.rgₐ = norm(Δg)
-    status.rg  = norm(g)
+    status.rg  = norm(cache.g)
     
-    status.f_increased = abs(f) > abs(f̄)
+    status.f_increased = abs(f) > abs(state.f̄)
 
-    status.x_isnan = any(isnan, x)
+    status.x_isnan = any(isnan, cache.x)
     status.f_isnan = any(isnan, f)
-    status.g_isnan = any(isnan, g)
+    status.g_isnan = any(isnan, cache.g)
 
     status
 end

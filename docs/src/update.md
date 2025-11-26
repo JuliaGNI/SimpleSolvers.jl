@@ -43,7 +43,8 @@ In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) w
 using SimpleSolvers: initialize!, NewtonOptimizerCache # hide
 grad = GradientAutodiff(f, x)
 cache = NewtonOptimizerCache(x)
-update!(cache, grad, hes, x)
+state = NewtonOptimizerState(x)
+update!(cache, state, grad, hes, x)
 ```
 
 !!! info
@@ -52,50 +53,29 @@ update!(cache, grad, hes, x)
 !!! info
     Calling `update!` on the `NewtonOptimizerCache` updates everything except `x` as this in general requires another line search!
 
-In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSolvers.NewtonOptimizerCache`](@ref) separately we can use [`SimpleSolvers.NewtonOptimizerState`](@ref):
+!!! info
+    When updating the `cache` we also need to supply the `state`. This is needed for the `direction`.
 
-```@example update
-using SimpleSolvers: NewtonOptimizerState # hide
-obj = OptimizerProblem(f, x)
-state = NewtonOptimizerState(x)
-update!(state, obj, grad, hes, x)
-```
 
 ### `OptimizerResult`
-
-We also show how to update an instance of [`SimpleSolvers.OptimizerResult`](@ref):
-
-```@example update
-using SimpleSolvers: OptimizerResult # hide
-
-result = OptimizerResult(x, obj)
-
-update!(result, x, value(obj, x), grad)
-```
-
-Note that the residuals are still `NaN`s here. In order to get proper values for these we have to *perform two updating steps*:
-
-```@example update
-x₂ = [.9, 0., 0.]
-update!(result, x₂, value(obj, x), grad)
-```
 
 !!! warn
     `NewtonOptimizerCache`, `OptimizerResult` and `NewtonOptimizerState` (through `OptimizerProblem`) all store things that are somewhat similar, for example `x`. This may make it somewhat difficult to keep track of all the things that happen during optimization.
 
-An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizationAlgorithm`](@ref) (and therefore the [`OptimizerProblem`](@ref) again). We also give an example:
+An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizerState`](@ref) (and therefore the [`OptimizerProblem`](@ref) again). We also give an example:
 
 ```@example update
+obj = OptimizerProblem(f, x)
 opt = Optimizer(x, obj)
 
-update!(opt, x)
+update!(opt, state, x)
 ```
 
 Equivalent to calling [`update!`](@ref) on [`SimpleSolvers.OptimizerResult`](@ref), the diagnostics cannot be computed with only one iterations; we have to compute a second one:
 
 ```@example update
 x₂ = [.9, 0., 0.]
-update!(opt, x₂)
+update!(opt, state, x₂)
 ```
 
 We note that simply calling [`update!`](@ref) on an instance of [`SimpleSolvers.Optimizer`](@ref) is not enough to perform a complete iteration since the computation of a new ``x`` requires a [line search](@ref "Line Search") procedure in general.

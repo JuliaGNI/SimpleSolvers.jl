@@ -10,12 +10,11 @@ mutable struct OptimizerResult{T, YT, VT <: AbstractArray{T}, OST <: OptimizerSt
 
     x::VT    # current solution
     f::YT    # current function
-    g::VT    # current gradient
 end
 
 function OptimizerResult(x::VT, y::YT) where {XT, YT, VT <: AbstractVector{XT}}
     status = OptimizerStatus{XT,YT}()
-    result = OptimizerResult{XT,YT,VT,typeof(status)}(status, zero(x), zero(y), zero(x))
+    result = OptimizerResult{XT,YT,VT,typeof(status)}(status, zero(x), zero(y))
     clear!(result)
 end
 
@@ -24,17 +23,7 @@ OptimizerResult(x::AbstractVector, obj::AbstractOptimizerProblem) = OptimizerRes
 status(result::OptimizerResult) = result.status
 
 solution(result::OptimizerResult) = result.x
-minimizer(result::OptimizerResult) = result.x
 Base.minimum(result::OptimizerResult) = result.f
-
-"""
-    residual!(result, x, f, g)
-"""
-function residual!(result::OR, x::VT, f::YT, g::VT)::OR where {XT, VT <: AbstractArray{XT}, YT, OST <: OptimizerStatus{XT, YT}, OR <: OptimizerResult{XT, YT, VT, OST}}
-    residual!(result.status, x, result.x, f, result.f, g, result.g)
-    
-    result
-end
 
 """
     clear!(result)
@@ -50,7 +39,6 @@ function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
 
     result.x .= XT(NaN)
     result.f  = YT(NaN)
-    result.g .= XT(NaN)
 
     result
 end
@@ -61,26 +49,25 @@ function initialize!(result::OptimizerResult{T}, ::AbstractVector{T}) where {T}
 end
 
 """
-    update!(result, x, f, g)
+    update!(result, cache, x, f, g)
 
 Update the [`OptimizerResult`](@ref) based on `x`, `f` and `g` (all vectors).
 This involves updating the [`OptimizerStatus`](@ref) stored in `result` (by calling [`residual!`](@ref)).
 
 This also calls [`increase_iteration_number!(::OptimizerResult)`](@ref)
 """
-function update!(result::OptimizerResult, x::AbstractVector, f::Number, g::AbstractVector)
+function update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, f::Number, g::AbstractVector)
     increase_iteration_number!(result)
-    residual!(result, x, f, g)
 
     result.x .= x
     result.f  = f
-    result.g .= g
+    cache.x .= x
 
     result
 end
 
-update!(result::OptimizerResult, x::AbstractVector, f::Number, grad::Gradient) = update!(result, x, f, gradient(x, grad))
-update!(result::OptimizerResult, x::AbstractVector, obj::AbstractOptimizerProblem, g) = update!(result, x, obj(x), g)
+update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, f::Number, grad::Gradient) = update!(result, cache, x, f, gradient(x, grad))
+update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, obj::AbstractOptimizerProblem, g) = update!(result, cache, x, obj(x), g)
 
 """
     increase_iteration_number!(result)
