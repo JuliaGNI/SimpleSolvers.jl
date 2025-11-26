@@ -23,7 +23,6 @@ OptimizerResult(x::AbstractVector, obj::AbstractOptimizerProblem) = OptimizerRes
 status(result::OptimizerResult) = result.status
 
 solution(result::OptimizerResult) = result.x
-minimizer(result::OptimizerResult) = result.x
 Base.minimum(result::OptimizerResult) = result.f
 
 """

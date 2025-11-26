@@ -59,30 +59,13 @@ update!(cache, state, grad, hes, x)
 
 ### `OptimizerResult`
 
-We also show how to update an instance of [`SimpleSolvers.OptimizerResult`](@ref):
-
-```@example update
-using SimpleSolvers: OptimizerResult # hide
-obj = OptimizerProblem(f, x)
-result = OptimizerResult(x, obj)
-cache = NewtonOptimizerCache(x)
-
-update!(result, cache, x, value(obj, x), grad)
-```
-
-Note that the residuals are still `NaN`s here. In order to get proper values for these we have to *perform two updating steps*:
-
-```@example update
-x₂ = [.9, 0., 0.]
-update!(result, cache, x₂, value(obj, x), grad)
-```
-
 !!! warn
     `NewtonOptimizerCache`, `OptimizerResult` and `NewtonOptimizerState` (through `OptimizerProblem`) all store things that are somewhat similar, for example `x`. This may make it somewhat difficult to keep track of all the things that happen during optimization.
 
 An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizerState`](@ref) (and therefore the [`OptimizerProblem`](@ref) again). We also give an example:
 
 ```@example update
+obj = OptimizerProblem(f, x)
 opt = Optimizer(x, obj)
 
 update!(opt, state, x)

@@ -36,6 +36,8 @@ OptimizerStatus{T}() where {T} = OptimizerStatus{T,T}()
 
 OptimizerStatus(::AbstractArray{T₁}, ::AbstractArray{T₂}) where {T₁, T₂} = OptimizerStatus{T₁, T₂}()
 
+OptimizerStatus(::AbstractArray{T₁}, ::T₂) where {T₁ <: Number, T₂ <: Number} = OptimizerStatus{T₁, T₂}()
+
 iterations(status::OptimizerStatus) = status.i
 x_abschange(status::OptimizerStatus) = status.rxₐ
 x_relchange(status::OptimizerStatus) = status.rxᵣ
@@ -75,6 +77,8 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
 
     status
 end
+
+initialize!(status::OptimizerStatus, ::AbstractArray) = clear!(status)
 
 """
     residual!(status, state, cache, f)

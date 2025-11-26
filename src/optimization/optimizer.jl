@@ -10,7 +10,7 @@ The optimizer that stores all the information needed for an optimization problem
 - `algorithm::`[`OptimizerState`](@ref),
 - `problem::`[`OptimizerProblem`](@ref),
 - `config::`[`Options`](@ref),
-- `result::`[`OptimizerResult`](@ref),
+- `status::`[`OptimizerStatus`](@ref),
 - `state::`[`OptimizerState`](@ref).
 """
 struct Optimizer{T,
@@ -18,7 +18,7 @@ struct Optimizer{T,
                  OBJ <: OptimizerProblem{T},
                  GT <: Gradient{T},
                  HT <: Hessian{T},
-                 RES <: OptimizerResult{T},
+                 OST <: OptimizerStatus{T},
                  OCT <: OptimizerCache,
                  LST <: LinesearchState} <: AbstractSolver
     algorithm::ALG
@@ -26,23 +26,23 @@ struct Optimizer{T,
     gradient::GT
     hessian::HT
     config::Options{T}
-    result::RES
+    status::OST
     cache::OCT
     linesearch::LST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, cache::OptimizerCache, lst::LinesearchState; gradient = GradientAutodiff{T}(problem.F, length(result.x)), options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, status::OptimizerStatus{T}, cache::OptimizerCache, lst::LinesearchState; gradient = GradientAutodiff{T}(problem.F, length(cache.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(result), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, result, cache, lst)
+        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(status), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, status, cache, lst)
     end
 end
 
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     y = value(problem, x)
-    result = OptimizerResult(x, y)
-    clear!(result)
+    status = OptimizerStatus(x, y)
+    clear!(status)
     cache = NewtonOptimizerCache(x)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, result, cache, LinesearchState(linesearch; T = T); options_kwargs...)
+    Optimizer(algorithm, problem, hes, status, cache, LinesearchState(linesearch; T = T); options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :autodiff, kwargs...)
@@ -60,8 +60,7 @@ function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :auto
 end
 
 config(opt::Optimizer) = opt.config
-result(opt::Optimizer) = opt.result
-status(opt::Optimizer) = opt.result.status
+status(opt::Optimizer) = opt.status
 problem(opt::Optimizer) = opt.problem
 algorithm(opt::Optimizer) = opt.algorithm
 linesearch(opt::Optimizer) = opt.linesearch
@@ -71,9 +70,6 @@ rhs(opt::Optimizer) = rhs(cache(opt))
 cache(opt::Optimizer) = opt.cache
 iteration_number(opt::Optimizer) = iteration_number(status(opt))
 gradient(opt::Optimizer) = opt.gradient
-
-Base.minimum(opt::Optimizer) = minimum(result(opt))
-minimizer(opt::Optimizer) = minimizer(result(opt))
 
 function Base.show(io::IO, opt::Optimizer)
     c = config(opt)
@@ -97,12 +93,6 @@ function Base.show(io::IO, opt::Optimizer)
     @printf io "    |g(x)|                 = %.2e %s %.1e\n"  g_residual(s)  g_residual(s)  ≤ g_restol(c) ? "≤" : "≰" g_restol(c)
     @printf io "\n"
 
-    @printf io " * Candidate solution\n"
-    @printf io "\n"
-    length(minimizer(opt)) > SOLUTION_MAX_PRINT_LENGTH || @printf io  "    Final solution value:     [%s]\n" join([@sprintf "%e" x for x in minimizer(opt)], ", ")
-    @printf io "    Final problem value:     %e\n" minimum(opt)
-    @printf io "\n"
-
 end
 
 check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
@@ -114,7 +104,7 @@ meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), c
 
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(problem(opt), x)
-    initialize!(result(opt), x)
+    initialize!(status(opt), x)
     initialize!(cache(opt), x)
     initialize!(hessian(opt), x)
 
@@ -124,7 +114,7 @@ end
 """
     update!(opt, x)
 
-Compute problem and gradient at new solution and update result.
+Compute problem and gradient at new solution.
 
 This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref) and then [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
@@ -162,7 +152,7 @@ solver_step!(opt, state, x)
 ```
 """
 function solver_step!(opt::Optimizer, state::OptimizerState, x::VT)::VT where {VT <: AbstractVector}
-    # update problem, hessian, state and result
+    # update problem, hessian, state and status
     update!(opt, state, x)
 
     # solve H δx = - ∇f
@@ -191,9 +181,22 @@ state = NewtonOptimizerState(x)
 solve!(opt, state, x)
 
 # output
-2-element Vector{Float32}:
- 4.6478817f-8
- 3.0517578f-5
+
+SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.OptimizerStatus{Float32, Float32}}(
+ * Iterations
+
+    n = 4
+
+ * Convergence measures
+
+    |x - x'|               = 7.82e-03
+    |x - x'|/|x'|          = 2.56e+02
+    |f(x) - f(x')|         = 9.31e-10
+    |f(x) - f(x')|/|f(x')| = 1.00e+00
+    |g(x) - g(x')|         = 1.57e-02
+    |g(x)|                 = 6.10e-05
+
+, Float32[4.6478817f-8, 3.0517578f-5], 9.313341f-10)
 ```
 
 We can also check how many iterations it took:
@@ -211,7 +214,7 @@ function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     initialize!(opt, x)
 
     while (iteration_number(opt) == 0 || !meets_stopping_criteria(opt))
-        increase_iteration_number!(result(opt))
+        increase_iteration_number!(status(opt))
         solver_step!(opt, state, x)
         residual!(status(opt), state, cache(opt), value(problem(opt)))
         update!(state, problem(opt), gradient(opt), x)
@@ -220,5 +223,5 @@ function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     warn_iteration_number(status(opt), config(opt))
     print_status(status(opt), config(opt))
 
-    x
+    OptimizerResult(status(opt), x, problem(opt).F(x))
 end
