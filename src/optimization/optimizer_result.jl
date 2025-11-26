@@ -27,16 +27,6 @@ minimizer(result::OptimizerResult) = result.x
 Base.minimum(result::OptimizerResult) = result.f
 
 """
-    residual!(result, cache, x, f, g)
-"""
-function residual!(result::OR, cache::OptimizerCache, x::VT, f::YT, g::VT)::OR where {XT, VT <: AbstractArray{XT}, YT, OST <: OptimizerStatus{XT, YT}, OR <: OptimizerResult{XT, YT, VT, OST}}
-    residual!(result.status, x, result.x, f, result.f, g, cache.g)
-    
-    result
-end
-
-
-"""
     clear!(result)
 
 Clear all the information contained in `result::`[`OptimizerResult`](@ref).
@@ -69,10 +59,10 @@ This also calls [`increase_iteration_number!(::OptimizerResult)`](@ref)
 """
 function update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, f::Number, g::AbstractVector)
     increase_iteration_number!(result)
-    residual!(result, cache, x, f, g)
 
     result.x .= x
     result.f  = f
+    cache.x .= x
 
     result
 end

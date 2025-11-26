@@ -142,6 +142,7 @@ module SimpleSolvers
 
     export Optimizer,
            OptimizationAlgorithm, isaOptimizationAlgorithm,
+           NewtonOptimizerState,
            NewtonOptimizer,
            BFGSOptimizer,
            DFPOptimizer,
@@ -149,6 +150,7 @@ module SimpleSolvers
            HessianBFGS,
            HessianDFP
 
+    include("optimization/optimizer_state.jl")
     include("optimization/optimizer_cache.jl")
     include("optimization/optimizer_status.jl")
     include("optimization/optimizer_result.jl")

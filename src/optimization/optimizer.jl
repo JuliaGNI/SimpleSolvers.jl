@@ -2,53 +2,6 @@
 const SOLUTION_MAX_PRINT_LENGTH = 10
 
 """
-An `OptimizationAlgorithm` is a data structure that is used to dispatch on different algorithms.
-
-It needs to implement three methods,
-```
-initialize!(alg::OptimizationAlgorithm, ::AbstractVector)
-update!(alg::OptimizationAlgorithm, ::AbstractVector)
-solver_step!(::AbstractVector, alg::OptimizationAlgorithm)
-```
-that initialize and update the state of the algorithm and perform an actual optimization step.
-
-Further the following convenience methods should be implemented,
-```
-problem(alg::OptimizationAlgorithm)
-gradient(alg::OptimizationAlgorithm)
-hessian(alg::OptimizationAlgorithm)
-linesearch(alg::OptimizationAlgorithm)
-```
-which return the problem to optimize, its gradient and (approximate) Hessian as well as the
-linesearch algorithm used in conjunction with the optimization algorithm if any.
-
-See [`NewtonOptimizerState`](@ref) for a `struct` that was derived from `OptimizationAlgorithm`.
-
-!!! info
-    Note that a `OptimizationAlgorithm` is not necessarily a `NewtonOptimizerState` as we can also have other optimizers, *Adam* for example.
-"""
-abstract type OptimizationAlgorithm end
-
-OptimizerState(alg::OptimizationAlgorithm, args...; kwargs...) = error("OptimizerState not implemented for $(typeof(alg))")
-
-"""
-    isaOptimizationAlgorithm(alg)
-
-Verify if an object implements the [`OptimizationAlgorithm`](@ref) interface.
-"""
-function isaOptimizationAlgorithm(alg)
-    x = rand(3)
-
-    applicable(gradient, alg) &&
-    applicable(hessian, alg) &&
-    applicable(linesearch, alg) &&
-    applicable(problem, alg) &&
-    applicable(initialize!, alg, x) &&
-    applicable(update!, alg, x) &&
-    applicable(solver_step!, x, alg)
-end
-
-"""
     Optimizer
 
 The optimizer that stores all the information needed for an optimization problem. This problem can be solved by calling [`solve!(::AbstractVector, ::Optimizer)`](@ref).
@@ -66,18 +19,20 @@ struct Optimizer{T,
                  GT <: Gradient{T},
                  HT <: Hessian{T},
                  RES <: OptimizerResult{T},
-                 AST <: OptimizationAlgorithm} <: AbstractSolver
+                 OCT <: OptimizerCache,
+                 LST <: LinesearchState} <: AbstractSolver
     algorithm::ALG
     problem::OBJ
     gradient::GT
     hessian::HT
     config::Options{T}
     result::RES
-    state::AST
+    cache::OCT
+    linesearch::LST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; gradient = GradientAutodiff{T}(problem.F, length(result.x)), options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, cache::OptimizerCache, lst::LinesearchState; gradient = GradientAutodiff{T}(problem.F, length(result.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(result), typeof(state)}(algorithm, problem, gradient, hessian, config, result, state)
+        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(result), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, result, cache, lst)
     end
 end
 
@@ -85,9 +40,9 @@ function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod 
     y = value(problem, x)
     result = OptimizerResult(x, y)
     clear!(result)
-    astate = NewtonOptimizerState(x; linesearch = linesearch)
+    cache = NewtonOptimizerCache(x)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, result, astate; options_kwargs...)
+    Optimizer(algorithm, problem, hes, result, cache, LinesearchState(linesearch; T = T); options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :autodiff, kwargs...)
@@ -107,14 +62,13 @@ end
 config(opt::Optimizer) = opt.config
 result(opt::Optimizer) = opt.result
 status(opt::Optimizer) = opt.result.status
-state(opt::Optimizer) = opt.state
 problem(opt::Optimizer) = opt.problem
 algorithm(opt::Optimizer) = opt.algorithm
-linesearch(opt::Optimizer) = linesearch(state(opt))
+linesearch(opt::Optimizer) = opt.linesearch
 hessian(opt::Optimizer) = opt.hessian
-direction(opt::Optimizer) = direction(state(opt))
-rhs(opt::Optimizer) = rhs(state(opt))
-cache(opt::Optimizer) = cache(state(opt))
+direction(opt::Optimizer) = direction(cache(opt))
+rhs(opt::Optimizer) = rhs(cache(opt))
+cache(opt::Optimizer) = opt.cache
 iteration_number(opt::Optimizer) = iteration_number(status(opt))
 gradient(opt::Optimizer) = opt.gradient
 
@@ -161,7 +115,7 @@ meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), c
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(problem(opt), x)
     initialize!(result(opt), x)
-    initialize!(state(opt), x)
+    initialize!(cache(opt), x)
     initialize!(hessian(opt), x)
 
     opt
@@ -175,11 +129,10 @@ Compute problem and gradient at new solution and update result.
 This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref) and then [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 """
-function update!(opt::Optimizer, x::AbstractVector)
+function update!(opt::Optimizer, state::OptimizationAlgorithm, x::AbstractVector)
     update!(problem(opt), gradient(opt), x)
     update!(hessian(opt), x)
-    update!(state(opt), problem(opt), gradient(opt), hessian(opt), x)
-    update!(result(opt), cache(opt), x, value(problem(opt)), gradient(problem(opt)))
+    update!(cache(opt), state, x, gradient(problem(opt)))
 
     opt
 end
@@ -193,12 +146,13 @@ This also performs a line search.
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solver_step!, NewtonOptimizerState, update!)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solver_step!, NewtonOptimizerState)
 f(x) = sum(x .^ 2 + x .^ 3 / 3)
 x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
+state = NewtonOptimizerState(x)
 
-solver_step!(opt, x)
+solver_step!(opt, state, x)
 
 # output
 
@@ -207,23 +161,24 @@ solver_step!(opt, x)
  0.6666666
 ```
 """
-function solver_step!(opt::Optimizer, x::VT)::VT where {VT <: AbstractVector}
+function solver_step!(opt::Optimizer, state::OptimizationAlgorithm, x::VT)::VT where {VT <: AbstractVector}
     # update problem, hessian, state and result
-    update!(opt, x)
+    update!(opt, state, x)
 
     # solve H δx = - ∇f
     # rhs is -g
     ldiv!(direction(opt), hessian(opt), rhs(opt))
 
     # apply line search
-    α = linesearch(state(opt))(linesearch_problem(problem(opt), gradient(opt), cache(opt)))
+    α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
 
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))
+    cache(opt).x .= x
 end
 
 """
-    solve!(x, opt)
+    solve!(x, state, opt)
 
 Solve the optimization problem described by `opt::`[`Optimizer`](@ref) and store the result in `x`.
 
@@ -231,8 +186,9 @@ Solve the optimization problem described by `opt::`[`Optimizer`](@ref) and store
 f(x) = sum(x .^ 2 + x .^ 3 / 3)
 x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
+state = NewtonOptimizerState(x)
 
-solve!(opt, x)
+solve!(opt, state, x)
 
 # output
 2-element Vector{Float32}:
@@ -242,22 +198,23 @@ solve!(opt, x)
 
 We can also check how many iterations it took:
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); solve!(opt, x))
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); state = NewtonOptimizerState(x); solve!(opt, state, x))
 iteration_number(opt)
 
 # output
 
-12
+4
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
-function solve!(opt::Optimizer, x::AbstractVector)
+function solve!(opt::Optimizer, state::OptimizationAlgorithm, x::AbstractVector)
     initialize!(opt, x)
 
     while (iteration_number(opt) == 0 || !meets_stopping_criteria(opt))
         increase_iteration_number!(result(opt))
-        solver_step!(opt, x)
-        update!(opt, x)
+        solver_step!(opt, state, x)
+        residual!(status(opt), state, cache(opt), value(problem(opt)))
+        update!(state, problem(opt), gradient(opt), x)
     end
 
     warn_iteration_number(status(opt), config(opt))

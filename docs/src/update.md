@@ -43,7 +43,8 @@ In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) w
 using SimpleSolvers: initialize!, NewtonOptimizerCache # hide
 grad = GradientAutodiff(f, x)
 cache = NewtonOptimizerCache(x)
-update!(cache, grad, hes, x)
+state = NewtonOptimizerState(x)
+update!(cache, state, grad, hes, x)
 ```
 
 !!! info
@@ -52,14 +53,9 @@ update!(cache, grad, hes, x)
 !!! info
     Calling `update!` on the `NewtonOptimizerCache` updates everything except `x` as this in general requires another line search!
 
-In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSolvers.NewtonOptimizerCache`](@ref) separately we can use [`SimpleSolvers.NewtonOptimizerState`](@ref):
+!!! info
+    When updating the `cache` we also need to supply the `state`. This is needed for the `direction`.
 
-```@example update
-using SimpleSolvers: NewtonOptimizerState # hide
-obj = OptimizerProblem(f, x)
-state = NewtonOptimizerState(x)
-update!(state, obj, grad, hes, x)
-```
 
 ### `OptimizerResult`
 
@@ -67,7 +63,7 @@ We also show how to update an instance of [`SimpleSolvers.OptimizerResult`](@ref
 
 ```@example update
 using SimpleSolvers: OptimizerResult # hide
-
+obj = OptimizerProblem(f, x)
 result = OptimizerResult(x, obj)
 cache = NewtonOptimizerCache(x)
 
@@ -89,14 +85,14 @@ An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.O
 ```@example update
 opt = Optimizer(x, obj)
 
-update!(opt, x)
+update!(opt, state, x)
 ```
 
 Equivalent to calling [`update!`](@ref) on [`SimpleSolvers.OptimizerResult`](@ref), the diagnostics cannot be computed with only one iterations; we have to compute a second one:
 
 ```@example update
 x₂ = [.9, 0., 0.]
-update!(opt, x₂)
+update!(opt, state, x₂)
 ```
 
 We note that simply calling [`update!`](@ref) on an instance of [`SimpleSolvers.Optimizer`](@ref) is not enough to perform a complete iteration since the computation of a new ``x`` requires a [line search](@ref "Line Search") procedure in general.

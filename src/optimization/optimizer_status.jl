@@ -77,32 +77,32 @@ function clear!(status::OptimizerStatus{XT,YT}) where {XT,YT}
 end
 
 """
-    residual!(status, x, x̄, f, f̄, g, ḡ)
+    residual!(status, state, cache, f)
 
-Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) and current iterates (`x`, `f`, `g`).
+Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in e.g. [`NewtonOptimizerState`](@ref)) and current iterates (`x`, `f`, `g`) (partly stored in e.g. [`NewtonOptimizerCache`](@ref)).
 
 Also see [`assess_convergence!`](@ref) and [`meets_stopping_criteria`](@ref).
 """
-function residual!(status::OS, x::XT, x̄::XT, f::FT, f̄::FT, g::GT, ḡ::GT)::OS where {OS <: OptimizerStatus, XT, FT, GT}
-    Δx = x - x̄
+function residual!(status::OS, state::OST, cache::OCT, f::T)::OS where {T, OS <: OptimizerStatus{T}, OST <: OptimizationAlgorithm, OCT <: OptimizerCache{T}}
+    Δx = cache.x - state.x̄
     status.rxₐ = norm(Δx)
-    status.rxᵣ = status.rxₐ / norm(x)
+    status.rxᵣ = status.rxₐ / norm(cache.x)
 
-    status.Δf  = f - f̄
-    status.Δf̃ = ḡ ⋅ Δx
+    status.Δf  = f - state.f̄
+    status.Δf̃ = state.ḡ ⋅ Δx
 
     status.rfₐ = norm(status.Δf)
     status.rfᵣ = status.rfₐ / norm(f)
 
-    Δg = g - ḡ
+    Δg = cache.g - state.ḡ
     status.rgₐ = norm(Δg)
-    status.rg  = norm(g)
+    status.rg  = norm(cache.g)
     
-    status.f_increased = abs(f) > abs(f̄)
+    status.f_increased = abs(f) > abs(state.f̄)
 
-    status.x_isnan = any(isnan, x)
+    status.x_isnan = any(isnan, cache.x)
     status.f_isnan = any(isnan, f)
-    status.g_isnan = any(isnan, g)
+    status.g_isnan = any(isnan, cache.g)
 
     status
 end
