@@ -1,39 +1,39 @@
 """
-An `OptimizationAlgorithm` is a data structure that is used to dispatch on different algorithms.
+An `OptimizerState` is a data structure that is used to dispatch on different algorithms.
 
 It needs to implement three methods,
 ```
-initialize!(alg::OptimizationAlgorithm, ::AbstractVector)
-update!(alg::OptimizationAlgorithm, ::AbstractVector)
-solver_step!(::AbstractVector, alg::OptimizationAlgorithm)
+initialize!(alg::OptimizerState, ::AbstractVector)
+update!(alg::OptimizerState, ::AbstractVector)
+solver_step!(::AbstractVector, alg::OptimizerState)
 ```
 that initialize and update the state of the algorithm and perform an actual optimization step.
 
 Further the following convenience methods should be implemented,
 ```
-problem(alg::OptimizationAlgorithm)
-gradient(alg::OptimizationAlgorithm)
-hessian(alg::OptimizationAlgorithm)
-linesearch(alg::OptimizationAlgorithm)
+problem(alg::OptimizerState)
+gradient(alg::OptimizerState)
+hessian(alg::OptimizerState)
+linesearch(alg::OptimizerState)
 ```
 which return the problem to optimize, its gradient and (approximate) Hessian as well as the
 linesearch algorithm used in conjunction with the optimization algorithm if any.
 
-See [`NewtonOptimizerState`](@ref) for a `struct` that was derived from `OptimizationAlgorithm`.
+See [`NewtonOptimizerState`](@ref) for a `struct` that was derived from `OptimizerState`.
 
 !!! info
-    Note that a `OptimizationAlgorithm` is not necessarily a `NewtonOptimizerState` as we can also have other optimizers, *Adam* for example.
+    Note that a `OptimizerState` is not necessarily a `NewtonOptimizerState` as we can also have other optimizers, *Adam* for example.
 """
-abstract type OptimizationAlgorithm end
+abstract type OptimizerState end
 
-OptimizerState(alg::OptimizationAlgorithm, args...; kwargs...) = error("OptimizerState not implemented for $(typeof(alg))")
+OptimizerState(alg::OptimizerState, args...; kwargs...) = error("OptimizerState not implemented for $(typeof(alg))")
 
 """
-    isaOptimizationAlgorithm(alg)
+    isaOptimizerState(alg)
 
-Verify if an object implements the [`OptimizationAlgorithm`](@ref) interface.
+Verify if an object implements the [`OptimizerState`](@ref) interface.
 """
-function isaOptimizationAlgorithm(alg)
+function isaOptimizerState(alg)
     x = rand(3)
 
     applicable(gradient, alg) &&

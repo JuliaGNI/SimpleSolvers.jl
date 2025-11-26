@@ -1,6 +1,6 @@
 # Optimizers
 
-An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`OptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
+An [`Optimizer`](@ref) stores an [`OptimizerState`](@ref), a [`OptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
 
 ```@example optimizer
 using SimpleSolvers

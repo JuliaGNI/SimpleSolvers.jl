@@ -80,7 +80,7 @@ update!(result, cache, x₂, value(obj, x), grad)
 !!! warn
     `NewtonOptimizerCache`, `OptimizerResult` and `NewtonOptimizerState` (through `OptimizerProblem`) all store things that are somewhat similar, for example `x`. This may make it somewhat difficult to keep track of all the things that happen during optimization.
 
-An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizationAlgorithm`](@ref) (and therefore the [`OptimizerProblem`](@ref) again). We also give an example:
+An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.OptimizerResult`](@ref) and an [`OptimizerState`](@ref) (and therefore the [`OptimizerProblem`](@ref) again). We also give an example:
 
 ```@example update
 opt = Optimizer(x, obj)

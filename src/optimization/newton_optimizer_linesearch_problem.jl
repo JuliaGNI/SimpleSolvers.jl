@@ -54,7 +54,7 @@ In the example above we have to apply [`update!`](@ref) twice on the instance of
 
 Calling the function and derivative stored in the [`LinesearchProblem`](@ref) created with `linesearch_problem` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
-function linesearch_problem(objective::OptimizerProblem{T}, gradient_instance::Gradient, cache::NewtonOptimizerCache{T}, state::OptimizationAlgorithm) where {T}
+function linesearch_problem(objective::OptimizerProblem{T}, gradient_instance::Gradient, cache::NewtonOptimizerCache{T}, state::OptimizerState) where {T}
     function f(α)
         cache.x .= compute_new_iterate(state.x̄, α, direction(cache))
         value!(objective, cache.x)

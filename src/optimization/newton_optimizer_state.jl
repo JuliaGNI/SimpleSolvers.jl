@@ -1,5 +1,5 @@
 """
-    NewtonOptimizerState <: OptimizationAlgorithm
+    NewtonOptimizerState <: OptimizerState
 
 The optimizer state is needed to update the [`Optimizer`](@ref). This is different to [`OptimizerStatus`](@ref) and [`OptimizerResult`](@ref) which serve as diagnostic tools.
 It stores a [`LinesearchState`](@ref) and a [`NewtonOptimizerCache`](@ref) which is used to compute the line search problem at each iteration.
@@ -9,7 +9,7 @@ It stores a [`LinesearchState`](@ref) and a [`NewtonOptimizerCache`](@ref) which
 - `linesearch::`[`LinesearchState`](@ref)
 - `cache::`[`NewtonOptimizerCache`](@ref)
 """
-mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizationAlgorithm
+mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizerState
     x̄::AT
     ḡ::GT
     f̄::T

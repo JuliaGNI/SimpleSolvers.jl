@@ -83,7 +83,7 @@ Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in
 
 Also see [`assess_convergence!`](@ref) and [`meets_stopping_criteria`](@ref).
 """
-function residual!(status::OS, state::OST, cache::OCT, f::T)::OS where {T, OS <: OptimizerStatus{T}, OST <: OptimizationAlgorithm, OCT <: OptimizerCache{T}}
+function residual!(status::OS, state::OST, cache::OCT, f::T)::OS where {T, OS <: OptimizerStatus{T}, OST <: OptimizerState, OCT <: OptimizerCache{T}}
     Δx = cache.x - state.x̄
     status.rxₐ = norm(Δx)
     status.rxᵣ = status.rxₐ / norm(cache.x)

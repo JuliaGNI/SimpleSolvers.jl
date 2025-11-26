@@ -50,7 +50,7 @@ Return the direction of the gradient step (i.e. `δ`) of an instance of [`Newton
 """
 direction(cache::NewtonOptimizerCache) = cache.δ
 
-function update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, x::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::AbstractVector)
     cache.x .= x
     direction(cache) .= cache.x - state.x̄
     cache
@@ -61,16 +61,16 @@ end
 
 Update the [`NewtonOptimizerCache`](@ref) based on `x` and `g`.
 """
-function update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, x::AbstractVector, g::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::AbstractVector, g::AbstractVector)
     update!(cache, state, x)
     gradient(cache) .= g
     rhs(cache) .= -g
     cache
 end
 
-update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, grad::Gradient, x::AbstractVector) = update!(cache, state, x, gradient(x, grad))
+update!(cache::NewtonOptimizerCache, state::OptimizerState, grad::Gradient, x::AbstractVector) = update!(cache, state, x, gradient(x, grad))
 
-function update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, obj::OptimizerProblem, grad::GradientFunction, x::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, obj::OptimizerProblem, grad::GradientFunction, x::AbstractVector)
     gradient!(obj, grad, x)
     update!(cache, state, x, gradient(obj))
 end
@@ -80,7 +80,7 @@ end
 
 Update an instance of [`NewtonOptimizerCache`](@ref) based on `x`.
 
-This is used in [`update!(::OptimizationAlgorithm, ::AbstractVector)`](@ref).
+This is used in [`update!(::OptimizerState, ::AbstractVector)`](@ref).
 
 This sets:
 ```math
@@ -101,17 +101,17 @@ Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref).
 
 The multiplication by the inverse of ``H`` is done with `LinearAlgebra.ldiv!`.
 """
-function update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, g::Gradient, hes::Hessian, x::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, g::Gradient, hes::Hessian, x::AbstractVector)
     update!(cache, state, g, x)
     ldiv!(direction(cache), hes, rhs(cache))
     cache
 end
 
-function update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, ::OptimizerProblem, g::Gradient, hes::Hessian, x::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, ::OptimizerProblem, g::Gradient, hes::Hessian, x::AbstractVector)
     update!(cache, state, g, hes, x)
 end
 
-function update!(cache::NewtonOptimizerCache, state::OptimizationAlgorithm, obj::OptimizerProblem, g::GradientFunction, hes::Hessian, x::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, obj::OptimizerProblem, g::GradientFunction, hes::Hessian, x::AbstractVector)
     update!(cache, state, obj, g, x)
     ldiv!(direction(cache), hes, rhs(cache))
     cache

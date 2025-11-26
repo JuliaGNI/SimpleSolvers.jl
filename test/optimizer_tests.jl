@@ -7,7 +7,7 @@ Random.seed!(123)
 
 include("optimizers_problems.jl")
 
-struct OptimizerTest{T} <: OptimizationAlgorithm end
+struct OptimizerTest{T} <: OptimizerState end
 
 test_optim = OptimizerTest{Float64}()
 test_x = zeros(3)
@@ -18,7 +18,7 @@ test_obj = OptimizerProblem(F, test_x)
 @test_throws MethodError linesearch(test_optim)
 @test_throws MethodError problem(test_optim)
 
-# test if the correct error is thrown when calling `initialize!` on an `OptimizationAlgorithm`.
+# test if the correct error is thrown when calling `initialize!` on an `OptimizerState`.
 @test_throws ErrorException initialize!(test_optim, test_x)
 @test_throws MethodError update!(test_optim, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)

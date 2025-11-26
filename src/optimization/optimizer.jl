@@ -7,11 +7,11 @@ const SOLUTION_MAX_PRINT_LENGTH = 10
 The optimizer that stores all the information needed for an optimization problem. This problem can be solved by calling [`solve!(::AbstractVector, ::Optimizer)`](@ref).
 
 # Keys
-- `algorithm::`[`OptimizationAlgorithm`](@ref),
+- `algorithm::`[`OptimizerState`](@ref),
 - `problem::`[`OptimizerProblem`](@ref),
 - `config::`[`Options`](@ref),
 - `result::`[`OptimizerResult`](@ref),
-- `state::`[`OptimizationAlgorithm`](@ref).
+- `state::`[`OptimizerState`](@ref).
 """
 struct Optimizer{T,
                  ALG <: OptimizerMethod,
@@ -129,7 +129,7 @@ Compute problem and gradient at new solution and update result.
 This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref) and then [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 """
-function update!(opt::Optimizer, state::OptimizationAlgorithm, x::AbstractVector)
+function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     update!(problem(opt), gradient(opt), x)
     update!(hessian(opt), x)
     update!(cache(opt), state, x, gradient(problem(opt)))
@@ -161,7 +161,7 @@ solver_step!(opt, state, x)
  0.6666666
 ```
 """
-function solver_step!(opt::Optimizer, state::OptimizationAlgorithm, x::VT)::VT where {VT <: AbstractVector}
+function solver_step!(opt::Optimizer, state::OptimizerState, x::VT)::VT where {VT <: AbstractVector}
     # update problem, hessian, state and result
     update!(opt, state, x)
 
@@ -207,7 +207,7 @@ iteration_number(opt)
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
-function solve!(opt::Optimizer, state::OptimizationAlgorithm, x::AbstractVector)
+function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     initialize!(opt, x)
 
     while (iteration_number(opt) == 0 || !meets_stopping_criteria(opt))
