@@ -1,6 +1,6 @@
 # Optimizers
 
-An [`Optimizer`](@ref) stores an [`OptimizationAlgorithm`](@ref), a [`OptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
+An [`Optimizer`](@ref) stores an [`OptimizerState`](@ref), a [`OptimizerProblem`](@ref), the [`SimpleSolvers.OptimizerResult`](@ref) and a [`SimpleSolvers.NonlinearMethod`](@ref). Its purposes are:
 
 ```@example optimizer
 using SimpleSolvers
@@ -20,21 +20,22 @@ opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
 Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.NewtonOptimizerState`](@ref) and [`Hessian`](@ref). We can also allocate these objects manually and then call a different constructor for [`Optimizer`](@ref):
 
 ```@example optimizer
-using SimpleSolvers: NewtonOptimizerState, OptimizerResult, initialize!
+using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, OptimizerStatus, initialize!, LinesearchState
 
-result = OptimizerResult(x, value!(obj, x))
-initialize!(result, x)
-state = NewtonOptimizerState(x; linesearch = bt)
+status = OptimizerStatus(x, value!(obj, x))
+initialize!(status, x)
+_cache = NewtonOptimizerCache(x)
 hes = Hessian(alg, obj, x)
-opt₂ = Optimizer(alg, obj, hes, result, state)
+_linesearch = LinesearchState(Static(.1))
+opt₂ = Optimizer(alg, obj, hes, status, _cache, _linesearch)
 ```
 
 If we want to solve the problem, we can call [`solve!`](@ref) on the [`Optimizer`](@ref) instance:
 
 ```@example optimizer
 x₀ = copy(x)
-
-solve!(opt, x₀)
+state = NewtonOptimizerState(x)
+solve!(opt, state, x₀)
 ```
 
 Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solver_step!`](@ref) until [`SimpleSolvers.meets_stopping_criteria`](@ref) is satisfied.
@@ -43,20 +44,25 @@ Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solve
 using SimpleSolvers: solver_step!
 
 x = rand(3)
-solver_step!(opt, x)
+solver_step!(opt, state, x)
 ```
 
 The function [`SimpleSolvers.solver_step!`](@ref) in turn does the following:
 
 ```julia
 # update problem, hessian, state and result
-update!(opt, x)
+update!(opt, state, x)
+
 # solve H δx = - ∇f
+# rhs is -g
 ldiv!(direction(opt), hessian(opt), rhs(opt))
+
 # apply line search
-α = linesearch(state(opt))(linesearch_problem(problem(opt), cache(opt)))
+α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
+
 # compute new minimizer
 x .= compute_new_iterate(x, α, direction(opt))
+cache(opt).x .= x
 ```
 
 ### Solving the Line Search Problem with Backtracking
@@ -81,7 +87,7 @@ ls = linesearch(opt)
 α = ls.α₀
 x₀ = zero(α)
 grad = GradientAutodiff{Float64}(problem(opt).F, length(x))
-lso = linesearch_problem(problem(opt), grad, cache(opt))
+lso = linesearch_problem(problem(opt), grad, cache(opt), state)
 y₀ = value!(lso, x₀)
 d₀ = derivative!(lso, x₀)
 
