@@ -210,14 +210,15 @@ grad = GradientAutodiff{Float64}(obj.F, length(x))
 gradient!(obj, grad, x₀)
 value!(obj, x₀)
 _cache = NewtonOptimizerCache(x₀)
+state = NewtonOptimizerState(x₀)
 hess = HessianAutodiff(obj, x₀)
 update!(hess, x₀)
-update!(_cache, obj, grad, hess, x₀)
+update!(_cache, state, obj, grad, hess, x₀)
 gradient!(obj, grad, x₁)
 value!(obj, x₁)
 update!(hess, x₁)
-update!(_cache, obj, grad, hess, x₁)
-ls_obj = linesearch_problem(obj, grad, _cache)
+update!(_cache, state, obj, grad, hess, x₁)
+ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
@@ -304,8 +305,8 @@ We make another iteration:
 gradient!(obj, grad, x)
 value!(obj, x)
 update!(hess, x)
-update!(_cache, obj, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache)
+update!(_cache, state, obj, grad, hess, x)
+ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
@@ -350,8 +351,8 @@ We finally compute a third iterate:
 gradient!(obj, grad, x)
 value!(obj, x)
 update!(hess, x)
-update!(_cache, obj, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache)
+update!(_cache, state, obj, grad, hess, x)
+ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D

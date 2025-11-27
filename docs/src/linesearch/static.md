@@ -23,13 +23,14 @@ nothing # hide
 ```@example static
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
+state = NewtonOptimizerState(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-update!(cache, grad, x)
+update!(cache, state, grad, x)
 x₂ = [.9, 0., 0.]
-update!(cache, grad, x₂)
+update!(cache, state, grad, x₂)
 value!(obj, x₂)
 gradient!(obj, grad, x₂)
-ls_obj = linesearch_problem(obj, grad, cache)
+ls_obj = linesearch_problem(obj, grad, cache, state)
 nothing # hide
 ```
 
