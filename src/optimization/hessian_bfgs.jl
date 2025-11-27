@@ -66,7 +66,7 @@ We note that unlike most other [`initialize!`](@ref) methods this one is not wri
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: initialize!)
-f(x) = x .^ 2
+f(x) = sum(x .^ 2)
 x = [1f0, 2f0, 3f0]
 H = HessianBFGS(f, x)
 initialize!(H, x)
@@ -81,7 +81,7 @@ inv(H)
 ```
 """
 function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
-    H.Q .= Matrix(1.0I, size(H.Q)...)
+    H.Q .= Matrix(one(T)*I, size(H.Q)...)
 
     H.x̄ .= alloc_x(x)
     H.x .= alloc_x(x)
@@ -96,8 +96,8 @@ function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
     H
 end
 
-function update!(H::HessianBFGS, x::AbstractVector)
-    update!(H, x, gradient!(problem(H), x))
+function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
+    H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
 
     δγ = compute_δγ(H)
 

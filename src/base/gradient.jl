@@ -16,6 +16,7 @@ When a custom `Gradient` is implemented, a functor is needed:
 
 ```julia
 function (grad::Gradient)(g::AbstractVector, x::AbstractVector) end
+
 ```
 This functor can also be called with [`gradient!`](@ref).
 
@@ -56,7 +57,7 @@ g₁ ≈ g₂
 true
 ```
 """
-gradient!(g::AbstractVector, grad::Gradient, x::AbstractVector) = grad(g,x)
+gradient!(g::AbstractVector, grad::Gradient, x::AbstractVector) = grad(g, x)
 
 """
     compute_gradient!

@@ -77,9 +77,9 @@ struct Optimizer{T,
     result::RES
     state::AST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, result::OptimizerResult{T}, state::OptimizationAlgorithm; gradient = GradientAutodiff{T}(problem.F, length(result.x)), options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, status::OptimizerStatus, result::OptimizerResult{T}, state::OptimizationAlgorithm; gradient = GradientAutodiff{T}(problem.F, length(result.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(result), typeof(state)}(algorithm, problem, gradient, hessian, config, result, state)
+        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(status), typeof(result), typeof(state)}(algorithm, problem, gradient, hessian, config, status, result, state)
     end
 end
 
@@ -158,7 +158,6 @@ check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
 print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 print_status(opt::Optimizer) = print_status(status(opt), config(opt))
 
-assess_convergence(opt::Optimizer) = assess_convergence(status(opt), config(opt))
 meets_stopping_criteria(opt::Optimizer) = meets_stopping_criteria(status(opt), config(opt))
 
 function initialize!(opt::Optimizer, x::AbstractVector)
@@ -183,6 +182,7 @@ function update!(opt::Optimizer, x::AbstractVector)
     update!(problem(opt), gradient(opt), x)
     update!(hessian(opt), x)
     update!(state(opt), problem(opt), gradient(opt), hessian(opt), x)
+    residual!(status(opt), x, result(opt).x, value(problem(opt)), result(opt).f, gradient(problem(opt)), result(opt).g)
     update!(result(opt), x, value(problem(opt)), gradient(problem(opt)))
 
     opt
@@ -251,7 +251,7 @@ iteration_number(opt)
 
 # output
 
-12
+4
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
@@ -271,7 +271,7 @@ function solve!(opt::Optimizer, x::AbstractVector)
     x
 end
 
-initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ, HT <: Hessian} = opt
+initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, GT, HT}) where {T, ALG, OBJ, GT, HT <: Hessian} = opt
 
 """
     initial_values_for_hessian!(opt)
@@ -279,11 +279,11 @@ initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ,
 Write initial values into the [`IterativeHessian`](@ref) in order to start optimization. [`Hessian`](@ref)s that are not [`IterativeHessian`](@ref)s do not need this extra step.
 Also note the difference to e.g. [`initialize!(::HessianBFGS, ::AbstractVector)`](@ref).
 """
-function initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, HT}) where {T, ALG, OBJ, HT <: IterativeHessian}
+function initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, GT, HT}) where {T, ALG, OBJ, GT, HT <: IterativeHessian}
     z = zero(solution(hessian(opt)))
     o = ones(T, length(z))
     H = hessian(opt)
-    update!(H, z, gradient!(problem(H), z))
+    update!(H, z, gradient!(problem(H), gradient(opt), z))
     update!(H, o)
     opt
 end

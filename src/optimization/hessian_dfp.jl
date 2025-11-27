@@ -39,7 +39,7 @@ HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(OptimizerProblem(F, x), 
 Hessian(::DFP, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
 function initialize!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
-    H.Q .= Matrix(1.0I, size(H.Q)...)
+    H.Q .= Matrix(one(T) * I, size(H.Q)...)
 
     H.x̄ .= eltype(x)(NaN)
     H.δ .= eltype(x)(NaN)
@@ -57,8 +57,8 @@ function compute_outer_products!(H::HessianDFP)
     outer!(H.δδ, H.δ, H.δ)
 end
 
-function update!(H::HessianDFP, x::AbstractVector)
-    update!(H, x, gradient!(problem(H), x))
+function update!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
+    H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
 
     γQγ = compute_γQγ(H)
     δγ = compute_δγ(H)
