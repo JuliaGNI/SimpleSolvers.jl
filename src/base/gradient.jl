@@ -33,18 +33,30 @@ function (::Gradient{T₁})(::AbstractVector{T₂}, ::AbstractVector{T₃}) wher
 end
 
 """
-    gradient!(g, x, grad)
+    gradient!(g, grad, x)
 
 Apply the [`Gradient`](@ref) `grad` to `x` and store the result in `g`.
 
 # Implementation
 
 This is equivalent to doing
-```julia
-grad(g, x)
+```jldoctest; setup=:(using SimpleSolvers)
+g₁ = zeros(3)
+g₂ = zeros(3)
+x = [1., 2., 3.]
+F(x) = sum(x .^ 2.)
+grad = GradientAutodiff(F, x)
+
+grad(g₁, x); gradient!(g₂, grad, x);
+
+g₁ ≈ g₂
+
+# output
+
+true
 ```
 """
-gradient!(g::AbstractVector, x::AbstractVector, grad::Gradient) = grad(g,x)
+gradient!(g::AbstractVector, grad::Gradient, x::AbstractVector) = grad(g,x)
 
 """
     compute_gradient!
@@ -64,7 +76,7 @@ Internally this is using [`gradient!`](@ref).
 """
 function gradient(x, grad::Gradient)
     g = alloc_g(x)
-    gradient!(g, x, grad)
+    gradient!(g, grad, x)
     g
 end
 
@@ -119,22 +131,20 @@ The functor does:
 grad(g, x) = grad.∇F!(g, x)
 ```
 """
-struct GradientFunction{T, ∇T} <: Gradient{T}
-    ∇F!::∇T
+struct GradientFunction{T} <: Gradient{T} end
+
+function GradientFunction(::Callable, ::AbstractArray{T}) where {T}
+    GradientFunction{T}()
 end
 
-function GradientFunction(DF!::Callable, ::AbstractArray{T}) where {T}
-    GradientFunction{T, typeof(DF!)}(DF!)
+
+function GradientFunction{T}(::Callable, ::Integer) where T
+    GradientFunction{T}()
 end
 
-function GradientFunction{T}(DF!::Callable, nx::Integer) where T
-    x = zeros(T, nx)
-    GradientFunction(DF!, x)
-end
+GradientFunction(::AbstractArray{T}) where {T} = GradientFunction{T}()
 
-function (grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
-    grad.∇F!(g, x)
-end
+gradient!(::AbstractVector, ::GradientFunction, ::AbstractVector) = error("You have to provide an `OptimizerProblem` when using `GradientFunction`!")
 
 """
     GradientAutodiff <: Gradient
@@ -178,18 +188,6 @@ end
 
 function (grad::GradientAutodiff{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.gradient!(g, grad.F, x, grad.∇config)
-end
-
-"""
-    gradient_ad!(g, x, F)
-
-Build a [`GradientAutodiff`](@ref) object based on `F` and apply it to `x`. The result is stored in `g`.
-
-Also see [`gradient_fd!`](@ref) for the finite differences version.
-"""
-function gradient_ad!(g::AbstractVector{T}, x::AbstractVector{T}, F::Callable) where {T <: Number}
-    grad = GradientAutodiff{T}(F, length(x))
-    grad(g,x)
 end
 
 @doc raw"""
@@ -258,19 +256,8 @@ function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractV
     end
 end
 
-"""
-    gradient_fd!(g, x, F)
-
-Build a [`GradientFiniteDifferences`](@ref) object based on `F` and apply it to `x`. The result is stored in `g`.
-
-Also see [`gradient_ad!`](@ref) for the autodiff version.
-"""
-function gradient_fd!(g::AbstractVector{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
-    grad = GradientFiniteDifferences{T}(F, length(x); kwargs...)
-    grad(g,x)
-end
-
-function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG; mode = :autodiff) where {T}
+# TODO: remove this! (it's here for the moment to keep the tests as close to what they were before as possible)
+function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG::Union{Callable, Missing}; mode = :autodiff) where {T}
     grad = if mode == :autodiff
         GradientAutodiff{T}(ForG, length(x))
     elseif mode == :finite
@@ -278,5 +265,14 @@ function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG; mode = :aut
     else
         GradientFunction{T}(ForG, length(x))
     end
-    grad(g,x)
+
+    if typeof(grad) <: GradientFunction
+        # use a dummy function to allocate an OptimizerProblem
+        function dummyfunction(y, x) end
+        obj = OptimizerProblem(dummyfunction, x; gradient = ForG)
+        gradient!(obj, grad, x)
+        gradient(obj)
+    else
+        gradient!(g, grad, x)
+    end
 end

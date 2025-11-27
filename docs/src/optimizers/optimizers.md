@@ -81,7 +81,8 @@ using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem
 ls = linesearch(opt)
 α = ls.α₀
 x₀ = zero(α)
-lso = linesearch_problem(problem(opt), cache(opt))
+grad = GradientAutodiff{Float64}(problem(opt).F, length(x))
+lso = linesearch_problem(problem(opt), grad, cache(opt))
 y₀ = value!(lso, x₀)
 d₀ = derivative!(lso, x₀)
 

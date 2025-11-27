@@ -24,7 +24,8 @@ obj = OptimizerProblem(f, x)
 Every instance of [`OptimizerProblem`](@ref) stores an instance of [`Gradient`](@ref) to which we [similarly can apply the functions](@ref "Gradients") [`gradient`](@ref) or [`gradient!`](@ref):
 
 ```@example optimizer_problem
-gradient(obj, x)
+grad = GradientAutodiff(f, x)
+gradient!(obj, grad, x)
 ```
 
 The difference to [`Gradient`](@ref) is that we also store the value for the evaluated gradient, which can be accessed by calling:

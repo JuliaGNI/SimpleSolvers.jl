@@ -43,7 +43,7 @@ In order to update an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref) w
 using SimpleSolvers: initialize!, NewtonOptimizerCache # hide
 grad = GradientAutodiff(f, x)
 cache = NewtonOptimizerCache(x)
-update!(cache, x, grad, hes)
+update!(cache, grad, hes, x)
 ```
 
 !!! info
@@ -58,7 +58,7 @@ In order that we do not have to update the [`Hessian`](@ref) and the [`SimpleSol
 using SimpleSolvers: NewtonOptimizerState # hide
 obj = OptimizerProblem(f, x)
 state = NewtonOptimizerState(x)
-update!(state, x, Gradient(obj), hes)
+update!(state, obj, grad, hes, x)
 ```
 
 ### `OptimizerResult`
@@ -70,14 +70,14 @@ using SimpleSolvers: OptimizerResult # hide
 
 result = OptimizerResult(x, obj)
 
-update!(result, x, obj, grad)
+update!(result, x, value(obj, x), grad)
 ```
 
 Note that the residuals are still `NaN`s here. In order to get proper values for these we have to *perform two updating steps*:
 
 ```@example update
 x₂ = [.9, 0., 0.]
-update!(result, x₂, obj, grad)
+update!(result, x₂, value(obj, x), grad)
 ```
 
 !!! warn

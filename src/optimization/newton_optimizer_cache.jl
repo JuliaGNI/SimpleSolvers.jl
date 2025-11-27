@@ -86,7 +86,12 @@ function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::AbstractVect
     cache
 end
 
-update!(cache::NewtonOptimizerCache, x::AbstractVector, g::Gradient) = update!(cache, x, gradient(x, g))
+update!(cache::NewtonOptimizerCache, grad::Gradient, x::AbstractVector) = update!(cache, x, gradient(x, grad))
+
+function update!(cache::NewtonOptimizerCache, obj::OptimizerProblem, grad::GradientFunction, x::AbstractVector)
+    gradient!(obj, grad, x)
+    update!(cache, x, gradient(obj))
+end
 
 @doc raw"""
     update!(cache::NewtonOptimizerCache, x, g, hes)
@@ -114,13 +119,23 @@ Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref).
 
 The multiplication by the inverse of ``H`` is done with `LinearAlgebra.ldiv!`.
 """
-function update!(cache::NewtonOptimizerCache, x::AbstractVector, g::Union{AbstractVector, Gradient}, hes::Hessian)
-    update!(cache, x, g)
+function update!(cache::NewtonOptimizerCache, g::Gradient, hes::Hessian, x::AbstractVector)
+    update!(cache, g, x)
     ldiv!(direction(cache), hes, rhs(cache))
     cache
 end
 
-function initialize!(cache::NewtonOptimizerCache{T}, x::AbstractVector{T}) where {T}
+function update!(cache::NewtonOptimizerCache, ::OptimizerProblem, g::Gradient, hes::Hessian, x::AbstractVector)
+    update!(cache, g, hes, x)
+end
+
+function update!(cache::NewtonOptimizerCache, obj::OptimizerProblem, g::GradientFunction, hes::Hessian, x::AbstractVector)
+    update!(cache, obj, g, x)
+    ldiv!(direction(cache), hes, rhs(cache))
+    cache
+end
+
+function initialize!(cache::NewtonOptimizerCache{T}, ::AbstractVector{T}) where {T}
     cache.x̄ .= T(NaN)
     cache.x .= T(NaN)
     cache.δ .= T(NaN)

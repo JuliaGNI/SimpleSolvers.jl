@@ -227,18 +227,3 @@ function compute_hessian!(H::AbstractMatrix{T}, x::AbstractVector{T}, ForH; mode
     end
     hessian(H, x)
 end
-
-"""
-    compute_hessian_ad!(g, x, F)
-
-Build a [`HessianAutodiff`](@ref) object based on `F` and apply it to `x`. The result is stored in `H`.
-
-Also see [`gradient_ad!`](@ref) for the [`Gradient`](@ref) version.
-
-# Implementation
-
-This is using [`compute_hessian!`](@ref) with the [`HessianAutodiff`](@ref).
-"""
-function compute_hessian_ad!(H::AbstractMatrix{T}, x::AbstractVector{T}, F::FT; kwargs...) where {T, FT}
-    compute_hessian!(H, x, F; mode = :autodiff, kwargs...)
-end

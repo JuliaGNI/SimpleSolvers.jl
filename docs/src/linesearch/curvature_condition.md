@@ -43,12 +43,14 @@ hes = HessianAutodiff(obj, x)
 update!(hes, x)
 
 c₂ = .9
-g = gradient(obj, x)
+g = similar(x)
+grad = GradientAutodiff{Float64}(obj.F, length(x))
+gradient!(obj, grad, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
 ldiv!(p, hes, rhs)
-cc = CurvatureCondition(c₂, x, g, p, obj, obj.G)
+cc = CurvatureCondition(c₂, x, g, p, obj, grad)
 
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3

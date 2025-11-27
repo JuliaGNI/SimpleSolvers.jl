@@ -116,7 +116,7 @@ The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
 If `OptimizerProblem` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
 """
-mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Gradient{T}, Tf, Tg} <: AbstractOptimizerProblem{T}
+mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Union{Callable, Missing}, Tf, Tg} <: AbstractOptimizerProblem{T}
     F::TF
     G::TG
 
@@ -136,25 +136,18 @@ function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, T
     @printf io "    x_g₁              = %.2e %s" obj.x_g[1] "\n" 
 end
 
-function OptimizerProblem(F::Callable, G::Gradient,
+function OptimizerProblem(F::Callable, G::TG,
                                x::Tx;
-                               f::Tf=eltype(x)(NaN),
-                               g::Tg=alloc_g(x)) where {T, Tx<:AbstractArray{T}, Tf, Tg<:AbstractArray{T}}
-    OptimizerProblem{T, Tx, typeof(F), typeof(G), Tf, Tg}(F, G, f, g, alloc_x(x), alloc_x(x))
+                               f::T=T(NaN),
+                               g::Tg=alloc_g(x)) where {T<:Number, Tx<:AbstractArray{T}, Tg<:AbstractArray{T}, TG <: Union{Callable, Missing}}
+    OptimizerProblem{T, Tx, typeof(F), TG, T, Tg}(F, G, f, g, alloc_x(x), alloc_x(x))
 end
 
-function OptimizerProblem(F::Callable, G!::Callable,
-                               x::AbstractArray{<:Number};
-                               f::Number=eltype(x)(NaN),
-                               g::AbstractArray{<:Number}=alloc_g(x))
-    OptimizerProblem(F, GradientFunction(G!, x), x; f = f, g = g)
+function OptimizerProblem(F::Callable, x::Tx;
+                               f::Number=T(NaN),
+                               g::Tg=alloc_g(x), gradient = missing) where {T<:Number, Tx<:AbstractArray{T}, Tg<:AbstractArray{T}}
+    OptimizerProblem(F, gradient, x; f = f, g = g)
 end
-
-function OptimizerProblem(F::Callable, x::AbstractArray; gradient = GradientAutodiff(F, x))
-    OptimizerProblem(F, gradient, x)
-end
-
-OptimizerProblem(F, ::Nothing, x::AbstractArray; kwargs...) = OptimizerProblem(F, x; kwargs...)
 
 function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
     copyto!(f_argument(obj), x)
@@ -172,19 +165,25 @@ Like `derivative`, but for [`OptimizerProblem`](@ref).
 """
 gradient(obj::OptimizerProblem) = obj.g
 
-function gradient(obj::OptimizerProblem, x::AbstractArray{<:Number})
-    gradient(x, obj.G)
-end
-
 """
-    gradient!!(obj::OptimizerProblem, x)
+    gradient!!(obj::OptimizerProblem, gradient_instance, x)
 
 Like `derivative!!`, but for [`OptimizerProblem`](@ref).
 """
-function gradient!!(obj::OptimizerProblem, x::AbstractArray{<:Number})
-    copyto!(obj.x_g, x)
-    gradient!(gradient(obj), x, obj.G)
+function gradient!!(obj::OptimizerProblem, gradient_instance::Gradient, x::AbstractArray)
+    copyto!(g_argument(obj), x)
+    gradient!(gradient(obj), gradient_instance, x)
     gradient(obj)
+end
+
+function gradient!!(obj::OptimizerProblem{T, Tx, TF, TG}, ::GradientFunction, x::Tx) where {T, Tx<:AbstractVector{T}, TF<:Callable, TG<:Callable}
+    copyto!(g_argument(obj), x)
+    Gradient(obj)(gradient(obj), x)
+    gradient(obj)
+end
+
+function gradient!!(::OptimizerProblem{T, Tx, TF, Missing}, ::GradientFunction, ::AbstractArray{<:Number}) where {T, Tx<:AbstractVector{T}, TF<:Callable}
+    error("There is no analytic gradient stored in the problem!")    
 end
 
 """
@@ -192,9 +191,9 @@ gradient!(obj::OptimizerProblem, x)
 
 Like `derivative!`, but for [`OptimizerProblem`](@ref).
 """
-function gradient!(obj::OptimizerProblem, x::AbstractArray{<:Number})
+function gradient!(obj::OptimizerProblem, gradient_instance::Gradient, x::AbstractArray{<:Number})
     if x != obj.x_g
-        gradient!!(obj, x)
+        gradient!!(obj, gradient_instance, x)
     end
     gradient(obj)
 end
@@ -237,9 +236,9 @@ end
 
 Call [`value!`](@ref) and [`gradient!`](@ref) on `obj`.
 """
-function update!(obj::OptimizerProblem, x::AbstractVector)
+function update!(obj::OptimizerProblem, gradient_instance::Gradient, x::AbstractVector)
     value!(obj, x)
-    gradient!(obj, x)
+    gradient!(obj, gradient_instance, x)
 
     obj
 end
