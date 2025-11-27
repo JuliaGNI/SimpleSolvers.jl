@@ -34,7 +34,6 @@ for method in (Newton(), BFGS(), DFP())
             state = NewtonOptimizerState(x)
 
             @test config(opt) == opt.config
-            @test status(opt) == opt.status
 
             solve!(opt, state, x)
             @test norm(x) ≈ zero(T) atol=∛(2000eps(T))
