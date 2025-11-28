@@ -38,12 +38,13 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
-update!(cache, obj, grad, hes, x)
+state = NewtonOptimizerState(x)
+update!(cache, state, obj, grad, hes, x)
 nothing # hide
 ```
 
 ```@example bisection
-ls_obj = linesearch_problem(obj, grad, cache)
+ls_obj = linesearch_problem(obj, grad, cache, state)
 nothing # hide
 ```
 

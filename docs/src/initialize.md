@@ -7,7 +7,6 @@ Before we can use [`update!`](@ref) we have to initialize with [`SimpleSolvers.i
 Similar to [`update!`](@ref), [`SimpleSolvers.initialize!`](@ref) returns the first input argument as output. Examples include:
 - [`SimpleSolvers.initialize!(::Hessian, ::AbstractVector)`](@ref): this routine exists for most [`Hessian`](@ref)s, i.e. for [`HessianFunction`](@ref), [`HessianAutodiff`](@ref), [`HessianBFGS`](@ref) and [`HessianDFP`](@ref),
 - [`SimpleSolvers.initialize!(::SimpleSolvers.NewtonSolverCache, ::AbstractVector)`](@ref),
-- [`SimpleSolvers.initialize!(::SimpleSolvers.NonlinearSolverStatus, ::AbstractVector, ::Base.Callable)`](@ref),
 - [`SimpleSolvers.initialize!(::SimpleSolvers.NewtonOptimizerCache, ::AbstractVector)`](@ref).
 
 We demonstrate these examples in code. First for an instance of [`SimpleSolvers.Hessian`](@ref):
@@ -39,10 +38,6 @@ cache = SimpleSolvers.NewtonOptimizerCache(x)
 initialize!(cache, x)
 cache.g
 ```
-
-## Clear Routines
-
-For [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.OptimizerStatus`](@ref) the [`SimpleSolvers.clear!`](@ref) routines are used instead of the [`SimpleSolvers.initialize!`](@ref) routines.
 
 ## Reasoning behind Initialization with `NaN`s
 

@@ -3,7 +3,7 @@
 
 
 """
-struct HessianDFP{T,VT,MT,OBJ} <: Hessian{T}
+struct HessianDFP{T,VT,MT,OBJ} <: IterativeHessian{T}
     problem::OBJ
 
     x̄::VT    # previous solution
@@ -39,7 +39,7 @@ HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(OptimizerProblem(F, x), 
 Hessian(::DFP, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
 function initialize!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
-    H.Q .= Matrix(1.0I, size(H.Q)...)
+    H.Q .= Matrix(one(T) * I, size(H.Q)...)
 
     H.x̄ .= eltype(x)(NaN)
     H.δ .= eltype(x)(NaN)
@@ -49,7 +49,12 @@ function initialize!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
     H.x .= x
     H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
 
-    return H
+    H
+end
+
+function compute_outer_products!(H::HessianDFP)
+    outer!(H.γγ, H.γ, H.γ)
+    outer!(H.δδ, H.δ, H.δ)
 end
 
 function update!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
@@ -59,26 +64,25 @@ function update!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
     H.x .= x
     H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
 
+
     # δ = x - x̄
-    H.δ .= H.x .- H.x̄
+    direction(H) .= H.x - H.x̄
 
     # γ = g - ḡ
-    H.γ .= H.g .- H.ḡ
+    H.γ .= H.g - H.ḡ
 
-    # γQγ = γᵀQγ
-    γQγ = dot(H.γ, H.Q, H.γ)
+    # δγ = δ ⋅ γ
+    δγ = compute_δγ(H)
 
-    # δγ = δᵀγ
-    δγ = H.δ ⋅ H.γ
+    γQγ = compute_γQγ(H)
 
     # DFP
     # Q = Q - ... + ...
     # H.Q .-= H.Q * H.γ * H.γ' * H.Q / (H.γ' * H.Q * H.γ) .-
     #         H.δ * H.δ' ./ δγ
 
-    if δγ ≠ 0 && γQγ ≠ 0
-        outer!(H.γγ, H.γ, H.γ)
-        outer!(H.δδ, H.δ, H.δ)
+    if !iszero(δγ) && !iszero(γQγ)
+        compute_outer_products!(H)
 
         mul!(H.T1, H.γγ, H.Q)
         mul!(H.T2, H.Q, H.T1)
