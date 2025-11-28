@@ -58,10 +58,23 @@ function compute_outer_products!(H::HessianDFP)
 end
 
 function update!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
+    # copy previous data and compute new gradient
+    H.ḡ .= H.g
+    H.x̄ .= H.x
+    H.x .= x
     H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
 
-    γQγ = compute_γQγ(H)
+
+    # δ = x - x̄
+    direction(H) .= H.x - H.x̄
+
+    # γ = g - ḡ
+    H.γ .= H.g - H.ḡ
+
+    # δγ = δ ⋅ γ
     δγ = compute_δγ(H)
+
+    γQγ = compute_γQγ(H)
 
     # DFP
     # Q = Q - ... + ...

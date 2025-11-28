@@ -97,8 +97,19 @@ function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
 end
 
 function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
+    # copy previous data and compute new gradient
+    H.ḡ .= H.g
+    H.x̄ .= H.x
+    H.x .= x
     H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
 
+    # δ = x - x̄
+    direction(H) .= H.x - H.x̄
+
+    # γ = g - ḡ
+    H.γ .= H.g - H.ḡ
+
+    # δγ = δ ⋅ γ
     δγ = compute_δγ(H)
 
     # BFGS
@@ -111,7 +122,7 @@ function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
         mul!(H.T1, H.δγ, H.Q)
         mul!(H.T2, H.Q, H.δγ')
         γQγ = compute_γQγ(H)
-        H.T3 .= (1 + γQγ ./ δγ) .* H.δδ
+        H.T3 .= (one(T) + γQγ ./ δγ) .* H.δδ
         H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
     end
 

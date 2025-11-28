@@ -136,7 +136,8 @@ module SimpleSolvers
     include("nonlinear/newton_solver.jl")
 
     export Optimizer,
-           OptimizationAlgorithm, isaOptimizationAlgorithm,
+           OptimizerState, isaOptimizerState,
+           NewtonOptimizerState,
            NewtonOptimizer,
            BFGSOptimizer,
            DFPOptimizer,
@@ -144,6 +145,8 @@ module SimpleSolvers
            HessianBFGS,
            HessianDFP
 
+    include("optimization/optimizer_state.jl")
+    include("optimization/optimizer_cache.jl")
     include("optimization/optimizer_status.jl")
     include("optimization/optimizer_result.jl")
     include("optimization/iterative_hessians.jl")

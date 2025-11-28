@@ -8,7 +8,7 @@ Make a line search problem for a *Newton solver* (the `cache` here is an instanc
 !!! info "Producing a single-valued output"
     Different from the `linesearch_problem` for `NewtonOptimizerCache`s, we apply `l2norm` to the output of `problem!`. This is because the solver operates on an optimizer problem with multiple outputs from which we have to find roots, whereas an optimizer operates on an optimizer problem with a single output of which we should find a minimum.
 
-Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::NewtonOptimizerCache{T}) where {T}`](@ref).
+Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::NewtonOptimizerCache{T}, ::OptimizerState) where {T}`](@ref).
 """
 function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NewtonSolverCache{T}, params) where {T}
     function f(α)
