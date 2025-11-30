@@ -29,6 +29,7 @@ module SimpleSolvers
     export NewtonMethod, Newton, DFP, BFGS
 
     include("base/methods.jl")
+    include("base/optimizer_methods.jl")
 
     export Gradient,
            GradientAutodiff,
