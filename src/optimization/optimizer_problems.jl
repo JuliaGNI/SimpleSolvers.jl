@@ -116,9 +116,10 @@ The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
 
 If `OptimizerProblem` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
 """
-mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Union{Callable, Missing}, Tf, Tg} <: AbstractOptimizerProblem{T}
+mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <: Union{Callable, Missing}, TH <: Union{Callable, Missing}, Tf, Tg} <: AbstractOptimizerProblem{T}
     F::TF
     G::TG
+    H::TH
 
     f::Tf
     g::Tg
@@ -127,7 +128,7 @@ mutable struct OptimizerProblem{T, Tx <: AbstractVector{T}, TF <: Callable, TG <
     x_g::Tx
 end
 
-function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
+function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, TH, Tf}) where {T, Tx, TF, TG, TH, Tf <: Number}
     @printf io "OptimizerProblem (for vector-valued quantities only the first component is printed):\n"
     @printf io "\n"
     @printf io "    f(x)              = %.2e %s" value(obj) "\n" 
@@ -136,24 +137,31 @@ function Base.show(io::IO, obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, T
     @printf io "    x_g₁              = %.2e %s" obj.x_g[1] "\n" 
 end
 
+function OptimizerProblem(F::Callable, G::TG, H::Callable,
+                               x::Tx;
+                               f::T=T(NaN),
+                               g::Tg=alloc_g(x)) where {T<:Number, Tx<:AbstractArray{T}, Tg<:AbstractArray{T}, TG <: Union{Callable, Missing}}
+    OptimizerProblem{T, Tx, typeof(F), TG, typeof(H), Missing, T, Tg}(F, G, H, f, g, alloc_x(x), alloc_x(x))
+end
+
 function OptimizerProblem(F::Callable, G::TG,
                                x::Tx;
                                f::T=T(NaN),
                                g::Tg=alloc_g(x)) where {T<:Number, Tx<:AbstractArray{T}, Tg<:AbstractArray{T}, TG <: Union{Callable, Missing}}
-    OptimizerProblem{T, Tx, typeof(F), TG, T, Tg}(F, G, f, g, alloc_x(x), alloc_x(x))
+    OptimizerProblem{T, Tx, typeof(F), TG, Missing, T, Tg}(F, G, missing, f, g, alloc_x(x), alloc_x(x))
 end
 
 function OptimizerProblem(F::Callable, x::Tx;
                                f::Number=T(NaN),
-                               g::Tg=alloc_g(x), gradient = missing) where {T<:Number, Tx<:AbstractArray{T}, Tg<:AbstractArray{T}}
-    OptimizerProblem(F, gradient, x; f = f, g = g)
+                               g::Tg=alloc_g(x), gradient = missing, hessian = missing) where {T<:Number, Tx<:AbstractArray{T}, Tg<:AbstractArray{T}}
+    ismissing(hessian) ? OptimizerProblem(F, gradient, x; f = f, g = g) : OptimizerProblem(F, gradient, hessian, x; f = f, g = g)
 end
 
-function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: AbstractArray}
+function value!!(obj::OptimizerProblem{T, Tx, TF, TG, TH, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, TH, Tf <: AbstractArray}
     copyto!(f_argument(obj), x)
     copyto!(value(obj), value(obj, x))
 end
-function value!!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, Tf <: Number}
+function value!!(obj::OptimizerProblem{T, Tx, TF, TG, TH, Tf}, x::AbstractArray{<:Number}) where {T, Tx, TF, TG, TH, Tf <: Number}
     copyto!(f_argument(obj), x)
     obj.f = value(obj, x)
 end
@@ -198,13 +206,13 @@ function gradient!(obj::OptimizerProblem, gradient_instance::Gradient, x::Abstra
     gradient(obj)
 end
 
-function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: Number}
+function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, TH, Tf}) where {T, Tx, TF, TG, TH, Tf <: Number}
     obj.f = T(NaN)
     f_argument(obj) .= T(NaN)
     nothing
 end
 
-function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, Tf}) where {T, Tx, TF, TG, Tf <: AbstractArray}
+function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, TH, Tf}) where {T, Tx, TF, TG, TH, Tf <: AbstractArray}
     obj.f .= T(NaN)
     f_argument(obj) .= T(NaN)
     nothing
