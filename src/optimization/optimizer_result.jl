@@ -2,8 +2,8 @@
 """
     OptimizerResult
 
-Stores an [`OptimizerStatus`](@ref) as well as `x`, `f` and `g` (as keys).
-[`OptimizerStatus`](@ref) stores all other information (apart form `x` ,`f` and `g`); i.e. residuals etc.
+Stores an [`OptimizerStatus`](@ref) as well as `x` and `f` (as keys).
+[`OptimizerStatus`](@ref) stores all other information (apart form `x` and `f`; i.e. residuals etc.
 """
 mutable struct OptimizerResult{T, YT, VT <: AbstractArray{T}, OST <: OptimizerStatus{T,YT}}
     status::OST   # iteration number, residuals and convergence info
@@ -11,14 +11,6 @@ mutable struct OptimizerResult{T, YT, VT <: AbstractArray{T}, OST <: OptimizerSt
     x::VT    # current solution
     f::YT    # current function
 end
-
-function OptimizerResult(x::VT, y::YT) where {XT, YT, VT <: AbstractVector{XT}}
-    status = OptimizerStatus{XT,YT}()
-    result = OptimizerResult{XT,YT,VT,typeof(status)}(status, zero(x), zero(y))
-    clear!(result)
-end
-
-OptimizerResult(x::AbstractVector, obj::AbstractOptimizerProblem) = OptimizerResult(x, obj(x))
 
 status(result::OptimizerResult) = result.status
 
@@ -42,36 +34,3 @@ function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
 
     result
 end
-
-function initialize!(result::OptimizerResult{T}, ::AbstractVector{T}) where {T}
-    clear!(result)
-    result
-end
-
-"""
-    update!(result, cache, x, f, g)
-
-Update the [`OptimizerResult`](@ref) based on `x`, `f` and `g` (all vectors).
-This involves updating the [`OptimizerStatus`](@ref) stored in `result` (by calling [`residual!`](@ref)).
-
-This also calls [`increase_iteration_number!(::OptimizerResult)`](@ref)
-"""
-function update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, f::Number, g::AbstractVector)
-    increase_iteration_number!(result)
-
-    result.x .= x
-    result.f  = f
-    cache.x .= x
-
-    result
-end
-
-update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, f::Number, grad::Gradient) = update!(result, cache, x, f, gradient(x, grad))
-update!(result::OptimizerResult, cache::OptimizerCache, x::AbstractVector, obj::AbstractOptimizerProblem, g) = update!(result, cache, x, obj(x), g)
-
-"""
-    increase_iteration_number!(result)
-
-Increase the iteration number of `result`[`OptimizerResult`](@ref). This calls [`increase_iteration_number!(::OptimizerStatus)`](@ref).
-"""
-increase_iteration_number!(result::OptimizerResult) = increase_iteration_number!(status(result))

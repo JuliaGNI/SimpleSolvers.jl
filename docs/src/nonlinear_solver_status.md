@@ -12,7 +12,7 @@ F!(y, x, params) = y .= f(x)
 nlp = NonlinearProblem(F!, x, f(x))
 ```
 
-We now create an instance of [`NewtonSolver`](@ref) which also allocates a [`SimpleSolvers.NonlinearSolverStatus`](@ref):
+We now create an instance of [`NewtonSolver`](@ref) and allocate a [`SimpleSolvers.NonlinearSolverStatus`](@ref):
 
 ```@example status
 solver = NewtonSolver(x, f(x); F = F!)

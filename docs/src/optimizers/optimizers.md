@@ -20,14 +20,12 @@ opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
 Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.NewtonOptimizerState`](@ref) and [`Hessian`](@ref). We can also allocate these objects manually and then call a different constructor for [`Optimizer`](@ref):
 
 ```@example optimizer
-using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, OptimizerStatus, initialize!, LinesearchState
+using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, initialize!, LinesearchState
 
-status = OptimizerStatus(x, value!(obj, x))
-initialize!(status, x)
 _cache = NewtonOptimizerCache(x)
 hes = Hessian(alg, obj, x)
 _linesearch = LinesearchState(Static(.1))
-opt₂ = Optimizer(alg, obj, hes, status, _cache, _linesearch)
+opt₂ = Optimizer(alg, obj, hes, _cache, _linesearch)
 ```
 
 If we want to solve the problem, we can call [`solve!`](@ref) on the [`Optimizer`](@ref) instance:
