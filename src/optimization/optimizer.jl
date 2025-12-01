@@ -165,6 +165,7 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))
     cache(opt).x .= x
+    x
 end
 
 """
