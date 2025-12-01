@@ -23,7 +23,7 @@ A `LinearProblem` can be allocated by calling:
 
 ```julia
 LinearProblem(A, y)
-LinearProblem)(A)
+LinearProblem(A)
 LinearProblem(y)
 LinearProblem{T}(n, m)
 LinearProblem{T}(n)
@@ -226,45 +226,6 @@ Return the *Jacobian function* stored in `nlp`. Also see [`jacobian(::NonlinearP
 """
 Jacobian(nlp::NonlinearProblem) = nlp.J
 
-function jacobian(nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T<:Number}
-    jacobian(x, Jacobian(nlp), params)
-end
-
-"""
-    jacobian!!(nlp::NonlinearProblem, jacobian::Jacobian, x, prams)
-
-Force the evaluation of the jacobian for a [`NonlinearProblem`](@ref).
-Like [`gradient!!`](@ref) for [`OptimizerProblem`](@ref).
-"""
-function jacobian!!(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, x::AbstractArray{T}, params) where {T}
-    copyto!(j_argument(nlp), x)
-    compute_jacobian!(jacobian(nlp), x, jacobian_instance, params)
-    jacobian(nlp)
-end
-
-function jacobian!!(nlp::NonlinearProblem{T}, ::JacobianFunction{T}, x::AbstractArray{T}, params) where {T}
-    copyto!(j_argument(nlp), x)
-    Jacobian(nlp)(jacobian(nlp), x, params)
-    jacobian(nlp)
-end
-
-function jacobian!!(::NonlinearProblem{T,FixedPoint,TF,Missing}, ::JacobianFunction{T}, x::AbstractArray{T}, params) where {T, FixedPoint, TF<:Callable}
-    error("There is no analytic Jacobian stored in the system!")
-end
-
-"""
-    jacobian!(nlp::NonlinearProblem, jacobian_instance, x, params)
-
-Compute the Jacobian of `nlp` at `x` and store it in `jacobian(nlp)`. Note that the evaluation of the Jacobian is not necessarily enforced here (unlike calling [`jacobian!!`](@ref)).
-Like `derivative!` for [`OptimizerProblem`](@ref).
-"""
-function jacobian!(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian, x::AbstractArray{T}, params) where {T<:Number}
-    if x != j_argument(nlp)
-        jacobian!!(nlp, jacobian_instance, x, params)
-    end
-    jacobian(nlp)
-end
-
 function _clear_f!(nlp::NonlinearProblem{T}) where {T}
     f_argument(nlp) .= T(NaN)
     value(nlp) .= T(NaN)
@@ -305,12 +266,17 @@ f_argument(nlp::NonlinearProblem) = nlp.x_f
 """
    j_argument(nlp)
 
-Return the argument that was last used for evaluating [`jacobian!`](@ref) for the [`NonlinearProblem`](@ref) `nlp`.
+Return the argument that was last used for evaluating the [`Jacobian`](@ref) for the [`NonlinearProblem`](@ref) `nlp`.
 """
 j_argument(nlp::NonlinearProblem) = nlp.x_j
 
 function update!(nlp::NonlinearProblem{T}, jacobian::Jacobian{T}, x::AbstractVector{T}, params) where {T}
     value!(nlp, x, params)
-    jacobian!(nlp, jacobian, x, params)
+    jacobian(nlp, x, params)
     nlp
+end
+
+function (jac::Jacobian)(nlp::NonlinearProblem, x::AbstractVector, params)
+    j_argument(nlp) .= x
+    jac(jacobian(nlp), x, params)
 end

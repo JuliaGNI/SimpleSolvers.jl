@@ -50,7 +50,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, update!, linearsolver, jacobian, cache, linesearch_problem, direction, determine_initial_α # hide
+using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -62,7 +62,7 @@ solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
 # initialize solver
 params = nothing
 update!(solver, x, params)
-compute_jacobian!(solver, x, params)
+jacobian!(solver, x, params)
 
 # compute rhs
 F!(cache(solver).rhs, x, params)
@@ -388,7 +388,7 @@ Here we consider the same example as when discussing the [Bierlaire quadratic li
 
 ```@setup II
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction
+using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction
 using LinearAlgebra: rmul!, ldiv!
 using Random
 Random.seed!(1234)
@@ -404,7 +404,7 @@ x = -10 * rand(1)
 solver = NewtonSolver(x, f.(x); F = F!, DF! = J!)
 params = nothing
 update!(solver, x, params)
-compute_jacobian!(solver, x, params)
+jacobian!(solver, x, params)
 
 # compute rhs
 f!(cache(solver).rhs, x)
@@ -419,7 +419,7 @@ nothing # hide
 ```
 
 ```@example II
-ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(), cache(solver), params)
+ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

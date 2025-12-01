@@ -1,5 +1,5 @@
 using SimpleSolvers
-using SimpleSolvers: compute_jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, LinesearchState, Quadratic2
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, LinesearchState, Quadratic2
 using LinearAlgebra: rmul!, ldiv!
 using Test
 using Random 
@@ -15,10 +15,10 @@ end
 x = -10 * rand(1)
 
 function make_linesearch_problem(x::AbstractVector{T}, params=nothing) where {T}
-    jacobian_instance = JacobianFunction{T}()
+    jacobian_instance = JacobianFunction{T}(f!, j!)
     solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian_instance)
     update!(solver, x, params)
-    compute_jacobian!(solver, x, params)
+    jacobian!(solver, x, params)
 
     # compute rhs
     f!(cache(solver).rhs, x, params)

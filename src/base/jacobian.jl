@@ -17,7 +17,6 @@ When a custom `Jacobian` is implemented, a functor is needed:
 ```julia
 function (j::Jacobian)(g::AbstractMatrix, x::AbstractVector) end
 ```
-This functor can also be called with [`compute_jacobian!`](@ref).
 
 # Examples
 
@@ -27,13 +26,6 @@ Examples include:
 - [`JacobianFiniteDifferences`](@ref)
 """
 abstract type Jacobian{T} end
-
-"""
-    compute_jacobian!(j, x, jacobian::Jacobian, params)
-
-Apply the [`Jacobian`](@ref) and store the result in `j`.
-"""
-compute_jacobian!(j::AbstractMatrix{T}, x::AbstractVector{T}, jacobian::Jacobian{T}, params) where {T} = jacobian(j, x, params)
 
 """
     check_jacobian(J)
@@ -71,14 +63,23 @@ A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function
 
 There is no functor associated to `JacobianFunction`.
 """
-struct JacobianFunction{T} <: Jacobian{T} end
-
-function JacobianFunction(T::DataType)
-    JacobianFunction{T}()
+struct JacobianFunction{T, FT <: Callable, JT <: Callable} <: Jacobian{T} 
+    F::FT
+    J!::JT
 end
 
-function JacobianFunction(::AbstractArray{T}) where {T}
-    JacobianFunction{T}()
+function JacobianFunction(F::FT, J!::JT, T::DataType) where {FT <: Callable, JT <: Callable}
+    JacobianFunction{T, FT, JT}(F, J!)
+end
+
+JacobianFunction{T}(F::Callable, J!::Callable) where {T} = JacobianFunction(F, J!, T)
+
+function JacobianFunction(F::Callable, J::Callable, ::AbstractArray{T}) where {T}
+    JacobianFunction(F, J, T)
+end
+
+function (jac::JacobianFunction)(j::AbstractMatrix, x::AbstractVector, params)
+    jac.J!(j, x, params)
 end
 
 """
@@ -223,12 +224,3 @@ Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n;
 
 Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x); kwargs...)
 Jacobian(F::Callable, x::AbstractVector{T}, y::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x), length(y); kwargs...)
-
-"""
-    compute_jacobian!(j, x, ForJ, params)
-
-Allocate a [`Jacobian`](@ref) object, apply it to `x`, and store the result in `j`.
-"""
-function compute_jacobian!(::AbstractMatrix{T}, ::AbstractVector{T}, ::JacobianFunction{T}, params) where {T}
-    error("You have to provide a `NonlinearProblem` when using `JacobianFunction`!")
-end
