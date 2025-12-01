@@ -17,9 +17,11 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}} <: OptimizerCache{T}
     δ::AT
     g::AT
     rhs::AT
+    Δx::AT
+    Δg::AT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
-        cache = new{T,AT}(similar(x), similar(x), similar(x), similar(x))
+        cache = new{T,AT}(similar(x), similar(x), similar(x), similar(x), similar(x), similar(x))
         initialize!(cache, x)
         cache
     end
@@ -27,7 +29,7 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}} <: OptimizerCache{T}
     # we probably don't need this constructor
     function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
         g = gradient!(problem, x)
-        new{T, AT}(copy(x), copy(x), zero(x), g, -g)
+        new{T, AT}(copy(x), copy(x), zero(x), g, -g, zero(x), zero(x))
     end
 end
 
