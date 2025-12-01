@@ -88,18 +88,18 @@ Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in
 Also see [`assess_convergence!`](@ref) and [`meets_stopping_criteria`](@ref).
 """
 function residual!(status::OS, state::OST, cache::OCT, f::T)::OS where {T, OS <: OptimizerStatus{T}, OST <: OptimizerState, OCT <: OptimizerCache{T}}
-    Δx = cache.x - state.x̄
-    status.rxₐ = norm(Δx)
+    cache.Δx .= cache.x - state.x̄
+    status.rxₐ = norm(cache.Δx)
     status.rxᵣ = status.rxₐ / norm(cache.x)
 
     status.Δf  = f - state.f̄
-    status.Δf̃ = state.ḡ ⋅ Δx
+    status.Δf̃ = state.ḡ ⋅ cache.Δx
 
     status.rfₐ = norm(status.Δf)
     status.rfᵣ = status.rfₐ / norm(f)
 
-    Δg = cache.g - state.ḡ
-    status.rgₐ = norm(Δg)
+    cache.Δg .= cache.g - state.ḡ
+    status.rgₐ = norm(cache.Δg)
     status.rg  = norm(cache.g)
     
     status.f_increased = abs(f) > abs(state.f̄)
