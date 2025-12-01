@@ -151,7 +151,7 @@ solver_step!(opt, state, x)
  0.6666666
 ```
 """
-function solver_step!(opt::Optimizer, state::OptimizerState, x::VT)::VT where {VT <: AbstractVector}
+function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <: AbstractVector}
     # update problem, hessian, state and status
     update!(opt, state, x)
 
