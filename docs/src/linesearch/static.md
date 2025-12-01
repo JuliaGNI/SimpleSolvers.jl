@@ -29,7 +29,7 @@ update!(cache, state, grad, x)
 x₂ = [.9, 0., 0.]
 update!(cache, state, grad, x₂)
 value!(obj, x₂)
-gradient!(obj, grad, x₂)
+grad(obj, x₂)
 ls_obj = linesearch_problem(obj, grad, cache, state)
 nothing # hide
 ```

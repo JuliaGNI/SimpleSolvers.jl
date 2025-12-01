@@ -207,14 +207,14 @@ using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient
 x₀, x₁ = [0.], x
 obj = OptimizerProblem(sum∘f, x₀)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-gradient!(obj, grad, x₀)
+grad(obj, x₀)
 value!(obj, x₀)
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
 hess = HessianAutodiff(obj, x₀)
 update!(hess, x₀)
 update!(_cache, state, obj, grad, hess, x₀)
-gradient!(obj, grad, x₁)
+grad(obj, x₁)
 value!(obj, x₁)
 update!(hess, x₁)
 update!(_cache, state, obj, grad, hess, x₁)
@@ -302,7 +302,7 @@ nothing # hide
 
 We make another iteration:
 ```@example quadratic
-gradient!(obj, grad, x)
+grad(obj, x)
 value!(obj, x)
 update!(hess, x)
 update!(_cache, state, obj, grad, hess, x)
@@ -348,7 +348,7 @@ nothing # hide
 
 We finally compute a third iterate:
 ```@example quadratic
-gradient!(obj, grad, x)
+grad(obj, x)
 value!(obj, x)
 update!(hess, x)
 update!(_cache, state, obj, grad, hess, x)

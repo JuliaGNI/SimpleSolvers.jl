@@ -48,7 +48,7 @@ function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :auto
                 GradientFiniteDifferences(F, x)
             end
         else
-            GradientFunction(x)
+            GradientFunction(F, ∇F!, x)
         end
     problem = (ismissing(∇F!)|isnothing(∇F!)) ? OptimizerProblem(F, x) : OptimizerProblem(F, ∇F!, x)
     Optimizer(x, problem; gradient = G, kwargs...)

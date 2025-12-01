@@ -8,7 +8,7 @@ We consider the same example as we had when demonstrating [backtracking line sea
 
 ```@setup bisection
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
@@ -19,7 +19,7 @@ update!(hes, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = gradient!(obj, grad, x)
+g = grad(obj, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
