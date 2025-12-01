@@ -43,18 +43,19 @@ Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in
 Also [`meets_stopping_criteria`](@ref).
 """
 function OptimizerStatus(state::OST, cache::OCT, f::T; config::Options) where {T, OST <: OptimizerState, OCT <: OptimizerCache{T}}
-    Δx = cache.x - state.x̄
-    rxₐ = norm(Δx)
+    cache.Δx .= cache.x - state.x̄
+    rxₐ = norm(cache.Δx)
     rxᵣ = rxₐ / norm(cache.x)
 
     Δf  = f - state.f̄
-    Δf̃ = state.ḡ ⋅ Δx
+    Δf̃ = state.ḡ ⋅ cache.Δx
 
     rfₐ = norm(Δf)
     rfᵣ = rfₐ / norm(f)
 
-    Δg = cache.g - state.ḡ
-    rgₐ = norm(Δg)
+    cache.Δg .= cache.g - state.ḡ
+
+    rgₐ = norm(cache.Δg)
     rg  = norm(cache.g)
     
     f_increased = abs(f) > abs(state.f̄)
