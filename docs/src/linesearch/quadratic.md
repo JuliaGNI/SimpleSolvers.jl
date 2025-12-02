@@ -212,12 +212,13 @@ value!(obj, x₀)
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
 hess = HessianAutodiff(obj, x₀)
-update!(hess, x₀)
-update!(_cache, state, obj, grad, hess, x₀)
+H = SimpleSolvers.alloc_h(x)
+hess(H, x₀)
+update!(_cache, state, grad, hess, x₀)
 grad(obj, x₁)
 value!(obj, x₁)
-update!(hess, x₁)
-update!(_cache, state, obj, grad, hess, x₁)
+hess(H, x₁)
+update!(_cache, state, grad, hess, x₁)
 ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F
@@ -304,8 +305,8 @@ We make another iteration:
 ```@example quadratic
 grad(obj, x)
 value!(obj, x)
-update!(hess, x)
-update!(_cache, state, obj, grad, hess, x)
+hess(H, x)
+update!(_cache, state, grad, hess, x)
 ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F
@@ -350,8 +351,8 @@ We finally compute a third iterate:
 ```@example quadratic
 grad(obj, x)
 value!(obj, x)
-update!(hess, x)
-update!(_cache, state, obj, grad, hess, x)
+hess(H, x)
+update!(_cache, state, grad, hess, x)
 ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F

@@ -15,11 +15,9 @@ cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 state.x̄ .= x
 hess = HessianAutodiff(obj, x)
-update!(hess, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
 value!(obj, x₂)
-update!(hess, x₂)
 update!(cache, state, grad, hess, x₂)
 ls_obj = linesearch_problem(obj, grad, cache, state)
 α = .1
@@ -33,11 +31,9 @@ cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 state.x̄ .= x
 hess = HessianAutodiff(obj, x)
-update!(hess, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
 value!(obj, x₂)
-update!(hess, x₂)
 update!(cache, state, grad, hess, x₂)
 ls_obj = linesearch_problem(obj, grad, cache, state)
 α = .1

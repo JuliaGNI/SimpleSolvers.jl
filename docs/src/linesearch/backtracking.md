@@ -29,7 +29,8 @@ f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 value!(obj, x)
 hes = HessianAutodiff(obj, x)
-update!(hes, x)
+H = SimpleSolvers.alloc_h(x)
+hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
@@ -37,7 +38,7 @@ g = grad(obj, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
-ldiv!(p, hes, rhs)
+p .= H \ rhs
 sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
 
 # check different values
@@ -53,7 +54,7 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
-update!(cache, state, obj, grad, hes, x)
+update!(cache, state, grad, hes, x)
 nothing # hide
 ```
 
