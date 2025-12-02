@@ -46,7 +46,7 @@ module SimpleSolvers
     export value, value!, value!!,
            gradient,
            derivative, derivative!, derivative!!,
-           hessian, hessian!, hessian!!
+           hessian
            
     include("optimization/optimizer_problems.jl")
 
@@ -57,9 +57,6 @@ module SimpleSolvers
     export Hessian,
            HessianAutodiff,
            HessianFunction
-
-    export compute_hessian,
-           compute_hessian!
            
     export check_hessian,
            print_hessian

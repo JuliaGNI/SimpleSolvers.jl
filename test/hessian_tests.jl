@@ -34,17 +34,8 @@ end
 had = zero(h)
 hus = zero(h)
 
-compute_hessian!(had, x, HPAD)
-compute_hessian!(hus, x, HPUS)
+HPAD(had, x)
+HPUS(hus, x)
 
 test_hessian(had, h, eps())
-test_hessian(hus, h, 0)
-
-had1 = zero(h)
-hus1 = zero(h)
-
-compute_hessian!(had1, x, F; mode = :autodiff)
-compute_hessian!(hus1, x, H!; mode = :function)
-
-test_hessian(had, had1, 0)
-test_hessian(hus, hus1, 0)
+test_hessian(hus, h, zero(eltype(hus)))

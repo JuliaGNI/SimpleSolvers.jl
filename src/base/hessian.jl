@@ -12,7 +12,6 @@ When a custom `Hessian` is implemented, a functor is needed:
 ```julia
 function (hessian::Hessian)(h::AbstractMatrix, x::AbstractVector) end
 ```
-This functor can also be called with [`compute_hessian!`](@ref).
 
 # Examples
 
@@ -30,26 +29,6 @@ abstract type Hessian{T} end
 See e.g. [`initialize!(::HessianAutodiff, ::AbstractVector)`](@ref).
 """
 initialize!(hes::Hessian, ::AbstractVector) = error("initialize! not defined for Hessian of type $(typeof(hes)).")
-
-"""
-    compute_hessian!(h, x, hessian)
-
-Compute the Hessian and store it in `h`.
-"""
-compute_hessian!(h::AbstractMatrix{T}, x::AbstractVector{T}, hessian::Hessian{T}) where {T <: Number} = hessian(h,x)
-
-"""
-    compute_hessian(x, hessian)
-
-Compute the Hessian at point `x` and return the result.
-
-Internally this calls [`compute_hessian!`](@ref).
-"""
-function compute_hessian(x::AbstractVector{T}, hessian::Hessian{T}) where {T <: Number}
-    h = alloc_h(x)
-    compute_hessian!(h, x, hessian)
-    h
-end
 
 """
     check_hessian(H)
@@ -207,23 +186,3 @@ Base.:\(H::HessianAutodiff, b) = solve(LU(), H.H, b)
 
 # TODO: replace the "\" with something that has better performance (and doesn't produce as many allocations)
 LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
-
-"""
-    compute_hessian!(h, x, ForH)
-
-Compute the hessian of function `ForH` at `x` and store it in `h`.
-
-# Implementation
-
-Internally this allocates a [`Hessian`](@ref) object.
-"""
-function compute_hessian!(H::AbstractMatrix{T}, x::AbstractVector{T}, ForH; mode = :autodiff) where {T<:Number}
-    hessian = if mode == :autodiff
-        HessianAutodiff(ForH, x)
-    elseif mode == :finite
-        HessianFiniteDifferences(ForH, x)
-    else
-        HessianFunction(ForH, x)
-    end
-    hessian(H, x)
-end
