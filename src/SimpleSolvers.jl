@@ -70,8 +70,6 @@ module SimpleSolvers
            JacobianFiniteDifferences,
            JacobianFunction
 
-    export compute_jacobian!
-
     export check_jacobian,
            print_jacobian
 

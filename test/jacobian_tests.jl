@@ -22,7 +22,7 @@ end
 
 JPAD = JacobianAutodiff{T}(F!, n, n)
 JPFD = JacobianFiniteDifferences{T}(F!, n, n)
-JPUS = JacobianFunction{T}()
+JPUS = JacobianFunction{T}(F!, J!)
 
 @test typeof(JPAD) <: JacobianAutodiff
 @test typeof(JPFD) <: JacobianFiniteDifferences
@@ -35,19 +35,20 @@ jus = zero(j)
 
 JPAD(jad, x, nothing)
 JPFD(jfd, x, nothing)
+JPUS(jus, x, nothing)
 
 @test jad ≈ j  atol = eps()
 @test jfd ≈ j  atol = 1E-7
-@test jus != j
+@test jus == j
 
 
 jad1 = zero(j)
 jfd1 = zero(j)
 jus1 = zero(j)
 
-compute_jacobian!(jad1, x, JPAD, nothing)
-compute_jacobian!(jfd1, x, JPFD, nothing)
-@test_throws "You have to provide a `NonlinearProblem` when using `JacobianFunction`!" compute_jacobian!(jus1, x, JPUS, nothing)
+JPAD(jad1, x, nothing)
+JPFD(jfd1, x, nothing)
+JPUS(jus1, x, nothing)
 
 @test jad1 == jad
 @test jfd1 == jfd
@@ -58,23 +59,10 @@ jad2 = zero(j)
 jfd2 = zero(j)
 jus2 = zero(j)
 
-compute_jacobian!(jad2, x, JPAD, nothing)
-compute_jacobian!(jfd2, x, JPFD, nothing)
-@test_throws "You have to provide a `NonlinearProblem` when using `JacobianFunction`!" compute_jacobian!(jus2, x, JPUS, nothing)
+JPAD(jad2, x, nothing)
+JPFD(jfd2, x, nothing)
+JPUS(jus2, x, nothing)
 
 @test jad2 == jad
 @test jfd2 == jfd
 @test jus2 == jus
-
-
-jad3 = zero(j)
-jfd3 = zero(j)
-jus3 = zero(j)
-
-compute_jacobian!(jad3, x, JacobianAutodiff{Float64}(F!, n, n), nothing)
-compute_jacobian!(jfd3, x, JacobianFiniteDifferences{Float64}(F!, n, n), nothing)
-@test_throws "You have to provide a `NonlinearProblem` when using `JacobianFunction`!" compute_jacobian!(jus3, x, JacobianFunction{Float64}(), nothing)
-
-@test jad3 == jad
-@test jfd3 == jfd
-@test jus3 == jus != jfd3

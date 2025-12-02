@@ -22,7 +22,7 @@ function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobia
         cache.x .= compute_new_iterate(cache.x̄, α, cache.δx)
         value!(nlp, cache.x, params)
         cache.y .= value(nlp)
-        jacobian!(nlp, jacobian_instance, cache.x, params)
+        jacobian_instance(nlp, cache.x, params)
         2 * dot(cache.y, jacobian(nlp), direction(cache))
     end
 

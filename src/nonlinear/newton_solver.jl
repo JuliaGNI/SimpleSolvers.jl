@@ -59,7 +59,7 @@ end
 """
 function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = ismissing(DF!) ? NonlinearProblem(F, x, y) : NonlinearProblem(F, DF!, x, y)
-    jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}()
+    jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NewtonSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
@@ -154,15 +154,6 @@ LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, StaticAr
 """
 linearsolver(solver::NewtonSolver) = solver.linearsolver
 linesearch(solver::NewtonSolver) = solver.linesearch
-
-function compute_jacobian!(s::NewtonSolver, x::AbstractVector, params; kwargs...)
-    jacobian!(nonlinearproblem(s), Jacobian(s), x, params; kwargs...)
-end
-
-function compute_jacobian!(s::NewtonSolver, x::AbstractVector, jacobian!::Union{Jacobian,Callable}, params; kwargs...)
-    @warn "This function should not be called! Instead call `compute_jacobian!(s, x, params)`."
-    compute_jacobian!(jacobian(nonlinearproblem(s)), x, jacobian!, params; kwargs...)
-end
 
 check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
 print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
