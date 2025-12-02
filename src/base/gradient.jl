@@ -15,10 +15,16 @@ Abstract type. `struct`s that are derived from this need an associated functor t
 When a custom `Gradient` is implemented, a functor is needed:
 
 ```julia
-function (grad::Gradient)(g::AbstractVector, x::AbstractVector) end
-
+(grad::Gradient)(g::AbstractVector, x::AbstractVector)
 ```
-This functor can also be called with [`gradient!`](@ref).
+
+There is also an out-of place version for convenience:
+
+```julia
+(grad::Gradient)(x::AbstractVector)
+```
+
+This is using [`alloc_g`](@ref) to allocate the array `g` for the gradient.
 
 # Examples
 
@@ -33,51 +39,9 @@ function (::Gradient{T₁})(::AbstractVector{T₂}, ::AbstractVector{T₃}) wher
     (T₁ == T₂ == T₃) ? error("Functor not implemented.") : error("Types $(T₁), $(T₂), $(T₃) in Gradient functor must be the same.")
 end
 
-"""
-    gradient!(g, grad, x)
-
-Apply the [`Gradient`](@ref) `grad` to `x` and store the result in `g`.
-
-# Implementation
-
-This is equivalent to doing
-```jldoctest; setup=:(using SimpleSolvers)
-g₁ = zeros(3)
-g₂ = zeros(3)
-x = [1., 2., 3.]
-F(x) = sum(x .^ 2.)
-grad = GradientAutodiff(F, x)
-
-grad(g₁, x); gradient!(g₂, grad, x);
-
-g₁ ≈ g₂
-
-# output
-
-true
-```
-"""
-gradient!(g::AbstractVector, grad::Gradient, x::AbstractVector) = grad(g, x)
-
-"""
-    compute_gradient!
-
-Alias for [`gradient!`](@ref). Will probably be deprecated.
-"""
-const compute_gradient! = gradient!
-
-"""
-    gradient(x, grad)
-
-Apply `grad` to `x` and return the result. 
-
-# Implementation
-
-Internally this is using [`gradient!`](@ref).
-"""
-function gradient(x, grad::Gradient)
+function (grad::Gradient{T})(x::AbstractVector{T}) where {T}
     g = alloc_g(x)
-    gradient!(g, grad, x)
+    grad(g, x)
     g
 end
 
@@ -132,20 +96,24 @@ The functor does:
 grad(g, x) = grad.∇F!(g, x)
 ```
 """
-struct GradientFunction{T} <: Gradient{T} end
-
-function GradientFunction(::Callable, ::AbstractArray{T}) where {T}
-    GradientFunction{T}()
+struct GradientFunction{T, FT<:Callable, GT<:Callable} <: Gradient{T} 
+    F::FT
+    ∇F!::GT
 end
 
-
-function GradientFunction{T}(::Callable, ::Integer) where T
-    GradientFunction{T}()
+function GradientFunction(::Callable, ::AbstractArray)
+    error("`GradientFunction` can only be called by providing two `Callable`s or an `OptimizerProblem`.")
 end
 
-GradientFunction(::AbstractArray{T}) where {T} = GradientFunction{T}()
+function GradientFunction{T}(F::TF, ∇F!::TG, ::Integer) where {T, TF <: Callable, TG <: Callable}
+    GradientFunction{T, TF, TG}(F, ∇F!)
+end
 
-gradient!(::AbstractVector, ::GradientFunction, ::AbstractVector) = error("You have to provide an `OptimizerProblem` when using `GradientFunction`!")
+function GradientFunction(F::Callable, ∇F!::Callable, x::AbstractVector{T}) where {T}
+    GradientFunction{T}(F, ∇F!, length(x))
+end
+
+(grad::GradientFunction{T})(g::VT, x::VT) where {T, VT <: AbstractVector{T}} = grad.∇F!(g, x)
 
 """
     GradientAutodiff <: Gradient
@@ -162,7 +130,7 @@ The `struct` stores:
 
 ```julia
 GradientAutodiff(F, x::AbstractVector)
-GradientAutodiff(F, nx::Integer)
+GradientAutodiff{T}(F, nx::Integer)
 ```
 
 # Functor
@@ -254,26 +222,5 @@ function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractV
         grad.tx .= x .+ ϵⱼ .* grad.e
         f2 = grad.F(grad.tx)
         g[j] = (f2 - f1) / (2ϵⱼ)
-    end
-end
-
-# TODO: remove this! (it's here for the moment to keep the tests as close to what they were before as possible)
-function gradient!(g::AbstractVector{T}, x::AbstractVector{T}, ForG::Union{Callable, Missing}; mode = :autodiff) where {T}
-    grad = if mode == :autodiff
-        GradientAutodiff{T}(ForG, length(x))
-    elseif mode == :finite
-        GradientFiniteDifferences{T}(ForG, length(x))
-    else
-        GradientFunction{T}(ForG, length(x))
-    end
-
-    if typeof(grad) <: GradientFunction
-        # use a dummy function to allocate an OptimizerProblem
-        function dummyfunction(y, x) end
-        obj = OptimizerProblem(dummyfunction, x; gradient = ForG)
-        gradient!(obj, grad, x)
-        gradient(obj)
-    else
-        gradient!(g, grad, x)
     end
 end

@@ -62,8 +62,8 @@ function linesearch_problem(problem::OptimizerProblem{T}, gradient_instance::Gra
 
     function d(α)
         cache.x .= compute_new_iterate(state.x̄, α, direction(cache))
-        gradient!(problem, gradient_instance, cache.x)
-        cache.g .= problem.g
+        gradient_instance(objective, cache.x)
+        cache.g .= objective.g
         dot(cache.g, direction(cache))
     end
 

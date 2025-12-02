@@ -26,7 +26,7 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}} <: OptimizerCache{T}
 
     # we probably don't need this constructor
     function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
-        g = gradient!(problem, x)
+        g = Gradient(problem)(x)
         new{T, AT}(copy(x), copy(x), zero(x), g, -g)
     end
 end
@@ -68,12 +68,7 @@ function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::Abstract
     cache
 end
 
-update!(cache::NewtonOptimizerCache, state::OptimizerState, grad::Gradient, x::AbstractVector) = update!(cache, state, x, gradient(x, grad))
-
-function update!(cache::NewtonOptimizerCache, state::OptimizerState, obj::OptimizerProblem, grad::GradientFunction, x::AbstractVector)
-    gradient!(obj, grad, x)
-    update!(cache, state, x, gradient(obj))
-end
+update!(cache::NewtonOptimizerCache, state::OptimizerState, grad::Gradient, x::AbstractVector) = update!(cache, state, x, grad(x))
 
 @doc raw"""
     update!(cache::NewtonOptimizerCache, x, g, hes)

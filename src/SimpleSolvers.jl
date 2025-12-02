@@ -35,9 +35,6 @@ module SimpleSolvers
            GradientAutodiff,
            GradientFiniteDifferences,
            GradientFunction
-           
-    export compute_gradient,
-           compute_gradient!
 
     export check_gradient
     
@@ -47,8 +44,8 @@ module SimpleSolvers
            OptimizerProblem
 
     export value, value!, value!!,
+           gradient,
            derivative, derivative!, derivative!!,
-           gradient, gradient!, gradient!!,
            hessian, hessian!, hessian!!
            
     include("optimization/optimizer_problems.jl")

@@ -24,7 +24,7 @@ const obj = OptimizerProblem(F, x; gradient = ∇F!)
 
 const ∇PAD = GradientAutodiff{T}(F, n)
 const ∇PFD = GradientFiniteDifferences{T}(F, n)
-const ∇PUS = GradientFunction{T}(∇F!, n)
+const ∇PUS = GradientFunction{T}(F, ∇F!, n)
 
 @test typeof(∇PAD) <: GradientAutodiff
 @test typeof(∇PFD) <: GradientFiniteDifferences
@@ -42,12 +42,9 @@ gad = zero(g)
 gfd = zero(g)
 gus = zero(g)
 
-SimpleSolvers.compute_gradient!(gad, ∇PAD, x)
-SimpleSolvers.compute_gradient!(gfd, ∇PFD, x)
-@test_throws "You have to provide an `OptimizerProblem` when using `GradientFunction`!" SimpleSolvers.compute_gradient!(gus, ∇PUS, x)
-
-# call GradientFunction
-SimpleSolvers.compute_gradient!(obj, ∇PFD, x)
+∇PAD(gad, x)
+∇PFD(gfd, x)
+∇PUS(gus, x)
 
 test_grad(gad, g, eps())
 test_grad(gfd, g, 1E-7)
@@ -57,9 +54,9 @@ gad1 = zero(g)
 gfd1 = zero(g)
 gus1 = zero(g)
 
-SimpleSolvers.compute_gradient!(gad1, x, F; mode = :autodiff)
-SimpleSolvers.compute_gradient!(gfd1, x, F; mode = :finite)
-SimpleSolvers.compute_gradient!(gus1, x, ∇F!; mode = :user)
+∇PAD(gad1, x)
+∇PFD(gfd1, x)
+∇PUS(gus1, x)
 
 test_grad(gad, gad1, 0)
 test_grad(gfd, gfd1, 0)
