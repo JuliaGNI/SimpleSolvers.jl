@@ -56,7 +56,7 @@ NewtonOptimizerState{Float64, Vector{Float64}, Vector{Float64}}([1.0, 2.0], [2.0
 """
 function update!(state::NewtonOptimizerState, obj::OptimizerProblem, gradient::Gradient, x::AbstractVector)
     state.x̄ .= x
-    state.ḡ .= gradient!(obj, gradient, x)
+    state.ḡ .= gradient(obj, x)
 
     state
 end

@@ -46,7 +46,9 @@ function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
     H.γ .= eltype(x)(NaN)
 
     H.x .= x
-    H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
+    # TODO: get rid of this eventually
+    grad = GradientAutodiff{T}(H.problem.F, length(x))
+    H.g .= grad(H.problem, x)
 
     H
 end
@@ -56,7 +58,8 @@ function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
     H.ḡ .= H.g
     H.x̄ .= H.x
     H.x .= x
-    H.g .= gradient!(H.problem, GradientAutodiff{T}(H.problem.F, length(x)), x)
+    grad = GradientAutodiff{T}(H.problem.F, length(x))
+    H.g .= grad(H.problem, x)
 
     # δ = x - x̄
     H.δ .= H.x .- H.x̄

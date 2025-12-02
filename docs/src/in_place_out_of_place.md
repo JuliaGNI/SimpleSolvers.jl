@@ -42,13 +42,14 @@ value!(obj, x)
 value(obj) == f(x)
 ```
 
-To compute the derivative we can use [`gradient!`](@ref):
+To compute the derivative we can use the functor of [`GradientAutodiff`](@ref):
 
 ```@example in_place
 x = [[x] for x in -7.:.1:7.]
 y = Vector{Float64}[]
 for x_sing in x
-    gradient!(obj, GradientAutodiff{Float64}(obj.F, length(x_sing)), x_sing)
+    grad = GradientAutodiff{Float64}(obj.F, length(x_sing))
+    grad(obj, x_sing)
     push!(y, copy(gradient(obj)))
 end
 nothing # hide

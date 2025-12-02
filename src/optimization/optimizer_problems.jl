@@ -165,35 +165,15 @@ Like `derivative`, but for [`OptimizerProblem`](@ref).
 """
 gradient(obj::OptimizerProblem) = obj.g
 
-"""
-    gradient!!(obj::OptimizerProblem, gradient_instance, x)
-
-Like `derivative!!`, but for [`OptimizerProblem`](@ref).
-"""
-function gradient!!(obj::OptimizerProblem, gradient_instance::Gradient, x::AbstractArray)
+function (gradient_instance::Gradient)(obj::OptimizerProblem, x::AbstractArray)
     copyto!(g_argument(obj), x)
-    gradient!(gradient(obj), gradient_instance, x)
+    gradient_instance(gradient(obj), x)
     gradient(obj)
 end
 
-function gradient!!(obj::OptimizerProblem{T, Tx, TF, TG}, ::GradientFunction, x::Tx) where {T, Tx<:AbstractVector{T}, TF<:Callable, TG<:Callable}
-    copyto!(g_argument(obj), x)
-    Gradient(obj)(gradient(obj), x)
-    gradient(obj)
-end
-
-function gradient!!(::OptimizerProblem{T, Tx, TF, Missing}, ::GradientFunction, ::AbstractArray{<:Number}) where {T, Tx<:AbstractVector{T}, TF<:Callable}
-    error("There is no analytic gradient stored in the problem!")    
-end
-
-"""
-gradient!(obj::OptimizerProblem, x)
-
-Like `derivative!`, but for [`OptimizerProblem`](@ref).
-"""
-function gradient!(obj::OptimizerProblem, gradient_instance::Gradient, x::AbstractArray{<:Number})
+function gradient_instance(obj::OptimizerProblem, x::AbstractArray{<:Number})
     if x != obj.x_g
-        gradient!!(obj, gradient_instance, x)
+        gradient_instance(obj, x)
     end
     gradient(obj)
 end
@@ -234,11 +214,11 @@ end
 """
     update!(obj, x)
 
-Call [`value!`](@ref) and [`gradient!`](@ref) on `obj`.
+Call [`value!`](@ref) and [`Gradient`](@ref) on `obj`.
 """
 function update!(obj::OptimizerProblem, gradient_instance::Gradient, x::AbstractVector)
     value!(obj, x)
-    gradient!(obj, gradient_instance, x)
+    gradient_instance(obj, x)
 
     obj
 end
@@ -247,3 +227,11 @@ f_argument(obj::AbstractOptimizerProblem) = obj.x_f
 g_argument(obj::OptimizerProblem) = obj.x_g
 
 Gradient(obj::OptimizerProblem) = obj.G
+
+function GradientFunction(prob::OptimizerProblem{T}) where {T}
+    GradientFunction{T, typeof(prob.F), typeof(Gradient(prob))}(prob.F, Gradient(prob))
+end
+
+function GradientFunction(::OptimizerProblem{T, Tx, TF, Missing}) where {T, Tx <: AbstractVector{T}, TF <: Callable}
+    error("There is no gradient stored in this `OptimizerProblem`!")
+end
