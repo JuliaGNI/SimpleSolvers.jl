@@ -4,7 +4,7 @@ In `SimpleSolvers` we can use the [`SimpleSolvers.NonlinearSolverStatus`](@ref) 
 
 ```@example status
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> tanh.(x)

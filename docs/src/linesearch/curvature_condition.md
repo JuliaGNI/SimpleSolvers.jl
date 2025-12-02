@@ -34,7 +34,7 @@ We use the [same example that we had when we explained the sufficient decrease c
 
 ```@example cc
 using SimpleSolvers # hide
-using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, gradient!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
@@ -45,7 +45,7 @@ update!(hes, x)
 c₂ = .9
 g = similar(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-gradient!(obj, grad, x)
+grad(obj, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)

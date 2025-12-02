@@ -6,10 +6,7 @@ A central object in `SimpleSolvers` are *optimizer problems* (see [`SimpleSolver
 
 ### Multivariate Optimizer Problems
 
-[`OptimizerProblem`](@ref)s are used in a way similar to [`LinesearchProblem`](@ref)s, the difference is that the *derivative functions* are replaced by *gradient functions*, i.e.:
-- `derivative` ``\implies`` [`gradient`](@ref),
-- `derivative!` ``\implies`` [`gradient!`](@ref),
-- `derivative!!` ``\implies`` [`gradient!!`](@ref).
+[`OptimizerProblem`](@ref)s are used in a way similar to [`LinesearchProblem`](@ref)s.
 
 ```@example optimizer_problem
 using SimpleSolvers # hide
@@ -21,11 +18,11 @@ x = rand(3)
 obj = OptimizerProblem(f, x)
 ```
 
-Every instance of [`OptimizerProblem`](@ref) stores an instance of [`Gradient`](@ref) to which we [similarly can apply the functions](@ref "Gradients") [`gradient`](@ref) or [`gradient!`](@ref):
+The functor of a [`Gradient`](@ref) can also be applied to an [`OptimizerProblem`](@ref):
 
 ```@example optimizer_problem
 grad = GradientAutodiff(f, x)
-gradient!(obj, grad, x)
+grad(obj, x)
 ```
 
 The difference to [`Gradient`](@ref) is that we also store the value for the evaluated gradient, which can be accessed by calling:

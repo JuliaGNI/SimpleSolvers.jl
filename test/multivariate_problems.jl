@@ -17,7 +17,7 @@ const x = rand(n)
 const f = F(x)
 const g = SimpleSolvers.alloc_g(x)
 
-const f_gradient = GradientFunction(x)
+const f_gradient = GradientFunction(F, G!, x)
 const ad_gradient = GradientAutodiff(F, x)
 
 G!(g, x)
@@ -45,8 +45,7 @@ for (x_temp, y_temp) ∈ zip((x, 2x), (f, F(2x)))
 end
 
 function return_correct_gradients(obj1::OptimizerProblem, obj2::OptimizerProblem, x::AbstractVector, z::AbstractVector)
-    @test_throws "There is no analytic gradient stored in the problem!" gradient!(obj1, f_gradient, x)
-    @test gradient!(obj1, ad_gradient, x) == gradient!(obj2, f_gradient, x) == z
+    @test ad_gradient(obj1, x) == f_gradient(obj2, x) == z
 end
 
 # test gradient-related functionality (clear Objective object after every run)

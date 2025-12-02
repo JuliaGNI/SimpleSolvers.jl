@@ -234,7 +234,6 @@ end
     jacobian!!(nlp::NonlinearProblem, jacobian::Jacobian, x, prams)
 
 Force the evaluation of the jacobian for a [`NonlinearProblem`](@ref).
-Like [`gradient!!`](@ref) for [`OptimizerProblem`](@ref).
 """
 function jacobian!!(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, x::AbstractArray{T}, params) where {T}
     copyto!(j_argument(nlp), x)
