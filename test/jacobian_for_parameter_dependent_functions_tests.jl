@@ -1,5 +1,4 @@
 using SimpleSolvers
-using SimpleSolvers: jacobian!
 using Test
 
 function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T} 
@@ -23,9 +22,7 @@ const b₂ = [1., 1., 1.]
 
 const jac₁ = JacobianAutodiff{eltype(A₁)}(F, size(A₁)[2], size(A₁)[1])
 const jac₂ = JacobianFiniteDifferences{eltype(A₁)}(F, size(A₁)[2], size(A₁)[1])
-const jac₃ = JacobianFunction{eltype(A₁)}()
-
-const sys₃ = NonlinearProblem{eltype(A₁)}(F, DF!, size(A₁)[2], size(A₁)[1])
+const jac₃ = JacobianFunction{eltype(A₁)}(F, DF!)
 
 function test_various_jacobians(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
     params = (A = A, b = b)
@@ -34,7 +31,7 @@ function test_various_jacobians(A::AbstractMatrix{T}, b::AbstractVector{T}) wher
     j₂ = zero(A)
     j₃ = zero(A)
 
-    @test compute_jacobian!(j₁, x, jac₁, params) ≈ compute_jacobian!(j₂, x, jac₂, params) ≈ jacobian!(sys₃, jac₃, x, params)
+    @test jac₁(j₁, x, params) ≈ jac₂(j₂, x, params) ≈ jac₃(j₃, x, params)
 end
 
 for (A, b) in ((A₁, b₁), (A₂, b₂))

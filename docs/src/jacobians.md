@@ -16,16 +16,9 @@ x = rand(dim)
 jac = JacobianAutodiff{eltype(x)}(F, dim)
 ```
 
-When calling an instance of [`Jacobian`](@ref) we can use the function [`compute_jacobian!`]:
+And the functor:
 
 ```@example jacobian
-params = nothing
-j = zeros(dim, dim)
-compute_jacobian!(j, x, jac, params)
-```
-
-This is equivalent to calling:
-
-```@example jacobian
-jac(j, x, params)
+j = zeros(3, 3)
+jac(j, x, nothing)
 ```
