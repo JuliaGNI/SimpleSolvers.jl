@@ -38,6 +38,8 @@ end
 
 HessianDFP(F::Callable, x::AbstractVector) = HessianDFP(OptimizerProblem(F, x), x)
 
+HessianDFP{T}(F::Callable, n::Integer) where {T} = HessianDFP(F, zeros(T, n))
+
 Hessian(::DFP, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
 function initialize!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}

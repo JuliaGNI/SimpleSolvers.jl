@@ -1,5 +1,8 @@
 using SimpleSolvers
 using Test
+using Random: seed!
+
+seed!(123)
 
 n = 2
 x = rand(n)
@@ -21,9 +24,8 @@ H!(h,x)
 
 HPAD = HessianAutodiff{T}(F, n)
 HPUS = HessianFunction{T}(H!, n)
-
-@test typeof(HPAD) <: HessianAutodiff
-@test typeof(HPUS) <: HessianFunction
+H_BFGS = HessianBFGS{T}(F, n)
+H_DFP = HessianDFP{T}(F, n)
 
 function test_hessian(h1, h2, atol)
     for i in eachindex(h1,h2)
@@ -39,3 +41,10 @@ HPUS(hus, x)
 
 test_hessian(had, h, eps())
 test_hessian(hus, h, zero(eltype(hus)))
+
+for α ∈ .1:-.01:0.0
+    update!(H_BFGS, α * x)
+    update!(H_DFP, α * x)
+end
+
+@test H_BFGS.Q ≈ H_DFP.Q
