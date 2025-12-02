@@ -29,7 +29,9 @@ struct HessianDFP{T,VT,MT,OBJ} <: IterativeHessian{T}
         γγ = zero(Q)
         δδ = zero(Q)
             
-        new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, γγ, δδ)
+        H = new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, γγ, δδ)
+        initialize!(H, x)
+        H
     end
 end
 
@@ -96,5 +98,3 @@ end
 Base.inv(H::HessianDFP) = H.Q
 
 Base.:\(H::HessianDFP, b) = inv(H) * b
-
-LinearAlgebra.ldiv!(x, H::HessianDFP, b) = mul!(x, inv(H), b)

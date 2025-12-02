@@ -59,3 +59,13 @@ Compute the outer products ``\gamma\gamma^T`` and ``\delta\delta`` for the [`Ite
 Note that this is in-place; all the results are stored in `H`.
 """
 function compute_outer_products!(H::IterativeHessian) end
+
+function (∇²f::IterativeHessian)(H::AbstractMatrix, x::AbstractVector)
+    update!(∇²f, x)
+    H .= inv(H)
+end
+
+function (∇²f::IterativeHessian)(x::AbstractVector)
+    H = alloc_h(x)
+    ∇²f(H, x)
+end

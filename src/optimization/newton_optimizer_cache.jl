@@ -12,16 +12,18 @@ To understand how these are used in practice see e.g. [`linesearch_problem`](@re
 
 Also compare this to [`NewtonSolverCache`](@ref).
 """
-struct NewtonOptimizerCache{T, AT <: AbstractArray{T}} <: OptimizerCache{T}
+struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} <: OptimizerCache{T}
     x::AT
     δ::AT
     g::AT
     rhs::AT
     Δx::AT
     Δg::AT
+    H::HT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
-        cache = new{T,AT}(similar(x), similar(x), similar(x), similar(x), similar(x), similar(x))
+        h = zeros(T, length(x), length(x))
+        cache = new{T, AT, typeof(h)}(similar(x), similar(x), similar(x), similar(x), similar(x), similar(x), h)
         initialize!(cache, x)
         cache
     end
@@ -29,7 +31,8 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}} <: OptimizerCache{T}
     # we probably don't need this constructor
     function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
         g = Gradient(problem)(x)
-        new{T, AT}(copy(x), copy(x), zero(x), g, -g, zero(x), zero(x))
+        h = Hessian(problem)(x)
+        new{T, AT, typeof(h)}(copy(x), copy(x), zero(x), g, -g, zero(x), zero(x), h)
     end
 end
 
@@ -51,6 +54,8 @@ gradient(cache::NewtonOptimizerCache) = cache.g
 Return the direction of the gradient step (i.e. `δ`) of an instance of [`NewtonOptimizerCache`](@ref).
 """
 direction(cache::NewtonOptimizerCache) = cache.δ
+
+hessian(cache::NewtonOptimizerCache) = cache.H
 
 function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::AbstractVector)
     cache.x .= x
@@ -93,31 +98,19 @@ Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref).
 
 !!! warn
     Note that this is not updating the Hessian `hes`. For this call `update!` on the `Hessian`.
-
-# Implementation
-
-The multiplication by the inverse of ``H`` is done with `LinearAlgebra.ldiv!`.
 """
-function update!(cache::NewtonOptimizerCache, state::OptimizerState, g::Gradient, hes::Hessian, x::AbstractVector)
+function update!(cache::NewtonOptimizerCache, state::OptimizerState, g::Gradient, ∇²f::Hessian, x::AbstractVector)
     update!(cache, state, g, x)
-    ldiv!(direction(cache), hes, rhs(cache))
-    cache
-end
-
-function update!(cache::NewtonOptimizerCache, state::OptimizerState, ::OptimizerProblem, g::Gradient, hes::Hessian, x::AbstractVector)
-    update!(cache, state, g, hes, x)
-end
-
-function update!(cache::NewtonOptimizerCache, state::OptimizerState, obj::OptimizerProblem, g::GradientFunction, hes::Hessian, x::AbstractVector)
-    update!(cache, state, obj, g, x)
-    ldiv!(direction(cache), hes, rhs(cache))
+    ∇²f(hessian(cache), x)
+    direction(cache) .= hessian(cache) \ rhs(cache)
     cache
 end
 
 function initialize!(cache::NewtonOptimizerCache{T}, ::AbstractVector{T}) where {T}
     cache.x .= T(NaN)
-    cache.δ .= T(NaN)
+    direction(cache) .= T(NaN)
     cache.g .= T(NaN)
     cache.rhs .= T(NaN)
+    hessian(cache) .= T(NaN)
     cache
 end

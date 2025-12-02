@@ -101,7 +101,6 @@ meets_stopping_criteria(status::OptimizerStatus, opt::Optimizer) = meets_stoppin
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(problem(opt), x)
     initialize!(cache(opt), x)
-    initialize!(hessian(opt), x)
     opt.iterations = 0
 
     opt
@@ -117,8 +116,7 @@ We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](
 """
 function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     update!(problem(opt), gradient(opt), x)
-    update!(hessian(opt), x)
-    update!(cache(opt), state, x, gradient(problem(opt)))
+    update!(cache(opt), state, gradient(opt), hessian(opt), x)
 
     opt
 end
@@ -153,7 +151,7 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
 
     # solve H δx = - ∇f
     # rhs is -g
-    ldiv!(direction(opt), hessian(opt), rhs(opt))
+    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
 
     # apply line search
     α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
@@ -205,6 +203,7 @@ Too see the value of `x` after one iteration confer the docstring of [`solver_st
 """
 function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     initialize!(opt, x)
+    initial_values_for_hessian!(opt)
 
     while true
         increase_iteration_number!(opt)
@@ -237,8 +236,6 @@ Also note the difference to e.g. [`initialize!(::HessianBFGS, ::AbstractVector)`
 function initial_values_for_hessian!(opt::Optimizer{T, ALG, OBJ, GT, HT}) where {T, ALG, OBJ, GT, HT <: IterativeHessian}
     z = zero(solution(hessian(opt)))
     o = ones(T, length(z))
-    H = hessian(opt)
-    update!(H, z, gradient!(problem(H), gradient(opt), z))
-    update!(H, o)
+    cache(opt).H .= hessian(opt)(o)
     opt
 end

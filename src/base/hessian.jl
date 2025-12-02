@@ -24,13 +24,6 @@ Examples include:
 abstract type Hessian{T} end
 
 """
-    initialize!(hessian, x)
-
-See e.g. [`initialize!(::HessianAutodiff, ::AbstractVector)`](@ref).
-"""
-initialize!(hes::Hessian, ::AbstractVector) = error("initialize! not defined for Hessian of type $(typeof(hes)).")
-
-"""
     check_hessian(H)
 
 Check the condition number, determinant, max and min value of the [`Hessian`](@ref) `H`.
@@ -121,19 +114,18 @@ The functor does:
 hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
 ```
 """
-struct HessianAutodiff{T, FT <: Callable, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
+struct HessianAutodiff{T, FT <: Callable, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
-    H::HT
     Hconfig::CT
 
-    function HessianAutodiff{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
-        new{T, FT, HT, CT}(F, H, Hconfig)
+    function HessianAutodiff{T}(F::FT, Hconfig::CT) where {T, FT, CT}
+        new{T, FT, CT}(F, Hconfig)
     end
 end
 
 function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
     Hconfig = ForwardDiff.HessianConfig(F, x)
-    HessianAutodiff{T}(F, alloc_h(x), Hconfig)
+    HessianAutodiff{T}(F, Hconfig)
 end
 
 HessianAutodiff(F::OptimizerProblem, x) = HessianAutodiff(F.F, x)
@@ -147,42 +139,10 @@ function (hes::HessianAutodiff{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) w
 end
 
 function (hes::HessianAutodiff{T})(x::AbstractVector{T}) where {T}
-    ForwardDiff.hessian!(hes.H, hes.F, x, hes.Hconfig)
-end
-
-"""
-    initialize!(H, x)
-
-Initialize a [`HessianAutodiff`](@ref) object `H`.
-
-# Implementation
-
-Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
-"""
-function initialize!(H::HessianAutodiff, x::AbstractVector)
-    H.H .= alloc_h(x)
+    H = alloc_h(x)
+    ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
     H
 end
-
-"""
-    update!(H, x)
-
-Update a [`HessianAutodiff`](@ref) object `H`.
-
-This is identical to [`initialize!`](@ref).
-
-# Implementation
-
-Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
-"""
-function update!(H::HessianAutodiff, x::AbstractVector)
-    H(x)
-    H
-end
-
-Base.inv(H::HessianAutodiff) = inv(H.H)
-
-Base.:\(H::HessianAutodiff, b) = solve(LU(), H.H, b)
 
 # TODO: replace the "\" with something that has better performance (and doesn't produce as many allocations)
-LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
+# LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b

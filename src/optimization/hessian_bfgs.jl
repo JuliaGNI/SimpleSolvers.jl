@@ -48,7 +48,9 @@ struct HessianBFGS{T,VT,MT,OBJ} <: IterativeHessian{T}
         δγ = zero(Q)
         δδ = zero(Q)
             
-        new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, T3, δγ, δδ)
+        H = new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, T3, δγ, δδ)
+        initialize!(H, x)
+        H
     end
 end
 
@@ -135,5 +137,3 @@ end
 Base.inv(H::HessianBFGS) = H.Q
 
 Base.:\(H::HessianBFGS, b) = inv(H) * b
-
-LinearAlgebra.ldiv!(x, H::HessianBFGS, b) = mul!(x, inv(H), b)
