@@ -48,7 +48,7 @@ function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :auto
                 GradientFiniteDifferences(F, x)
             end
         else
-            GradientFunction(x)
+            GradientFunction(F, ∇F!, x)
         end
     problem = (ismissing(∇F!)|isnothing(∇F!)) ? OptimizerProblem(F, x) : OptimizerProblem(F, ∇F!, x)
     Optimizer(x, problem; gradient = G, kwargs...)
@@ -147,7 +147,7 @@ solver_step!(opt, state, x)
  0.6666666
 ```
 """
-function solver_step!(opt::Optimizer, state::OptimizerState, x::VT)::VT where {VT <: AbstractVector}
+function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <: AbstractVector}
     # update problem, hessian, state and status
     update!(opt, state, x)
 
@@ -161,6 +161,7 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT)::VT where {V
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))
     cache(opt).x .= x
+    x
 end
 
 """

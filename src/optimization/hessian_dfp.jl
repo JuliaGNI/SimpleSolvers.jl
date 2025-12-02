@@ -66,7 +66,6 @@ function update!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
     grad = GradientAutodiff{T}(H.problem.F, length(x))
     H.g .= grad(H.problem, x)
 
-
     # δ = x - x̄
     direction(H) .= H.x - H.x̄
 

@@ -17,6 +17,7 @@ function ∇F!(g::Vector, x::Vector)
     for i in eachindex(x,g)
         g[i] = 2x[i]
     end
+    g
 end
 
 # this is needed for the analytic gradient (called with `GradientFunction`)
@@ -48,7 +49,7 @@ gus = zero(g)
 
 test_grad(gad, g, eps())
 test_grad(gfd, g, 1E-7)
-test_grad(gradient(obj), g, 0)
+test_grad(gus, g, zero(eltype(g)))
 
 gad1 = zero(g)
 gfd1 = zero(g)

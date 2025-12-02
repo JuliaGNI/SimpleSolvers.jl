@@ -173,7 +173,7 @@ Like `derivative`, but for [`OptimizerProblem`](@ref).
 """
 gradient(obj::OptimizerProblem) = obj.g
 
-function (gradient_instance)(obj::OptimizerProblem, x::AbstractArray)
+function (gradient_instance::Gradient)(obj::OptimizerProblem, x::AbstractArray)
     copyto!(g_argument(obj), x)
     gradient_instance(gradient(obj), x)
     gradient(obj)

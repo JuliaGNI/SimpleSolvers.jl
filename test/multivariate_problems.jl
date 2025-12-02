@@ -45,7 +45,7 @@ for (x_temp, y_temp) ∈ zip((x, 2x), (f, F(2x)))
 end
 
 function return_correct_gradients(obj1::OptimizerProblem, obj2::OptimizerProblem, x::AbstractVector, z::AbstractVector)
-    @test ad_gradient(obj1, x) == g_gradient(obj2, x) == z
+    @test ad_gradient(obj1, x) == f_gradient(obj2, x) == z
 end
 
 # test gradient-related functionality (clear Objective object after every run)
