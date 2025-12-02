@@ -58,11 +58,13 @@ Compute the outer products ``\gamma\gamma^T`` and ``\delta\delta`` for the [`Ite
 
 Note that this is in-place; all the results are stored in `H`.
 """
-function compute_outer_products!(H::IterativeHessian) end
+function compute_outer_products!(::HT) where {HT <: IterativeHessian}
+    error("Method not implemented for $(HT).")
+end
 
 function (∇²f::IterativeHessian)(H::AbstractMatrix, x::AbstractVector)
     update!(∇²f, x)
-    H .= inv(H)
+    H .= inv(∇²f)
 end
 
 function (∇²f::IterativeHessian)(x::AbstractVector)

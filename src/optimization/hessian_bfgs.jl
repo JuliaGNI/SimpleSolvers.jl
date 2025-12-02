@@ -56,6 +56,8 @@ end
 
 HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(OptimizerProblem(F, x), x)
 
+HessianBFGS{T}(F::Callable, n::Integer) where {T} = HessianBFGS(F, zeros(T, n))
+
 Hessian(::BFGS, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
 @doc raw"""
@@ -98,6 +100,11 @@ function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
     H.g .= grad(H.problem, x)
 
     H
+end
+
+function compute_outer_products!(H::HessianBFGS)
+    outer!(H.δγ, H.δ, H.γ)
+    outer!(H.δδ, H.δ, H.δ)
 end
 
 function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
