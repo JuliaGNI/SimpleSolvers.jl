@@ -69,30 +69,6 @@ function increase_iteration_number!(opt)
     opt.iterations = iteration_number(opt) + 1
 end
 
-# function Base.show(io::IO, opt::Optimizer)
-#     c = config(opt)
-#     s = status(opt)
-# 
-#     @printf io "\n"
-#     @printf io " * Algorithm: %s \n" algorithm(opt)
-#     @printf io "\n"
-#     @printf io " * Linesearch: %s\n" linesearch(opt)
-#     @printf io "\n"
-#     @printf io " * Iterations\n"
-#     @printf io "\n"
-#     @printf io "    n = %i\n" iterations(s)
-#     @printf io "\n"
-#     @printf io " * Convergence measures\n"
-#     @printf io "\n"
-#     @printf io "    |x - x'|               = %.2e %s %.1e\n"  x_abschange(s) x_abschange(s) ≤ x_abstol(c) ? "≤" : "≰" x_abstol(c)
-#     @printf io "    |x - x'|/|x'|          = %.2e %s %.1e\n"  x_relchange(s) x_relchange(s) ≤ x_reltol(c) ? "≤" : "≰" x_reltol(c)
-#     @printf io "    |f(x) - f(x')|         = %.2e %s %.1e\n"  f_abschange(s) f_abschange(s) ≤ f_abstol(c) ? "≤" : "≰" f_abstol(c)
-#     @printf io "    |f(x) - f(x')|/|f(x')| = %.2e %s %.1e\n"  f_relchange(s) f_relchange(s) ≤ f_reltol(c) ? "≤" : "≰" f_reltol(c)
-#     @printf io "    |g(x)|                 = %.2e %s %.1e\n"  g_residual(s)  g_residual(s)  ≤ g_restol(c) ? "≤" : "≰" g_restol(c)
-#     @printf io "\n"
-# 
-# end
-
 check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
 print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 
