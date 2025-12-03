@@ -109,7 +109,7 @@ end
 function update!(cache::NewtonOptimizerCache, state::OptimizerState, g::Gradient, ∇²f::IterativeHessian, x::AbstractVector)
     update!(cache, state, g, x)
     ∇²f(hessian(cache), x; gradient = g)
-    direction(cache) .= hessian(cache) \ rhs(cache)
+    direction(cache) .= hessian(cache) * rhs(cache)
     cache
 end
 
