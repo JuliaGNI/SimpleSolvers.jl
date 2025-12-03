@@ -42,7 +42,7 @@ HessianDFP{T}(F::Callable, n::Integer) where {T} = HessianDFP(F, zeros(T, n))
 
 Hessian(::DFP, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianDFP(ForOBJ, x)
 
-function initialize!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
+function initialize!(H::HessianDFP{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.problem.F, length(x))) where {T}
     H.Q .= Matrix(one(T) * I, size(H.Q)...)
 
     H.x̄ .= eltype(x)(NaN)
@@ -51,8 +51,7 @@ function initialize!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
     H.γ .= eltype(x)(NaN)
 
     H.x .= x
-    grad = GradientAutodiff{T}(H.problem.F, length(x))
-    H.g .= grad(H.problem, x)
+    H.g .= gradient(H.problem, x)
 
     H
 end
@@ -62,13 +61,12 @@ function compute_outer_products!(H::HessianDFP)
     outer!(H.δδ, H.δ, H.δ)
 end
 
-function update!(H::HessianDFP{T}, x::AbstractVector{T}) where {T}
+function update!(H::HessianDFP{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.problem.F, length(x))) where {T}
     # copy previous data and compute new gradient
     H.ḡ .= H.g
     H.x̄ .= H.x
     H.x .= x
-    grad = GradientAutodiff{T}(H.problem.F, length(x))
-    H.g .= grad(H.problem, x)
+    H.g .= gradient(H.problem, x)
 
     # δ = x - x̄
     direction(H) .= H.x - H.x̄

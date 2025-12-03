@@ -62,12 +62,12 @@ function compute_outer_products!(::HT) where {HT <: IterativeHessian}
     error("Method not implemented for $(HT).")
 end
 
-function (∇²f::IterativeHessian)(H::AbstractMatrix, x::AbstractVector)
-    update!(∇²f, x)
+function (∇²f::IterativeHessian)(H::AbstractMatrix, x::AbstractVector; gradient = GradientAutodiff{T}(H.problem.F, length(x)))
+    update!(∇²f, x; gradient = gradient)
     H .= inv(∇²f)
 end
 
-function (∇²f::IterativeHessian)(x::AbstractVector)
+function (∇²f::IterativeHessian)(x::AbstractVector; gradient = GradientAutodiff{T}(H.problem.F, length(x)))
     H = alloc_h(x)
-    ∇²f(H, x)
+    ∇²f(H, x; gradient = gradient)
 end

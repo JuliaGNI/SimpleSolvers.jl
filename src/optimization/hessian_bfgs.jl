@@ -84,7 +84,7 @@ inv(H)
  0.0  0.0  1.0
 ```
 """
-function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
+function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.problem.F, length(x))) where {T}
     H.Q .= Matrix(one(T)*I, size(H.Q)...)
 
     H.x̄ .= alloc_x(x)
@@ -95,9 +95,7 @@ function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
     H.γ .= alloc_g(x)
 
     H.x .= x
-    # TODO: get rid of this eventually
-    grad = GradientAutodiff{T}(H.problem.F, length(x))
-    H.g .= grad(H.problem, x)
+    H.g .= gradient(H.problem, x)
 
     H
 end
@@ -107,13 +105,12 @@ function compute_outer_products!(H::HessianBFGS)
     outer!(H.δδ, H.δ, H.δ)
 end
 
-function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
+function update!(H::HessianBFGS{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.problem.F, length(x))) where {T}
     # copy previous data and compute new gradient
     H.ḡ .= H.g
     H.x̄ .= H.x
     H.x .= x
-    grad = GradientAutodiff{T}(H.problem.F, length(x))
-    H.g .= grad(H.problem, x)
+    H.g .= gradient(H.problem, x)
 
     # δ = x - x̄
     direction(H) .= H.x - H.x̄
