@@ -42,12 +42,14 @@ end
 Return the right hand side of an instance of [`NewtonOptimizerCache`](@ref)
 """
 rhs(cache::NewtonOptimizerCache) = cache.rhs
+
 """
     gradient(::NewtonOptimizerCache)
 
 Return the stored gradient (array) of an instance of [`NewtonOptimizerCache`](@ref)
 """
 gradient(cache::NewtonOptimizerCache) = cache.g
+
 """
     direction(::NewtonOptimizerCache)
 
