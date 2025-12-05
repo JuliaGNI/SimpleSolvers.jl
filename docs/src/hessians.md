@@ -11,28 +11,18 @@ obj = OptimizerProblem(x -> norm(x - vcat(0., 0., 1.))  ^ 2, x)
 hes = HessianAutodiff(obj, x)
 ```
 
-An instance of [`HessianAutodiff`](@ref) stores a Hessian matrix:
-
-```@example hessian
-hes.H
-```
-
 The instance of [`HessianAutodiff`](@ref) can be called:
 
 ```@example hessian
 hes(x)
 ```
 
-Or equivalently with:
-
-```julia
-update!(hes, x)
-```
-
-This updates `hes.H`:
+Or alternative in-place:
 
 ```@example hessian
-hes.H
+H = SimpleSolvers.alloc_h(x)
+hes(H, x)
+H
 ```
 
 ## BFGS Hessian
@@ -47,10 +37,4 @@ For computational reasons we save the inverse of the Hessian, it can be accessed
 
 ```@example hessian
 inv(hes)
-```
-
-Similarly to [`HessianAutodiff`](@ref) we can call [`update!`](@ref):
-
-```@example hessian
-update!(hes, x)
 ```

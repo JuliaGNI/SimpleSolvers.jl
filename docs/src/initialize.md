@@ -24,9 +24,9 @@ bt = Backtracking() # hide
 alg = Newton() # hide
 # opt = Optimizer(x, obj; algorithm = alg, linesearch = bt, config = config) # hide
 
-hes = HessianAutodiff(obj, x)
+hes = HessianBFGS(obj, x)
 initialize!(hes, x)
-hes.H
+hes.Q
 ```
 
 For an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref)[^2]:

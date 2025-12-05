@@ -29,6 +29,7 @@ module SimpleSolvers
     export NewtonMethod, Newton, DFP, BFGS
 
     include("base/methods.jl")
+    include("base/optimizer_methods.jl")
 
     export Gradient,
            GradientAutodiff,
@@ -45,7 +46,7 @@ module SimpleSolvers
     export value, value!, value!!,
            gradient,
            derivative, derivative!, derivative!!,
-           hessian, hessian!, hessian!!
+           hessian
            
     include("optimization/optimizer_problems.jl")
 
@@ -56,9 +57,6 @@ module SimpleSolvers
     export Hessian,
            HessianAutodiff,
            HessianFunction
-
-    export compute_hessian,
-           compute_hessian!
            
     export check_hessian,
            print_hessian
@@ -144,11 +142,15 @@ module SimpleSolvers
     include("optimization/optimizer_cache.jl")
     include("optimization/optimizer_status.jl")
     include("optimization/optimizer_result.jl")
-    include("optimization/optimizer.jl")
+    include("optimization/iterative_hessians/iterative_hessians.jl")
     include("optimization/hessian_bfgs.jl")
     include("optimization/hessian_dfp.jl")
-    include("optimization/newton_optimizer_cache.jl")
-    include("optimization/newton_optimizer_linesearch_problem.jl")
-    include("optimization/newton_optimizer_state.jl")
+    include("optimization/newton_optimizer/newton_optimizer_cache.jl")
+    include("optimization/optimizer_linesearch_problem.jl")
+    include("optimization/optimizer.jl")
+    include("optimization/newton_optimizer/newton_optimizer_state.jl")
+
+    include("optimization/iterative_hessians/bfgs/bfgs_cache.jl")
+    include("optimization/iterative_hessians/dfp/dfp_cache.jl")
 
 end

@@ -69,30 +69,6 @@ function increase_iteration_number!(opt)
     opt.iterations = iteration_number(opt) + 1
 end
 
-# function Base.show(io::IO, opt::Optimizer)
-#     c = config(opt)
-#     s = status(opt)
-# 
-#     @printf io "\n"
-#     @printf io " * Algorithm: %s \n" algorithm(opt)
-#     @printf io "\n"
-#     @printf io " * Linesearch: %s\n" linesearch(opt)
-#     @printf io "\n"
-#     @printf io " * Iterations\n"
-#     @printf io "\n"
-#     @printf io "    n = %i\n" iterations(s)
-#     @printf io "\n"
-#     @printf io " * Convergence measures\n"
-#     @printf io "\n"
-#     @printf io "    |x - x'|               = %.2e %s %.1e\n"  x_abschange(s) x_abschange(s) ≤ x_abstol(c) ? "≤" : "≰" x_abstol(c)
-#     @printf io "    |x - x'|/|x'|          = %.2e %s %.1e\n"  x_relchange(s) x_relchange(s) ≤ x_reltol(c) ? "≤" : "≰" x_reltol(c)
-#     @printf io "    |f(x) - f(x')|         = %.2e %s %.1e\n"  f_abschange(s) f_abschange(s) ≤ f_abstol(c) ? "≤" : "≰" f_abstol(c)
-#     @printf io "    |f(x) - f(x')|/|f(x')| = %.2e %s %.1e\n"  f_relchange(s) f_relchange(s) ≤ f_reltol(c) ? "≤" : "≰" f_reltol(c)
-#     @printf io "    |g(x)|                 = %.2e %s %.1e\n"  g_residual(s)  g_residual(s)  ≤ g_restol(c) ? "≤" : "≰" g_restol(c)
-#     @printf io "\n"
-# 
-# end
-
 check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
 print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 
@@ -101,7 +77,6 @@ meets_stopping_criteria(status::OptimizerStatus, opt::Optimizer) = meets_stoppin
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(problem(opt), x)
     initialize!(cache(opt), x)
-    initialize!(hessian(opt), x)
     opt.iterations = 0
 
     opt
@@ -117,8 +92,7 @@ We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](
 """
 function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     update!(problem(opt), gradient(opt), x)
-    update!(hessian(opt), x)
-    update!(cache(opt), state, x, gradient(problem(opt)))
+    update!(cache(opt), state, gradient(opt), hessian(opt), x)
 
     opt
 end
@@ -153,7 +127,7 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
 
     # solve H δx = - ∇f
     # rhs is -g
-    ldiv!(direction(opt), hessian(opt), rhs(opt))
+    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
 
     # apply line search
     α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
@@ -222,6 +196,6 @@ end
 
 function warn_iteration_number(opt::Optimizer, config::Options)
     if config.warn_iterations > 0 && iteration_number(opt) ≥ config.warn_iterations
-        println("WARNING: Optimizer took ", status.i, " iterations.")
+        println("WARNING: Optimizer took ", iteration_number(opt), " iterations.")
     end
 end

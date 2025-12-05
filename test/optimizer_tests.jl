@@ -24,10 +24,8 @@ test_obj = OptimizerProblem(F, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)
 
 for method in (Newton(), BFGS(), DFP())
-    for _linesearch in (Static(0.8), Backtracking(), BierlaireQuadratic(), Bisection(), Quadratic2())
+    for _linesearch in (Static(0.1), Backtracking(), Bisection(), BierlaireQuadratic(), Quadratic2())
         for T in (Float64, Float32)
-            # for T = Float32 some optimizers seem to have problems converging. TODO: investigate!!
-            T == Float32 && typeof(_linesearch) <: Union{BierlaireQuadratic, Quadratic2} && continue
             n = 1
             x = ones(T, n)
             opt = Optimizer(x, F; algorithm = method, linesearch = _linesearch)

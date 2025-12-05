@@ -1,8 +1,27 @@
 """
     HessianBFGS <: Hessian
+
+A `struct` derived from [`Hessian`](@ref) to be used for an [`Optimizer`](@ref).
+
+# Fields
+- `problem::`[`OptimizerProblem`](@ref): 
+- `x̄`: previous solution,
+- `x`: current solution,
+- `δ`: *descent direction*,
+- `ḡ`: previous gradient,
+- `g`: current gradient,
+- `γ`: difference between current and previous gradient,
+- `Q`: 
+- `T1`:
+- `T2`:
+- `T3`:
+- `δγ`: the outer product of `δ` and `γ`. Note that this is different from the output of [`compute_δγ`](@ref), which is the inner product of `γ` and `δ`.
+- `δδ`: 
+
+Also compare those fields with the ones of [`NewtonOptimizerCache`](@ref).
 """
-struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
-    problem::OBJ
+struct HessianBFGS{T,VT,MT,FT <: Callable} <: IterativeHessian{T}
+    F::FT
 
     x̄::VT    # previous solution
     x::VT    # current solution
@@ -20,7 +39,7 @@ struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
     δγ::MT
     δδ::MT
 
-    function HessianBFGS(problem::OptimizerProblem, x::AbstractVector{T}) where {T}
+    function HessianBFGS(F::FT, x::AbstractVector{T}) where {T, FT <: Callable}
         Q  = alloc_h(x)
         
         T1 = zero(Q)
@@ -29,64 +48,98 @@ struct HessianBFGS{T,VT,MT,OBJ} <: Hessian{T}
         δγ = zero(Q)
         δδ = zero(Q)
             
-        new{T,typeof(x),typeof(Q),typeof(problem)}(problem, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, T3, δγ, δδ)
+        H = new{T,typeof(x),typeof(Q),FT}(F, zero(x), zero(x), zero(x), zero(x), zero(x), zero(x), Q, T1, T2, T3, δγ, δδ)
+        initialize!(H, x)
+        H
     end
 end
 
-HessianBFGS(F::Callable, x::AbstractVector) = HessianBFGS(OptimizerProblem(F, x), x)
+HessianBFGS{T}(F::Callable, n::Integer) where {T} = HessianBFGS(F, zeros(T, n))
 
-Hessian(::BFGS, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianBFGS(ForOBJ, x)
+HessianBFGS(obj::OptimizerProblem, x::AbstractVector) = HessianBFGS(obj.F, x)
 
-function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
-    H.Q .= Matrix(1.0I, size(H.Q)...)
+Hessian(::BFGS, ForOBJ::Callable, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
-    H.x̄ .= eltype(x)(NaN)
-    H.δ .= eltype(x)(NaN)
-    H.ḡ .= eltype(x)(NaN)
-    H.γ .= eltype(x)(NaN)
+Hessian(::BFGS, ForOBJ::OptimizerProblem, x::AbstractVector) = HessianDFP(ForOBJ.F, x)
+
+@doc raw"""
+    initialize!(H, x)
+
+Initialize an object `H` of type [`HessianBFGS`](@ref). 
+
+We note that unlike most other [`initialize!`](@ref) methods this one is not writing `NaN`s everywhere - ``Q = H^{-1}`` is set to the identity.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: initialize!)
+f(x) = sum(x .^ 2)
+x = [1f0, 2f0, 3f0]
+H = HessianBFGS(f, x)
+initialize!(H, x)
+inv(H)
+
+# output
+
+3×3 Matrix{Float32}:
+ 1.0  0.0  0.0
+ 0.0  1.0  0.0
+ 0.0  0.0  1.0
+```
+"""
+function initialize!(H::HessianBFGS{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.F, length(x))) where {T}
+    H.Q .= Matrix(one(T)*I, size(H.Q)...)
+
+    H.x̄ .= alloc_x(x)
+    H.x .= alloc_x(x)
+    H.δ .= alloc_x(x)
+    H.ḡ .= alloc_g(x)
+    H.g .= alloc_g(x)
+    H.γ .= alloc_g(x)
 
     H.x .= x
-    # TODO: get rid of this eventually
-    grad = GradientAutodiff{T}(H.problem.F, length(x))
-    H.g .= grad(H.problem, x)
+    H.g .= gradient(x)
 
     H
 end
 
-function update!(H::HessianBFGS{T}, x::AbstractVector{T}) where {T}
+function compute_outer_products!(H::HessianBFGS)
+    outer!(H.δγ, H.δ, H.γ)
+    outer!(H.δδ, H.δ, H.δ)
+end
+
+function update!(H::HessianBFGS{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.F, length(x))) where {T}
     # copy previous data and compute new gradient
     H.ḡ .= H.g
     H.x̄ .= H.x
     H.x .= x
-    grad = GradientAutodiff{T}(H.problem.F, length(x))
-    H.g .= grad(H.problem, x)
+    gradient(H.g, x)
 
     # δ = x - x̄
-    H.δ .= H.x .- H.x̄
+    direction(H) .= H.x - H.x̄
 
     # γ = g - ḡ
-    H.γ .= H.g .- H.ḡ
+    H.γ .= H.g - H.ḡ
 
-    # δγ = δᵀγ
-    δγ = H.δ ⋅ H.γ
+    # δγ = δ ⋅ γ
+    δγ = compute_δγ(H)
 
     # BFGS
     # Q = Q - ... + ...
     # H.Q .-= (H.δ * H.γ' * H.Q .+ H.Q * H.γ * H.δ') ./ δγ .-
     #         (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* (H.δ * H.δ') ./ δγ
-
-    if δγ ≠ 0
-        outer!(H.δγ, H.δ, H.γ)
-        outer!(H.δδ, H.δ, H.δ)
+    
+    if !iszero(δγ)
+        compute_outer_products!(H)
         mul!(H.T1, H.δγ, H.Q)
         mul!(H.T2, H.Q, H.δγ')
-        H.T3 .= (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* H.δδ
+        γQγ = compute_γQγ(H)
+        H.T3 .= (one(T) + γQγ ./ δγ) .* H.δδ
         H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
     end
+
+    H
 end
 
 Base.inv(H::HessianBFGS) = H.Q
 
 Base.:\(H::HessianBFGS, b) = inv(H) * b
-
-LinearAlgebra.ldiv!(x, H::HessianBFGS, b) = mul!(x, inv(H), b)
