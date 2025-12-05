@@ -143,6 +143,3 @@ function (hes::HessianAutodiff{T})(x::AbstractVector{T}) where {T}
     ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
     H
 end
-
-# TODO: replace the "\" with something that has better performance (and doesn't produce as many allocations)
-# LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
