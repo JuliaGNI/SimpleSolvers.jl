@@ -60,7 +60,7 @@ HessianBFGS(obj::OptimizerProblem, x::AbstractVector) = HessianBFGS(obj.F, x)
 
 Hessian(::BFGS, ForOBJ::Callable, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
-Hessian(::BFGS, ForOBJ::OptimizerProblem, x::AbstractVector) = HessianDFP(ForOBJ.F, x)
+Hessian(::BFGS, ForOBJ::OptimizerProblem, x::AbstractVector) = HessianBFGS(ForOBJ.F, x)
 
 @doc raw"""
     initialize!(H, x)
