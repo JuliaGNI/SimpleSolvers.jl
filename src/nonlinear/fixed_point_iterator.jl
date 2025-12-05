@@ -29,7 +29,7 @@ end
 - `options_kwargs`: see [`Options`](@ref)
 """
 function FixedPointIterator(x::AT, F::Callable; kwargs...) where {T,AT<:AbstractVector{T}}
-    nlp = NonlinearProblem(F, missing, x, x; fixed_point=true)
+    nlp = NonlinearProblem(F, missing, x, x)
     cache = FixedPointIteratorCache(x)
     FixedPointIterator(x, nlp, cache; kwargs...)
 end
@@ -48,8 +48,6 @@ function solver_step!(it::FixedPointIterator{T}, x::AbstractVector{T}, params) w
     update!(cache(it), x)
     value!(nonlinearproblem(it), x, params)
     x .= value(nonlinearproblem(it))
-    isFixedPointFormat(nonlinearproblem(it)) || (x .-= solution(cache(it)))
-    x
 end
 
 cache(solver::FixedPointIterator)::FixedPointIteratorCache = solver.cache
