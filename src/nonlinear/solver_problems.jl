@@ -143,7 +143,7 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 - `x_f`: accessed by calling [`f_argument`](@ref)`(nlp)`,
 - `x_j`: accessed by calling [`j_argument`](@ref)`(nlp)`,
 """
-struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Callable,Missing},Tx<:AbstractVector{T},Tf<:AbstractVector{T},Tj<:AbstractMatrix{T}} <: AbstractProblem
+struct NonlinearProblem{T,TF<:Callable,TJ<:Union{Callable,Missing},Tx<:AbstractVector{T},Tf<:AbstractVector{T},Tj<:AbstractMatrix{T}} <: AbstractProblem
     F::TF
     J::TJ
 
@@ -156,10 +156,9 @@ struct NonlinearProblem{T,FixedPoint,TF<:Callable,TJ<:Union{Callable,Missing},Tx
     function NonlinearProblem(F::Callable, J::Union{Callable,Missing},
         x::Tx,
         f::Tf;
-        j::Tj=alloc_j(x, f),
-        fixed_point::Bool=false) where {T,Tx<:AbstractArray{T},Tf,Tj<:AbstractArray{T}}
+        j::Tj=alloc_j(x, f)) where {T,Tx<:AbstractArray{T},Tf,Tj<:AbstractArray{T}}
         hasmethod(F, Tuple{Tf, Tx, OptionalParameters}) || error("The function needs to have the following signature: F(y, x, params).")
-        nlp = new{T,fixed_point,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, alloc_x(f), j, alloc_x(x), alloc_x(x))
+        nlp = new{T,typeof(F),typeof(J),Tx,Tf,Tj}(F, J, alloc_x(f), j, alloc_x(x), alloc_x(x))
         initialize!(nlp, x)
         nlp
     end
