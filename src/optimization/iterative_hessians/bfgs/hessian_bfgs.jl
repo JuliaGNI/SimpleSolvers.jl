@@ -107,38 +107,40 @@ function compute_outer_products!(H::HessianBFGS)
     outer!(H.δδ, H.δ, H.δ)
 end
 
-function update!(H::HessianBFGS{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.F, length(x))) where {T}
-    # copy previous data and compute new gradient
-    H.ḡ .= H.g
-    H.x̄ .= H.x
-    H.x .= x
-    gradient(H.g, x)
+# function update!(H::HessianBFGS{T}, x::AbstractVector{T}; gradient = GradientAutodiff{T}(H.F, length(x))) where {T}
+#     # copy previous data and compute new gradient
+#     H.ḡ .= H.g
+#     H.x̄ .= H.x
+#     H.x .= x
+#     gradient(H.g, x)
+# 
+#     # δ = x - x̄
+#     direction(H) .= H.x - H.x̄
+# 
+#     # γ = g - ḡ
+#     H.γ .= H.g - H.ḡ
+# 
+#     # δγ = δ ⋅ γ
+#     δγ = compute_δγ(H)
+# 
+#     # BFGS
+#     # Q = Q - ... + ...
+#     # H.Q .-= (H.δ * H.γ' * H.Q .+ H.Q * H.γ * H.δ') ./ δγ .-
+#     #         (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* (H.δ * H.δ') ./ δγ
+#     
+#     if !iszero(δγ)
+#         compute_outer_products!(H)
+#         mul!(H.T1, H.δγ, H.Q)
+#         mul!(H.T2, H.Q, H.δγ')
+#         γQγ = compute_γQγ(H)
+#         H.T3 .= (one(T) + γQγ ./ δγ) .* H.δδ
+#         H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
+#     end
+# 
+#     H
+# end
 
-    # δ = x - x̄
-    direction(H) .= H.x - H.x̄
-
-    # γ = g - ḡ
-    H.γ .= H.g - H.ḡ
-
-    # δγ = δ ⋅ γ
-    δγ = compute_δγ(H)
-
-    # BFGS
-    # Q = Q - ... + ...
-    # H.Q .-= (H.δ * H.γ' * H.Q .+ H.Q * H.γ * H.δ') ./ δγ .-
-    #         (1 + dot(H.γ, H.Q, H.γ) ./ δγ) .* (H.δ * H.δ') ./ δγ
-    
-    if !iszero(δγ)
-        compute_outer_products!(H)
-        mul!(H.T1, H.δγ, H.Q)
-        mul!(H.T2, H.Q, H.δγ')
-        γQγ = compute_γQγ(H)
-        H.T3 .= (one(T) + γQγ ./ δγ) .* H.δδ
-        H.Q .-= (H.T1 .+ H.T2 .- H.T3) ./ δγ
-    end
-
-    H
-end
+(hes::Hessian)(::AbstractMatrix, ::AbstractVector) = error("This has to be called together with a cache.")
 
 Base.inv(H::HessianBFGS) = H.Q
 

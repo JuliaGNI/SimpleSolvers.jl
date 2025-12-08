@@ -36,6 +36,8 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} 
     end
 end
 
+OptimizerCache(::OptimizerMethod, x::AbstractVector) = NewtonOptimizerCache(x)
+
 """
     rhs(cache)
 

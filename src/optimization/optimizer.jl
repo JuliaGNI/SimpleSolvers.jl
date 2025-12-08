@@ -35,7 +35,7 @@ mutable struct Optimizer{T,
 end
 
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
-    cache = NewtonOptimizerCache(x)
+    cache = OptimizerCache(algorithm, x)
     hes = Hessian(algorithm, problem, x)
     Optimizer(algorithm, problem, hes, cache, LinesearchState(linesearch; T = T); options_kwargs...)
 end
@@ -127,7 +127,7 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
 
     # solve H δx = - ∇f
     # rhs is -g
-    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
+    compute_direction(opt, state)
 
     # apply line search
     α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
@@ -136,6 +136,14 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
     x .= compute_new_iterate(x, α, direction(opt))
     cache(opt).x .= x
     x
+end
+
+function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
+    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
+end
+
+function compute_direction(opt::Optimizer{T, BFGS}, state::BFGSState) where {T}
+    direction(opt) .= inverse_hessian(state) * rhs(opt)
 end
 
 """
@@ -179,6 +187,7 @@ Too see the value of `x` after one iteration confer the docstring of [`solver_st
 """
 function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     initialize!(opt, x)
+    initialize_state!(state)
 
     while true
         increase_iteration_number!(opt)
@@ -192,6 +201,18 @@ function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
 
     status = OptimizerStatus(state, cache(opt), value(problem(opt)); config = config(opt))
     OptimizerResult(status, x, value(problem(opt)))
+end
+
+function initialize_state!(state::OptimizerState)
+    state 
+end
+
+function initialize_state!(state::BFGSState{T}) where {T}
+    state.x̄ .= zero(T)
+    state.ḡ .= one(T)
+    state.Q .= one(state.Q)
+
+    state
 end
 
 function warn_iteration_number(opt::Optimizer, config::Options)

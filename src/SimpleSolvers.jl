@@ -147,10 +147,14 @@ module SimpleSolvers
     include("optimization/iterative_hessians/dfp/hessian_dfp.jl")
     include("optimization/newton_optimizer/newton_optimizer_cache.jl")
     include("optimization/optimizer_linesearch_problem.jl")
-    include("optimization/optimizer.jl")
     include("optimization/newton_optimizer/newton_optimizer_state.jl")
+
+    include("optimization/iterative_hessians/bfgs/bfgs_state.jl")
+    include("optimization/iterative_hessians/dfp/dfp_state.jl")
 
     include("optimization/iterative_hessians/bfgs/bfgs_cache.jl")
     include("optimization/iterative_hessians/dfp/dfp_cache.jl")
+
+    include("optimization/optimizer.jl")
 
 end

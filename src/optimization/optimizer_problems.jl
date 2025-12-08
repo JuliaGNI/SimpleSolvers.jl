@@ -179,12 +179,12 @@ function (gradient_instance::Gradient)(obj::OptimizerProblem, x::AbstractArray)
     gradient(obj)
 end
 
-function gradient_instance(obj::OptimizerProblem, x::AbstractArray{<:Number})
-    if x != obj.x_g
-        gradient_instance(obj, x)
-    end
-    gradient(obj)
-end
+# function gradient_instance(obj::OptimizerProblem, x::AbstractArray{<:Number})
+#     if x != obj.x_g
+#         gradient_instance(obj, x)
+#     end
+#     gradient(obj)
+# end
 
 function _clear_f!(obj::OptimizerProblem{T, Tx, TF, TG, TH, Tf}) where {T, Tx, TF, TG, TH, Tf <: Number}
     obj.f = T(NaN)

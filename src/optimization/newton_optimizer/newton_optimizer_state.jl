@@ -11,7 +11,7 @@ Note that this is also used for the [`BFGS`](@ref) and the [`DFP`](@ref) optimiz
 - `linesearch::`[`LinesearchState`](@ref)
 - `cache::`[`NewtonOptimizerCache`](@ref)
 """
-mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizerState
+mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizerState{T}
     x̄::AT
     ḡ::GT
     f̄::T
@@ -23,6 +23,8 @@ end
 
 NewtonOptimizerState(x::AbstractVector{T}, g::AbstractVector{T}) where {T} = NewtonOptimizerState(copy(x), copy(g), zero(T))
 NewtonOptimizerState(x::AbstractVector) = NewtonOptimizerState(copy(x), zero(x))
+
+OptimizerState(::Newton, x_args...) = NewtonOptimizerState(x_args...)
 
 function initialize!(state::NewtonOptimizerState{T}, ::AbstractVector{T}) where {T}
     state.x̄ .= NaN

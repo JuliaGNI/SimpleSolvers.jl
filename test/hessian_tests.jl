@@ -1,4 +1,5 @@
 using SimpleSolvers
+using SimpleSolvers: inverse_hessian, OptimizerCache
 using Test
 using Random: seed!
 
@@ -42,9 +43,14 @@ HPUS(hus, x)
 test_hessian(had, h, eps())
 test_hessian(hus, h, zero(eltype(hus)))
 
-for α ∈ .1:-.01:0.0
-    update!(H_BFGS, α * x)
+BFGS_cache = OptimizerCache(BFGS(), x)
+BFGS_state = OptimizerState(BFGS(), x)
+BFGS_state.x̄ .= x
+BFGS_state.ḡ .= GradientAutodiff(F, x)(x)
+
+for α ∈ .9:-.01:1.0
+    update!(BFGS_cache, BFGS_state, GradientAutodiff(F, x), α * x)
     update!(H_DFP, α * x)
 end
 
-@test H_BFGS.Q ≈ H_DFP.Q
+@test inverse_hessian(BFGS_state) ≈ H_DFP.Q

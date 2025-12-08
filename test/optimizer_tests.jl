@@ -3,11 +3,11 @@ using SimpleSolvers
 using SimpleSolvers: gradient, hessian, linesearch, problem, initialize!, update!, solver_step!
 using Test
 using Random
-Random.seed!(123)
+Random.seed!(123)op
 
 include("optimizers_problems.jl")
 
-struct OptimizerTest{T} <: OptimizerState end
+struct OptimizerTest{T} <: OptimizerState{T} end
 
 test_optim = OptimizerTest{Float64}()
 test_x = zeros(3)
@@ -23,15 +23,15 @@ test_obj = OptimizerProblem(F, test_x)
 @test_throws MethodError update!(test_optim, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)
 
-for method in (Newton(), BFGS(), DFP())
+for method in (Newton(), DFP(), BFGS())
     for _linesearch in (Static(0.1), Backtracking(), Bisection(), BierlaireQuadratic(), Quadratic2())
         for T in (Float64, Float32)
             n = 1
             x = ones(T, n)
             opt = Optimizer(x, F; algorithm = method, linesearch = _linesearch)
-            state = NewtonOptimizerState(x)
+            state = OptimizerState(method, x)
 
-            @test config(opt) == opt.config
+            @test typeof(gradient(opt)) <: GradientAutodiff
 
             solve!(opt, state, x)
             @test norm(x) ≈ zero(T) atol=∛(2000eps(T))
@@ -39,7 +39,10 @@ for method in (Newton(), BFGS(), DFP())
 
             x = ones(T, n)
             opt = Optimizer(x, F; ∇F! = ∇F!, algorithm = method, linesearch = _linesearch)
-            state = NewtonOptimizerState(x)
+
+            @test typeof(gradient(opt)) <: GradientFunction
+
+            state = OptimizerState(method, x)
 
             solve!(opt, state, x)
             @test norm(x) ≈ zero(T) atol=∛(2000eps(T))
