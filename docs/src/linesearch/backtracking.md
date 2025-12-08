@@ -27,14 +27,13 @@ using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!,
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
-value!(obj, x)
 hes = HessianAutodiff(obj, x)
 H = SimpleSolvers.alloc_h(x)
 hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(obj, x)
+g = grad(x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
@@ -68,16 +67,16 @@ This optimizer problem only depends on the parameter ``\alpha``. We plot it:
 ```@setup ls_obj
 alpha = 0.:.01:1.5
 
-y = ls_obj.(alpha)
+y = ls_obj.F.(alpha)
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha", ylabel = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, y)
 
-scatter!(ax, [α₁], [ls_obj(α₁)]; color=mpurple, label=L"\alpha_1")
-scatter!(ax, [α₂], [ls_obj(α₂)]; color=morange, label=L"\alpha_2")
-scatter!(ax, [α₃], [ls_obj(α₃)]; color=mblue, label=L"\alpha_3")
-scatter!(ax, [α₄], [ls_obj(α₄)]; color=mgreen, label=L"\alpha_4")
-scatter!(ax, [α₅], [ls_obj(α₅)]; color=mred, label=L"\alpha_5")
+scatter!(ax, [α₁], [ls_obj.F(α₁)]; color=mpurple, label=L"\alpha_1")
+scatter!(ax, [α₂], [ls_obj.F(α₂)]; color=morange, label=L"\alpha_2")
+scatter!(ax, [α₃], [ls_obj.F(α₃)]; color=mblue, label=L"\alpha_3")
+scatter!(ax, [α₄], [ls_obj.F(α₄)]; color=mgreen, label=L"\alpha_4")
+scatter!(ax, [α₅], [ls_obj.F(α₅)]; color=mred, label=L"\alpha_5")
 
 axislegend(ax)
 

@@ -207,16 +207,12 @@ using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient
 x₀, x₁ = [0.], x
 obj = OptimizerProblem(sum∘f, x₀)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-grad(obj, x₀)
-value!(obj, x₀)
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
 hess = HessianAutodiff(obj, x₀)
 H = SimpleSolvers.alloc_h(x)
 hess(H, x₀)
 update!(_cache, state, grad, hess, x₀)
-grad(obj, x₁)
-value!(obj, x₁)
 hess(H, x₁)
 update!(_cache, state, grad, hess, x₁)
 ls_obj = linesearch_problem(obj, grad, _cache, state)
@@ -303,8 +299,6 @@ nothing # hide
 
 We make another iteration:
 ```@example quadratic
-grad(obj, x)
-value!(obj, x)
 hess(H, x)
 update!(_cache, state, grad, hess, x)
 ls_obj = linesearch_problem(obj, grad, _cache, state)
@@ -349,8 +343,6 @@ nothing # hide
 
 We finally compute a third iterate:
 ```@example quadratic
-grad(obj, x)
-value!(obj, x)
 hess(H, x)
 update!(_cache, state, grad, hess, x)
 ls_obj = linesearch_problem(obj, grad, _cache, state)

@@ -13,14 +13,13 @@ using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!,
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
-value!(obj, x)
 hes = HessianAutodiff(obj, x)
 H = SimpleSolvers.alloc_h(x)
 hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(obj, x)
+g = grad(x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
@@ -61,12 +60,12 @@ For bracketing [kochenderfer2019algorithms](@cite) we move an interval successiv
 ```@setup bisection
 alpha = 0.:.01:1.5
 
-y = ls_obj.(alpha)
+y = ls_obj.F.(alpha)
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha", ylabel = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, y)
 
-scatter!(ax, [α₀], [ls_obj(α₀)]; color=mred, label=L"\alpha_0")
+scatter!(ax, [α₀], [ls_obj.F(α₀)]; color=mred, label=L"\alpha_0")
 vlines!(ax, [a]; label = L"a", color=mpurple)
 vlines!(ax, [c]; label = L"c", color=mgreen)
 

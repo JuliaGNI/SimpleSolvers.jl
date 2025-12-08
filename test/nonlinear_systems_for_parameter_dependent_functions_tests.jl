@@ -1,4 +1,5 @@
 using SimpleSolvers
+using SimpleSolvers: value!
 using Test
 
 function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T} 

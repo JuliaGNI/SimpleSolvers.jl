@@ -29,17 +29,17 @@ nothing # hide
 
 ![](f.png)
 
-If we now allocate a [`OptimizerProblem`](@ref) based on this, we get a series of in-place functions based on this. For example [`value!`](@ref)[^1]:
+If we now allocate a [`OptimizerProblem`](@ref) based on this, we can use [`value`](@ref)[^1] with it:
 
-[^1]: See the [section on optimizer problems](@ref "Optimizer Problems") for an explanation of how to use [`value!`](@ref) and [`value`](@ref).
+[^1]: See the [section on optimizer problems](@ref "Optimizer Problems") for an explanation of how to use [`value`](@ref).
 
 ```@example in_place
 x = [0.]
 obj = OptimizerProblem(f, x)
 y = [0.]
-value!(obj, x)
-@assert value(obj) == f(x) # hide
-value(obj) == f(x)
+val = value(obj, x)
+@assert val == f(x) # hide
+val == f(x)
 ```
 
 To compute the derivative we can use the functor of [`GradientAutodiff`](@ref):
@@ -49,8 +49,7 @@ x = [[x] for x in -7.:.1:7.]
 y = Vector{Float64}[]
 for x_sing in x
     grad = GradientAutodiff{Float64}(obj.F, length(x_sing))
-    grad(obj, x_sing)
-    push!(y, copy(gradient(obj)))
+    push!(y, grad(x_sing))
 end
 nothing # hide
 ```

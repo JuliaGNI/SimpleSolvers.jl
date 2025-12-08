@@ -131,7 +131,7 @@ function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T = ls.α₀)
     α
 end
 
-__value!(obj::AbstractOptimizerProblem, x₀) = value!(obj, x₀)
+__value!(obj::AbstractOptimizerProblem, x₀) = value(obj, x₀)
 __value!(obj::LinesearchProblem, x₀) = value(obj, x₀)
 __derivative!(obj::AbstractOptimizerProblem, x₀) = derivative!(obj, x₀)
 __derivative!(obj::LinesearchProblem, x₀) = derivative(obj, x₀)

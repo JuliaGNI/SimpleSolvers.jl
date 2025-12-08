@@ -46,7 +46,6 @@ hes(H, x)
 c₂ = .9
 g = similar(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-grad(obj, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)

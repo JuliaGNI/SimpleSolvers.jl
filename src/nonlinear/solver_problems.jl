@@ -179,6 +179,13 @@ end
 
 isFixedPointFormat(::NonlinearProblem{T,FP}) where {T,FP} = FP
 
+"""
+    value!!(nlp, x, params)
+
+Evaluate the [`NonlinearProblem`](@ref) at `x`.
+
+See [`value!`](@ref).
+"""
 function value!!(nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
     f_argument(nlp) .= x
     value(nlp) .= value(nlp, x, params)
@@ -195,7 +202,7 @@ value(nlp::NonlinearProblem) = nlp.f
 Base.Function(nlp::NonlinearProblem) = nlp.F
 
 """
-    value!(nlp::NonlinearProblem, x)
+    value!(nlp::NonlinearProblem, x, params)
 
 Check if `x` is not equal to `f_argument(nlp)` and then apply [`value!!`](@ref). Else simply return `value(nlp)`.
 """

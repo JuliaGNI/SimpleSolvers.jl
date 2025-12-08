@@ -10,14 +10,12 @@ x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-value!(obj, x)
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 state.x̄ .= x
 hess = HessianAutodiff(obj, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
-value!(obj, x₂)
 update!(cache, state, grad, hess, x₂)
 ls_obj = linesearch_problem(obj, grad, cache, state)
 α = .1
@@ -26,14 +24,12 @@ x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-value!(obj, x)
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 state.x̄ .= x
 hess = HessianAutodiff(obj, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
-value!(obj, x₂)
 update!(cache, state, grad, hess, x₂)
 ls_obj = linesearch_problem(obj, grad, cache, state)
 α = .1

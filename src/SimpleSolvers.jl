@@ -43,9 +43,9 @@ module SimpleSolvers
     export LinesearchProblem,
            OptimizerProblem
 
-    export value, value!, value!!,
+    export value,
            gradient,
-           derivative, derivative!, derivative!!,
+           derivative,
            hessian
            
     include("optimization/optimizer_problems.jl")

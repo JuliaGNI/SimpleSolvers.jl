@@ -65,7 +65,7 @@ An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.O
 
 ```@example update
 obj = OptimizerProblem(f, x)
-opt = Optimizer(x, obj)
+opt = Optimizer(x, obj; algorithm = Newton())
 
 update!(opt, state, x)
 ```

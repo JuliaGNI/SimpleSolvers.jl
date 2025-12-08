@@ -182,7 +182,7 @@ iteration_number(opt)
 
 # output
 
-4
+5
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
