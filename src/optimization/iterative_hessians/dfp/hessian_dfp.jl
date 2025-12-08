@@ -51,7 +51,7 @@ function initialize!(H::HessianDFP{T}, x::AbstractVector{T}; gradient = Gradient
     H.γ .= eltype(x)(NaN)
 
     H.x .= x
-    H.g .= gradient(H.problem, x)
+    H.g .= gradient(x)
 
     H
 end
@@ -66,7 +66,7 @@ function update!(H::HessianDFP{T}, x::AbstractVector{T}; gradient = GradientAuto
     H.ḡ .= H.g
     H.x̄ .= H.x
     H.x .= x
-    H.g .= gradient(H.problem, x)
+    gradient(H.g, x)
 
     # δ = x - x̄
     direction(H) .= H.x - H.x̄

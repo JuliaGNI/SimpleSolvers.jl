@@ -3,7 +3,7 @@ using SimpleSolvers
 using SimpleSolvers: gradient, hessian, linesearch, problem, initialize!, update!, solver_step!
 using Test
 using Random
-Random.seed!(123)op
+Random.seed!(123)
 
 include("optimizers_problems.jl")
 

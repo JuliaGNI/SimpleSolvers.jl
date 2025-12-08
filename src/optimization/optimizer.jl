@@ -75,7 +75,6 @@ print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 meets_stopping_criteria(status::OptimizerStatus, opt::Optimizer) = meets_stopping_criteria(status, config(opt), iteration_number(opt))
 
 function initialize!(opt::Optimizer, x::AbstractVector)
-    initialize!(problem(opt), x)
     initialize!(cache(opt), x)
     opt.iterations = 0
 
@@ -91,7 +90,6 @@ This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 """
 function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
-    update!(problem(opt), gradient(opt), x)
     update!(cache(opt), state, gradient(opt), hessian(opt), x)
 
     opt
@@ -192,15 +190,15 @@ function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     while true
         increase_iteration_number!(opt)
         solver_step!(opt, state, x)
-        status = OptimizerStatus(state, cache(opt), value(problem(opt)); config = config(opt))
+        status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
         meets_stopping_criteria(status, opt) && break
-        update!(state, problem(opt), gradient(opt), x)
+        update!(state, gradient(opt), x)
     end
 
     warn_iteration_number(opt, config(opt))
 
-    status = OptimizerStatus(state, cache(opt), value(problem(opt)); config = config(opt))
-    OptimizerResult(status, x, value(problem(opt)))
+    status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
+    OptimizerResult(status, x, value(problem(opt), x))
 end
 
 function initialize_state!(state::OptimizerState)

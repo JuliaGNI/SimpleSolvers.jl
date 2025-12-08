@@ -47,15 +47,15 @@ function (ls::QuadraticState2{T})(obj::LinesearchProblem{T}, number_of_iteration
     number_of_iterations != MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(obj, x₀; s = s)
-    y₀ = value!(obj, a)
-    d₀ = derivative!(obj, a)
+    y₀ = value(obj, a)
+    d₀ = derivative(obj, a)
     !(abs(d₀) < ls.ε) || return x₀
     
     p₀ = y₀
     p₁ = d₀
 
     # compute value at `b`
-    y₁ = value!(obj, b)
+    y₁ = value(obj, b)
 
     # determine coefficient p₂ of p(α)
     p₂ = (y₁^2 - p₀ - p₁*(b-a)) / (b-a)^2
