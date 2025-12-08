@@ -111,7 +111,7 @@ function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
 end
 
 function (ls::BierlaireQuadraticState{T})(fˡˢ::Callable, a::T, b::T, c::T, iteration_number::Integer) where {T}
-    (iteration_number != MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH) || return b
+    (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) || (@warn "Maximum number of iterations was reached."; return b)
     χ = T(.5) * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
     # perform a perturbation if χ ≈ b (in order "to avoid stalling")
     χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, ls.ε) : χ

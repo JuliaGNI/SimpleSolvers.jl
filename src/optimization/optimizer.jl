@@ -184,7 +184,6 @@ iteration_number(opt)
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
 function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
-    initialize!(opt, x)
     initialize_state!(state)
 
     while true
@@ -205,9 +204,14 @@ function initialize_state!(state::OptimizerState)
     state 
 end
 
+const INITIAL_BFGS_X = 0.12345
+const INITIAL_BFGS_G = 0.54321
+const INITIAL_BFGS_F = 0.23456
+
 function initialize_state!(state::BFGSState{T}) where {T}
-    state.x̄ .= zero(T)
-    state.ḡ .= one(T)
+    state.x̄ .= T(INITIAL_BFGS_X)
+    state.ḡ .= T(INITIAL_BFGS_G)
+    state.f̄ = T(INITIAL_BFGS_F)
     state.Q .= one(state.Q)
 
     state
