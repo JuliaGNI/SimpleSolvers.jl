@@ -132,7 +132,10 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
 
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))
+
+    # cache has to be updated to compute the correct status
     cache(opt).x .= x
+    gradient(opt)(cache(opt).g, x)
     x
 end
 
