@@ -185,9 +185,9 @@ end
 !!! info
     The function `update!` calls [`increase_iteration_number!`](@ref).
 """
-solve!(s::NewtonSolver, x::AbstractArray) = solve!(s, x, NullParameters())
+solve!(x::AbstractArray, s::NewtonSolver) = solve!(x, s, NullParameters())
 
-function solve!(s::NewtonSolver, x::AbstractArray, params)
+function solve!(x::AbstractArray, s::NewtonSolver, params)
     initialize!(s, x)
     update!(status(s), x, nonlinearproblem(s), params)
 

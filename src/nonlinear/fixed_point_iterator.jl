@@ -92,7 +92,7 @@ end
 !!! info
     The function `update!` calls [`increase_iteration_number!`](@ref).
 """
-function solve!(it::FixedPointIterator, x::AbstractArray, params=NullParameters())
+function solve!(x::AbstractArray, it::FixedPointIterator, params=NullParameters())
     initialize!(it, x)
     update!(status(it), x, nonlinearproblem(it), params)
 
