@@ -27,7 +27,7 @@ function compute_new_iterate!(xₖ₊₁::VT, xₖ::VT, αₖ::T, pₖ::TVT) whe
 end
 
 function compute_new_iterate!(xₖ₊₁::VT, xₖ::VT, αₖ::T, pₖ::TVT) where {T <: Number, VT <: Union{T, AbstractArray{T}}, TVT <: Union{T, AbstractArray{T}}}
-    xₖ₊₁ .= xₖ + αₖ * pₖ
+    xₖ₊₁ .= xₖ .+ αₖ * pₖ
 end
 
 function compute_new_iterate!(xₖ::VT, αₖ::T, pₖ::TVT) where {T <: Number, VT <: Union{T, AbstractArray{T}}, TVT <: Union{T, AbstractArray{T}}}
