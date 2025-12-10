@@ -86,7 +86,7 @@ function solver_step!(s::NewtonSolver, x::AbstractVector{T}, params) where {T}
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
     α = linesearch(s)(linesearch_problem(s, params))
-    x .= compute_new_iterate(x, α, direction(cache(s)))
+    compute_new_iterate!(x, α, direction(cache(s)))
     x
 end
 

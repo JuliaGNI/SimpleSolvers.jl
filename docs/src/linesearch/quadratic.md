@@ -180,11 +180,11 @@ sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, 0., fˡˢ(0.), derivative(
 sdc(α₁)
 ```
 
-We now move the original ``x`` in the Newton direction with step length ``\alpha_1`` by using [`SimpleSolvers.compute_new_iterate`](@ref):
+We now move the original ``x`` in the Newton direction with step length ``\alpha_1`` by using [`SimpleSolvers.compute_new_iterate!`](@ref):
 
 ```@example quadratic
-using SimpleSolvers: compute_new_iterate # hide
-x .= compute_new_iterate(x, α₁, direction(cache(solver)))
+using SimpleSolvers: compute_new_iterate! # hide
+compute_new_iterate!(x, α₁, direction(cache(solver)))
 ```
 
 ```@setup quadratic
@@ -282,7 +282,7 @@ What we see here is that we do not use ``\alpha_t = -p_1 / (2p_2)`` as [`SimpleS
 We now again move the original ``x`` in the Newton direction with step length ``\alpha_1``:
 
 ```@example quadratic
-x .= compute_new_iterate(x, α₁, direction(_cache))
+compute_new_iterate!(x, α₁, direction(_cache))
 ```
 
 ```@setup quadratic
@@ -326,6 +326,7 @@ using SimpleSolvers: DEFAULT_ARMIJO_σ₀, DEFAULT_ARMIJO_σ₁ # hide
 ```
 
 ```@example quadratic
+using SimpleSolvers: compute_new_iterate
 x .= compute_new_iterate(x, α₂, direction(_cache))
 ```
 
