@@ -15,7 +15,7 @@ A `struct` derived from [`Hessian`](@ref) to be used for an [`Optimizer`](@ref).
 - `T1`:
 - `T2`:
 - `T3`:
-- `δγ`: the outer product of `δ` and `γ`. Note that this is different from the output of [`compute_δγ`](@ref), which is the inner product of `γ` and `δ`.
+- `δγ`: the outer product of `δ` and `γ`.
 - `δδ`: 
 
 Also compare those fields with the ones of [`NewtonOptimizerCache`](@ref).
