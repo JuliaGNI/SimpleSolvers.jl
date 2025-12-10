@@ -4,12 +4,14 @@
 The optimizer state is needed to update the [`Optimizer`](@ref). This is different to [`OptimizerStatus`](@ref) and [`OptimizerResult`](@ref) which serve as diagnostic tools.
 It stores a [`LinesearchState`](@ref) and a [`NewtonOptimizerCache`](@ref) which is used to compute the line search problem at each iteration.
 
+Note that this is also used for the [`BFGS`](@ref) and the [`DFP`](@ref) optimizer.
+
 # Keys
 
 - `linesearch::`[`LinesearchState`](@ref)
 - `cache::`[`NewtonOptimizerCache`](@ref)
 """
-mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizerState
+mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizerState{T}
     x̄::AT
     ḡ::GT
     f̄::T
@@ -22,6 +24,8 @@ end
 NewtonOptimizerState(x::AbstractVector{T}, g::AbstractVector{T}) where {T} = NewtonOptimizerState(copy(x), copy(g), zero(T))
 NewtonOptimizerState(x::AbstractVector) = NewtonOptimizerState(copy(x), zero(x))
 
+OptimizerState(::Newton, x_args...) = NewtonOptimizerState(x_args...)
+
 function initialize!(state::NewtonOptimizerState{T}, ::AbstractVector{T}) where {T}
     state.x̄ .= NaN
     state.ḡ .= NaN
@@ -31,7 +35,7 @@ function initialize!(state::NewtonOptimizerState{T}, ::AbstractVector{T}) where 
 end
 
 """
-    update!(state::NewtonOptimizerState, obj, x)
+    update!(state::NewtonOptimizerState, gradient, x)
 
 Update an instance of [`NewtonOptimizerState`](@ref) based on `x`, `g` and `hes`, where `g` can either be an `AbstractVector` or a [`Gradient`](@ref) and `hes` is a [`Hessian`](@ref).
 This updates the [`NewtonOptimizerCache`](@ref) contained in the [`NewtonOptimizerState`](@ref) by calling [`update!(::NewtonOptimizerCache, ::AbstractVector, ::Union{AbstractVector, Gradient}, ::Hessian)`](@ref).
@@ -45,18 +49,17 @@ If we only call `update!` once there are still `NaN`s in the ...
 f(x) = sum(x.^2)
 x = [1., 2.]
 state = NewtonOptimizerState(x)
-obj = OptimizerProblem(f, x)
-grad = GradientAutodiff{Float64}(obj.F, length(x))
-update!(state, obj, grad, x)
+grad = GradientAutodiff{Float64}(f, length(x))
+update!(state, grad, x)
 
 # output
 
 NewtonOptimizerState{Float64, Vector{Float64}, Vector{Float64}}([1.0, 2.0], [2.0, 4.0], 0.0)
 ```
 """
-function update!(state::NewtonOptimizerState, obj::OptimizerProblem, gradient::Gradient, x::AbstractVector)
+function update!(state::NewtonOptimizerState, gradient::Gradient, x::AbstractVector)
     state.x̄ .= x
-    state.ḡ .= gradient(obj, x)
+    state.ḡ .= gradient(x)
 
     state
 end

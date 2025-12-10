@@ -86,8 +86,8 @@ ls = linesearch(opt)
 x₀ = zero(α)
 grad = GradientAutodiff{Float64}(problem(opt).F, length(x))
 lso = linesearch_problem(problem(opt), grad, cache(opt), state)
-y₀ = value!(lso, x₀)
-d₀ = derivative!(lso, x₀)
+y₀ = value(lso, x₀)
+d₀ = derivative(lso, x₀)
 
 sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, d₀, obj)
 ```

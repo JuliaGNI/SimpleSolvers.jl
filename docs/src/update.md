@@ -23,15 +23,15 @@ using LinearAlgebra: norm # hide
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 x = [1., 0., 0.]
 hes = HessianAutodiff(f, x)
-hes.H
+H = SimpleSolvers.alloc_h(x)
 ```
 
 And then update:
 
 ```@example update
-update!(hes, x)
+hes(H, x)
 
-hes.H
+H
 ```
 
 ### `NewtonOptimizerCache`
@@ -65,7 +65,7 @@ An [`Optimizer`](@ref) stores a [`OptimizerProblem`](@ref), an [`SimpleSolvers.O
 
 ```@example update
 obj = OptimizerProblem(f, x)
-opt = Optimizer(x, obj)
+opt = Optimizer(x, obj; algorithm = Newton())
 
 update!(opt, state, x)
 ```

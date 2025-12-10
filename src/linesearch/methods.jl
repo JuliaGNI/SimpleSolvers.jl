@@ -35,7 +35,7 @@ The algorithm is executed by calling the functor of [`BacktrackingState`](@ref).
 The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
 
 ```julia
-if value!(obj, α) ≥ y₀ + ls.ϵ * α * d₀
+if value(obj, α) ≥ y₀ + ls.ϵ * α * d₀
     α *= ls.p
 else
     break

@@ -35,7 +35,7 @@ mutable struct Optimizer{T,
 end
 
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
-    cache = NewtonOptimizerCache(x)
+    cache = OptimizerCache(algorithm, x)
     hes = Hessian(algorithm, problem, x)
     Optimizer(algorithm, problem, hes, cache, LinesearchState(linesearch; T = T); options_kwargs...)
 end
@@ -69,39 +69,13 @@ function increase_iteration_number!(opt)
     opt.iterations = iteration_number(opt) + 1
 end
 
-# function Base.show(io::IO, opt::Optimizer)
-#     c = config(opt)
-#     s = status(opt)
-# 
-#     @printf io "\n"
-#     @printf io " * Algorithm: %s \n" algorithm(opt)
-#     @printf io "\n"
-#     @printf io " * Linesearch: %s\n" linesearch(opt)
-#     @printf io "\n"
-#     @printf io " * Iterations\n"
-#     @printf io "\n"
-#     @printf io "    n = %i\n" iterations(s)
-#     @printf io "\n"
-#     @printf io " * Convergence measures\n"
-#     @printf io "\n"
-#     @printf io "    |x - x'|               = %.2e %s %.1e\n"  x_abschange(s) x_abschange(s) ≤ x_abstol(c) ? "≤" : "≰" x_abstol(c)
-#     @printf io "    |x - x'|/|x'|          = %.2e %s %.1e\n"  x_relchange(s) x_relchange(s) ≤ x_reltol(c) ? "≤" : "≰" x_reltol(c)
-#     @printf io "    |f(x) - f(x')|         = %.2e %s %.1e\n"  f_abschange(s) f_abschange(s) ≤ f_abstol(c) ? "≤" : "≰" f_abstol(c)
-#     @printf io "    |f(x) - f(x')|/|f(x')| = %.2e %s %.1e\n"  f_relchange(s) f_relchange(s) ≤ f_reltol(c) ? "≤" : "≰" f_reltol(c)
-#     @printf io "    |g(x)|                 = %.2e %s %.1e\n"  g_residual(s)  g_residual(s)  ≤ g_restol(c) ? "≤" : "≰" g_restol(c)
-#     @printf io "\n"
-# 
-# end
-
 check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
 print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 
 meets_stopping_criteria(status::OptimizerStatus, opt::Optimizer) = meets_stopping_criteria(status, config(opt), iteration_number(opt))
 
 function initialize!(opt::Optimizer, x::AbstractVector)
-    initialize!(problem(opt), x)
     initialize!(cache(opt), x)
-    initialize!(hessian(opt), x)
     opt.iterations = 0
 
     opt
@@ -116,9 +90,7 @@ This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector
 We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
 """
 function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
-    update!(problem(opt), gradient(opt), x)
-    update!(hessian(opt), x)
-    update!(cache(opt), state, x, gradient(problem(opt)))
+    update!(cache(opt), state, gradient(opt), hessian(opt), x)
 
     opt
 end
@@ -153,15 +125,26 @@ function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <:
 
     # solve H δx = - ∇f
     # rhs is -g
-    ldiv!(direction(opt), hessian(opt), rhs(opt))
+    compute_direction(opt, state)
 
     # apply line search
     α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
 
     # compute new minimizer
     x .= compute_new_iterate(x, α, direction(opt))
+
+    # cache has to be updated to compute the correct status
     cache(opt).x .= x
+    gradient(opt)(cache(opt).g, x)
     x
+end
+
+function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
+    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
+end
+
+function compute_direction(opt::Optimizer{T, IOM}, state::Union{BFGSState, DFPState}) where {T, IOM <: QuasiNewtonOptimizerMethod}
+    direction(opt) .= inverse_hessian(state) * rhs(opt)
 end
 
 """
@@ -199,29 +182,46 @@ iteration_number(opt)
 
 # output
 
-4
+5
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
 function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
-    initialize!(opt, x)
+    initialize_state!(state)
 
     while true
         increase_iteration_number!(opt)
         solver_step!(opt, state, x)
-        status = OptimizerStatus(state, cache(opt), value(problem(opt)); config = config(opt))
+        status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
         meets_stopping_criteria(status, opt) && break
-        update!(state, problem(opt), gradient(opt), x)
+        update!(state, gradient(opt), x)
     end
 
     warn_iteration_number(opt, config(opt))
 
-    status = OptimizerStatus(state, cache(opt), value(problem(opt)); config = config(opt))
-    OptimizerResult(status, x, value(problem(opt)))
+    status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
+    OptimizerResult(status, x, value(problem(opt), x))
+end
+
+function initialize_state!(state::OptimizerState)
+    state 
+end
+
+const INITIAL_BFGS_X = 0.12345
+const INITIAL_BFGS_G = 0.54321
+const INITIAL_BFGS_F = 0.23456
+
+function initialize_state!(state::Union{BFGSState{T}, DFPState{T}}) where {T}
+    state.x̄ .= T(INITIAL_BFGS_X)
+    state.ḡ .= T(INITIAL_BFGS_G)
+    state.f̄ = T(INITIAL_BFGS_F)
+    state.Q .= one(state.Q)
+
+    state
 end
 
 function warn_iteration_number(opt::Optimizer, config::Options)
     if config.warn_iterations > 0 && iteration_number(opt) ≥ config.warn_iterations
-        println("WARNING: Optimizer took ", status.i, " iterations.")
+        println("WARNING: Optimizer took ", iteration_number(opt), " iterations.")
     end
 end

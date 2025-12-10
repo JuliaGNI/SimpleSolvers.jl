@@ -12,7 +12,6 @@ When a custom `Hessian` is implemented, a functor is needed:
 ```julia
 function (hessian::Hessian)(h::AbstractMatrix, x::AbstractVector) end
 ```
-This functor can also be called with [`compute_hessian!`](@ref).
 
 # Examples
 
@@ -23,33 +22,6 @@ Examples include:
 - [`HessianDFP`](@ref)
 """
 abstract type Hessian{T} end
-
-"""
-    initialize!(hessian, x)
-
-See e.g. [`initialize!(::HessianAutodiff, ::AbstractVector)`](@ref).
-"""
-initialize!(hes::Hessian, ::AbstractVector) = error("initialize! not defined for Hessian of type $(typeof(hes)).")
-
-"""
-    compute_hessian!(h, x, hessian)
-
-Compute the Hessian and store it in `h`.
-"""
-compute_hessian!(h::AbstractMatrix{T}, x::AbstractVector{T}, hessian::Hessian{T}) where {T <: Number} = hessian(h,x)
-
-"""
-    compute_hessian(x, hessian)
-
-Compute the Hessian at point `x` and return the result.
-
-Internally this calls [`compute_hessian!`](@ref).
-"""
-function compute_hessian(x::AbstractVector{T}, hessian::Hessian{T}) where {T <: Number}
-    h = alloc_h(x)
-    compute_hessian!(h, x, hessian)
-    h
-end
 
 """
     check_hessian(H)
@@ -77,11 +49,6 @@ function check_hessian(H::AbstractMatrix; digits::Integer = 5)
     println("maximum(|Hessian|):          ", round(maximum(abs.(H)); digits=digits))
     println()
 end
-
-# function print_hessian(H::AbstractMatrix)
-#     display(H)
-#     println()
-# end
 
 """
     update!(hessian, x)
@@ -147,19 +114,18 @@ The functor does:
 hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
 ```
 """
-struct HessianAutodiff{T, FT <: Callable, HT <: AbstractMatrix, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
+struct HessianAutodiff{T, FT <: Callable, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
-    H::HT
     Hconfig::CT
 
-    function HessianAutodiff{T}(F::FT, H::HT, Hconfig::CT) where {T, FT, HT, CT}
-        new{T, FT, HT, CT}(F, H, Hconfig)
+    function HessianAutodiff{T}(F::FT, Hconfig::CT) where {T, FT, CT}
+        new{T, FT, CT}(F, Hconfig)
     end
 end
 
 function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
     Hconfig = ForwardDiff.HessianConfig(F, x)
-    HessianAutodiff{T}(F, alloc_h(x), Hconfig)
+    HessianAutodiff{T}(F, Hconfig)
 end
 
 HessianAutodiff(F::OptimizerProblem, x) = HessianAutodiff(F.F, x)
@@ -173,61 +139,7 @@ function (hes::HessianAutodiff{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) w
 end
 
 function (hes::HessianAutodiff{T})(x::AbstractVector{T}) where {T}
-    ForwardDiff.hessian!(hes.H, hes.F, x, hes.Hconfig)
-end
-
-"""
-    initialize!(H, x)
-
-Initialize a [`HessianAutodiff`](@ref) object `H`.
-
-# Implementation
-
-Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
-"""
-function initialize!(H::HessianAutodiff, x::AbstractVector)
-    H.H .= alloc_h(x)
+    H = alloc_h(x)
+    ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
     H
-end
-
-"""
-    update!(H, x)
-
-Update a [`HessianAutodiff`](@ref) object `H`.
-
-This is identical to [`initialize!`](@ref).
-
-# Implementation
-
-Internally this is calling the [`HessianAutodiff`](@ref) functor and therefore also `ForwardDiff.hessian!`.
-"""
-function update!(H::HessianAutodiff, x::AbstractVector)
-    H(x)
-    H
-end
-
-Base.inv(H::HessianAutodiff) = inv(H.H)
-
-Base.:\(H::HessianAutodiff, b) = H.H \ b
-
-LinearAlgebra.ldiv!(x, H::HessianAutodiff, b) = x .= H \ b
-
-"""
-    compute_hessian!(h, x, ForH)
-
-Compute the hessian of function `ForH` at `x` and store it in `h`.
-
-# Implementation
-
-Internally this allocates a [`Hessian`](@ref) object.
-"""
-function compute_hessian!(H::AbstractMatrix{T}, x::AbstractVector{T}, ForH; mode = :autodiff) where {T<:Number}
-    hessian = if mode == :autodiff
-        HessianAutodiff(ForH, x)
-    elseif mode == :finite
-        HessianFiniteDifferences(ForH, x)
-    else
-        HessianFunction(ForH, x)
-    end
-    hessian(H, x)
 end

@@ -17,16 +17,3 @@ x = rand(3)
 
 obj = OptimizerProblem(f, x)
 ```
-
-The functor of a [`Gradient`](@ref) can also be applied to an [`OptimizerProblem`](@ref):
-
-```@example optimizer_problem
-grad = GradientAutodiff(f, x)
-grad(obj, x)
-```
-
-The difference to [`Gradient`](@ref) is that we also store the value for the evaluated gradient, which can be accessed by calling:
-
-```@example optimizer_problem
-gradient(obj)
-```

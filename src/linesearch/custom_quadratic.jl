@@ -3,6 +3,11 @@ This constant is used for [`QuadraticState`](@ref) and [`BierlaireQuadraticState
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
 
+const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION = 5
+
+max_number_of_quadratic_linesearch_iterations(::Type{Float32}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION
+max_number_of_quadratic_linesearch_iterations(::Type{Float64}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH
+
 """
 A factor by which `s` is reduced in each bracketing iteration (see [`bracket_minimum_with_fixed_point`](@ref)).
 """
@@ -44,24 +49,25 @@ Base.show(io::IO, ::QuadraticState2) = print(io, "Polynomial quadratic (second v
 LinesearchState(algorithm::Quadratic2; T::DataType=Float64, kwargs...) = QuadraticState2(T; kwargs...)
 
 function (ls::QuadraticState2{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T}
-    number_of_iterations != MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH || return x₀
+    number_of_iterations != max_number_of_quadratic_linesearch_iterations(T) || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(obj, x₀; s = s)
-    y₀ = value!(obj, a)
-    d₀ = derivative!(obj, a)
+    y₀ = value(obj, a)
+    d₀ = derivative(obj, a)
     !(abs(d₀) < ls.ε) || return x₀
     
     p₀ = y₀
     p₁ = d₀
 
     # compute value at `b`
-    y₁ = value!(obj, b)
+    y₁ = value(obj, b)
 
     # determine coefficient p₂ of p(α)
     p₂ = (y₁^2 - p₀ - p₁*(b-a)) / (b-a)^2
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
     αₜ = -p₁ / (2p₂) + a
+    !(l2norm(αₜ - x₀) < ls.ε) || return αₜ
 
     ls(obj, number_of_iterations + 1, αₜ, s * ls.s_reduction)
 end

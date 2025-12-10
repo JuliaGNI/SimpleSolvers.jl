@@ -2,11 +2,10 @@
 """
     OptimizerResult
 
-Stores an [`OptimizerStatus`](@ref) as well as `x` and `f` (as keys).
-[`OptimizerStatus`](@ref) stores all other information (apart form `x` and `f`; i.e. residuals etc.
+Stores `x`, `f` and `g` (as keys).
 """
 mutable struct OptimizerResult{T, YT, VT <: AbstractArray{T}, OST <: OptimizerStatus{T,YT}}
-    status::OST   # iteration number, residuals and convergence info
+    status::OST
 
     x::VT    # current solution
     f::YT    # current function
@@ -27,8 +26,6 @@ This also calls [`clear!(::OptimizerStatus)`](@ref).
    Calling `initialize!` on an `OptimizerResult` calls `clear!` internally.
 """
 function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
-    clear!(status(result))
-
     result.x .= XT(NaN)
     result.f  = YT(NaN)
 

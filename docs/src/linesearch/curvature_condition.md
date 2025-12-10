@@ -40,16 +40,16 @@ x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
-update!(hes, x)
+H = SimpleSolvers.alloc_h(x)
+hes(H, x)
 
 c₂ = .9
 g = similar(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-grad(obj, x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
-ldiv!(p, hes, rhs)
+p .= H \ rhs
 cc = CurvatureCondition(c₂, x, g, p, obj, grad)
 
 # check different values

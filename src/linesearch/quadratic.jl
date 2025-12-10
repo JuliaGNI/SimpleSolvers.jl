@@ -95,7 +95,7 @@ end
 function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, α::T = ls.α₀, x₀::T=zero(T)) where {T}
     number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
-    y₀ = value!(obj, x₀)
+    y₀ = value(obj, x₀)
     d₀ = derivative!(obj, x₀)
     p₀ = y₀
     p₁ = d₀
@@ -103,7 +103,7 @@ function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations
 
     sdc = SufficientDecreaseCondition(ls.c, x₀, y₀, d₀, one(T), obj)
     # compute value of new solution
-    y₁ = value!(obj, α)
+    y₁ = value(obj, α)
 
     # determine nonconstant coefficient of polynomial p(α) = p₀ + p₁α + p₂α²
     p₂ = (y₁^2 - p₀ - p₁*(α-x₀)) / (α-x₀)^2

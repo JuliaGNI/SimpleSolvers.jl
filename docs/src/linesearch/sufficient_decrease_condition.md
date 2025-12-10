@@ -27,21 +27,22 @@ We can visualize the sufficient decrease condition with an example:
 
 ```@example sdc
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
-update!(hes, x)
+H = SimpleSolvers.alloc_h(x)
+hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(obj, x)
+g = grad(x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
-ldiv!(p, hes, rhs)
+p .= H \ rhs
 sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
 
 # check different values

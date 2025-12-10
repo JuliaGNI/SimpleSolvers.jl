@@ -42,7 +42,7 @@ Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in
 
 Also [`meets_stopping_criteria`](@ref).
 """
-function OptimizerStatus(state::OST, cache::OCT, f::T; config::Options) where {T, OST <: OptimizerState, OCT <: OptimizerCache{T}}
+function OptimizerStatus(state::OST, cache::OCT, f::T; config::Options) where {T, OST <: OptimizerState{T}, OCT <: OptimizerCache{T}}
     cache.Δx .= cache.x - state.x̄
     rxₐ = norm(cache.Δx)
     rxᵣ = rxₐ / norm(cache.x)
@@ -130,8 +130,8 @@ Check if the optimizer has converged.
 function meets_stopping_criteria(status::OptimizerStatus, config::Options, iterations::Integer)
     converged = isconverged(status)
 
-    if status.x_isnan || status.f_isnan || status.g_isnan
-        @warn "x, f or g in the OptimizerStatus you provided are NaNs."
+    if iterations ≥ 1 && (status.x_isnan || status.f_isnan || status.g_isnan)
+        @error "x, f or g in the OptimizerStatus you provided are NaNs."
     end
 
     ( converged && iterations ≥ config.min_iterations ) ||
