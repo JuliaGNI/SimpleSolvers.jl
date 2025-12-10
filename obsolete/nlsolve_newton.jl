@@ -46,14 +46,14 @@ function NLsolveNewton(x::AbstractVector{T}, f::AbstractVector{T}, F!::Function;
 end
 
 
-function linsolve!(s::NLsolveNewton, x, A, b)
+function linsolve!(x, s::NLsolveNewton, A, b)
     factorize!(s.linear_solver, A)
     ldiv!(x, s.linear_solver, b)
 end
 
 function solve!(x, f, forj, s::NLsolveNewton)
     res = newton_(s.DF, x, s.config.x_abstol, s.config.f_abstol, s.config.max_iterations, false, false, false,
-                  s.line_search, (x, A, b) -> linsolve!(s, x, A, b), s.cache)
+                  s.line_search, (x, A, b) -> linsolve!(x, s, A, b), s.cache)
 
     copyto!(x, res.zero)
 
