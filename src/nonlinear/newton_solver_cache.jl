@@ -20,7 +20,7 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 NewtonSolverCache(x, y)
 ```
 """
-struct NewtonSolverCache{T, AT <: AbstractVector{T}} <: NonlinearSolverCache{T} # , JT <: AbstractMatrix{T}}
+struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}} <: NonlinearSolverCache{T} # , JT <: AbstractMatrix{T}}
     x̄::AT
     x::AT
     δx::AT
@@ -28,8 +28,11 @@ struct NewtonSolverCache{T, AT <: AbstractVector{T}} <: NonlinearSolverCache{T} 
     rhs::AT
     y::AT
 
+    j::JT
+
     function NewtonSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
-        c = new{T, AT}(zero(x), zero(x), zero(x), zero(y), zero(y))
+        j = alloc_j(x, y)
+        c = new{T, AT, typeof(j)}(zero(x), zero(x), zero(x), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c
     end
@@ -37,6 +40,9 @@ end
 
 # jacobian(cache::NewtonSolverCache) = cache.J
 direction(cache::NewtonSolverCache) = cache.δx
+jacobian(cache::NewtonSolverCache) = cache.j
+
+value(cache::NewtonSolverCache) = cache.y
 
 @doc raw"""
     update!(cache, x)
@@ -71,10 +77,13 @@ function initialize!(cache::NewtonSolverCache{T}, ::AbstractVector{T}) where {T}
     cache.rhs .= T(NaN)
     cache.y .= T(NaN)
 
+    jacobian(cache) .= T(NaN)
+
     cache
 end
 
 solution(cache::NewtonSolverCache) = cache.x
+
 """
     rhs(cache)
 

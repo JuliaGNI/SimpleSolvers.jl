@@ -56,7 +56,7 @@ method(s::NonlinearSolver) = s.method
 nonlinearproblem(s::NonlinearSolver) = s.nonlinearproblem
 Jacobian(s::NonlinearSolver)::Jacobian = s.jacobian
 
-jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = Jacobian(s)(nonlinearproblem(s), x, params)
+jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = Jacobian(s)(jacobian(cache(s)), x, params)
 
 struct NonlinearSolverException <: Exception
     msg::String
