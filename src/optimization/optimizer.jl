@@ -131,7 +131,7 @@ function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <:
     α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
 
     # compute new minimizer
-    x .= compute_new_iterate(x, α, direction(opt))
+    compute_new_iterate!(x, α, direction(opt))
 
     # cache has to be updated to compute the correct status
     cache(opt).x .= x

@@ -15,7 +15,7 @@ SufficientDecreaseCondition(c₁, xₖ, fₖ, gradₖ, pₖ, obj)
 sdc(xₖ₊₁, αₖ)
 sdc(αₖ)
 ```
-The second functor is shorthand for `sdc(compute_new_iterate(sdc.xₖ, αₖ, sdc.pₖ), T(αₖ))`, also see [`compute_new_iterate`](@ref).
+The second functor is shorthand for `sdc(compute_new_iterate(sdc.xₖ, αₖ, sdc.pₖ), T(αₖ))`, also see [`compute_new_iterate!`](@ref).
 
 # Extended help
 

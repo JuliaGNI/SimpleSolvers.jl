@@ -48,12 +48,12 @@ Calling the function and derivative stored in the [`LinesearchProblem`](@ref) cr
 """
 function linesearch_problem(problem::OptimizerProblem{T}, gradient_instance::Gradient, cache::OptimizerCache{T}, state::OptimizerState) where {T}
     function f(α)
-        cache.x .= compute_new_iterate(state.x̄, α, direction(cache))
+        compute_new_iterate!(cache.x, state.x̄, α, direction(cache))
         value(problem, cache.x)
     end
 
     function d(α)
-        cache.x .= compute_new_iterate(state.x̄, α, direction(cache))
+        compute_new_iterate!(cache.x, state.x̄, α, direction(cache))
         gradient_instance(cache.g, cache.x)
         dot(cache.g, direction(cache))
     end
