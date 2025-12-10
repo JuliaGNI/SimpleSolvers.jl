@@ -110,7 +110,7 @@ x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
 state = NewtonOptimizerState(x)
 
-solver_step!(opt, state, x)
+solver_step!(x, state, opt)
 
 # output
 
@@ -119,7 +119,7 @@ solver_step!(opt, state, x)
  0.6666666
 ```
 """
-function solver_step!(opt::Optimizer, state::OptimizerState, x::VT) where {VT <: AbstractVector}
+function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <: AbstractVector}
     # update problem, hessian, state and status
     update!(opt, state, x)
 
@@ -158,7 +158,7 @@ x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
 state = NewtonOptimizerState(x)
 
-solve!(opt, state, x)
+solve!(x, state, opt)
 
 # output
 
@@ -177,7 +177,7 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
 
 We can also check how many iterations it took:
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); state = NewtonOptimizerState(x); solve!(opt, state, x))
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); state = NewtonOptimizerState(x); solve!(x, state, opt))
 iteration_number(opt)
 
 # output
@@ -186,12 +186,12 @@ iteration_number(opt)
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
-function solve!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
+function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     initialize_state!(state)
 
     while true
         increase_iteration_number!(opt)
-        solver_step!(opt, state, x)
+        solver_step!(x, state, opt)
         status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
         meets_stopping_criteria(status, opt) && break
         update!(state, gradient(opt), x)

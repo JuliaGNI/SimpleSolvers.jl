@@ -52,7 +52,7 @@ for T ∈ (Float64, Float32)
         @test config(nl) == nl.config
         @test status(nl) == nl.status
 
-        solve!(nl, x)
+        solve!(x, nl)
         for _x in x
             @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))
         end
@@ -60,7 +60,7 @@ for T ∈ (Float64, Float32)
         x .= T.(x₀)
         # use custom Jacobian
         nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
-        solve!(nl, x)
+        solve!(x, nl)
         println(Solver, kwarguments)
         for _x in x
             @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))

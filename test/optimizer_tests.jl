@@ -34,7 +34,7 @@ for method in (Newton(), DFP(), BFGS())
 
             @test typeof(gradient(opt)) <: GradientAutodiff
 
-            solve!(opt, state, x)
+            solve!(x, state, opt)
             @test norm(x) ≈ zero(T) atol=∛(2000eps(T))
             @test F(x) ≈ F(zero(T)) atol=∛(2000eps(T))
 
@@ -45,7 +45,7 @@ for method in (Newton(), DFP(), BFGS())
 
             state = OptimizerState(method, x)
 
-            solve!(opt, state, x)
+            solve!(x, state, opt)
             @test norm(x) ≈ zero(T) atol=∛(2000eps(T))
             @test F(x) ≈ F(0) atol=∛(2000eps(T))
             end
