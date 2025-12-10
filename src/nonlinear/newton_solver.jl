@@ -88,7 +88,8 @@ function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
     for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
-        if any(isnan, value!!(nonlinearproblem(s), direction(cache(s)), params))
+        value!(cache(s).y, nonlinearproblem(s), x, params)
+        if any(isnan, cache(s).y)
             (s.config.verbosity >= 2 && @warn "NaN detected in Newton solver. Reducing length of direction vector.")
             direction(cache(s)) ./= 2
         else
