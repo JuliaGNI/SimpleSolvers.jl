@@ -72,6 +72,8 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
+const LINESEARCH_NAN_MAX_ITERATIONS = 8
+
 function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
     update!(cache(s), x)
     value!!(nonlinearproblem(s), x, params)
@@ -85,6 +87,14 @@ function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
         factorize!(linearsolver(s), linearproblem(s))
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+    for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
+        if any(isnan, value!!(nonlinearproblem(s), direction(cache(s)), params))
+            (s.config.verbosity >= 2 && @warn "NaN detected in Newton solver. Reducing length of direction vector.")
+            direction(cache(s)) ./= 2
+        else
+            break
+        end
+    end
     α = linesearch(s)(linesearch_problem(s, params))
     compute_new_iterate!(x, α, direction(cache(s)))
     x
