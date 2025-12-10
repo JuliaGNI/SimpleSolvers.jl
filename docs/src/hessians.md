@@ -24,17 +24,3 @@ H = SimpleSolvers.alloc_h(x)
 hes(H, x)
 H
 ```
-
-## BFGS Hessian
-
-```@example hessian
-using SimpleSolvers: initialize!
-hes = HessianBFGS(obj, x)
-initialize!(hes, x)
-```
-
-For computational reasons we save the inverse of the Hessian, it can be accessed by calling `inv`:
-
-```@example hessian
-inv(hes)
-```
