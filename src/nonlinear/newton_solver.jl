@@ -76,9 +76,9 @@ const LINESEARCH_NAN_MAX_ITERATIONS = 8
 
 function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
     update!(cache(s), x)
-    value!!(nonlinearproblem(s), x, params)
+    value!(cache(s).y, nonlinearproblem(s), x, params)
     # first we update the rhs of the linearproblem
-    update!(linearproblem(s), -value(nonlinearproblem(s)))
+    update!(linearproblem(s), -value(cache(s)))
     rhs(cache(s)) .= rhs(linearproblem(s))
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
     if (mod(iteration_number(s) - 1, method(s).refactorize) == 0 || iteration_number(s) == 1)
@@ -88,7 +88,8 @@ function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
     for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
-        if any(isnan, value!!(nonlinearproblem(s), direction(cache(s)), params))
+        value!(cache(s).y, nonlinearproblem(s), x, params)
+        if any(isnan, cache(s).y)
             (s.config.verbosity >= 2 && @warn "NaN detected in Newton solver. Reducing length of direction vector.")
             direction(cache(s)) ./= 2
         else
@@ -140,7 +141,7 @@ Return the evaluated Jacobian (a Matrix) stored in the [`NonlinearProblem`](@ref
 
 Also see [`jacobian(::NonlinearProblem)`](@ref) and [`Jacobian(::NonlinearProblem)`](@ref).
 """
-jacobian(solver::NewtonSolver)::AbstractMatrix = jacobian(nonlinearproblem(solver))
+jacobian(solver::NewtonSolver)::AbstractMatrix = jacobian(cache(solver))
 
 """
     linearsolver(solver)
@@ -181,7 +182,7 @@ This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the st
 """
 function update!(s::NewtonSolver, x₀::AbstractArray, params)
     update!(status(s), x₀, nonlinearproblem(s), params)
-    update!(nonlinearproblem(s), Jacobian(s), x₀, params)
+    # update!(nonlinearproblem(s), Jacobian(s), x₀, params)
     update!(cache(s), x₀)
 
     s

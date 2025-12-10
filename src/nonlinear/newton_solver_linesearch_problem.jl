@@ -13,17 +13,15 @@ Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::OptimizerCach
 function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NewtonSolverCache{T}, params) where {T}
     function f(α)
         compute_new_iterate!(cache.x, cache.x̄, α, cache.δx)
-        value!(nlp, cache.x, params)
-        cache.y .= value(nlp)
+        value!(cache.y, nlp, cache.x, params)
         L2norm(cache.y)
     end
 
     function d(α)
         compute_new_iterate!(cache.x, cache.x̄, α, cache.δx)
-        value!(nlp, cache.x, params)
-        cache.y .= value(nlp)
-        jacobian_instance(nlp, cache.x, params)
-        2 * dot(cache.y, jacobian(nlp), direction(cache))
+        value!(cache.y, nlp, cache.x, params)
+        jacobian_instance(jacobian(cache), cache.x, params)
+        2 * dot(cache.y, jacobian(cache), direction(cache))
     end
 
     # the last argument is to specify the "type" in the problem

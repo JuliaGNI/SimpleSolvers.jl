@@ -44,10 +44,9 @@ end
 
 Solve the problem stored in an instance `it` of [`FixedPointIterator`](@ref).
 """
-function solver_step!( x::AbstractVector{T}, it::FixedPointIterator{T}, params) where {T}
+function solver_step!(x::AbstractVector{T}, it::FixedPointIterator{T}, params) where {T}
     update!(cache(it), x)
-    value!(nonlinearproblem(it), x, params)
-    x .= value(nonlinearproblem(it))
+    value!(x, nonlinearproblem(it), x, params)
 end
 
 cache(solver::FixedPointIterator)::FixedPointIteratorCache = solver.cache

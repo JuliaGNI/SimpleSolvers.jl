@@ -293,9 +293,8 @@ function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::Nonlinea
     status.f̄ .= status.f
 
     solution(status) .= x
-    value!!(nls, x, params)
-    status.f .= value(nls)
-    (iteration_number(status) != 0) || (status.f₀ .= value(nls))
+    value!(status.f, nls, x, params)
+    (iteration_number(status) != 0) || (status.f₀ .= status.f)
 
     status.δ .= solution(status) .- status.x̄
     status.γ .= status.f .- status.f̄
