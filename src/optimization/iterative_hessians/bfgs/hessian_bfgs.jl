@@ -36,13 +36,4 @@ Hessian(::BFGS, ForOBJ::Callable, x::AbstractVector) = HessianBFGS(ForOBJ, x)
 
 Hessian(::BFGS, ForOBJ::OptimizerProblem, x::AbstractVector) = HessianBFGS(ForOBJ.F, x)
 
-# function compute_outer_products!(H::HessianBFGS)
-#     outer!(H.δγ, H.δ, H.γ)
-#     outer!(H.δδ, H.δ, H.δ)
-# end
-
 (hes::Hessian)(::AbstractMatrix, ::AbstractVector) = error("This has to be called together with a cache.")
-
-Base.inv(H::HessianBFGS) = H.Q
-
-Base.:\(H::HessianBFGS, b) = inv(H) * b

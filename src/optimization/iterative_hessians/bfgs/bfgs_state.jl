@@ -1,3 +1,14 @@
+"""
+    BFGSState <: OptimizerState
+
+The [`OptimizerState`](@ref) corresponding to the [`BFGS`](@ref) method.
+
+# Keys
+- `x̄`
+- `ḡ`
+- `f̄`
+- `Q`
+"""
 mutable struct BFGSState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}, MT <: AbstractMatrix{T}} <: OptimizerState{T}
     x̄::AT
     ḡ::GT

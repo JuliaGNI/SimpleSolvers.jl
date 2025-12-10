@@ -143,7 +143,7 @@ function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
     direction(opt) .= hessian(cache(opt)) \ rhs(opt)
 end
 
-function compute_direction(opt::Optimizer{T, BFGS}, state::BFGSState) where {T}
+function compute_direction(opt::Optimizer{T, IOM}, state::Union{BFGSState, DFPState}) where {T, IOM <: QuasiNewtonOptimizerMethod}
     direction(opt) .= inverse_hessian(state) * rhs(opt)
 end
 
@@ -211,7 +211,7 @@ const INITIAL_BFGS_X = 0.12345
 const INITIAL_BFGS_G = 0.54321
 const INITIAL_BFGS_F = 0.23456
 
-function initialize_state!(state::BFGSState{T}) where {T}
+function initialize_state!(state::Union{BFGSState{T}, DFPState{T}}) where {T}
     state.x̄ .= T(INITIAL_BFGS_X)
     state.ḡ .= T(INITIAL_BFGS_G)
     state.f̄ = T(INITIAL_BFGS_F)

@@ -48,9 +48,14 @@ BFGS_state = OptimizerState(BFGS(), x)
 BFGS_state.x̄ .= x
 BFGS_state.ḡ .= GradientAutodiff(F, x)(x)
 
+DFP_cache = OptimizerCache(DFP(), x)
+DFP_state = OptimizerState(DFP(), x)
+DFP_state.x̄ .= x
+DFP_state.ḡ .= GradientAutodiff(F, x)(x)
+
 for α ∈ .9:-.01:1.0
     update!(BFGS_cache, BFGS_state, GradientAutodiff(F, x), α * x)
-    update!(H_DFP, α * x)
+    update!(DFP_cache, DFP_state, GradientAutodiff(F, x), α * x)
 end
 
-@test inverse_hessian(BFGS_state) ≈ H_DFP.Q
+@test inverse_hessian(BFGS_state) ≈ inverse_hessian(DFP_state)
