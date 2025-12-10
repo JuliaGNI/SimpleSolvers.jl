@@ -2,23 +2,6 @@
     HessianBFGS <: Hessian
 
 A `struct` derived from [`Hessian`](@ref) to be used for an [`Optimizer`](@ref).
-
-# Fields
-- `problem::`[`OptimizerProblem`](@ref): 
-- `x̄`: previous solution,
-- `x`: current solution,
-- `δ`: *descent direction*,
-- `ḡ`: previous gradient,
-- `g`: current gradient,
-- `γ`: difference between current and previous gradient,
-- `Q`: 
-- `T1`:
-- `T2`:
-- `T3`:
-- `δγ`: the outer product of `δ` and `γ`.
-- `δδ`: 
-
-Also compare those fields with the ones of [`NewtonOptimizerCache`](@ref).
 """
 struct HessianBFGS{T, FT <: Callable} <: IterativeHessian{T}
     F::FT
