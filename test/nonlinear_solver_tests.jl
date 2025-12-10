@@ -61,7 +61,7 @@ for T ∈ (Float64, Float32)
         # use custom Jacobian
         nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
         solve!(x, nl)
-        println(Solver, kwarguments)
+        # println(Solver, kwarguments)
         for _x in x
             @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))
         end

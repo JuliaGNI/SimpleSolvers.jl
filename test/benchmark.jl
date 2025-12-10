@@ -24,10 +24,10 @@ function test(n)
             println(Solver, ", ", kwarguments, ", ", T)
 
             x = ones(T, n)
-            solve!(nl, x)
+            solve!(x, nl)
 
             x = ones(T, n)
-            @time solve!(nl, x)
+            @time solve!(x, nl)
 
             println()
         end
