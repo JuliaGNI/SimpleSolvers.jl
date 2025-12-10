@@ -13,14 +13,14 @@ function profile(Solver, kwarguments, n=100)
     y = zero(x)
     nl = Solver(x, y; F=F!, kwarguments...)
 
-    solve!(nl, x)
+    solve!(x, nl)
 
     x = ones(n)
 
     Profile.clear()
     Profile.clear_malloc_data()
 
-    Profile.Allocs.@profile solve!(nl, x)
+    Profile.Allocs.@profile solve!(x, nl)
 end
 
 profile(NewtonSolver, (linesearch=Static(),))
