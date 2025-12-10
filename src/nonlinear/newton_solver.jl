@@ -72,7 +72,7 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function solver_step!(s::NewtonSolver, x::AbstractVector{T}, params) where {T}
+function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
     update!(cache(s), x)
     value!!(nonlinearproblem(s), x, params)
     # first we update the rhs of the linearproblem
@@ -193,7 +193,7 @@ function solve!(x::AbstractArray, s::NewtonSolver, params)
 
     while !meets_stopping_criteria(status(s), config(s))
         increase_iteration_number!(status(s))
-        solver_step!(s, x, params)
+        solver_step!(x, s, params)
         update!(status(s), x, nonlinearproblem(s), params)
         residual!(status(s))
     end

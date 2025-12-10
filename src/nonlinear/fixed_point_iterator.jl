@@ -40,11 +40,11 @@ function FixedPointIterator(x::AT; F=missing, kwargs...) where {T,AT<:AbstractVe
 end
 
 """
-    solver_step!(it, x, params)
+    solver_step!(x, it, params)
 
 Solve the problem stored in an instance `it` of [`FixedPointIterator`](@ref).
 """
-function solver_step!(it::FixedPointIterator{T}, x::AbstractVector{T}, params) where {T}
+function solver_step!( x::AbstractVector{T}, it::FixedPointIterator{T}, params) where {T}
     update!(cache(it), x)
     value!(nonlinearproblem(it), x, params)
     x .= value(nonlinearproblem(it))
@@ -98,7 +98,7 @@ function solve!(x::AbstractArray, it::FixedPointIterator, params=NullParameters(
 
     while !meets_stopping_criteria(status(it), config(it))
         increase_iteration_number!(status(it))
-        solver_step!(it, x, params)
+        solver_step!(x, it, params)
         update!(status(it), x, nonlinearproblem(it), params)
         residual!(status(it))
     end

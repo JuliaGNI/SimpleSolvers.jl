@@ -33,7 +33,7 @@ If we want to solve the problem, we can call [`solve!`](@ref) on the [`Optimizer
 ```@example optimizer
 x₀ = copy(x)
 state = NewtonOptimizerState(x)
-solve!(opt, state, x₀)
+solve!(x₀, state, opt)
 ```
 
 Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solver_step!`](@ref) until [`SimpleSolvers.meets_stopping_criteria`](@ref) is satisfied.
@@ -42,7 +42,7 @@ Internally [`SimpleSolvers.solve!`](@ref) repeatedly calls [`SimpleSolvers.solve
 using SimpleSolvers: solver_step!
 
 x = rand(3)
-solver_step!(opt, state, x)
+solver_step!(x, state, opt)
 ```
 
 The function [`SimpleSolvers.solver_step!`](@ref) in turn does the following:
