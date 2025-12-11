@@ -8,7 +8,9 @@
 \definecolor{mgreen}{RGB}{44,160,44}
 
 \begin{document}
-\begin{tikzpicture}
+\begin{tikzpicture}[mindmap, concept color=black, text=white,%
+                   level 1 concept/.append style={sibling angle=50},%
+                   level 2 concept/.append style={sibling angle=50}]
   \path[mindmap,concept color=black,text=white]
     node[concept] {\texttt{NonlinearSolver <: \\AbstractSolver}}
     [clockwise from=0]
@@ -16,10 +18,11 @@
     % `level 1 concept/.append style={}'
     % note that the `concept color' is passed to the `child'(!)
     child[concept color=mred] {node[concept] {\texttt{method::\\Nonlinear-\\Method}} }
-    child[concept color=mblue] {node[concept] {\texttt{nonlinear-\\system::\\Nonlinear-\\System}} [clockwise from=-30] child[concept color=mgreen] { node[concept] {\texttt{j::Jacobian}}}}
+    child[concept color=mblue] {node[concept] {\texttt{nonlinear-\\problem::\\Nonlinear-\\Problem}} [clockwise from=-30] child { node[concept] {\texttt{j::Jacobian}}}}
+    child[concept color=mgreen] {node[concept] {\texttt{jacobian::\\Jacobian}} }
     child[concept color=morange] {node[concept] {\texttt{cache::\\NewtonSolver-\\Cache}} }
     child[concept color=mpurple] {node[concept] {\texttt{config::\\Options}}}
     child[concept color=morange!50!mgreen] {node[concept] {\texttt{linesearch::\\Linesearch-\\State}}}
-    child[concept color=morange!50!mblue] {node[concept] {\texttt{status::\\Optimizer-\\Status}}};
+    child[concept color=morange!50!mblue] {node[concept] {\texttt{status::\\Nonlinear-\\Solver-\\Status}}};
 \end{tikzpicture}
 \end{document}

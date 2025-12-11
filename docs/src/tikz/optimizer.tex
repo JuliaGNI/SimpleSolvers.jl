@@ -19,14 +19,15 @@
     child[concept color=mgreen] {node[concept] {\texttt{hessian::\\Hessian}}}
     % note that the `concept color' is passed to the `child'(!)
     child[concept color=mblue] {
-      node[concept] {\texttt{problem::\\Multivariate-\\OptimizerProblem}}
+      node[concept] {\texttt{problem::\\Optimizer-\\Problem}}
       [clockwise from=-30]
       child { node[concept] {\texttt{g::Gradient}} }
+      child { node[concept] {\texttt{h::Hessian}}}
     }
     child[concept color=mred] {node[concept] {\texttt{algorithm::\\Optimizer-\\Method}} }
-    child[concept color=morange] {node[concept] {\texttt{state::\\Optimization-\\Algorithm}} }
+    child[concept color=mgreen] {node[concept] {\texttt{gradien::\\Gradient}} }
     child[concept color=mpurple] {node[concept] {\texttt{config::\\Options}}}
-    child[concept color=morange!50!mblue] {node[concept] {\texttt{status::\\Optimizer-\\Status}}}
-    child[concept color=morange!50!mpurple] {node[concept] {\texttt{result::\\Optimizer-\\Result}}};
+    child[concept color=morange!] {node[concept] {\texttt{cache::\\Optimizer-\\Cache}}}
+    child[concept color=morange!50!mgreen] {node[concept] {\texttt{linesearch::\\Linesearch-\\State}}};
 \end{tikzpicture}
 \end{document}
