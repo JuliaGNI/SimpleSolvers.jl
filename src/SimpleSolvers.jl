@@ -1,160 +1,159 @@
 module SimpleSolvers
 
-    using Distances
-    using ForwardDiff
-    using StaticArrays
-    using LinearAlgebra
-    using Printf
+using Distances
+using ForwardDiff
+using StaticArrays
+using LinearAlgebra
+using Printf
 
-    import Base.minimum
-    import Base.Callable
-    import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, update!, NullParameters, OptionalParameters
-    import GeometricBase: value
+import Base.minimum
+import Base.Callable
+import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, update!, NullParameters, OptionalParameters
+import GeometricBase: value
 
-    include("utils.jl")
-    include("base/realcomplex.jl")
-    include("base/initialize.jl")
+include("utils.jl")
+include("base/realcomplex.jl")
+include("base/initialize.jl")
 
-    export update!
-    export solve!, solve
-    export config, result, state, status
-    export algorithm, problem
-    export solution, minimizer, minimum
-    
-    export SolverMethod
-    export BracketingMethod
-    export LinearMethod, DirectMethod, IterativeMethod
-    export NonlinearMethod, PicardMethod, LinesearchMethod
+export update!
+export solve!, solve
+export config, result, state, status
+export algorithm, problem
+export solution, minimizer, minimum
 
-    export NewtonMethod, Newton, DFP, BFGS
+export SolverMethod
+export BracketingMethod
+export LinearMethod, DirectMethod, IterativeMethod
+export NonlinearMethod, PicardMethod, LinesearchMethod
 
-    include("base/methods.jl")
-    include("base/optimizer_methods.jl")
+export NewtonMethod, Newton, DFP, BFGS
 
-    export Gradient,
-           GradientAutodiff,
-           GradientFiniteDifferences,
-           GradientFunction
+include("base/methods.jl")
+include("base/optimizer_methods.jl")
 
-    export check_gradient
-    
-    include("base/gradient.jl")
+export Gradient,
+    GradientAutodiff,
+    GradientFiniteDifferences,
+    GradientFunction
 
-    export LinesearchProblem,
-           OptimizerProblem
+export check_gradient
 
-    export value,
-           gradient,
-           derivative,
-           hessian
-           
-    include("optimization/optimizer_problems.jl")
+include("base/gradient.jl")
 
-    export Options
+export LinesearchProblem,
+    OptimizerProblem
 
-    include("base/options.jl")
+export value,
+    gradient,
+    derivative,
+    hessian
 
-    export Hessian,
-           HessianAutodiff,
-           HessianFunction
-           
-    export check_hessian,
-           print_hessian
+include("optimization/optimizer_problems.jl")
 
-    include("base/hessian.jl")
+export Options
 
-    export Jacobian,
-           JacobianAutodiff,
-           JacobianFiniteDifferences,
-           JacobianFunction
+include("base/options.jl")
 
-    export check_jacobian,
-           print_jacobian
+export Hessian,
+    HessianAutodiff,
+    HessianFunction
 
-    include("base/jacobian.jl")
+export check_hessian,
+    print_hessian
 
-    include("nonlinear/solver_problems.jl")
+include("base/hessian.jl")
 
-    export LinearProblem, NonlinearProblem
+export Jacobian,
+    JacobianAutodiff,
+    JacobianFiniteDifferences,
+    JacobianFunction
 
-    export LinearSolver, LU, LUSolverLAPACK,
-           factorize!, linearproblem
+export check_jacobian,
+    print_jacobian
 
-    include("linear/linear_solver_method.jl")
-    include("linear/linear_solver_cache.jl")
-    include("linear/linear_solvers.jl")
-    include("linear/lu_solver.jl")
-    include("linear/lu_solver_lapack.jl")
+include("base/jacobian.jl")
 
-    export bracket_minimum
 
-    include("bracketing/bracket_minimum.jl")
-    include("bracketing/triple_point_finder.jl")
+export LinearProblem, LinearSolver, LU, LUSolverLAPACK,
+    factorize!, linearproblem
 
-    export Linesearch, Static
-    export Backtracking,
-           Bisection,
-           Quadratic,
-           Quadratic2,
-           BierlaireQuadratic
+include("linear/linear_problem.jl")
+include("linear/linear_solver_method.jl")
+include("linear/linear_solver_cache.jl")
+include("linear/linear_solvers.jl")
+include("linear/lu_solver.jl")
+include("linear/lu_solver_lapack.jl")
 
-    include("linesearch/methods.jl")
-    include("linesearch/linesearch.jl")
-    include("linesearch/static.jl")
-    include("linesearch/backtracking/backtracking.jl")
-    include("linesearch/backtracking/condition.jl")
-    include("linesearch/backtracking/sufficient_decrease_condition.jl")
-    include("linesearch/backtracking/curvature_condition.jl")
-    include("linesearch/bisection.jl")
-    include("linesearch/quadratic.jl")
-    include("linesearch/custom_quadratic.jl")
-    include("linesearch/bierlaire_quadratic.jl")
-    include("linesearch/dummy_linesearch.jl")
+export bracket_minimum
 
-    export NonlinearSolver, NonlinearSolverException,
-           AbstractNewtonSolver, NewtonSolver, QuasiNewtonSolver,
-           residual_initial!, residual_absolute!, residual_relative!,
-           assess_convergence, assess_convergence!,
-           print_status, check_solver_status,
-           get_solver_status, get_solver_status!,
-           solve!
+include("bracketing/bracket_minimum.jl")
+include("bracketing/triple_point_finder.jl")
 
-    export FixedPointIterator
+export Linesearch, Static
+export Backtracking,
+    Bisection,
+    Quadratic,
+    Quadratic2,
+    BierlaireQuadratic
 
-    include("nonlinear/nonlinear_solver_status.jl")
-    include("nonlinear/nonlinear_solver.jl")
-    include("nonlinear/newton_solver_cache.jl")
-    include("nonlinear/newton_solver_linesearch_problem.jl")
-    include("nonlinear/fixed_point_iterator.jl")
-    include("nonlinear/newton_solver.jl")
+include("linesearch/methods.jl")
+include("linesearch/linesearch.jl")
+include("linesearch/static.jl")
+include("linesearch/backtracking/backtracking.jl")
+include("linesearch/backtracking/condition.jl")
+include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking/curvature_condition.jl")
+include("linesearch/bisection.jl")
+include("linesearch/quadratic.jl")
+include("linesearch/custom_quadratic.jl")
+include("linesearch/bierlaire_quadratic.jl")
+include("linesearch/dummy_linesearch.jl")
 
-    export Optimizer,
-           OptimizerState, isaOptimizerState,
-           NewtonOptimizerState,
-           NewtonOptimizer,
-           BFGSOptimizer,
-           DFPOptimizer,
-           HessianAutodiff,
-           HessianBFGS,
-           HessianDFP
+export NonlinearProblem, NonlinearSolver, NonlinearSolverException,
+    AbstractNewtonSolver, NewtonSolver, QuasiNewtonSolver,
+    residual_initial!, residual_absolute!, residual_relative!,
+    assess_convergence, assess_convergence!,
+    print_status, check_solver_status,
+    get_solver_status, get_solver_status!,
+    solve!
 
-    include("optimization/optimizer_state.jl")
-    include("optimization/optimizer_cache.jl")
-    include("optimization/optimizer_status.jl")
-    include("optimization/optimizer_result.jl")
-    include("optimization/iterative_hessians/iterative_hessians.jl")
-    include("optimization/iterative_hessians/bfgs/hessian_bfgs.jl")
-    include("optimization/iterative_hessians/dfp/hessian_dfp.jl")
-    include("optimization/newton_optimizer/newton_optimizer_cache.jl")
-    include("optimization/optimizer_linesearch_problem.jl")
-    include("optimization/newton_optimizer/newton_optimizer_state.jl")
+export FixedPointIterator
 
-    include("optimization/iterative_hessians/bfgs/bfgs_state.jl")
-    include("optimization/iterative_hessians/dfp/dfp_state.jl")
+include("nonlinear/nonlinear_problem.jl")
+include("nonlinear/nonlinear_solver_status.jl")
+include("nonlinear/nonlinear_solver.jl")
+include("nonlinear/newton_solver_cache.jl")
+include("nonlinear/newton_solver_linesearch_problem.jl")
+include("nonlinear/fixed_point_iterator.jl")
+include("nonlinear/newton_solver.jl")
 
-    include("optimization/iterative_hessians/bfgs/bfgs_cache.jl")
-    include("optimization/iterative_hessians/dfp/dfp_cache.jl")
+export Optimizer,
+    OptimizerState, isaOptimizerState,
+    NewtonOptimizerState,
+    NewtonOptimizer,
+    BFGSOptimizer,
+    DFPOptimizer,
+    HessianAutodiff,
+    HessianBFGS,
+    HessianDFP
 
-    include("optimization/optimizer.jl")
+include("optimization/optimizer_state.jl")
+include("optimization/optimizer_cache.jl")
+include("optimization/optimizer_status.jl")
+include("optimization/optimizer_result.jl")
+include("optimization/iterative_hessians/iterative_hessians.jl")
+include("optimization/iterative_hessians/bfgs/hessian_bfgs.jl")
+include("optimization/iterative_hessians/dfp/hessian_dfp.jl")
+include("optimization/newton_optimizer/newton_optimizer_cache.jl")
+include("optimization/optimizer_linesearch_problem.jl")
+include("optimization/newton_optimizer/newton_optimizer_state.jl")
+
+include("optimization/iterative_hessians/bfgs/bfgs_state.jl")
+include("optimization/iterative_hessians/dfp/dfp_state.jl")
+
+include("optimization/iterative_hessians/bfgs/bfgs_cache.jl")
+include("optimization/iterative_hessians/dfp/dfp_cache.jl")
+
+include("optimization/optimizer.jl")
 
 end
