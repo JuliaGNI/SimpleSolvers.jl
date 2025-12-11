@@ -36,15 +36,15 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
-const NewtonSolver{T} = NonlinearSolver{T, NewtonMethod}
+const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod}
 
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     cache = NewtonSolverCache(x, x)
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method = NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method=NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
 end
 
 function QuasiNewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; options_kwargs...)
-    NewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; refactorize = DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...)
+    NewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...)
 end
 
 """
@@ -64,7 +64,7 @@ function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = LinesearchState(linesearch; T=T)
-    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian = jacobian, kwargs...)
+    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
@@ -189,7 +189,7 @@ function update!(s::NewtonSolver, x₀::AbstractArray, params)
 end
 
 """
-    solve!(s, x)
+    solve!(x, s)
 
 # Extended help
 

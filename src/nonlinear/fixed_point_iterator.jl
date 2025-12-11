@@ -15,11 +15,11 @@ function update!(cache::FixedPointIteratorCache{T,VT}, x::VT) where {T,VT<:Abstr
     cache
 end
 
-const FixedPointIterator{T} = NonlinearSolver{T, PicardMethod}
+const FixedPointIterator{T} = NonlinearSolver{T,PicardMethod}
 
 function FixedPointIterator(x::AT, nlp::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
     cache = FixedPointIteratorCache(x)
-    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), NoLinesearchState(T), cache; method = PicardMethod(), options_kwargs...)
+    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), NoLinesearchState(T), cache; method=PicardMethod(), options_kwargs...)
 end
 
 """
@@ -84,7 +84,7 @@ function update!(it::FixedPointIterator, x₀::AbstractArray, params)
 end
 
 """
-    solve!(it, x)
+    solve!(x, it)
 
 # Extended help
 
