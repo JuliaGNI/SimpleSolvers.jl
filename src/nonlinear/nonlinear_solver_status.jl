@@ -226,13 +226,16 @@ false
 function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
     assess_convergence!(status, config)
 
+    havenan = any(isnan, solution(status)) || any(isnan, status.f)
+
+    (havenan && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
+
     (isconverged(status) && iteration_number(status) ≥ config.min_iterations) ||
         (status.f_increased && !config.allow_f_increases) ||
         iteration_number(status) ≥ config.max_iterations ||
         status.rxₐ > config.x_abstol_break ||
         status.rfₐ > config.f_abstol_break ||
-        any(isnan, solution(status)) ||
-        any(isnan, status.f)
+        havenan
 end
 
 function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
