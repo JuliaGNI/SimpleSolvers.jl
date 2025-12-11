@@ -205,7 +205,7 @@ So convergence is only one possible criterion for which [`meets_stopping_criteri
 In the following example we show that `meets_stopping_criteria` evaluates to true when used on a freshly allocated [`NonlinearSolverStatus`](@ref):
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, meets_stopping_criteria)
 status = NonlinearSolverStatus{Float64}(5)
-config = Options()
+config = Options(verbosity=0)
 meets_stopping_criteria(status, config)
 
 # output
