@@ -123,9 +123,9 @@ include("nonlinear/nonlinear_problem.jl")
 include("nonlinear/nonlinear_solver_status.jl")
 include("nonlinear/nonlinear_solver.jl")
 include("nonlinear/newton_solver_cache.jl")
-include("nonlinear/newton_solver_linesearch_problem.jl")
 include("nonlinear/fixed_point_iterator.jl")
 include("nonlinear/newton_solver.jl")
+include("nonlinear/linesearch_problem.jl")
 
 export Optimizer,
     OptimizerState, isaOptimizerState,

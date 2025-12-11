@@ -3,23 +3,31 @@
 
 Stores the last solution `xₖ`.
 """
-struct FixedPointIteratorCache{T,VT<:AbstractVector{T}} <: NonlinearSolverCache{T}
-    xₖ::VT
-    FixedPointIteratorCache(x::VT) where {T,VT<:AbstractVector{T}} = new{T,VT}(copy(x))
+struct FixedPointIteratorCache{T,VT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: NonlinearSolverCache{T}
+    δx::VT
+    x̄::VT
+    x::VT
+    y::VT
+    j::JT
+    function FixedPointIteratorCache(x::VT, y::VT) where {T,VT<:AbstractVector{T}}
+        j = alloc_j(x, y)
+        new{T,VT,typeof(j)}(copy(x), copy(x), copy(x), copy(x), j)
+    end
 end
 
-solution(cache::FixedPointIteratorCache) = cache.xₖ
+direction(cache::FixedPointIteratorCache) = cache.δx
+jacobian(cache::FixedPointIteratorCache) = cache.j
 
 function update!(cache::FixedPointIteratorCache{T,VT}, x::VT) where {T,VT<:AbstractVector{T}}
-    solution(cache) .= x
+    copy!(cache.x̄, x)
     cache
 end
 
 const FixedPointIterator{T} = NonlinearSolver{T,PicardMethod}
 
-function FixedPointIterator(x::AT, nlp::NLST, cache::CT; options_kwargs...) where {T,AT<:AbstractVector{T},NLST,CT}
-    cache = FixedPointIteratorCache(x)
-    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), NoLinesearchState(T), cache; method=PicardMethod(), options_kwargs...)
+function FixedPointIterator(x::AT, nlp::NLST, y::AT, linesearch::LiSeT, cache::CT; kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
+    cache = FixedPointIteratorCache(x, y)
+    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache; method=PicardMethod(), kwargs...)
 end
 
 """
@@ -28,15 +36,17 @@ end
 # Keywords
 - `options_kwargs`: see [`Options`](@ref)
 """
-function FixedPointIterator(x::AT, F::Callable; kwargs...) where {T,AT<:AbstractVector{T}}
+function FixedPointIterator(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, missing, x, x)
-    cache = FixedPointIteratorCache(x)
-    FixedPointIterator(x, nlp, cache; kwargs...)
+    jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
+    cache = FixedPointIteratorCache(x, y)
+    ls = LinesearchState(linesearch; T=T)
+    FixedPointIterator(x, nlp, y, ls, cache; jacobian=jacobian, kwargs...)
 end
 
-function FixedPointIterator(x::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
+function FixedPointIterator(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
     !ismissing(F) || error("You have to provide an F.")
-    FixedPointIterator(x, F; kwargs...)
+    FixedPointIterator(x, F, y; kwargs...)
 end
 
 """
@@ -46,7 +56,19 @@ Solve the problem stored in an instance `it` of [`FixedPointIterator`](@ref).
 """
 function solver_step!(x::AbstractVector{T}, it::FixedPointIterator{T}, params) where {T}
     update!(cache(it), x)
-    value!(x, nonlinearproblem(it), x, params)
+    for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
+        value!(direction(cache(it)), nonlinearproblem(it), x, params)
+        direction(cache(it)) .*= -1
+        if any(isnan, direction(cache(it)))
+            (it.config.verbosity >= 2 && @warn "NaN detected in Picard solver. Reducing length of direction vector.")
+            direction(cache(it)) ./= 2
+        else
+            break
+        end
+    end
+    α = linesearch(it)(linesearch_problem(it, params))
+    compute_new_iterate!(x, α, direction(cache(it)))
+    x
 end
 
 cache(solver::FixedPointIterator)::FixedPointIteratorCache = solver.cache

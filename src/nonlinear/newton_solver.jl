@@ -121,50 +121,9 @@ cache(solver::NewtonSolver)::NewtonSolverCache = solver.cache
 config(solver::NewtonSolver)::Options = solver.config
 status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
 
-linearproblem(solver::NewtonSolver) = solver.linearproblem
-
-"""
-    nonlinearproblem(solver)
-
-Return the [`NonlinearProblem`](@ref) contained in the [`NewtonSolver`](@ref). Compare this to [`linearsolver`](@ref).
-"""
-nonlinearproblem(solver::NewtonSolver)::NonlinearProblem = solver.nonlinearproblem
-
 value(solver::NewtonSolver) = value(nonlinearproblem(solver))
 
 iteration_number(solver::NewtonSolver)::Integer = iteration_number(status(solver))
-
-"""
-    jacobian(solver::NewtonSolver)
-
-Return the evaluated Jacobian (a Matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
-
-Also see [`jacobian(::NonlinearProblem)`](@ref) and [`Jacobian(::NonlinearProblem)`](@ref).
-"""
-jacobian(solver::NewtonSolver)::AbstractMatrix = jacobian(cache(solver))
-
-"""
-    linearsolver(solver)
-
-Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`NewtonSolver`](@ref).
-
-# Examples
-
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linearsolver)
-x = rand(3)
-y = rand(3)
-F(x) = tanh.(x)
-F!(y, x, params) = y .= F(x)
-s = NewtonSolver(x, y; F = F!)
-linearsolver(s)
-
-# output
-
-LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], [0, 0, 0], 0))
-```
-"""
-linearsolver(solver::NewtonSolver) = solver.linearsolver
-linesearch(solver::NewtonSolver) = solver.linesearch
 
 check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
 print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))

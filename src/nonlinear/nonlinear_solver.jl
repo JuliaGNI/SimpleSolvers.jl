@@ -41,7 +41,7 @@ struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},
     config::Options{T}
     status::NSST
 
-    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; method::MT = NewtonMethod(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian,NLST,LST,LSoT,LiSeT,CT}
+    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; method::MT=NewtonMethod(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian,NLST,LST,LSoT,LiSeT,CT}
         status = NonlinearSolverStatus(x)
         config = Options(T; options_kwargs...)
         new{T,MT,AT,NLST,LST,JT,LSoT,LiSeT,CT,typeof(status)}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config, status)
@@ -53,10 +53,50 @@ status(s::NonlinearSolver) = s.status
 initialize!(s::NonlinearSolver, ::AbstractArray) = error("initialize! not implemented for $(typeof(s))")
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 method(s::NonlinearSolver) = s.method
+linearproblem(s::NonlinearSolver) = s.linearproblem
+linesearch(s::NonlinearSolver) = s.linesearch
+Jacobian(s::NonlinearSolver) = s.jacobian
+
+"""
+    nonlinearproblem(solver)
+
+Return the [`NonlinearProblem`](@ref) contained in the [`NewtonSolver`](@ref). Compare this to [`linearsolver`](@ref).
+"""
 nonlinearproblem(s::NonlinearSolver) = s.nonlinearproblem
-Jacobian(s::NonlinearSolver)::Jacobian = s.jacobian
 
 jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = Jacobian(s)(jacobian(cache(s)), x, params)
+
+"""
+    jacobian(solver::NewtonSolver)
+
+Return the evaluated Jacobian (a Matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
+
+Also see [`jacobian(::NonlinearProblem)`](@ref) and [`Jacobian(::NonlinearProblem)`](@ref).
+"""
+jacobian(solver::NonlinearSolver) = jacobian(cache(solver))
+
+"""
+    linearsolver(solver)
+
+Return the linear part (i.e. a [`LinearSolver`](@ref)) of an [`NewtonSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linearsolver)
+x = rand(3)
+y = rand(3)
+F(x) = tanh.(x)
+F!(y, x, params) = y .= F(x)
+s = NewtonSolver(x, y; F = F!)
+linearsolver(s)
+
+# output
+
+LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], [0, 0, 0], 0))
+```
+"""
+linearsolver(solver::NonlinearSolver) = solver.linearsolver
+
 
 struct NonlinearSolverException <: Exception
     msg::String

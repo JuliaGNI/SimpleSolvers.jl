@@ -10,7 +10,7 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 - `x̄`: the previous iterate,
 - `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_problem`](@ref),
 - `δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
-- `rhs`: the right-hand-side (this can be accessed by calling [`rhs`](@ref)), 
+- `rhs`: the right-hand-side (this can be accessed by calling [`rhs`](@ref)),
 - `y`: the problem evaluated at `x`. This is used in [`linesearch_problem`](@ref),
 - `J::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_problem`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
@@ -20,7 +20,7 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 NewtonSolverCache(x, y)
 ```
 """
-struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}} <: NonlinearSolverCache{T} # , JT <: AbstractMatrix{T}}
+struct NewtonSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: NonlinearSolverCache{T} # , JT <: AbstractMatrix{T}}
     x̄::AT
     x::AT
     δx::AT
@@ -32,7 +32,7 @@ struct NewtonSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}} <:
 
     function NewtonSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
         j = alloc_j(x, y)
-        c = new{T, AT, typeof(j)}(zero(x), zero(x), zero(x), zero(y), zero(y), j)
+        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c
     end
@@ -56,7 +56,7 @@ function update!(cache::NewtonSolverCache{T}, x::AbstractVector{T}) where {T}
     cache.x̄ .= x
     solution(cache) .= x
     cache.δx .= 0
-    
+
     cache
 end
 
