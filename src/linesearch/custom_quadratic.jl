@@ -1,5 +1,46 @@
+@doc raw"""
+    adjust_α(αₜ, α)
+
+Adjust `αₜ` based on the previous `α`.
+
+The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm{old}]`` should *safeguard against stagnation in the iterates* as well as checking that ``\alpha`` decreases at least by a factor ``\sigma_1``. The defaults for `σ₀` and `σ₁` are [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref) respectively.
+
+# Implementation
+
+Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
+
+!!! warn
+    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
 """
-This constant is used for [`QuadraticState`](@ref) and [`BierlaireQuadraticState`](@ref).
+function adjust_α(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
+    if αₜ < σ₀ * α
+        σ₀ * α
+    elseif αₜ > σ₁ * α
+        σ₁ * α
+    else
+        αₜ
+    end
+end
+
+"""
+    determine_initial_α(y₀, obj, α₀)
+
+Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
+This is used as a starting point for using the functor of `QuadraticState` and makes sure that `α` describes *a point past the minimum*.
+
+!!! warn
+    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
+"""
+function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
+    if derivative(obj, x₀) < zero(T)
+        BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
+    else
+        bracket_minimum_with_fixed_point(obj, x₀)[1]
+    end
+end
+
+"""
+This constant is used for [`QuadraticState2`](@ref) and [`BierlaireQuadraticState`](@ref).
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
 
@@ -16,7 +57,10 @@ const DEFAULT_s_REDUCTION = .5
 """
     QuadraticState2 <: LinesearchState
 
-Quadratic Polynomial line search. This is similar to [`QuadraticState`](@ref), but performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from [`QuadraticState`](@ref) (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
+Quadratic Polynomial line search. This is similar to `QuadraticState`, but performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from `QuadraticState` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
+
+!!! warn
+    The old `QuadraticState` was deprecated!
 
 This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy). The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
 

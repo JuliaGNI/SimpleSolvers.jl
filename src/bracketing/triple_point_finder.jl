@@ -1,7 +1,7 @@
 """
     triple_point_finder(f, x)
 
-Find three points `a > b > c` s.t. `f(a) > f(b)` and `f(c) > f(b)`. This is used for performing a quadratic line search (see [`QuadraticState`](@ref)).
+Find three points `a > b > c` s.t. `f(a) > f(b)` and `f(c) > f(b)`. This is used for performing a quadratic line search (see [`QuadraticState2`](@ref)).
 
 # Implementation
 

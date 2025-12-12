@@ -1,3 +1,27 @@
+@doc raw"""
+    adjust_α(ls, αₜ, α)
+
+Check which conditions the new `αₜ` is in ``[\sigma_0\alpha_0, \simga_1\alpha_0]`` and return the updated `α` accordingly (it is updated if it does not lie in the interval).
+
+We first check the following:
+```math
+    \alpha_t  < \alpha_0\alpha,
+```
+where ``\sigma_0`` is stored in `ls` (i.e. in an instance of [`QuadraticState`](@ref)).
+If this is not true we check:
+```math
+    \alpha_t > \sigma_1\alpha,
+```
+where ``\sigma_1`` is again stored in `ls`. If this second condition is also not true we simply return the unchanged ``\alpha_t``.
+So if `\alpha_t` does not lie in the interval ``(\sigma_0\alpha, \sigma_1\alpha)`` the interval is made bigger by either multiplying with ``\sigma_0`` (default [`DEFAULT_ARMIJO_σ₀`](@ref)) or ``\sigma_1`` (default [`DEFAULT_ARMIJO_σ₁`](@ref)).
+
+!!! warn
+    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
+"""
+function adjust_α(ls::QuadraticState{T}, αₜ::T, α::T) where {T}
+    adjust_α(ls.σ₀, ls.σ₁, αₜ, α)
+end
+
 """
     QuadraticState <: LinesearchState
 
@@ -35,62 +59,6 @@ end
 Base.show(io::IO, ::QuadraticState) = print(io, "Polynomial quadratic")
 
 LinesearchState(algorithm::Quadratic; T::DataType=Float64, kwargs...) = QuadraticState(T; kwargs...)
-
-@doc raw"""
-    adjust_α(ls, αₜ, α)
-
-Check which conditions the new `αₜ` is in ``[\sigma_0\alpha_0, \simga_1\alpha_0]`` and return the updated `α` accordingly (it is updated if it does not lie in the interval).
-
-We first check the following:
-```math
-    \alpha_t  < \alpha_0\alpha,
-```
-where ``\sigma_0`` is stored in `ls` (i.e. in an instance of [`QuadraticState`](@ref)).
-If this is not true we check:
-```math
-    \alpha_t > \sigma_1\alpha,
-```
-where ``\sigma_1`` is again stored in `ls`. If this second condition is also not true we simply return the unchanged ``\alpha_t``.
-So if `\alpha_t` does not lie in the interval ``(\sigma_0\alpha, \sigma_1\alpha)`` the interval is made bigger by either multiplying with ``\sigma_0`` (default [`DEFAULT_ARMIJO_σ₀`](@ref)) or ``\sigma_1`` (default [`DEFAULT_ARMIJO_σ₁`](@ref)).
-"""
-function adjust_α(ls::QuadraticState{T}, αₜ::T, α::T) where {T}
-    adjust_α(ls.σ₀, ls.σ₁, αₜ, α)
-end
-
-@doc raw"""
-    adjust_α(αₜ, α)
-
-Adjust `αₜ` based on the previous `α`. Also see [`adjust_α(::QuadraticState{T}, ::T, ::T) where {T}`](@ref).
-
-The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm{old}]`` should *safeguard against stagnation in the iterates* as well as checking that ``\alpha`` decreases at least by a factor ``\sigma_1``. The defaults for `σ₀` and `σ₁` are [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref) respectively.
-
-# Implementation
-
-Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
-"""
-function adjust_α(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
-    if αₜ < σ₀ * α
-        σ₀ * α
-    elseif αₜ > σ₁ * α
-        σ₁ * α
-    else
-        αₜ
-    end
-end
-
-"""
-    determine_initial_α(y₀, obj, α₀)
-
-Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
-This is used as a starting point for using the functor of [`QuadraticState`](@ref) and makes sure that `α` describes *a point past the minimum*.
-"""
-function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
-    if derivative(obj, x₀) < zero(T)
-        BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
-    else
-        bracket_minimum_with_fixed_point(obj, x₀)[1]
-    end
-end
 
 function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, α::T = ls.α₀, x₀::T=zero(T)) where {T}
     number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")

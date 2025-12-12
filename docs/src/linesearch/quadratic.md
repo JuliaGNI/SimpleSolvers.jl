@@ -143,7 +143,10 @@ p(α) = p₀ + p₁ * α + p₂ * α^2
 αₜ = -p₁ / (2p₂)
 ```
 
-When using [`SimpleSolvers.QuadraticState`](@ref) we in addition call [`SimpleSolvers.adjust_α`](@ref):
+When using `QuadraticState` we in addition call [`SimpleSolvers.adjust_α`](@ref):
+
+!!! warn
+    `QuadraticState` was deprecated and moved to `obsolete`.
 
 ```@example quadratic
 using SimpleSolvers: adjust_α # hide

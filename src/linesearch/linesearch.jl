@@ -6,7 +6,7 @@ const DEFAULT_LINESEARCH_RMAX=100
 
 Abstract type. 
 
-Examples include [`StaticState`](@ref), [`BacktrackingState`](@ref), [`BisectionState`](@ref) and [`QuadraticState`](@ref).
+Examples include [`StaticState`](@ref), [`BacktrackingState`](@ref), [`BisectionState`](@ref) and [`QuadraticState2`](@ref).
 
 # Implementation
 
