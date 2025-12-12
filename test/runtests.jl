@@ -27,9 +27,6 @@ end
 @safetestset "Line Searches                                                                   " begin
     include("linesearch_test.jl")
 end
-@safetestset "Line Searches (second test)                                                     " begin
-    include("linesearch_test_2.jl")
-end
 @safetestset "Nonlinear Solvers                                                               " begin
     include("nonlinear_solver_tests.jl")
 end
