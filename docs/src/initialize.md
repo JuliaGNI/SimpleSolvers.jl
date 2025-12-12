@@ -5,7 +5,7 @@ Before we can use [`update!`](@ref) we have to initialize with [`SimpleSolvers.i
 [^1]: The different methods for [`SimpleSolvers.initialize!`](@ref) are however often called with the constructor of a `struct` (e.g. for [`SimpleSolvers.NewtonOptimizerCache`](@ref)).
 
 Similar to [`update!`](@ref), [`SimpleSolvers.initialize!`](@ref) returns the first input argument as output. Examples include:
-- [`SimpleSolvers.initialize!(::SimpleSolvers.NewtonSolverCache, ::AbstractVector)`](@ref),
+- [`SimpleSolvers.initialize!(::SimpleSolvers.NonlinearSolverCache, ::AbstractVector)`](@ref),
 - [`SimpleSolvers.initialize!(::SimpleSolvers.NewtonOptimizerCache, ::AbstractVector)`](@ref).
 
 We demonstrate this for an instance of [`SimpleSolvers.NewtonOptimizerCache`](@ref)[^2]:

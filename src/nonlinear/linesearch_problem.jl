@@ -1,7 +1,7 @@
 """
     linesearch_problem(nlp, cache, params)
 
-Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NewtonSolverCache`](@ref)).
+Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
 
 # Implementation
 
@@ -10,7 +10,7 @@ Make a line search problem for a *Newton solver* (the `cache` here is an instanc
 
 Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::OptimizerCache{T}, ::OptimizerState) where {T}`](@ref).
 """
-function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NewtonSolverCache{T}, params) where {T}
+function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NonlinearSolverCache{T}, params) where {T}
     function f(α)
         compute_new_iterate!(cache.x, cache.x̄, α, cache.δx)
         value!(cache.y, nlp, cache.x, params)
