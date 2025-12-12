@@ -5,7 +5,7 @@ A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref).
 
 Note that this constant may also depend on whether we deal with optimizers or solvers.
 
-!!! warn
+!!! warning
     We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
 """
 const DEFAULT_BIERLAIRE_ε::Float64 = 2eps(Float32)
@@ -16,7 +16,7 @@ const DEFAULT_BIERLAIRE_ε::Float64 = 2eps(Float32)
 A constant on basis of which the `b` in [`BierlaireQuadraticState`](@ref) is perturbed in order "to avoid stalling" (see [bierlaire2015optimization; Chapter 11.2.1](@cite); in this reference the author recommends ``10^{-7}`` as a value).
 Its value is $(DEFAULT_BIERLAIRE_ξ).
 
-!!! warn
+!!! warning
     We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
 """
 const DEFAULT_BIERLAIRE_ξ::Float64 = 2eps(Float32)

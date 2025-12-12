@@ -9,7 +9,7 @@ The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm
 
 Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
 
-!!! warn
+!!! warning
     This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
 """
 function adjust_α(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
@@ -28,7 +28,7 @@ end
 Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
 This is used as a starting point for using the functor of `QuadraticState` and makes sure that `α` describes *a point past the minimum*.
 
-!!! warn
+!!! warning
     This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
 """
 function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
@@ -59,7 +59,7 @@ const DEFAULT_s_REDUCTION = .5
 
 Quadratic Polynomial line search. This is similar to `QuadraticState`, but performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from `QuadraticState` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
 
-!!! warn
+!!! warning
     The old `QuadraticState` was deprecated!
 
 This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy). The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).

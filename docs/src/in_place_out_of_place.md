@@ -54,7 +54,7 @@ end
 nothing # hide
 ```
 
-!!! warn
+!!! warning
     Note that here we used `GradientAutodiff` to compute the gradient. We can also use `GradientFunction` and `GradientFiniteDifferences`.
 
 ```@setup in_place

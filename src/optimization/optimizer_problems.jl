@@ -27,7 +27,7 @@ In practice `LinesearchProblem`s are allocated by calling [`linesearch_problem`]
 
 # Constructors
 
-!!! warn "Calling line search problems"
+!!! warning "Calling line search problems"
     Below we show a few constructors that can be used to allocate `LinesearchProblem`s. Note however that in practice one probably should not do that and instead call `linesearch_problem`.
 
 ```jldoctest; setup = :(using SimpleSolvers: LinesearchProblem, compute_new_iterate)

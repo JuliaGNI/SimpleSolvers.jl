@@ -145,7 +145,7 @@ p(α) = p₀ + p₁ * α + p₂ * α^2
 
 When using `QuadraticState` we in addition call [`SimpleSolvers.adjust_α`](@ref):
 
-!!! warn
+!!! warning
     `QuadraticState` was deprecated and moved to `obsolete`.
 
 ```@example quadratic

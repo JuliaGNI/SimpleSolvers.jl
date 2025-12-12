@@ -15,7 +15,7 @@ If this is not true we check:
 where ``\sigma_1`` is again stored in `ls`. If this second condition is also not true we simply return the unchanged ``\alpha_t``.
 So if `\alpha_t` does not lie in the interval ``(\sigma_0\alpha, \sigma_1\alpha)`` the interval is made bigger by either multiplying with ``\sigma_0`` (default [`DEFAULT_ARMIJO_σ₀`](@ref)) or ``\sigma_1`` (default [`DEFAULT_ARMIJO_σ₁`](@ref)).
 
-!!! warn
+!!! warning
     This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
 """
 function adjust_α(ls::QuadraticState{T}, αₜ::T, α::T) where {T}

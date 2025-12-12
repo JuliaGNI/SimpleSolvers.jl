@@ -33,7 +33,7 @@ and then repeat:
 ```
 So the algorithm checks in each step where the sign change occurred and moves the ``x_0`` or ``x_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default""" * """$(MAX_ITERATIONS) and the [`Options`](@ref) struct).
 
-!!! warning
+!!! warninging
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
 """
 function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: Number}

@@ -100,7 +100,7 @@ where we wrote ``H`` for the Hessian (i.e. the input argument `hes`).
 
 Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref). 
 
-!!! warn
+!!! warning
     Note that this is not updating the Hessian `hes`. For this call `update!` on the `Hessian`.
 """
 function update!(cache::NewtonOptimizerCache, state::OptimizerState, g::Gradient, ∇²f::Hessian, x::AbstractVector)
