@@ -58,7 +58,7 @@ Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
 
 The keys are:
 - `config::`[`Options`](@ref)
-- `α₀`: 
+- `α₀`:
 - `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 

@@ -1,5 +1,5 @@
 using SimpleSolvers
-using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate, AbstractOptimizerProblem, BierlaireQuadratic, BierlaireQuadraticState, QuadraticState2
+using SimpleSolvers: LinesearchState, StaticState, compute_new_iterate, AbstractOptimizerProblem, BierlaireQuadratic, BierlaireQuadraticState, QuadraticState
 using Test
 
 f(x) = x^2 - 1
@@ -31,7 +31,7 @@ function test_linesearch(algorithm::LinesearchMethod, n::Integer = 1)
     x₀ = -3.
     x₁ = +3.0
     xₛ =  0.0
-    
+
     ls = LinesearchState(algorithm; x_abstol = zero(x₀))
 
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ  atol=∛(2eps())
@@ -55,7 +55,7 @@ end
     @test ls == LinesearchState(Static(1.0))
 
     @test ls() == 1.
-    
+
     ls1 = Linesearch(algorithm = Static())
     ls2 = Linesearch(algorithm = Static(1.0))
     ls3 = Linesearch(algorithm = Static(0.8))

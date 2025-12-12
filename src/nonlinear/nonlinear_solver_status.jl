@@ -187,7 +187,7 @@ end
 
 Determines whether the iteration stops based on the current [`NonlinearSolverStatus`](@ref).
 
-!!! warn
+!!! warning
     The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call `assess_convergence!` (with the same input arguments).
 
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:

@@ -55,8 +55,8 @@ Base.Function(nlp::NonlinearProblem) = nlp.F
 
 Return the *Jacobian function* stored in `nlp`.
 
-!!! warn
-   Note that this is different from the [`Jacobian`](@ref) used in the [`NonlinearSolver`](@ref)! There the [`Jacobian`](@ref) is a separate `struct`.
+!!! warning
+    Note that this is different from the [`Jacobian`](@ref) used in the [`NonlinearSolver`](@ref)! There the [`Jacobian`](@ref) is a separate `struct`.
 """
 Jacobian(nlp::NonlinearProblem) = nlp.J
 

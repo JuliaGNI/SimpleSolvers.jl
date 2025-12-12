@@ -25,12 +25,12 @@ end
 
 profile(NewtonSolver, (linesearch=Static(),))
 # profile(NewtonSolver, (linesearch=Backtracking(),))
-# profile(NewtonSolver, (linesearch=Quadratic2(),))
+# profile(NewtonSolver, (linesearch=Quadratic(),))
 # profile(NewtonSolver, (linesearch=BierlaireQuadratic(),))
 # profile(NewtonSolver, (linesearch=Bisection(),))
 # profile(QuasiNewtonSolver, (linesearch = Static(),))
 # profile(QuasiNewtonSolver, (linesearch = Backtracking(),))
-# profile(QuasiNewtonSolver, (linesearch = Quadratic2(),))
+# profile(QuasiNewtonSolver, (linesearch = Quadratic(),))
 # profile(QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),))
 # profile(QuasiNewtonSolver, (linesearch = Bisection(),))
 

@@ -6,9 +6,9 @@ using ForwardDiff
 Random.seed!(1234)
 
 # struct NonlinearSolverTestMethod <: NonlinearSolverMethod end
-# 
+#
 # test_solver = NonlinearSolverTest{Float64}()
-# 
+#
 # @test_throws ErrorException config(test_solver)
 # @test_throws ErrorException status(test_solver)
 # @test_throws ErrorException initialize!(test_solver, rand(3))
@@ -35,12 +35,12 @@ for T ∈ (Float64, Float32)
     for (Solver, kwarguments) in (
                 (NewtonSolver, (linesearch = Static(),)),
                 (NewtonSolver, (linesearch = Backtracking(),)),
-                (NewtonSolver, (linesearch = Quadratic2(),)),
+                (NewtonSolver, (linesearch = Quadratic(),)),
                 (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
                 (NewtonSolver, (linesearch = Bisection(),)),
                 # (QuasiNewtonSolver, (linesearch = Static(),)),
                 (QuasiNewtonSolver, (linesearch = Backtracking(),)),
-                (QuasiNewtonSolver, (linesearch = Quadratic2(),)),
+                (QuasiNewtonSolver, (linesearch = Quadratic(),)),
                 (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),)),
                 (QuasiNewtonSolver, (linesearch = Bisection(),)),
             )

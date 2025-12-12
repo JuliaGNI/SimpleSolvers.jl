@@ -93,7 +93,6 @@ export Linesearch, Static
 export Backtracking,
     Bisection,
     Quadratic,
-    Quadratic2,
     BierlaireQuadratic
 
 include("linesearch/methods.jl")
@@ -104,7 +103,6 @@ include("linesearch/backtracking/condition.jl")
 include("linesearch/backtracking/sufficient_decrease_condition.jl")
 include("linesearch/backtracking/curvature_condition.jl")
 include("linesearch/bisection.jl")
-include("linesearch/quadratic.jl")
 include("linesearch/custom_quadratic.jl")
 include("linesearch/bierlaire_quadratic.jl")
 include("linesearch/dummy_linesearch.jl")
