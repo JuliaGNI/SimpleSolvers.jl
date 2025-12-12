@@ -1,7 +1,7 @@
 """
     linesearch_problem(nlp, cache, params)
 
-Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NewtonSolverCache`](@ref)).
+Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
 
 # Implementation
 

@@ -10,7 +10,7 @@
 
 To understand how these are used in practice see e.g. [`linesearch_problem`](@ref).
 
-Also compare this to [`NewtonSolverCache`](@ref).
+Also compare this to [`NonlinearSolverCache`](@ref).
 """
 struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} <: OptimizerCache{T}
     x::AT
@@ -96,9 +96,9 @@ g^\mathtt{cache} \gets g,
 \mathrm{rhs}^\mathtt{cache} \gets -g,
 \delta^\mathtt{cache} \gets H^{-1}\mathrm{rhs}^\mathtt{cache},
 ```
-where we wrote ``H`` for the Hessian (i.e. the input argument `hes`). 
+where we wrote ``H`` for the Hessian (i.e. the input argument `hes`).
 
-Also see [`update!(::NewtonSolverCache, ::AbstractVector)`](@ref). 
+Also see [`update!(::NonlinearSolverCache, ::AbstractVector)`](@ref).
 
 !!! warn
     Note that this is not updating the Hessian `hes`. For this call `update!` on the `Hessian`.

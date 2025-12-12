@@ -34,7 +34,7 @@ end
     update!(iterator, x, params)
 
 Update the `solver::`[`FixedPointIterator`](@ref) based on `x`.
-This updates the cache (instance of type [`FixedPointIteratorCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `iterator` (and `status(iterator)`).
+This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `iterator` (and `status(iterator)`).
 
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.

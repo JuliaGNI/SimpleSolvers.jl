@@ -32,7 +32,7 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `linear::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`LinesearchState`](@ref)
 - `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
-- `cache::`[`NewtonSolverCache`](@ref)
+- `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
@@ -111,7 +111,7 @@ print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
     update!(solver, x, params)
 
 Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
-This updates the cache (instance of type [`NewtonSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
+This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
 
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
