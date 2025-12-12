@@ -1,9 +1,9 @@
 using SimpleSolvers
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, LinesearchState, Quadratic2
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, LinesearchState, Quadratic
 using LinearAlgebra: rmul!, ldiv!
 using Test
-using Random 
-Random.seed!(1234) 
+using Random
+Random.seed!(1234)
 
 f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (T(.5) * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
@@ -39,7 +39,7 @@ function check_linesearch(ls::LinesearchState, ls_obj::LinesearchProblem)
 end
 
 for T ∈ (Float32, Float64)
-    for ls_method ∈ (Bisection(), Quadratic2(), BierlaireQuadratic())
+    for ls_method ∈ (Bisection(), Quadratic(), BierlaireQuadratic())
         ls = LinesearchState(ls_method; T = T)
         ls_obj = make_linesearch_problem(T.(x))
         check_linesearch(ls, ls_obj)

@@ -10,7 +10,7 @@ The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm
 Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
 
 !!! warning
-    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
+    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
 """
 function adjust_α(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
     if αₜ < σ₀ * α
@@ -29,7 +29,7 @@ Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`.
 This is used as a starting point for using the functor of `QuadraticState` and makes sure that `α` describes *a point past the minimum*.
 
 !!! warning
-    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic2` and other line searches.
+    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
 """
 function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
     if derivative(obj, x₀) < zero(T)
@@ -40,7 +40,7 @@ function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T),
 end
 
 """
-This constant is used for [`QuadraticState2`](@ref) and [`BierlaireQuadraticState`](@ref).
+This constant is used for [`QuadraticState`](@ref) and [`BierlaireQuadraticState`](@ref).
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
 
@@ -55,9 +55,9 @@ A factor by which `s` is reduced in each bracketing iteration (see [`bracket_min
 const DEFAULT_s_REDUCTION = .5
 
 """
-    QuadraticState2 <: LinesearchState
+    QuadraticState <: LinesearchState
 
-Quadratic Polynomial line search. This is similar to `QuadraticState`, but performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from `QuadraticState` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
+Quadratic Polynomial line search. Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from the old `QuadraticState` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
 
 !!! warning
     The old `QuadraticState` was deprecated!
@@ -71,14 +71,14 @@ This algorithm repeatedly builds new quadratic polynomials until a minimum is fo
 - `s`: A constant that determines the initial interval for bracketing. By default this is [`DEFAULT_BRACKETING_s`](@ref).
 - `s_reduction:` A constant that determines the factor by which `s` is decreased in each new *bracketing iteration*.
 """
-struct QuadraticState2{T} <: LinesearchState{T}
+struct QuadraticState{T} <: LinesearchState{T}
     config::Options{T}
 
     ε::T
     s::T
     s_reduction::T
 
-    function QuadraticState2(T₁::DataType=Float64;
+    function QuadraticState(T₁::DataType=Float64;
                     ε = eps(T₁),
                     s::T = DEFAULT_BRACKETING_s,
                     s_reduction::T = DEFAULT_s_REDUCTION,
@@ -88,18 +88,18 @@ struct QuadraticState2{T} <: LinesearchState{T}
     end
 end
 
-Base.show(io::IO, ::QuadraticState2) = print(io, "Polynomial quadratic (second version)")
+Base.show(io::IO, ::QuadraticState) = print(io, "Polynomial quadratic")
 
-LinesearchState(algorithm::Quadratic2; T::DataType=Float64, kwargs...) = QuadraticState2(T; kwargs...)
+LinesearchState(algorithm::Quadratic; T::DataType=Float64, kwargs...) = QuadraticState(T; kwargs...)
 
-function (ls::QuadraticState2{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T}
+function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T}
     number_of_iterations != max_number_of_quadratic_linesearch_iterations(T) || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(obj, x₀; s = s)
     y₀ = value(obj, a)
     d₀ = derivative(obj, a)
     !(abs(d₀) < ls.ε) || return x₀
-    
+
     p₀ = y₀
     p₁ = d₀
 
@@ -116,4 +116,4 @@ function (ls::QuadraticState2{T})(obj::LinesearchProblem{T}, number_of_iteration
     ls(obj, number_of_iterations + 1, αₜ, s * ls.s_reduction)
 end
 
-(ls::QuadraticState2{T})(obj::LinesearchProblem{T}, x₀::T, s::T=ls.s) where {T} = ls(obj, 0, x₀, s)
+(ls::QuadraticState{T})(obj::LinesearchProblem{T}, x₀::T, s::T=ls.s) where {T} = ls(obj, 0, x₀, s)

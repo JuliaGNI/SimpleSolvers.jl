@@ -92,7 +92,7 @@ include("bracketing/triple_point_finder.jl")
 export Linesearch, Static
 export Backtracking,
     Bisection,
-    Quadratic2,
+    Quadratic,
     BierlaireQuadratic
 
 include("linesearch/methods.jl")

@@ -70,29 +70,29 @@ See [`bisection`](@ref).
 """
 struct Bisection <: LinesearchMethod end
 
+# """
+#     Quadratic <: LinesearchMethod
+
+# The *quadratic* method. Compare this to [`BierlaireQuadratic`](@ref). The algorithm is taken from [kelley1995iterative](@cite).
+
+# # Constructors
+
+# ```julia
+# Quadratic()
+# ```
+
+# # Extended help
+# """
+# struct Quadratic <: LinesearchMethod end
+
 """
     Quadratic <: LinesearchMethod
 
-The *quadratic* method. Compare this to [`BierlaireQuadratic`](@ref). The algorithm is taken from [kelley1995iterative](@cite).
-
-# Constructors
-
-```julia
-Quadratic()
-```
+The *quadratic* linesearch method.
 
 # Extended help
 """
 struct Quadratic <: LinesearchMethod end
-
-"""
-    Quadratic2 <: LinesearchMethod
-
-The second *quadratic* method. Compare this to [`Quadratic`](@ref).
-
-# Extended help
-"""
-struct Quadratic2 <: LinesearchMethod end
 
 """
     BierlaireQuadratic <: LinesearchMethod
@@ -121,7 +121,7 @@ Keys include:
 """
 struct Static{T<:Number} <: LinesearchMethod
     α::T
-    
+
     Static(α::T = 1.0) where {T} = new{T}(α)
 end
 

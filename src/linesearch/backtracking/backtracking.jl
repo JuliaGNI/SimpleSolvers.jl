@@ -2,7 +2,7 @@ using Printf
 @doc raw"""
     const DEFAULT_ARMIJO_α₀
 
-The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`BacktrackingState`](@ref) and [`QuadraticState2`](@ref)).
+The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`BacktrackingState`](@ref) and [`QuadraticState`](@ref)).
 Its value is """ * """$(DEFAULT_ARMIJO_α₀)
 """
 const DEFAULT_ARMIJO_α₀ = 1.0
@@ -10,7 +10,7 @@ const DEFAULT_ARMIJO_α₀ = 1.0
 """
     const DEFAULT_ARMIJO_σ₀
 
-Constant used in [`QuadraticState2`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
+Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
 
 It is meant to *safeguard against stagnation* when performing line searches (see [kelley1995iterative](@cite)).
 
@@ -21,7 +21,7 @@ const DEFAULT_ARMIJO_σ₀ = 0.1
 """
     const DEFAULT_ARMIJO_σ₁
 
-Constant used in [`QuadraticState2`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
+Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
 Its value is $(DEFAULT_ARMIJO_σ₁)
 """
 const DEFAULT_ARMIJO_σ₁ = 0.5
@@ -58,7 +58,7 @@ Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
 
 The keys are:
 - `config::`[`Options`](@ref)
-- `α₀`: 
+- `α₀`:
 - `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 

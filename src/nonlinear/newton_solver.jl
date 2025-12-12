@@ -7,7 +7,7 @@ A `const` derived from [`NonlinearSolver`](@ref)
 
 The `NewtonSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
 ```jldoctest; setup=:(using SimpleSolvers)
-linesearch = Quadratic2()
+linesearch = Quadratic()
 F(y, x, params) = y .= tanh.(x)
 x = [.5, .5]
 y = zero(x)

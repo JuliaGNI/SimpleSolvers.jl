@@ -4,9 +4,9 @@ const DEFAULT_LINESEARCH_RMAX=100
 """
     LinesearchState
 
-Abstract type. 
+Abstract type.
 
-Examples include [`StaticState`](@ref), [`BacktrackingState`](@ref), [`BisectionState`](@ref) and [`QuadraticState2`](@ref).
+Examples include [`StaticState`](@ref), [`BacktrackingState`](@ref), [`BisectionState`](@ref) and [`QuadraticState`](@ref).
 
 # Implementation
 
