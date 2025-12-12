@@ -1,8 +1,11 @@
-using SimpleSolvers
-using SimpleSolvers: initialize!, solver_step!
-using Test
-using Random
 using ForwardDiff
+using Random
+using SimpleSolvers
+using Test
+
+using NaNMath: log
+using SimpleSolvers: initialize!, solver_step!
+
 Random.seed!(123)
 
 F(x::T) where {T<:Number} = abs(tanh(x - T(0.1))) # exp(x) * (x ^ 3 - 5x ^ 2 + 2x) + 2one(T)

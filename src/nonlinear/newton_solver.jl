@@ -39,7 +39,7 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod}
 
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    cache = NewtonSolverCache(x, x)
+    cache = NonlinearSolverCache(x, x)
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method=NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
 end
 
@@ -60,7 +60,7 @@ end
 function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = ismissing(DF!) ? NonlinearProblem(F, x, y) : NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
-    cache = NewtonSolverCache(x, y)
+    cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = LinesearchState(linesearch; T=T)
@@ -72,10 +72,7 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-const LINESEARCH_NAN_MAX_ITERATIONS = 8
-
-function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
-    update!(cache(s), x)
+function compute_new_direction(x, s::NewtonSolver, params)
     value!(cache(s).y, nonlinearproblem(s), x, params)
     # first we update the rhs of the linearproblem
     update!(linearproblem(s), -value(cache(s)))
@@ -87,18 +84,6 @@ function solver_step!(x::AbstractVector{T}, s::NewtonSolver, params) where {T}
         factorize!(linearsolver(s), linearproblem(s))
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
-    for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
-        value!(cache(s).y, nonlinearproblem(s), x, params)
-        if any(isnan, cache(s).y)
-            (s.config.verbosity >= 2 && @warn "NaN detected in Newton solver. Reducing length of direction vector.")
-            direction(cache(s)) ./= 2
-        else
-            break
-        end
-    end
-    α = linesearch(s)(linesearch_problem(s, params))
-    compute_new_iterate!(x, α, direction(cache(s)))
-    x
 end
 
 """
@@ -117,18 +102,10 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 """
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
-cache(solver::NewtonSolver)::NewtonSolverCache = solver.cache
-config(solver::NewtonSolver)::Options = solver.config
-status(solver::NewtonSolver)::NonlinearSolverStatus = solver.status
-
-value(solver::NewtonSolver) = value(nonlinearproblem(solver))
-
-iteration_number(solver::NewtonSolver)::Integer = iteration_number(status(solver))
 
 check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
 print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
 
-initialize!(s::NewtonSolver, x₀::AbstractArray) = initialize!(status(s), x₀)
 
 """
     update!(solver, x, params)
@@ -146,32 +123,3 @@ function update!(s::NewtonSolver, x₀::AbstractArray, params)
 
     s
 end
-
-"""
-    solve!(x, s)
-
-# Extended help
-
-!!! info
-    The function `update!` calls [`increase_iteration_number!`](@ref).
-"""
-solve!(x::AbstractArray, s::NewtonSolver) = solve!(x, s, NullParameters())
-
-function solve!(x::AbstractArray, s::NewtonSolver, params)
-    initialize!(s, x)
-    update!(status(s), x, nonlinearproblem(s), params)
-
-    while !meets_stopping_criteria(status(s), config(s))
-        increase_iteration_number!(status(s))
-        solver_step!(x, s, params)
-        update!(status(s), x, nonlinearproblem(s), params)
-        residual!(status(s))
-    end
-
-    print_status(status(s), config(s))
-    warn_iteration_number(status(s), config(s))
-
-    x
-end
-
-Base.show(io::IO, solver::NewtonSolver) = show(io, status(solver))
