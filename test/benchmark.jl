@@ -14,6 +14,11 @@ function test(n)
         (NewtonSolver, (linesearch=Quadratic(),)),
         (NewtonSolver, (linesearch=BierlaireQuadratic(),)),
         (NewtonSolver, (linesearch=Bisection(),)),
+        (FixedPointIterator, (linesearch=Static(),)),
+        (FixedPointIterator, (linesearch=Backtracking(),)),
+        (FixedPointIterator, (linesearch=Quadratic(),)),
+        (FixedPointIterator, (linesearch=BierlaireQuadratic(),)),
+        (FixedPointIterator, (linesearch=Bisection(),)),
     )
 
         for T in (Float64, Float32)
