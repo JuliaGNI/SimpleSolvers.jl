@@ -34,7 +34,7 @@ default_precision(Float64)
 
 # output
 
-2.220446049250313e-16
+1.7763568394002505e-15
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
@@ -42,7 +42,7 @@ default_precision(Float32)
 
 # output
 
-1.1920929f-6
+9.536743f-7
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
