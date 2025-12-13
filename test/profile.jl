@@ -7,6 +7,11 @@ function F!(f, x, params)
     nothing
 end
 
+# function F!(f, x)
+#     f .= x.^2
+#     nothing
+# end
+
 
 function profile(Solver, kwarguments, n=100)
     x = ones(n)
@@ -28,38 +33,8 @@ profile(NewtonSolver, (linesearch=Static(),))
 # profile(NewtonSolver, (linesearch=Quadratic(),))
 # profile(NewtonSolver, (linesearch=BierlaireQuadratic(),))
 # profile(NewtonSolver, (linesearch=Bisection(),))
-# profile(QuasiNewtonSolver, (linesearch = Static(),))
-# profile(QuasiNewtonSolver, (linesearch = Backtracking(),))
-# profile(QuasiNewtonSolver, (linesearch = Quadratic(),))
-# profile(QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),))
-# profile(QuasiNewtonSolver, (linesearch = Bisection(),))
-
-
-
-
-# using Profile
-# using ProfileCanvas
-# using SimpleSolvers
-
-
-# function F!(f, x)
-#     f .= x.^2
-#     nothing
-# end
-
-# Solver = NewtonSolver
-# kwarguments = (linesearch = Backtracking(),)
-
-# n = 100
-# x = ones(n)
-# y = zero(x)
-# nl = Solver(x, y; kwarguments...)
-
-# solve!(x, F!, nl)
-
-# x = ones(n)
-
-# Profile.clear()
-# Profile.clear_malloc_data()
-
-# @profview solve!(x, F!, nl)
+# profile(FixedPointIterator, (linesearch = Static(),))
+# profile(FixedPointIterator, (linesearch = Backtracking(),))
+# profile(FixedPointIterator, (linesearch = Quadratic(),))
+# profile(FixedPointIterator, (linesearch = BierlaireQuadratic(),))
+# profile(FixedPointIterator, (linesearch = Bisection(),))
