@@ -64,7 +64,7 @@ function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations
     number_of_iterations != ls.config.max_iterations || error("Maximum number of iterations reached when doing quadratic line search.")
     # determine constant coefficients of polynomial p(α) = p₀ + p₁α + p₂α²
     y₀ = value(obj, x₀)
-    d₀ = derivative!(obj, x₀)
+    d₀ = derivative(obj, x₀)
     p₀ = y₀
     p₁ = d₀
     α = determine_initial_α(obj, α, y₀)
