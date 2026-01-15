@@ -43,7 +43,7 @@ mutable struct SufficientDecreaseCondition{T, VT<:Union{T, AbstractArray{T}}, TV
 end
 
 function (sdc::SufficientDecreaseCondition{T, VT})(xₖ₊₁::VT, αₖ::T) where {T, VT}
-    fₖ₊₁ = __value!(sdc.obj, xₖ₊₁)
+    fₖ₊₁ = value(sdc.obj, xₖ₊₁)
     fₖ₊₁ ≤ sdc.fₖ + sdc.c * αₖ * sdc.pₖ' * sdc.gradₖ
 end
 
