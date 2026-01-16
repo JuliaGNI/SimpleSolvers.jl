@@ -39,6 +39,8 @@ fig_initial = Figure()
 ax_initial = Axis(fig_initial[1, 1])
 x = -1.:.01:2.
 lines!(ax_initial, x, f.(x); label = L"f(x)")
+x = [0.]
+scatter!(ax_initial, x, f.(x); label = L"x_0", color = :red)
 axislegend(ax_initial)
 save("f.png", fig_initial)
 nothing # hide
@@ -55,8 +57,10 @@ using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
 
-J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
-x = [0.]
+function J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
+    SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
+end
+
 # allocate solver
 solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
 # initialize solver
@@ -90,12 +94,17 @@ nothing # hide
 
 ![](f_ls.png)
 
+!!! info
+    The second plot shows the optimization problem for the ideal step length, where we start from ``x_0`` and proceed in the Newton direction. In the following we want to determine its minimum by fitting a quadratic polynomial, i.e. fitting ``p``.
+
 The first two coefficient of the polynomial ``p`` (i.e. ``p_1`` and ``p_2``) are easy to compute:
 
 ```@example quadratic
 p₀ = fˡˢ(0.)
+```
+
+```@example quadratic
 p₁ = ∂fˡˢ∂α(0.)
-nothing # hide
 ```
 
 ### Initializing ``\alpha``
@@ -145,9 +154,6 @@ p(α) = p₀ + p₁ * α + p₂ * α^2
 
 When using `QuadraticState` we in addition call [`SimpleSolvers.adjust_α`](@ref):
 
-!!! warning
-    `QuadraticState` was deprecated and moved to `obsolete`.
-
 ```@example quadratic
 using SimpleSolvers: adjust_α # hide
 α₁ = adjust_α(αₜ, α₀)
@@ -191,8 +197,8 @@ compute_new_iterate!(x, α₁, direction(cache(solver)))
 ```
 
 ```@setup quadratic
-scatter!(ax_initial, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax_initial)
+scatter!(ax_initial, x, f(x); color = mpurple, label = L"x^\mathrm{update}")
+axislegend(ax_initial; merge = true, unique = true)
 save("f_with_iterate.png", fig_initial)
 nothing # hide
 ```
@@ -256,6 +262,9 @@ y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
 αₜ = -p₁ / (2p₂)
+```
+
+```@example quadratic
 α₁ = adjust_α(αₜ, α₀)
 ```
 
@@ -272,6 +281,7 @@ ax = Axis(fig[1, 1])
 alpha = -3.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
+scatter!(ax, αₜ, p(αₜ); color = mpurple, label = L"\alpha_t")
 scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
 axislegend(ax)
 save("f_ls_opt1.png", fig)
@@ -320,6 +330,21 @@ p(α) = p₀ + p₁ * α + p₂ * α^2
 ```@example quadratic
 α₂ = adjust_α(αₜ, α₀⁽²⁾)
 ```
+
+```@setup quadratic
+fig = Figure()
+ax = Axis(fig[1, 1])
+alpha = -15.:.01:2.
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
+lines!(ax, alpha, p.(alpha); label = L"p^{(2)}(\alpha)")
+scatter!(ax, αₜ, p(αₜ); color = mpurple, label = L"\alpha_t")
+scatter!(ax, α₂, p(α₂); color = mred, label = L"\alpha_2")
+axislegend(ax)
+save("f_ls_opt2.png", fig)
+nothing # hide
+```
+
+![](f_ls_opt2.png)
 
 We see that for ``\alpha_2`` (as opposed to ``\alpha_1``) we have ``\alpha_2 = \alpha_t`` as ``\alpha_t`` is in (this is what [`SimpleSolvers.adjust_α`](@ref) checks for):
 
