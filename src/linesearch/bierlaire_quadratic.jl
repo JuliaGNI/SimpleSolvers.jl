@@ -137,5 +137,5 @@ end
 function (ls::BierlaireQuadraticState{T})(f, x₀::T=zero(T), iteration_number::Integer=1) where {T}
     # check if the minimum has already been reached
     !(l2norm(derivative(f, x₀)) < ls.ξ) || return x₀
-    ls(f, triple_point_finder(f, x₀)..., iteration_number)
+    ls(f, triple_point_finder(f, x₀; δ=ls.ε)..., iteration_number)
 end
