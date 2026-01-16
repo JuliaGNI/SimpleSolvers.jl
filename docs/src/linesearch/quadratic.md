@@ -385,6 +385,9 @@ y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
 αₜ = -p₁ / (2p₂)
+```
+
+```@example quadratic
 α₃ = adjust_α(αₜ, α₀⁽³⁾)
 ```
 
@@ -395,7 +398,7 @@ x .= compute_new_iterate(x, α₃, direction(_cache))
 ```@setup quadratic
 fig = Figure()
 ax = Axis(fig[1, 1])
-x_array = -1.:.01:2.
+x_array = -1.:.01:4.
 lines!(ax, x_array, f.(x_array); label = L"f(x)")
 scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
 axislegend(ax)
@@ -467,11 +470,11 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -2.5:.01:3.
+alpha = -2:.01:6.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
-ylims!(ax, (-1., 6.))
+# ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
 save("f_ls_1.png", fig)
 nothing # hide
@@ -499,7 +502,7 @@ and compute its minimum:
 ```@example II
 lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
-ylims!(ax, (-1., 6.))
+# ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
 save("f_ls_2.png", fig)
 nothing # hide
