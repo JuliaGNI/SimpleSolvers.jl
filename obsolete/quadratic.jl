@@ -81,7 +81,5 @@ function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations
 
     α = adjust_α(ls, αₜ, α)
 
-    error("finally!?")
-
     sdc(α) ? α : ls(obj, number_of_iterations + 1, α * DEFAULT_ARMIJO_p, x₀)
 end

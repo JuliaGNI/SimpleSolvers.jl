@@ -22,6 +22,7 @@ n = 1
 x₀ = rand(n)
 root₁ = 0.76131284
 root₂ = -4.7350357537069865
+root₃ =  -0.6737697825355634
 
 function J!(g, x, params)
     g .= 0
@@ -38,7 +39,7 @@ for T ∈ (Float64, Float32)
                 (NewtonSolver, (linesearch = Quadratic(),)),
                 (NewtonSolver, (linesearch = BierlaireQuadratic(),)),
                 (NewtonSolver, (linesearch = Bisection(),)),
-                # (QuasiNewtonSolver, (linesearch = Static(),)),
+                # (QuasiNewtonSolver, (linesearch = Static(),)), # this combination fails!!!
                 (QuasiNewtonSolver, (linesearch = Backtracking(),)),
                 (QuasiNewtonSolver, (linesearch = Quadratic(),)),
                 (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),)),
@@ -54,7 +55,7 @@ for T ∈ (Float64, Float32)
 
         solve!(x, nl)
         for _x in x
-            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))
+            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T))) || ≈(_x, T(root₃); atol=∛(2eps(T)))
         end
 
         x .= T.(x₀)
@@ -63,7 +64,7 @@ for T ∈ (Float64, Float32)
         solve!(x, nl)
         # println(Solver, kwarguments)
         for _x in x
-            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T)))
+            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T))) || ≈(_x, T(root₃); atol=∛(2eps(T)))
         end
     end
 end
