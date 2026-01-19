@@ -14,16 +14,15 @@ Also compare this to [`NonlinearSolverCache`](@ref).
 """
 struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} <: OptimizerCache{T}
     x::AT
-    δ::AT
+    Δx::AT
     g::AT
     rhs::AT
-    Δx::AT
     Δg::AT
     H::HT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
         h = zeros(T, length(x), length(x))
-        cache = new{T, AT, typeof(h)}(similar(x), similar(x), similar(x), similar(x), similar(x), similar(x), h)
+        cache = new{T, AT, typeof(h)}(similar(x), similar(x), similar(x), similar(x), similar(x), h)
         initialize!(cache, x)
         cache
     end
@@ -32,7 +31,7 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} 
     function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
         g = Gradient(problem)(x)
         h = Hessian(problem)(x)
-        new{T, AT, typeof(h)}(copy(x), copy(x), zero(x), g, -g, zero(x), zero(x), h)
+        new{T, AT, typeof(h)}(copy(x), copy(x), zero(x), g, -g, zero(x), h)
     end
 end
 
@@ -55,9 +54,9 @@ gradient(cache::NewtonOptimizerCache) = cache.g
 """
     direction(::NewtonOptimizerCache)
 
-Return the direction of the gradient step (i.e. `δ`) of an instance of [`NewtonOptimizerCache`](@ref).
+Return the direction of the gradient step (i.e. `Δx`) of an instance of [`NewtonOptimizerCache`](@ref).
 """
-direction(cache::NewtonOptimizerCache) = cache.δ
+direction(cache::NewtonOptimizerCache) = cache.Δx
 
 hessian(cache::NewtonOptimizerCache) = cache.H
 
