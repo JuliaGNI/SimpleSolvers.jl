@@ -11,8 +11,8 @@ struct BFGSCache{T, VT, MT} <: OptimizerCache{T}
     T1::MT
     T2::MT
     T3::MT
-    δγ::MT
-    δδ::MT
+    ΔxΔg::MT
+    ΔxΔx::MT
 
     rhs::VT
     Δx::VT
@@ -55,7 +55,7 @@ inverse_hessian(::BFGSCache) = error("The inverse Hessian is stored in the state
 function update!(cache::BFGSCache, state::OptimizerState, x::AbstractVector)
     cache.x .= x
     direction(cache) .= cache.x - state.x̄
-    outer!(cache.δδ, direction(cache), direction(cache))
+    outer!(cache.ΔxΔx, direction(cache), direction(cache))
     cache
 end
 
@@ -88,16 +88,16 @@ function update!(cache::BFGSCache{T}, state::BFGSState{T}, x::AbstractVector{T},
     cache.Δx .= cache.x - state.x̄
     cache.Δg .= gradient(cache) - state.ḡ
 
-    δγ = cache.Δx ⋅ cache.Δg
+    ΔxΔg = cache.Δx ⋅ cache.Δg
 
-    if !iszero(δγ)
-        outer!(cache.δδ, cache.Δx, cache.Δx)
-        outer!(cache.δγ, cache.Δx, cache.Δg)
-        mul!(cache.T1, cache.δγ, state.Q)
-        mul!(cache.T2, state.Q, cache.δγ')
+    if !iszero(ΔxΔg)
+        outer!(cache.ΔxΔx, cache.Δx, cache.Δx)
+        outer!(cache.ΔxΔg, cache.Δx, cache.Δg)
+        mul!(cache.T1, cache.ΔxΔg, state.Q)
+        mul!(cache.T2, state.Q, cache.ΔxΔg')
         γQγ = cache.Δg' * state.Q * cache.Δg
-        cache.T3 .= (one(T) + γQγ ./ δγ) .* cache.δδ
-        inverse_hessian(state) .-= (cache.T1 .+ cache.T2 .- cache.T3) ./ δγ
+        cache.T3 .= (one(T) + γQγ ./ ΔxΔg) .* cache.ΔxΔx
+        inverse_hessian(state) .-= (cache.T1 .+ cache.T2 .- cache.T3) ./ ΔxΔg
     end
 
     direction(cache) .= inverse_hessian(state) * rhs(cache)
