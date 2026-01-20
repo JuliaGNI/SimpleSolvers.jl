@@ -1,27 +1,3 @@
-@doc raw"""
-    adjust_α(αₜ, α)
-
-Adjust `αₜ` based on the previous `α`.
-
-The check that ``\alpha \in [\sigma_0\alpha_\mathrm{old}, \sigma_1\alpha_\mathrm{old}]`` should *safeguard against stagnation in the iterates* as well as checking that ``\alpha`` decreases at least by a factor ``\sigma_1``. The defaults for `σ₀` and `σ₁` are [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref) respectively.
-
-# Implementation
-
-Wee use defaults [`DEFAULT_ARMIJO_σ₀`](@ref) and [`DEFAULT_ARMIJO_σ₁`](@ref).
-
-!!! warning
-    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
-"""
-function adjust_α(αₜ::T, α::T, σ₀::T=T(DEFAULT_ARMIJO_σ₀), σ₁::T=T(DEFAULT_ARMIJO_σ₁)) where {T}
-    if αₜ < σ₀ * α
-        σ₀ * α
-    elseif αₜ > σ₁ * α
-        σ₁ * α
-    else
-        αₜ
-    end
-end
-
 """
     determine_initial_α(y₀, obj, α₀)
 
