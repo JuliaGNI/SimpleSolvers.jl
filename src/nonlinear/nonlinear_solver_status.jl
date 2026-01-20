@@ -4,7 +4,6 @@
 Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
 # Keys
-- `i::Int`: iteration number,
 - `rxₐ`: absolute residual in `x`,
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
@@ -36,9 +35,7 @@ rxₐ= NaN,
 rfₐ= NaN
 ```
 """
-mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
-    i::Int
-
+struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     rxₐ::XT
     rxₛ::XT
 
@@ -59,28 +56,32 @@ mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
     f_converged::Bool
     g_converged::Bool
     f_increased::Bool
-
-    function NonlinearSolverStatus{T}(n::Int) where {T}
-
-        status = new{T,T,Vector{T},Vector{T}}(
-            0,
-            zero(T), zero(T), # residuals for x
-            zero(T), zero(T), # residuals for f
-            zeros(T, n), zeros(T, n), zeros(T, n), zeros(T, n), # the ics for x
-            zeros(T, n), zeros(T, n), zeros(T, n), zeros(T, n), # the ics for f
-            false, false, false, false)
-        clear!(status)
-        status
-    end
-
-    function NonlinearSolverStatus(x₀::AbstractVector{T}) where {T}
-        status = NonlinearSolverStatus{T}(length(x₀))
-        initialize!(status, x₀)
-        status
-    end
 end
 
-iteration_number(status) = status.i
+@doc raw"""
+    residual(status)
+
+Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
+Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref).
+The computed residuals are the following:
+- `rxₐ`: absolute residual in ``x``,
+- `rxₛ` : successive residual (the norm of ``\delta``),
+- `rfₐ`: absolute residual in ``f``,
+- `rfₛ` : successive residual (the norm of ``\gamma``).
+"""
+function residual(status::NonlinearSolverStatus, cache::NonlinearSolverCache)
+    rxₐ = norm(direction(cache))
+    rxₛ = norm(direction(cache))
+
+    rfₐ = norm(value(cache))
+    rfₛ = norm(cache.γ)
+
+    rxₐ, rxₛ, rfₐ, rfₛ
+end
+
+function NonlinearSolverStatus(state::NonlinearSolverState{T}, cache::NonlinearSolverCache{T}, config::Options{T}, params) where {T}
+    residual!
+end
 
 """
     solution(status)
@@ -89,34 +90,7 @@ Return the current value of `x` (i.e. the current solution).
 """
 solution(status::NonlinearSolverStatus) = status.x
 
-function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
-    status.i = 0
-
-    status.rxₐ = XT(NaN)
-    status.rxₛ = XT(NaN)
-
-    status.rfₐ = YT(NaN)
-    status.rfₛ = YT(NaN)
-
-    status.x̄ .= XT(NaN)
-    status.x .= XT(NaN)
-    status.δ .= XT(NaN)
-    status.x̃ .= XT(NaN)
-
-    status.f₀ .= YT(NaN)
-    status.f̄ .= YT(NaN)
-    status.f .= YT(NaN)
-    status.γ .= YT(NaN)
-
-    status.x_converged = false
-    status.f_converged = false
-    status.f_increased = false
-
-    status
-end
-
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT,AYT}) where {XT,YT,AXT<:AbstractArray,AYT<:AbstractArray} = print(io,
-    (@sprintf "i=%4i" iteration_number(status)), ",\n",
     (@sprintf "x=%4e" status.x[1]), ",\n",
     (@sprintf "f=%4e" status.f[1]), ",\n",
     (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
@@ -136,29 +110,10 @@ function print_status(status::NonlinearSolverStatus, config::Options)
     end
 end
 
-"""
-    increase_iteration_number!(status)
-
-Increase iteration number of `status`.
-
-# Examples
-
-```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus, increase_iteration_number!, iteration_number)
-status = NonlinearSolverStatus{Float64}(5)
-increase_iteration_number!(status)
-iteration_number(status)
-
-# output
-
-1
-```
-"""
-increase_iteration_number!(status::NonlinearSolverStatus) = status.i += 1
-
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
 
 """
-    assess_convergence!(status, config)
+    assess_convergence(status, config)
 
 Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
 - `status.rxₐ ≤ config.x_abstol`,
@@ -168,18 +123,15 @@ Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@r
 
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
-function assess_convergence!(status::NonlinearSolverStatus, config::Options)
+function assess_convergence(status::NonlinearSolverStatus, config::Options, f, f̄)
     x_converged = status.rxₛ ≤ config.x_suctol
 
     f_converged = status.rfₐ ≤ config.f_abstol ||
                   status.rfₛ ≤ config.f_suctol
 
-    status.x_converged = x_converged
-    status.f_converged = f_converged
+    f_increased = norm(f) > norm(f̄)
 
-    status.f_increased = norm(status.f) > norm(status.f̄)
-
-    isconverged(status)
+    x_converged, f_converged, f_increased
 end
 
 """
@@ -243,66 +195,4 @@ function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
         @warn "Solver took $(iteration_number(status)) iterations."
     end
     nothing
-end
-
-@doc raw"""
-    residual!(status)
-
-Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
-Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref).
-The computed residuals are the following:
-- `rxₐ`: absolute residual in ``x``,
-- `rxₛ` : successive residual (the norm of ``\delta``),
-- `rfₐ`: absolute residual in ``f``,
-- `rfₛ` : successive residual (the norm of ``\gamma``).
-"""
-function residual!(status::NonlinearSolverStatus)
-    status.rxₐ = norm(status.δ)
-    status.x̃ .= status.δ ./ status.x
-    status.rxₛ = norm(status.δ)
-
-    status.rfₐ = norm(status.f)
-    status.rfₛ = norm(status.γ)
-
-    nothing
-end
-
-"""
-    initialize!(status, x)
-
-Clear `status::`[`NonlinearSolverStatus`](@ref) (via the function [`clear!`](@ref)).
-"""
-function initialize!(status::NonlinearSolverStatus, x::AbstractVector)
-    clear!(status)
-
-    status
-end
-
-"""
-    update!(status, x, nls)
-
-Update the `status::`[`NonlinearSolverStatus`](@ref) based on `x` for the [`NonlinearProblem`](@ref) `obj`.
-
-!!! info
-   This also updates the problem `nls`!
-
-Sets `x̄` and `f̄` to `x` and `f` respectively and computes `δ` as well as `γ`.
-The new `x` and `x̄` stored in `status` are used to compute `δ`.
-The new `f` and `f̄` stored in `status` are used to compute `γ`.
-See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
-"""
-function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearProblem, params)
-    status.x̄ .= solution(status)
-    status.f̄ .= status.f
-
-    solution(status) .= x
-    value!(status.f, nls, x, params)
-    (iteration_number(status) != 0) || (status.f₀ .= status.f)
-
-    status.δ .= solution(status) .- status.x̄
-    status.γ .= status.f .- status.f̄
-
-    residual!(status)
-
-    status
 end

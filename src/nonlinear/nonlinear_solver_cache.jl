@@ -5,7 +5,6 @@ An abstract type that comprises e.g. the [`NonlinearSolverCache`](@ref).
 """
 abstract type AbstractNonlinearSolverCache{T} end
 
-
 """
     NonlinearSolverCache
 
@@ -29,8 +28,8 @@ NonlinearSolverCache(x, y)
 ```
 """
 struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNonlinearSolverCache{T}
-    x̄::AT
     x::AT
+    x̃::AT
     δx::AT
 
     rhs::AT
@@ -50,6 +49,12 @@ direction(cache::NonlinearSolverCache) = cache.δx
 jacobian(cache::NonlinearSolverCache) = cache.j
 solution(cache::NonlinearSolverCache) = cache.x
 value(cache::NonlinearSolverCache) = cache.y
+"""
+    rhs(cache)
+
+Return the right-hand side of the equation, stored in `cache::`[`NonlinearSolverCache`](@ref).
+"""
+rhs(cache::NonlinearSolverCache) = cache.rhs
 
 @doc raw"""
     update!(cache, x)
@@ -59,10 +64,10 @@ Update the [`NonlinearSolverCache`](@ref) based on `x`, i.e.:
 2. `cache.x` ``\gets`` x,
 3. `cache.δx` ``\gets`` 0.
 """
-function update!(cache::NonlinearSolverCache{T}, x::AbstractVector{T}) where {T}
-    cache.x̄ .= x
-    cache.x .= x
-    cache.δx .= 0
+function update!(cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, x::AbstractVector{T}) where {T}
+    solution(cache) .= x
+    direction(cache) .= solution(cache) .- solution(state)
+    cache.x̃ .= direction(cache) ./ solution(cache)
     cache
 end
 
@@ -76,22 +81,14 @@ Initialize the [`NonlinearSolverCache`](@ref) based on `x`.
 This calls [`alloc_x`](@ref) to do all the initialization.
 """
 function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where {T}
-    cache.x̄ .= T(NaN)
-    cache.x .= T(NaN)
-    cache.δx .= T(NaN)
+    solution(x) .= T(NaN)
+    cache.x̃ .= T(NaN)
+    direction(x) .= T(NaN)
 
-    cache.rhs .= T(NaN)
-    cache.y .= T(NaN)
+    rhs(cache) .= T(NaN)
+    value(cache) .= T(NaN)
 
     jacobian(cache) .= T(NaN)
 
     cache
 end
-
-
-"""
-    rhs(cache)
-
-Return the right-hand side of the equation, stored in `cache::`[`NonlinearSolverCache`](@ref).
-"""
-rhs(cache::NonlinearSolverCache) = cache.rhs
