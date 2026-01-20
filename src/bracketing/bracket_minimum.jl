@@ -133,7 +133,7 @@ function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k:
     bracket(f, a, BracketMinimumCriterion(); s=s, k=k, nmax=nmax)
 end
 
-function bracket_minimum(obj::AbstractOptimizerProblem{T}, x::T=T(0.0); kwargs...) where {T <: Number}
+function bracket_minimum(obj::AbstractOptimizerProblem{T}, x::T=zero(T); kwargs...) where {T <: Number}
     bracket_minimum(obj.F, x; kwargs...)
 end
 
@@ -149,7 +149,7 @@ p_2 = \frac{f(b) - f(a) - f'(0)b}{b^2},
 ```
 where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
 """
-function bracket_minimum_with_fixed_point(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T <: Number}
+function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T <: Number}
     
     a = x
     ya = f(a)
@@ -164,17 +164,19 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T=0.0; s::T=T(DEFAULT_
         s = -s
     end
 
-    bc = BracketMinimumCriterion()
+    da = d(a)
+
+    bc = BracketRootCriterion()
 
     # check if condition is already satisfied
-    if bc(f(a - s), yb)
+    if bc(da, d(b))
         return (a, b)
     end
 
     for _ in 1:nmax
         b = b + s
         yb = f(b)
-        if bc(ya, yb)
+        if bc(da, d(b))
             interval = a < b ? (a, b) : (b, a)
             return interval
         end
@@ -183,8 +185,8 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T=0.0; s::T=T(DEFAULT_
     error("Unable to bracket f starting at x = $x.")
 end
 
-function bracket_minimum_with_fixed_point(obj::AbstractOptimizerProblem{T}, x::T=T(0.0); kwargs...) where {T <: Number}
-    bracket_minimum_with_fixed_point(obj.F, x; kwargs...)
+function bracket_minimum_with_fixed_point(obj::AbstractOptimizerProblem{T}, x::T=zero(T); kwargs...) where {T <: Number}
+    bracket_minimum_with_fixed_point(obj.F, obj.D, x; kwargs...)
 end
 
 """

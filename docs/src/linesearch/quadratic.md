@@ -39,7 +39,9 @@ fig_initial = Figure()
 ax_initial = Axis(fig_initial[1, 1])
 x = -1.:.01:2.
 lines!(ax_initial, x, f.(x); label = L"f(x)")
-axislegend(ax_initial)
+x = [0.]
+scatter!(ax_initial, x, f.(x); label = L"x_0", color = :red)
+axislegend(ax_initial; merge = true, unique = true)
 save("f.png", fig_initial)
 nothing # hide
 ```
@@ -55,8 +57,10 @@ using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
 
-J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
-x = [0.]
+function J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
+    SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
+end
+
 # allocate solver
 solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
 # initialize solver
@@ -90,12 +94,17 @@ nothing # hide
 
 ![](f_ls.png)
 
+!!! info
+    The second plot shows the optimization problem for the ideal step length, where we start from ``x_0`` and proceed in the Newton direction. In the following we want to determine its minimum by fitting a quadratic polynomial, i.e. fitting ``p``.
+
 The first two coefficient of the polynomial ``p`` (i.e. ``p_1`` and ``p_2``) are easy to compute:
 
 ```@example quadratic
 p₀ = fˡˢ(0.)
+```
+
+```@example quadratic
 p₁ = ∂fˡˢ∂α(0.)
-nothing # hide
 ```
 
 ### Initializing ``\alpha``
@@ -140,17 +149,7 @@ We can now finally compute ``p_2`` and determine the minimum of the polynomial:
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
-αₜ = -p₁ / (2p₂)
-```
-
-When using `QuadraticState` we in addition call [`SimpleSolvers.adjust_α`](@ref):
-
-!!! warning
-    `QuadraticState` was deprecated and moved to `obsolete`.
-
-```@example quadratic
-using SimpleSolvers: adjust_α # hide
-α₁ = adjust_α(αₜ, α₀)
+α₁ = -p₁ / (2p₂)
 ```
 
 ```@setup quadratic
@@ -191,8 +190,8 @@ compute_new_iterate!(x, α₁, direction(cache(solver)))
 ```
 
 ```@setup quadratic
-scatter!(ax_initial, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax_initial)
+scatter!(ax_initial, x, f(x); color = mpurple, label = L"x^\mathrm{update}")
+axislegend(ax_initial; merge = true, unique = true)
 save("f_with_iterate.png", fig_initial)
 nothing # hide
 ```
@@ -255,8 +254,7 @@ p₁ = ∂fˡˢ∂α(0.)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
-αₜ = -p₁ / (2p₂)
-α₁ = adjust_α(αₜ, α₀)
+α₁ = -p₁ / (2p₂)
 ```
 
 ```@setup quadratic
@@ -280,7 +278,6 @@ nothing # hide
 
 ![](f_ls_opt1.png)
 
-What we see here is that we do not use ``\alpha_t = -p_1 / (2p_2)`` as [`SimpleSolvers.adjust_α`](@ref) instead picks the left point in the interval ``[\sigma_0\alpha_0, \sigma_1\alpha_0]`` as the change computed with ``\alpha_t`` would be too small.
 
 We now again move the original ``x`` in the Newton direction with step length ``\alpha_1``:
 
@@ -314,19 +311,24 @@ p₁ = ∂fˡˢ∂α(0.)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
-αₜ = -p₁ / (2p₂)
+α₂ = -p₁ / (2p₂)
 ```
 
-```@example quadratic
-α₂ = adjust_α(αₜ, α₀⁽²⁾)
+```@setup quadratic
+fig = Figure()
+ax = Axis(fig[1, 1])
+alpha = -15.:.01:2.
+lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
+lines!(ax, alpha, p.(alpha); label = L"p^{(2)}(\alpha)")
+scatter!(ax, α₂, p(α₂); color = mred, label = L"\alpha_2")
+axislegend(ax)
+save("f_ls_opt2.png", fig)
+nothing # hide
 ```
 
-We see that for ``\alpha_2`` (as opposed to ``\alpha_1``) we have ``\alpha_2 = \alpha_t`` as ``\alpha_t`` is in (this is what [`SimpleSolvers.adjust_α`](@ref) checks for):
+![](f_ls_opt2.png)
 
-```@example quadratic
-using SimpleSolvers: DEFAULT_ARMIJO_σ₀, DEFAULT_ARMIJO_σ₁ # hide
-(DEFAULT_ARMIJO_σ₀ * α₀⁽²⁾, DEFAULT_ARMIJO_σ₁ * α₀⁽²⁾)
-```
+We now update ``x``:
 
 ```@example quadratic
 using SimpleSolvers: compute_new_iterate
@@ -359,8 +361,7 @@ p₁ = ∂fˡˢ∂α(0.)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
-αₜ = -p₁ / (2p₂)
-α₃ = adjust_α(αₜ, α₀⁽³⁾)
+α₃ = -p₁ / (2p₂)
 ```
 
 ```@example quadratic
@@ -370,7 +371,7 @@ x .= compute_new_iterate(x, α₃, direction(_cache))
 ```@setup quadratic
 fig = Figure()
 ax = Axis(fig[1, 1])
-x_array = -1.:.01:2.
+x_array = -1.:.01:4.
 lines!(ax, x_array, f.(x_array); label = L"f(x)")
 scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
 axislegend(ax)
@@ -427,7 +428,7 @@ We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. Fo
 [^2]: Here we use [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) directly instead of using [`SimpleSolvers.determine_initial_α`](@ref).
 
 ```@example II
-(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, 0.)
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, ∂fˡˢ∂α, 0.)
 ```
 
 We plot the bracket:
@@ -442,11 +443,11 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -2.5:.01:3.
+alpha = -2:.01:6.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
-ylims!(ax, (-1., 6.))
+# ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
 save("f_ls_1.png", fig)
 nothing # hide
@@ -474,7 +475,7 @@ and compute its minimum:
 ```@example II
 lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
-ylims!(ax, (-1., 6.))
+# ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
 save("f_ls_2.png", fig)
 nothing # hide
@@ -485,7 +486,7 @@ nothing # hide
 We now set ``a \gets \alpha_t`` and perform another iteration:
 
 ```@example II
-(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, αₜ)
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, ∂fˡˢ∂α, αₜ)
 ```
 
 We again build the polynomial:
