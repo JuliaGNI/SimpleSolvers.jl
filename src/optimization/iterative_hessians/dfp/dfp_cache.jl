@@ -10,8 +10,8 @@ struct DFPCache{T, VT, MT} <: OptimizerCache{T}
 
     T1::MT
     T2::MT
-    γγ::MT
-    δδ::MT
+    ΔgΔg::MT
+    ΔxΔx::MT
 
     rhs::VT
     Δx::VT
@@ -54,7 +54,7 @@ inverse_hessian(::DFPCache) = error("The inverse Hessian is stored in the state,
 function update!(cache::DFPCache, state::OptimizerState, x::AbstractVector)
     cache.x .= x
     direction(cache) .= cache.x - state.x̄
-    outer!(cache.δδ, direction(cache), direction(cache))
+    outer!(cache.ΔxΔx, direction(cache), direction(cache))
     cache
 end
 
@@ -74,16 +74,16 @@ function update!(cache::DFPCache{T}, state::DFPState{T}, x::AbstractVector{T}, g
     cache.Δx .= cache.x - state.x̄
     cache.Δg .= gradient(cache) - state.ḡ
 
-    δγ = cache.Δx ⋅ cache.Δg
+    ΔxΔg = cache.Δx ⋅ cache.Δg
     γQγ = cache.Δg' * state.Q * cache.Δg
 
-    if !iszero(δγ) & !iszero(γQγ)
-        outer!(cache.δδ, cache.Δx, cache.Δx)
-        outer!(cache.γγ, cache.Δg, cache.Δg)
-        mul!(cache.T1, cache.δδ, state.Q)
+    if !iszero(ΔxΔg) & !iszero(γQγ)
+        outer!(cache.ΔxΔx, cache.Δx, cache.Δx)
+        outer!(cache.ΔgΔg, cache.Δg, cache.Δg)
+        mul!(cache.T1, cache.ΔxΔx, state.Q)
         mul!(cache.T2, state.Q, cache.T1)
         state.Q .-= cache.T2 ./ γQγ
-        state.Q .+= cache.δδ ./ δγ
+        state.Q .+= cache.ΔxΔx ./ ΔxΔg
     end
 
     direction(cache) .= inverse_hessian(state) * rhs(cache)
