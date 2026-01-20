@@ -16,8 +16,8 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} 
     x::AT
     Δx::AT
     g::AT
-    rhs::AT
     Δg::AT
+    rhs::AT
     H::HT
 
     function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
