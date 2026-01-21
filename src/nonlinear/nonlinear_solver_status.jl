@@ -78,7 +78,7 @@ Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determ
 function assess_convergence(rxₛ, rfₐ, rfₛ, config::Options, cache::NonlinearSolverCache, state::NonlinearSolverState)
     x_converged = rxₛ ≤ config.x_suctol
 
-    f_converged = rfₐ ≤ config.f_abstol && rfₛ ≤ config.f_suctol
+    f_converged = rfₛ ≤ norm(value(cache)) * config.f_suctol || rfₐ ≤ config.f_abstol # should this be AND or OR?
 
     f_increased = norm(value(cache)) > norm(value(state))
 

@@ -56,8 +56,6 @@ function increase_iteration_number!(s::NonlinearSolver)
     s.iterations += 1
 end
 
-value(s::NonlinearSolver) = value(cache(s))
-
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
 function initialize!(s::NonlinearSolver, x::AbstractVector)
@@ -164,7 +162,7 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     status = NonlinearSolverStatus(state, cache(s), config(s))
     config(s).verbosity > 1 && print_status(status, iteration_number(s), config(s))
     warn_iteration_number(iteration_number(s), config(s))
-
+    println("Final residuals for $(typeof(s.linesearch)) are rxₛ = $(status.rxₛ), rfₛ = $(status.rfₛ) and rfₐ = $(status.rfₐ).")
     x
 end
 
