@@ -2,7 +2,7 @@ using SimpleSolvers
 
 
 function F!(f, x, params)
-    f .= x .^ 2
+    f .= x .^ 2 # .+ .05 * x .^ 3
     nothing
 end
 

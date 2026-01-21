@@ -116,10 +116,8 @@ This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
-function update!(s::NewtonSolver, x₀::AbstractArray, params)
-    update!(status(s), x₀, nonlinearproblem(s), params)
-    # update!(nonlinearproblem(s), Jacobian(s), x₀, params)
-    update!(cache(s), x₀)
+function update!(s::NewtonSolver, state::NonlinearSolverState, x₀::AbstractArray, params::OptionalParameters)
+    update!(cache(s), state, x₀, nonlinearproblem(s), params::OptionalParameters)
 
     s
 end

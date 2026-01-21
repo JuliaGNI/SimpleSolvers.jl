@@ -46,25 +46,25 @@ for T ∈ (Float64, Float32)
                 (QuasiNewtonSolver, (linesearch = Bisection(),)),
             )
 
-        x = T.(copy(x₀))
-        y = F(x)
-        nl = Solver(x, y; F = F!, kwarguments...)
+        @testset "$(Solver) & $(kwarguments) & $(T)" begin
+            x = T.(copy(x₀))
+            y = F(x)
+            nl = Solver(x, y; F = F!, kwarguments...)
 
-        @test config(nl) == nl.config
-        @test status(nl) == nl.status
+            solve!(x, nl)
 
-        solve!(x, nl)
-        for _x in x
-            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T))) || ≈(_x, T(root₃); atol=∛(2eps(T)))
-        end
+            for _x in x
+                @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T))) || ≈(_x, T(root₃); atol=∛(2eps(T)))
+            end
 
-        x .= T.(x₀)
-        # use custom Jacobian
-        nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
-        solve!(x, nl)
-        # println(Solver, kwarguments)
-        for _x in x
-            @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T))) || ≈(_x, T(root₃); atol=∛(2eps(T)))
+            x .= T.(x₀)
+            # use custom Jacobian
+            nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
+            solve!(x, nl)
+            # println(Solver, kwarguments)
+            for _x in x
+                @test ≈(_x, T(root₁); atol=∛(2eps(T))) || ≈(_x, T(root₂); atol=∛(2eps(T))) || ≈(_x, T(root₃); atol=∛(2eps(T)))
+            end
         end
     end
 end

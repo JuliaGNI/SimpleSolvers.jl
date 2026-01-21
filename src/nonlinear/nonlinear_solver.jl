@@ -51,14 +51,21 @@ linearproblem(s::NonlinearSolver) = s.linearproblem
 linesearch(s::NonlinearSolver) = s.linesearch
 Jacobian(s::NonlinearSolver) = s.jacobian
 
-iteration_number(s::NonlinearSolver) = iteration_number(s.iterations)
+iteration_number(s::NonlinearSolver) = s.iterations
 function increase_iteration_number!(s::NonlinearSolver)
-    iteration_number(s) += 1
+    s.iterations += 1
 end
 
-value(s::NonlinearSolver) = value(nonlinearproblem(s))
+value(s::NonlinearSolver) = value(cache(s))
 
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
+
+function initialize!(s::NonlinearSolver, x::AbstractVector)
+    initialize!(cache(s), x)
+    s.iterations = 0
+
+    s
+end
 
 
 """
@@ -114,22 +121,22 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 
 Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
-function solver_step!(x::AbstractVector{T}, s::NonlinearSolver, params) where {T}
-    update!(cache(s), x)
+function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params::OptionalParameters) where {T}
+    update!(cache(s), state, x, nonlinearproblem(s), params)
     compute_new_direction(x, s, params)
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
     for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
-        cache(s).x .= cache(s).x̄ .+ direction(cache(s))
-        value!(cache(s).y, nonlinearproblem(s), cache(s).x, params)
-        if any(isnan, cache(s).y)
+        solution(cache(s)) .= solution(state) .+ direction(cache(s))
+        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+        if any(isnan, value(cache(s)))
             (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
             direction(cache(s)) .*= T(LINESEARCH_NAN_FACTOR)
         else
             break
         end
     end
-    α = linesearch(s)(linesearch_problem(s, params))
+    α = linesearch(s)(linesearch_problem(s, state, params))
     compute_new_iterate!(x, α, direction(cache(s)))
     x
 end
@@ -142,19 +149,23 @@ end
 !!! info
     The function `update!` calls [`increase_iteration_number!`](@ref).
 """
-function solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
+function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params::OptionalParameters=NullParameters())
     initialize!(s, x)
-    update!(status(s), x, nonlinearproblem(s), params)
 
-    while !meets_stopping_criteria(status(s), config(s))
+    while true
         increase_iteration_number!(s)
-        solver_step!(x, s, params)
-        update!(status(s), x, nonlinearproblem(s), params)
-        residual!(status(s))
+        solver_step!(x, s, state, params)
+        # update!(cache(s), state, x, nonlinearproblem(s), params) # this should not be necessary!
+        status = NonlinearSolverStatus(state, cache(s), config(s))
+        meets_stopping_criteria(status, iteration_number(s), config(s)) && break 
+        update!(state, x, value(s), iteration_number(s))
     end
 
-    print_status(status(s), config(s))
-    warn_iteration_number(status(s), config(s))
+    status = NonlinearSolverStatus(state, cache(s), config(s))
+    config(s).verbosity > 1 && print_status(status, iteration_number(s), config(s))
+    warn_iteration_number(iteration_number(s), config(s))
 
     x
 end
+
+solve!(x::AbstractArray, s::NonlinearSolver, params::OptionalParameters=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)

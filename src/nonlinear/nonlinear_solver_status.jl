@@ -35,66 +35,67 @@ rxₐ= NaN,
 rfₐ= NaN
 ```
 """
-struct NonlinearSolverStatus{XT,YT,AXT,AYT}
-    rxₐ::XT
-    rxₛ::XT
+struct NonlinearSolverStatus{T}
+    rxₛ::T
 
-    rfₐ::YT
-    rfₛ::YT
-
-    x::AXT
-    x̄::AXT
-    δ::AXT
-    x̃::AXT
-
-    f₀::AYT
-    f::AYT
-    f̄::AYT
-    γ::AYT
+    rfₐ::T
+    rfₛ::T
 
     x_converged::Bool
     f_converged::Bool
-    g_converged::Bool
     f_increased::Bool
 end
 
 @doc raw"""
-    residual(status)
+    residuals(cache)
 
-Compute the residuals for `status::`[`NonlinearSolverStatus`](@ref).
-Note that this does not update `x`, `f`, `δ` or `γ`. These are updated with [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref).
+Compute the residuals for `cache::`[`NewtonSolverCache`](@ref).
+Note that this does not update the `cache`. These are updated with [`update!(::NonlinearSolverCache{T}, ::NonlinearSolverState{T}, ::AbstractVector{T}, ::AbstractVector{T}) where {T}`](@ref).
 The computed residuals are the following:
-- `rxₐ`: absolute residual in ``x``,
 - `rxₛ` : successive residual (the norm of ``\delta``),
 - `rfₐ`: absolute residual in ``f``,
-- `rfₛ` : successive residual (the norm of ``\gamma``).
+- `rfₛ` : successive residual (the norm of ``\Delta{}y``).
 """
-function residual(status::NonlinearSolverStatus, cache::NonlinearSolverCache)
-    rxₐ = norm(direction(cache))
+function residuals(cache::NonlinearSolverCache)
     rxₛ = norm(direction(cache))
 
     rfₐ = norm(value(cache))
-    rfₛ = norm(cache.γ)
+    rfₛ = norm(cache.Δy)
 
-    rxₐ, rxₛ, rfₐ, rfₛ
-end
-
-function NonlinearSolverStatus(state::NonlinearSolverState{T}, cache::NonlinearSolverCache{T}, config::Options{T}, params) where {T}
-    residual!
+    rxₛ, rfₐ, rfₛ
 end
 
 """
-    solution(status)
+    assess_convergence(status, config)
 
-Return the current value of `x` (i.e. the current solution).
+Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
+- `status.rxₛ ≤ config.x_suctol`,
+- `status.rfₐ ≤ config.f_abstol`,
+- `status.rfₛ ≤ config.f_suctol`.
+
+Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
-solution(status::NonlinearSolverStatus) = status.x
+function assess_convergence(rxₛ, rfₐ, rfₛ, config::Options, cache::NonlinearSolverCache, state::NonlinearSolverState)
+    x_converged = rxₛ ≤ config.x_suctol
 
-Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT,AYT}) where {XT,YT,AXT<:AbstractArray,AYT<:AbstractArray} = print(io,
-    (@sprintf "x=%4e" status.x[1]), ",\n",
-    (@sprintf "f=%4e" status.f[1]), ",\n",
-    (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
-    (@sprintf "rfₐ=%4e" status.rfₐ))
+    f_converged = rfₐ ≤ config.f_abstol && rfₛ ≤ config.f_suctol
+
+    f_increased = norm(value(cache)) > norm(value(state))
+
+    x_converged, f_converged, f_increased
+end
+
+function NonlinearSolverStatus(state::NonlinearSolverState{T}, cache::NonlinearSolverCache{T}, config::Options{T}) where {T}
+    rxₛ, rfₐ, rfₛ = residuals(cache)
+    x_converged, f_converged, f_increased = assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
+
+    NonlinearSolverStatus{T}(rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased)
+end
+
+Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
+    (@sprintf "rxₛ=%4e" status.rxₛ), ",\n",
+    (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
+    (@sprintf "rfₛ=%4e" status.rfₛ))
 
 @doc raw"""
     print_status(status, config)
@@ -103,9 +104,8 @@ Print the solver status if:
 1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `iteration_number(status) > config.max_iterations`
 2. `config.verbosity > 1`.
 """
-function print_status(status::NonlinearSolverStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(assess_convergence!(status, config) && iteration_number(status) ≤ config.max_iterations)) ||
-       config.verbosity > 1
+function print_status(status::NonlinearSolverStatus, iteration_number::Integer, config::Options)
+    if (config.verbosity ≥ 1 && !(isconverged(status) && iteration_number ≤ config.max_iterations)) || config.verbosity > 1
         println(status)
     end
 end
@@ -113,37 +113,15 @@ end
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
 
 """
-    assess_convergence(status, config)
-
-Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
-- `status.rxₐ ≤ config.x_abstol`,
-- `status.rxₛ ≤ config.x_suctol`,
-- `status.rfₐ ≤ config.f_abstol`,
-- `status.rfₛ ≤ config.f_suctol`.
-
-Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
-"""
-function assess_convergence(status::NonlinearSolverStatus, config::Options, f, f̄)
-    x_converged = status.rxₛ ≤ config.x_suctol
-
-    f_converged = status.rfₐ ≤ config.f_abstol ||
-                  status.rfₛ ≤ config.f_suctol
-
-    f_increased = norm(f) > norm(f̄)
-
-    x_converged, f_converged, f_increased
-end
-
-"""
     meets_stopping_criteria(status, config)
 
 Determines whether the iteration stops based on the current [`NonlinearSolverStatus`](@ref).
 
 !!! warning
-    The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call `assess_convergence!` (with the same input arguments).
+    The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call [`assess_convergence`](@ref) (with the same input arguments).
 
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
-- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence!`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
+- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
 - `iteration_number(status) ≥ config.max_iterations`,
 - if any component in `solution(status)` is `NaN`,
@@ -175,24 +153,25 @@ assess_convergence!(status, config)
 false
 ```
 """
-function meets_stopping_criteria(status::NonlinearSolverStatus, config::Options)
-    assess_convergence!(status, config)
+function meets_stopping_criteria(status::NonlinearSolverStatus, iterations::Integer, config::Options)
+    havenan = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
 
-    havenan = any(isnan, solution(status)) || any(isnan, status.f)
+    (havenan && iterations ≥ 2 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
+    (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
+    (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
+    # status.x_converged && (@warn "x supposedly converged!")
+    # status.f_converged && (@warn "f supposedly converged!")
 
-    (havenan && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
-
-    (isconverged(status) && iteration_number(status) ≥ config.min_iterations) ||
+    (isconverged(status) && iterations ≥ config.min_iterations) ||
         (status.f_increased && !config.allow_f_increases) ||
-        iteration_number(status) ≥ config.max_iterations ||
-        status.rxₐ > config.x_abstol_break ||
+        iterations ≥ config.max_iterations ||
         status.rfₐ > config.f_abstol_break ||
-        havenan
+        (havenan && iterations ≥ 2)
 end
 
-function warn_iteration_number(status::NonlinearSolverStatus, config::Options)
-    if config.warn_iterations > 0 && iteration_number(status) ≥ config.warn_iterations
-        @warn "Solver took $(iteration_number(status)) iterations."
+function warn_iteration_number(iterations::Integer, config::Options)
+    if config.warn_iterations > 0 && iterations ≥ config.warn_iterations
+        @warn "Solver took $(iterations) iterations."
     end
     nothing
 end
