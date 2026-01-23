@@ -151,7 +151,7 @@ function solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
         increase_iteration_number!(status(s))
         solver_step!(x, s, params)
         update!(status(s), x, nonlinearproblem(s), params)
-        residual!(status(s))
+        #        residual!(status(s))
     end
 
     println("For $(s.linesearch) we have rxₛ = $(status(s).rxₛ), rfₐ = $(status(s).rfₐ) and rfₛ = $(status(s).rfₛ).")
