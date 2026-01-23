@@ -154,7 +154,6 @@ function solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
         #        residual!(status(s))
     end
 
-    println("For $(s.linesearch) we have rxₛ = $(status(s).rxₛ), rfₐ = $(status(s).rfₐ) and rfₛ = $(status(s).rfₛ).")
     print_status(status(s), config(s))
     warn_iteration_number(status(s), config(s))
 

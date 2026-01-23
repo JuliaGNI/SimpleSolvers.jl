@@ -116,11 +116,13 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
 end
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT,AYT}) where {XT,YT,AXT<:AbstractArray,AYT<:AbstractArray} = print(io,
-    (@sprintf "i=%4i" iteration_number(status)), ",\n",
-    (@sprintf "x=%4e" status.x[1]), ",\n",
-    (@sprintf "f=%4e" status.f[1]), ",\n",
-    (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
-    (@sprintf "rfₐ=%4e" status.rfₐ))
+    (@sprintf "i = %4i" iteration_number(status)), ",\n",
+    (@sprintf "x = %4e" status.x[1]), ",\n",
+    (@sprintf "f = %4e" status.f[1]), ",\n",
+    (@sprintf "rxₐ = %4e" status.rxₐ), ",\n",
+    (@sprintf "rxₛ = %4e" status.rxₛ), ",\n",
+    (@sprintf "rfₐ = %4e" status.rfₐ), ",\n",
+    (@sprintf "rfₛ = %4e" status.rfₛ), ",\n")
 
 @doc raw"""
     print_status(status, config)
