@@ -47,7 +47,7 @@ struct NonlinearSolverStatus{T}
 end
 
 @doc raw"""
-    residuals(cache)
+    residuals(cache, state)
 
 Compute the residuals for `cache::`[`NewtonSolverCache`](@ref).
 Note that this does not update the `cache`. These are updated with [`update!(::NonlinearSolverCache{T}, ::NonlinearSolverState{T}, ::AbstractVector{T}, ::AbstractVector{T}) where {T}`](@ref).
@@ -56,11 +56,11 @@ The computed residuals are the following:
 - `rfₐ`: absolute residual in ``f``,
 - `rfₛ` : successive residual (the norm of ``\Delta{}y``).
 """
-function residuals(cache::NonlinearSolverCache)
-    rxₛ = norm(direction(cache))
+function residuals(cache::NonlinearSolverCache, state::NonlinearSolverState)
+    rxₛ = norm(solution(cache) - solution(state))
 
     rfₐ = norm(value(cache))
-    rfₛ = norm(cache.Δy)
+    rfₛ = norm(value(cache) - value(state))
 
     rxₛ, rfₐ, rfₛ
 end
@@ -86,7 +86,7 @@ function assess_convergence(rxₛ, rfₐ, rfₛ, config::Options, cache::Nonline
 end
 
 function NonlinearSolverStatus(state::NonlinearSolverState{T}, cache::NonlinearSolverCache{T}, config::Options{T}) where {T}
-    rxₛ, rfₐ, rfₛ = residuals(cache)
+    rxₛ, rfₐ, rfₛ = residuals(cache, state)
     x_converged, f_converged, f_increased = assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
 
     NonlinearSolverStatus{T}(rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased)

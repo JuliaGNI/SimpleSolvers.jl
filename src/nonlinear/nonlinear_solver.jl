@@ -115,15 +115,15 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 
 
 """
-    solver_step!(x, it, params)
+    solver_step!(x, s, state, params)
 
 Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params::OptionalParameters) where {T}
-    update!(cache(s), state, x, nonlinearproblem(s), params)
     compute_new_direction(x, s, params)
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
+    update!(state, x, value!(value(state), nonlinearproblem(s), x, params), iteration_number(s))
     for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
         solution(cache(s)) .= solution(state) .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
@@ -138,6 +138,8 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     compute_new_iterate!(x, α, direction(cache(s)))
     x
 end
+
+mean(x::AbstractVector) = sum(x) / length(x)
 
 """
     solve!(x, s)
@@ -156,13 +158,11 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
         # update!(cache(s), state, x, nonlinearproblem(s), params) # this should not be necessary!
         status = NonlinearSolverStatus(state, cache(s), config(s))
         meets_stopping_criteria(status, iteration_number(s), config(s)) && break 
-        update!(state, x, value(s), iteration_number(s))
     end
 
     status = NonlinearSolverStatus(state, cache(s), config(s))
     config(s).verbosity > 1 && print_status(status, iteration_number(s), config(s))
     warn_iteration_number(iteration_number(s), config(s))
-    println("Final residuals for $(typeof(s.linesearch)) are rxₛ = $(status.rxₛ), rfₛ = $(status.rfₛ) and rfₐ = $(status.rfₐ).")
     x
 end
 

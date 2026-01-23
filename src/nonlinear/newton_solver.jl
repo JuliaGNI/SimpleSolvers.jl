@@ -72,7 +72,7 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function compute_new_direction(x, s::NewtonSolver, params)
+function compute_new_direction(x::AbstractVector, s::NewtonSolver, params::OptionalParameters)
     value!(cache(s).y, nonlinearproblem(s), x, params)
     # first we update the rhs of the linearproblem
     update!(linearproblem(s), -value(cache(s)))

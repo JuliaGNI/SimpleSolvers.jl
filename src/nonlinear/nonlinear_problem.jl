@@ -39,6 +39,7 @@ Evaluate the [`NonlinearProblem`](@ref) at `x`.
 """
 function value!(y::AbstractArray{T}, nlp::NonlinearProblem{T}, x::AbstractArray{T}, params::OptionalParameters) where {T}
     nlp.F(y, x, params)
+    y
 end
 
 # function value(nlp::NonlinearProblem{T}, x::AbstractVector{T}, params) where {T<:Number}
