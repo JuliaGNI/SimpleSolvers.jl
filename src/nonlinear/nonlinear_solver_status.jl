@@ -122,7 +122,7 @@ Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT,AYT}) where {XT,YT,AXT
     (@sprintf "rxₐ = %4e" status.rxₐ), ",\n",
     (@sprintf "rxₛ = %4e" status.rxₛ), ",\n",
     (@sprintf "rfₐ = %4e" status.rfₐ), ",\n",
-    (@sprintf "rfₛ = %4e" status.rfₛ), ",\n")
+    (@sprintf "rfₛ = %4e" status.rfₛ), "\n")
 
 @doc raw"""
     print_status(status, config)
