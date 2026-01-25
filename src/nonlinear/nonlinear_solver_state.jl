@@ -1,3 +1,14 @@
+"""
+    NonlinearSolverState(x, y)
+    NonlinearSolverState(x)
+    NonlinearSolverState{T}(n, m)
+    NonlinearSolverState{T}(n)
+
+The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
+
+!!! warn
+    Note the difference to the [`NonlinearSolverCache`](@ref) and the [`NonlinearSolverStatus`](@ref).
+"""
 struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}}
     x̄::XT
     f̄::YT

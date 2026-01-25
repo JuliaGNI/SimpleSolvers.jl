@@ -52,7 +52,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α # hide
+using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -64,8 +64,8 @@ end
 # allocate solver
 solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
 # initialize solver
-params = nothing
-update!(solver, x, params)
+params = NullParameters()
+state = NonlinearSolverState(x)
 jacobian!(solver, x, params)
 
 # compute rhs
@@ -76,7 +76,9 @@ rmul!(cache(solver).rhs, -1)
 factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 nlp = NonlinearProblem(F!, J!, x, f(x))
-ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), params)
+state = NonlinearSolverState(x)
+update!(state, x, f(x), 0)
+ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), state, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -386,7 +388,7 @@ Here we consider the same example as when discussing the [Bierlaire quadratic li
 
 ```@setup II
 using SimpleSolvers
-using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction
+using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, NullParameters
 using LinearAlgebra: rmul!, ldiv!
 using Random
 Random.seed!(1234)
@@ -400,8 +402,7 @@ J!(j, x, params) = j!(j, x)
 
 x = -10 * rand(1)
 solver = NewtonSolver(x, f.(x); F = F!, DF! = J!)
-params = nothing
-update!(solver, x, params)
+params = NullParameters()
 jacobian!(solver, x, params)
 
 # compute rhs
@@ -417,7 +418,9 @@ nothing # hide
 ```
 
 ```@example II
-ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), params)
+state = NonlinearSolverState(x)
+update!(state, x, f(x), 0)
+ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), state, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

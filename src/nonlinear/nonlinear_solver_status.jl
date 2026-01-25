@@ -8,7 +8,7 @@ Stores absolute, relative and successive residuals for `x` and `f`. It is used a
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
 - `rfₛ`: successive residual in `f`,
-- `x`: the *current solution* (can also be accessed by calling [`solution`](@ref)),
+- `x`: the *current solution* (can also be accessed by calling `solution`),
 - `x̄`: previous solution
 - `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref),
 - `x̃`: a variable that gives the *component-wise change* via ``\delta/x``,
@@ -23,16 +23,18 @@ Stores absolute, relative and successive residuals for `x` and `f`. It is used a
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus)
-NonlinearSolverStatus{Float64}(3)
+```jldoctest; setup = :(using SimpleSolvers: NonlinearSolverStatus, NonlinearSolverState, NonlinearSolverCache, Options)
+x = [1., 2., 3., 4.]
+state = NonlinearSolverState(x)
+cache = NonlinearSolverCache(x, x)
+config = Options()
+NonlinearSolverStatus(state, cache, config)
 
 # output
 
-i=   0,
-x= NaN,
-f= NaN,
-rxₐ= NaN,
-rfₐ= NaN
+rxₛ= NaN,
+rfₐ= NaN,
+rfₛ= NaN
 ```
 """
 struct NonlinearSolverStatus{T}
@@ -49,7 +51,7 @@ end
 @doc raw"""
     residuals(cache, state)
 
-Compute the residuals for `cache::`[`NewtonSolverCache`](@ref).
+Compute the residuals for `cache::`[`NonlinearSolverCache`](@ref).
 Note that this does not update the `cache`. These are updated with [`update!(::NonlinearSolverCache{T}, ::NonlinearSolverState{T}, ::AbstractVector{T}, ::AbstractVector{T}) where {T}`](@ref).
 The computed residuals are the following:
 - `rxₛ` : successive residual (the norm of ``\delta``),
@@ -66,16 +68,16 @@ function residuals(cache::NonlinearSolverCache, state::NonlinearSolverState)
 end
 
 """
-    assess_convergence(status, config)
+    assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
 
 Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
-- `status.rxₛ ≤ config.x_suctol`,
-- `status.rfₐ ≤ config.f_abstol`,
-- `status.rfₛ ≤ config.f_suctol`.
+- `rxₛ ≤ config.x_suctol`,
+- `rfₐ ≤ config.f_abstol`,
+- `rfₛ ≤ config.f_suctol`.
 
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
-function assess_convergence(rxₛ, rfₐ, rfₛ, config::Options, cache::NonlinearSolverCache, state::NonlinearSolverState)
+function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, cache::NonlinearSolverCache, state::NonlinearSolverState)
     x_converged = rxₛ ≤ config.x_suctol
 
     f_converged = rfₛ ≤ norm(value(cache)) * config.f_suctol || rfₐ ≤ config.f_abstol # should this be AND or OR?
@@ -113,7 +115,7 @@ end
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
 
 """
-    meets_stopping_criteria(status, config)
+    meets_stopping_criteria(status, iterations, config)
 
 Determines whether the iteration stops based on the current [`NonlinearSolverStatus`](@ref).
 
@@ -133,24 +135,19 @@ So convergence is only one possible criterion for which [`meets_stopping_criteri
 # Examples
 
 In the following example we show that `meets_stopping_criteria` evaluates to true when used on a freshly allocated [`NonlinearSolverStatus`](@ref):
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, meets_stopping_criteria)
-status = NonlinearSolverStatus{Float64}(5)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, meets_stopping_criteria, NonlinearSolverCache, NonlinearSolverState)
 config = Options(verbosity=0)
-meets_stopping_criteria(status, config)
+x = [NaN, 2., 3.]
+cache = NonlinearSolverCache(x, copy(x))
+state = NonlinearSolverState(x)
+status = NonlinearSolverStatus(state, cache, config)
+meets_stopping_criteria(status, 2, config)
 
 # output
 
 true
 ```
-This obviously has not converged. To check convergence we can use [`assess_convergence!`](@ref):
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, assess_convergence!)
-status = NonlinearSolverStatus{Float64}(5)
-config = Options()
-assess_convergence!(status, config)
-
-# output
-
-false
+This obviously has not converged. To check convergence we can use [`assess_convergence`](@ref).
 ```
 """
 function meets_stopping_criteria(status::NonlinearSolverStatus, iterations::Integer, config::Options)

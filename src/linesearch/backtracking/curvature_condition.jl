@@ -34,13 +34,13 @@ mutable struct CurvatureCondition{T, VT <: Union{T, AbstractArray{T}}, TVT <: Un
     end
 end
 
-# function standard_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-#     cc.grad(cc.gradₖ₊₁, xₖ₊₁)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
-# end
-# 
-# function strong_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
-#     abs(cc.grad(cc.gradₖ₊₁, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
-# end
+function standard_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
+    cc.grad(cc.gradₖ₊₁, xₖ₊₁)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
+end
+
+function strong_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, xₖ₊₁::VT, αₖ::T) where {T, VT, TVT, OT, GT}
+    abs(cc.grad(cc.gradₖ₊₁, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
+end
 
 function standard_curvature_condition(cc::CurvatureCondition{T, T, T, OT, GT}, xₖ₊₁::T, αₖ::T) where {T, OT, GT}
     derivative(cc.obj, xₖ₊₁) ⋅ cc.pₖ ≥ cc.c * cc.gradₖ ⋅ cc.pₖ

@@ -114,7 +114,7 @@ Check if the optimizer has converged.
 # Implementation
 
 `meets_stopping_criteria` checks if one of the following is true:
-- `converged` (the output of [`assess_convergence!`](@ref)) is `true` and `iterations` ``\geq`` `config.min_iterations`,
+- `converged` (the output of [`assess_convergence`](@ref)) is `true` and `iterations` ``\geq`` `config.min_iterations`,
 - if `config.allow_f_increases` is `false`: `status.f_increased` is `true`,
 - `iterations` ``\geq`` `config.max_iterations`,
 - `status.rxₐ` ``>`` `config.x_abstol_break`

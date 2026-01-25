@@ -52,6 +52,11 @@ linesearch(s::NonlinearSolver) = s.linesearch
 Jacobian(s::NonlinearSolver) = s.jacobian
 
 iteration_number(s::NonlinearSolver) = s.iterations
+"""
+    increase_iteration_number!(s)
+
+To be used together with [`NonlinearSolver`](@ref).
+"""
 function increase_iteration_number!(s::NonlinearSolver)
     s.iterations += 1
 end
