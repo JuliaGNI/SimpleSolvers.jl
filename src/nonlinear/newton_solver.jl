@@ -75,12 +75,12 @@ end
 function compute_new_direction(x, s::NewtonSolver, params)
     value!(cache(s).y, nonlinearproblem(s), x, params)
     # first we update the rhs of the linearproblem
-    update!(linearproblem(s), -value(cache(s)))
-    rhs(cache(s)) .= rhs(linearproblem(s))
+    copyto!(rhs(cache(s)), value(cache(s)))
+    rhs(cache(s)) .*= -1
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
     if (mod(iteration_number(s) - 1, method(s).refactorize) == 0 || iteration_number(s) == 1)
         jacobian!(s, x, params)
-        update!(linearproblem(s), jacobian(s))
+        update!(linearproblem(s), jacobian(s), rhs(cache(s)))
         factorize!(linearsolver(s), linearproblem(s))
     end
     ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
