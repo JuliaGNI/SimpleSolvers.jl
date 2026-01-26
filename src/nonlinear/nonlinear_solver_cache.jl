@@ -72,7 +72,7 @@ function update!(cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T},
     cache
 end
 
-function update!(cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, x::AbstractVector{T}, problem::NonlinearProblem{T}, params::OptionalParameters) where {T}
+function update!(cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, x::AbstractVector{T}, problem::NonlinearProblem{T}, params) where {T}
     solution(cache) .= x
     value!(value(cache), problem, x, params)
     direction(cache) .= solution(cache) .- solution(state)

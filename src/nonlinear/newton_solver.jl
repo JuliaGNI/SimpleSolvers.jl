@@ -55,7 +55,7 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params::OptionalParameters) where {T} 
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params) where {T} 
      # first we update the rhs of the linearproblem 
      value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params) 
      rhs(linearproblem(s)) .*= -1
@@ -68,7 +68,7 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{
      ldiv!(d, linearsolver(s), rhs(linearproblem(s))) 
 end
 
-function direction!(s::NewtonSolver, x::AbstractVector, params::OptionalParameters)
+function direction!(s::NewtonSolver, x::AbstractVector, params)
     direction!(direction(cache(s)), x, s, params)
 end
 
@@ -102,8 +102,8 @@ This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
-function update!(s::NewtonSolver, state::NonlinearSolverState, x₀::AbstractArray, params::OptionalParameters)
-    update!(cache(s), state, x₀, nonlinearproblem(s), params::OptionalParameters)
+function update!(s::NewtonSolver, state::NonlinearSolverState, x₀::AbstractArray, params)
+    update!(cache(s), state, x₀, nonlinearproblem(s), params)
 
     s
 end
