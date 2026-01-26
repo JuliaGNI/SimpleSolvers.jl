@@ -85,25 +85,14 @@ Set the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
 !!! info
     Calling `update!` doesn't solve the [`LinearProblem`](@ref), you still have to call `solve!` in combination with a [`LinearSolver`](@ref).
 """
-function update!(ls::LinearProblem{T}, A::AbstractMatrix{T}, y::AbstractVector{T}) where {T}
-    update!(ls, A)
-    update!(ls, y)
-    ls
-end
-
-function update!(ls::LinearProblem{T}, A::AbstractMatrix{T}) where {T}
-    ls.A .= A
-    ls
-end
-
-function update!(ls::LinearProblem{T}, b::AbstractVector{T}) where {T}
-    ls.y .= b
+function update!(ls::LinearProblem{T}, A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
+    copy!(matrix(ls), A)
+    copy!(rhs(ls), b)
     ls
 end
 
 rhs(ls::LinearProblem) = ls.y
-Base.Matrix(ls::LinearProblem)::AbstractMatrix = ls.A
-Base.Vector(ls::LinearProblem)::AbstractVector = ls.y
+matrix(ls::LinearProblem)::AbstractMatrix = ls.A
 
 """
     clear!(ls)
@@ -111,8 +100,8 @@ Base.Vector(ls::LinearProblem)::AbstractVector = ls.y
 Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
 """
 function clear!(ls::LinearProblem{T}) where {T}
-    Matrix(ls) .= T(NaN)
-    Vector(ls) .= T(NaN)
+    matrix(ls) .= T(NaN)
+    rhs(ls) .= T(NaN)
     ls
 end
 
