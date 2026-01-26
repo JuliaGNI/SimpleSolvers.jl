@@ -124,7 +124,7 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 
 Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
-function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params::OptionalParameters) where {T}
+function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params)
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
@@ -154,7 +154,7 @@ mean(x::AbstractVector) = sum(x) / length(x)
 !!! info
     The function `update!` calls [`increase_iteration_number!`](@ref).
 """
-function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params::OptionalParameters=NullParameters())
+function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
     initialize!(s, x)
 
     while true
@@ -171,4 +171,4 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     x
 end
 
-solve!(x::AbstractArray, s::NonlinearSolver, params::OptionalParameters=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)
+solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)
