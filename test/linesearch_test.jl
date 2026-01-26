@@ -5,7 +5,7 @@ using Test
 using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: LinesearchState, BierlaireQuadraticState, StaticState, QuadraticState
 using SimpleSolvers: AbstractOptimizerProblem, BierlaireQuadratic, Quadratic, NullParameters
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, compute_new_direction, nonlinearproblem
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, direction!, nonlinearproblem
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -115,7 +115,7 @@ end
         jacobian_instance = JacobianFunction{T}(f!, j!)
         solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian_instance)
         state = NonlinearSolverState(x, value(cache(solver)))
-        compute_new_direction(x, solver, params)
+        direction!(solver, x, params)
 
         update!(state, x, value(cache(solver)), 0)
         linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), state, params)

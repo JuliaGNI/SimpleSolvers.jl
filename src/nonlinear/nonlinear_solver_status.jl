@@ -4,21 +4,11 @@
 Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
 # Keys
-- `rxₐ`: absolute residual in `x`,
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
 - `rfₛ`: successive residual in `f`,
-- `x`: the *current solution* (can also be accessed by calling `solution`),
-- `x̄`: previous solution
-- `δ`: change in solution (see [`direction`](@ref)). This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref),
-- `x̃`: a variable that gives the *component-wise change* via ``\delta/x``,
-- `f₀`: initial function value,
-- `f`: current function value,
-- `f̄`: previous function value,
-- `γ`: records change in `f`. This is updated by calling [`update!(::NonlinearSolverStatus, ::AbstractVector, ::NonlinearProblem)`](@ref),
 - `x_converged::Bool`
 - `f_converged::Bool`
-- `g_converged::Bool`
 - `f_increased::Bool`
 
 # Examples
