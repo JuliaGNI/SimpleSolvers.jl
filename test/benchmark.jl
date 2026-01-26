@@ -24,9 +24,9 @@ function test(n)
         for T in (Float64, Float32)
             x = ones(T, n)
             y = zero(x)
-            nl = Solver(x, y; F=F!, kwarguments...)
+            nl = Solver(x, y; F=F!, verbosity=2, kwarguments...)
 
-            println(Solver, ", ", kwarguments, ", ", T)
+            println(Solver, ", ", kwarguments, ", ", T, "\n")
 
             x = ones(T, n)
             solve!(x, nl)
