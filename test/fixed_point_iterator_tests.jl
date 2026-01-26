@@ -25,7 +25,6 @@ for T ∈ (Float64, Float32)
     # println(x)
 
     @test config(it) == it.config
-    @test status(it) == it.status
 
     solve!(x, it)
     # println(x)

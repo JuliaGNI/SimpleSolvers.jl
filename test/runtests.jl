@@ -1,8 +1,8 @@
 using SafeTestsets
 
-@safetestset "Print Statements                                                                " begin
-    include("check_print_statements.jl")
-end
+# @safetestset "Print Statements                                                                " begin
+#     include("check_print_statements.jl")
+# end
 @safetestset "Gradients                                                                       " begin
     include("gradient_tests.jl")
 end

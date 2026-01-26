@@ -4,8 +4,8 @@ using Test
 
 using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: LinesearchState, BierlaireQuadraticState, StaticState, QuadraticState
-using SimpleSolvers: AbstractOptimizerProblem, BierlaireQuadratic, Quadratic
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate
+using SimpleSolvers: AbstractOptimizerProblem, BierlaireQuadratic, Quadratic, NullParameters
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, direction!, nonlinearproblem
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -102,7 +102,7 @@ end
 
     x = -10 * rand(1)
 
-    function make_linesearch_problem2(x::AbstractVector{T}, params=nothing) where {T}
+    function make_linesearch_problem2(x::AbstractVector{T}, params=NullParameters()) where {T}
         f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
         f(x::AbstractArray{T}) where {T<:Number} = @. exp(x) * (T(.5) * x^3 - 5 * x^2 + 2x) + 2one(T)
         f!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = y .= f.(x)
@@ -114,19 +114,11 @@ end
 
         jacobian_instance = JacobianFunction{T}(f!, j!)
         solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian_instance)
-        update!(solver, x, params)
-        jacobian!(solver, x, params)
+        state = NonlinearSolverState(x, value(cache(solver)))
+        direction!(solver, x, params)
 
-        # compute rhs
-        f!(cache(solver).rhs, x, params)
-        rmul!(cache(solver).rhs, -1)
-
-        # multiply rhs with jacobian
-        factorize!(linearsolver(solver), jacobian(solver))
-        ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-
-        nlp = NonlinearProblem(f!, j!, x, f.(x))
-        linesearch_problem(nlp, jacobian_instance, cache(solver), params)
+        update!(state, x, value(cache(solver)), 0)
+        linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), state, params)
     end
 
     function check_linesearch(ls::LinesearchState, ls_obj::LinesearchProblem)

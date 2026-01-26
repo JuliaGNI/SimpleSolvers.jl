@@ -4,7 +4,7 @@ In `SimpleSolvers` we can use the [`SimpleSolvers.NonlinearSolverStatus`](@ref) 
 
 ```@example status
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: NonlinearSolverState, update!, solver_step! # hide
 
 x = [3., 1.3]
 f = x -> tanh.(x)
@@ -12,26 +12,29 @@ F!(y, x, params) = y .= f(x)
 nlp = NonlinearProblem(F!, x, f(x))
 ```
 
-We now create an instance of [`NewtonSolver`](@ref) and allocate a [`SimpleSolvers.NonlinearSolverStatus`](@ref):
+We now create an instance of [`NewtonSolver`](@ref) and [`NonlinearSolverState`](@ref):
 
 ```@example status
 solver = NewtonSolver(x, f(x); F = F!)
+state = NonlinearSolverState(x)
 ```
 
 Note that all variables are [initialized with `NaN`s](@ref "Reasoning behind Initialization with `NaN`s").
 
-For the first step we therefore have to call [`update!`](@ref)[^1]:
+For the first step we call [`solver_step!`](@ref) (which updates the `state` internally via [`update!`](@ref)[^1]):
 
 [^1]: Also see the [page on the `update!` function](@ref "Updates").
 
 ```@example status
-params = nothing
-update!(solver, x, params)
+using SimpleSolvers: NullParameters, cache # hide
+params = NullParameters()
+solver_step!(x, solver, state, params)
 ```
 
-Note that the residuals are still `NaN`s however as we need to perform at least two updates in order to compute them. As a next step we write:
+We now compute the [`NonlinearSolverStatus`](@ref):
 
 ```@example status
-x = [2., 1.2]
-update!(solver, x, params)
+using SimpleSolvers: NonlinearSolverStatus # hide
+
+NonlinearSolverStatus(state, cache(solver), config(solver))
 ```

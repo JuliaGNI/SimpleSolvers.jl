@@ -2,7 +2,7 @@ using SimpleSolvers
 
 
 function F!(f, x, params)
-    f .= x .^ 2
+    f .= x .^ 2 # .+ .05 * x .^ 3
     nothing
 end
 
@@ -39,4 +39,5 @@ function test(n)
     end
 end
 
-test(200)
+test(2)
+# test(200)

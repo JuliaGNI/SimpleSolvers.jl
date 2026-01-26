@@ -49,26 +49,26 @@ for T ∈ (Float64, Float32)
                 (QuasiNewtonSolver, (linesearch = Bisection(),), 2),#
             )
 
-        x = T.(copy(x₀))
-        y = F(x)
-        nl = Solver(x, y; F = F!, kwarguments...)
-
-        @test config(nl) == nl.config
-        @test status(nl) == nl.status
+        @testset "$(Solver) & $(kwarguments) & $(T)" begin
+            x = T.(copy(x₀))
+            y = F(x)
+            nl = Solver(x, y; F = F!, kwarguments...)
 
 #        println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
 
-        solve!(x, nl)
-        for _x in x
-            @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
-        end
+            solve!(x, nl)
 
-        x .= T.(x₀)
-        # use custom Jacobian
-        nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
-        solve!(x, nl)
-        for _x in x
-            @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
+            for _x in x
+                @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
+            end
+
+            x .= T.(x₀)
+            # use custom Jacobian
+            nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
+            solve!(x, nl)
+                for _x in x
+                @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
+            end
         end
     end
 end

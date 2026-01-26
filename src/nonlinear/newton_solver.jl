@@ -6,25 +6,6 @@ A `const` derived from [`NonlinearSolver`](@ref)
 # Constructors
 
 The `NewtonSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
-```jldoctest; setup=:(using SimpleSolvers)
-linesearch = Quadratic()
-F(y, x, params) = y .= tanh.(x)
-x = [.5, .5]
-y = zero(x)
-F(y, x, nothing)
-
-NewtonSolver(x, y; F = F, linesearch = linesearch)
-
-# output
-
-i =    0,
-x =  NaN,
-f =  NaN,
-rxₐ =  NaN,
-rxₛ =  NaN,
-rfₐ =  NaN,
-rfₛ =  NaN
-```
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 
@@ -121,10 +102,8 @@ This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
-function update!(s::NewtonSolver, x₀::AbstractArray, params)
-    update!(status(s), x₀, nonlinearproblem(s), params)
-    # update!(nonlinearproblem(s), Jacobian(s), x₀, params)
-    update!(cache(s), x₀)
+function update!(s::NewtonSolver, state::NonlinearSolverState, x₀::AbstractArray, params::OptionalParameters)
+    update!(cache(s), state, x₀, nonlinearproblem(s), params::OptionalParameters)
 
     s
 end

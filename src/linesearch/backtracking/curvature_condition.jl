@@ -43,7 +43,7 @@ function strong_curvature_condition(cc::CurvatureCondition{T, VT, TVT, OT, GT}, 
 end
 
 function standard_curvature_condition(cc::CurvatureCondition{T, T, T, OT, GT}, xₖ₊₁::T, αₖ::T) where {T, OT, GT}
-    derivative(cc.obj, xₖ₊₁)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
+    derivative(cc.obj, xₖ₊₁) ⋅ cc.pₖ ≥ cc.c * cc.gradₖ ⋅ cc.pₖ
 end
 
 function strong_curvature_condition(cc::CurvatureCondition{T, T, T, OT, GT}, xₖ₊₁::T, αₖ::T) where {T, OT, GT}

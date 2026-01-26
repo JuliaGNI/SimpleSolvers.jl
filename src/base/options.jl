@@ -107,12 +107,12 @@ const VERBOSITY::Int = 1
 # Keys
 
 Configurable options with defaults (values 0 and NaN indicate unlimited):
-- `x_abstol = 2eps(T)`: absolute tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref) and [`bisection`](@ref),
-- `x_reltol = 2eps(T)`: relative tolerance for `x` (the function argument). Used in e.g. [`assess_convergence!`](@ref),
-- `x_suctol = 2eps(T)`: succesive tolerance for `x`. Used in e.g. [`assess_convergence!`](@ref),
-- `f_abstol = zero(T)`: absolute tolerance for how close the function value should be to zero. See [`absolute_tolerance`](@ref). Used in e.g. [`bisection`](@ref) and [`assess_convergence!`](@ref),
-- `f_reltol = 2eps(T)`: relative tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
-- `f_suctol = 2eps(T)`: succesive tolerance for the function value. Used in e.g. [`assess_convergence!`](@ref),
+- `x_abstol = 2eps(T)`: absolute tolerance for `x` (the function argument). Used in e.g. [`assess_convergence`](@ref) and [`bisection`](@ref),
+- `x_reltol = 2eps(T)`: relative tolerance for `x` (the function argument). Used in e.g. [`assess_convergence`](@ref),
+- `x_suctol = 2eps(T)`: succesive tolerance for `x`. Used in e.g. [`assess_convergence`](@ref),
+- `f_abstol = zero(T)`: absolute tolerance for how close the function value should be to zero. See [`absolute_tolerance`](@ref). Used in e.g. [`bisection`](@ref) and [`assess_convergence`](@ref),
+- `f_reltol = 2eps(T)`: relative tolerance for the function value. Used in e.g. [`assess_convergence`](@ref),
+- `f_suctol = 2eps(T)`: succesive tolerance for the function value. Used in e.g. [`assess_convergence`](@ref),
 - `f_mindec = T(10)^-4`: minimum value by which the function has to decrease (also see [`minimum_decrease_threshold`](@ref)),
 - `g_restol = 2eps(T)`: tolerance for the residual (?) of the gradient,
 - `x_abstol_break = -Inf`: see [`meets_stopping_criteria`](@ref),
@@ -161,7 +161,7 @@ function Options(T = Float64;
         x_abstol::AbstractFloat = default_tolerance(T),
         x_reltol::AbstractFloat = default_tolerance(T),
         x_suctol::AbstractFloat = default_tolerance(T),
-        f_abstol::AbstractFloat = absolute_tolerance(T),
+        f_abstol::AbstractFloat = 4absolute_tolerance(T),
         f_reltol::AbstractFloat = default_tolerance(T),
         f_suctol::AbstractFloat = default_tolerance(T),
         f_mindec::AbstractFloat = minimum_decrease_threshold(T),
