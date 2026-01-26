@@ -1,3 +1,5 @@
+const MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS = 5
+
 """
     triple_point_finder(f, x)
 
@@ -11,9 +13,15 @@ For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax we take [`
 
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
-function triple_point_finder(f::Callable, x₀::T=0.0; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
+function triple_point_finder(f::Callable, x₀::T=0.0; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
     x₁ = x₀ + δ
-    @assert f(x₁) < f(x₀) "The function `f` must be decreasing at `$(x₀)``; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`."
+    if f(x₁) ≥ f(x₀)
+        if adjust_constant_iteration ≤ MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS 
+            triple_point_finder(f, x₀; δ=δ/2, nmax=nmax, adjust_constant_iteration=adjust_constant_iteration+1)
+        else
+            "The function `f` must be decreasing at `$(x₀)``; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`."
+        end
+    end
     local xₖ₋₁ = x₀
     local xₖ = x₁
     local xₖ₊₁ = xₖ
