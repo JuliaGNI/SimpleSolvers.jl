@@ -64,7 +64,7 @@ function default_precision(::Type{Float64})
     8eps(Float64)
 end
 
-function default_precision(::Type{T}) where {T <: AbstractFloat}
+function default_precision(::Type{T}) where {T<:AbstractFloat}
     error("No default precision defined for $(T).")
 end
 
@@ -83,9 +83,9 @@ struct BierlaireQuadraticState{T} <: LinesearchState{T}
     ξ::T
 
     function BierlaireQuadraticState(T₁::DataType=Float64;
-                    ε::T = default_precision(T₁), # DEFAULT_BIERLAIRE_ε,
-                    ξ::T = default_precision(T₁), # DEFAULT_BIERLAIRE_ξ,
-                    options_kwargs...) where {T}
+        ε::T=default_precision(T₁), # DEFAULT_BIERLAIRE_ε,
+        ξ::T=default_precision(T₁), # DEFAULT_BIERLAIRE_ξ,
+        options_kwargs...) where {T}
         config₁ = Options(T₁; options_kwargs...)
         new{T₁}(config₁, T₁(ε), T₁(ξ))
     end
@@ -96,6 +96,8 @@ LinesearchState(algorithm::BierlaireQuadratic; T::DataType=Float64, kwargs...) =
 function (ls::BierlaireQuadraticState{T})(obj::LinesearchProblem{T}, a::T, b::T, c::T, iteration_number::Integer=1) where {T}
     ls(obj.F, a, b, c, iteration_number)
 end
+
+Base.show(io::IO, ls::BierlaireQuadraticState) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
@@ -113,7 +115,7 @@ end
 function (ls::BierlaireQuadraticState{T})(fˡˢ::Callable, a::T, b::T, c::T, iteration_number::Integer) where {T}
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
-    χ = T(.5) * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
+    χ = T(0.5) * (fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2)) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
     # perform a perturbation if χ ≈ b (in order "to avoid stalling")
     χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, ls.ε) : χ
     if χ > b
@@ -129,9 +131,9 @@ function (ls::BierlaireQuadraticState{T})(fˡˢ::Callable, a::T, b::T, c::T, ite
             c, b = b, χ
         end
     end
-    !( ((c - a) ≤ ls.ε) ) || !( ((fˡˢ(a) - fˡˢ(b)) ≤ ls.ε) && ((fˡˢ(c) - fˡˢ(b)) ≤ ls.ε) ) || return b
+    !(((c - a) ≤ ls.ε)) || !(((fˡˢ(a) - fˡˢ(b)) ≤ ls.ε) && ((fˡˢ(c) - fˡˢ(b)) ≤ ls.ε)) || return b
     # ( (c - a) ≤ ls.ε ) || return b
-    ls(fˡˢ, a, b, c, iteration_number+1)
+    ls(fˡˢ, a, b, c, iteration_number + 1)
 end
 
 function (ls::BierlaireQuadraticState{T})(f, x₀::T=zero(T), iteration_number::Integer=1) where {T}
