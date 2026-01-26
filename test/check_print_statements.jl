@@ -8,15 +8,18 @@ function check_value_for_nonlinearsolverstatus(T::DataType)
     f(x::AbstractArray) = f.(x)
     F(y::AbstractArray, x::AbstractArray, params) = y .= f(x)
     x = rand(T, 3)
-    
+
     # s₁ = NewtonSolver(x₁, f)
     s = NewtonSolver(x, F, f(x))
-    expected_statement = 
-    "i=   0,
-x= NaN,
-f= NaN,
-rxₐ= NaN,
-rfₐ= NaN"
+    expected_statement =
+    "i =    0,
+x =  NaN,
+f =  NaN,
+rxₐ =  NaN,
+rxₛ =  NaN,
+rfₐ =  NaN,
+rfₛ =  NaN
+"
     compare_statements(s, expected_statement)
 end
 

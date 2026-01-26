@@ -6,23 +6,6 @@ A `const` derived from [`NonlinearSolver`](@ref)
 # Constructors
 
 The `NewtonSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
-```jldoctest; setup=:(using SimpleSolvers)
-linesearch = Quadratic()
-F(y, x, params) = y .= tanh.(x)
-x = [.5, .5]
-y = zero(x)
-F(y, x, nothing)
-
-NewtonSolver(x, y; F = F, linesearch = linesearch)
-
-# output
-
-i=   0,
-x= NaN,
-f= NaN,
-rxₐ= NaN,
-rfₐ= NaN
-```
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 
@@ -72,18 +55,21 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function compute_new_direction(x, s::NewtonSolver, params)
-    value!(cache(s).y, nonlinearproblem(s), x, params)
-    # first we update the rhs of the linearproblem
-    copyto!(rhs(cache(s)), value(cache(s)))
-    rhs(cache(s)) .*= -1
-    # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    if (mod(iteration_number(s) - 1, method(s).refactorize) == 0 || iteration_number(s) == 1)
-        jacobian!(s, x, params)
-        update!(linearproblem(s), jacobian(s), rhs(cache(s)))
-        factorize!(linearsolver(s), linearproblem(s))
-    end
-    ldiv!(direction(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params::OptionalParameters) where {T} 
+     # first we update the rhs of the linearproblem 
+     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params) 
+     rhs(linearproblem(s)) .*= -1
+     # for a quasi-Newton method the Jacobian isn't updated in every iteration 
+     if (mod(iteration_number(s) - 1, method(s).refactorize) == 0 || iteration_number(s) == 1) 
+         jacobian!(s, x, params) 
+         update!(linearproblem(s), jacobian(s)) 
+         factorize!(linearsolver(s), linearproblem(s)) 
+     end 
+     ldiv!(d, linearsolver(s), rhs(linearproblem(s))) 
+end
+
+function direction!(s::NewtonSolver, x::AbstractVector, params::OptionalParameters)
+    direction!(direction(cache(s)), x, s, params)
 end
 
 """
@@ -116,10 +102,8 @@ This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
-function update!(s::NewtonSolver, x₀::AbstractArray, params)
-    update!(status(s), x₀, nonlinearproblem(s), params)
-    # update!(nonlinearproblem(s), Jacobian(s), x₀, params)
-    update!(cache(s), x₀)
+function update!(s::NewtonSolver, state::NonlinearSolverState, x₀::AbstractArray, params::OptionalParameters)
+    update!(cache(s), state, x₀, nonlinearproblem(s), params::OptionalParameters)
 
     s
 end

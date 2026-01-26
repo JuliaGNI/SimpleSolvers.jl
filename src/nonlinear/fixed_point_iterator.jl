@@ -25,9 +25,13 @@ function FixedPointIterator(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:Abs
     FixedPointIterator(x, F, y; kwargs...)
 end
 
-function compute_new_direction(x, it::FixedPointIterator, params)
-    value!(direction(cache(it)), nonlinearproblem(it), x, params)
-    direction(cache(it)) .*= -1
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, it::FixedPointIterator{T}, params::OptionalParameters) where {T}
+    value!(d, nonlinearproblem(it), x, params)
+    d .*= -1
+end
+
+function direction!(it::FixedPointIterator, x::AbstractVector, params::OptionalParameters)
+    direction!(direction(cache(it)), x, it, params)
 end
 
 """

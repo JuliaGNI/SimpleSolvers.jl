@@ -10,18 +10,18 @@ Make a line search problem for a *Newton solver* (the `cache` here is an instanc
 
 Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::OptimizerCache{T}, ::OptimizerState) where {T}`](@ref).
 """
-function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NonlinearSolverCache{T}, params) where {T}
+function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, params::OptionalParameters) where {T}
     function f(α)
-        compute_new_iterate!(cache.x, cache.x̄, α, cache.δx)
-        value!(cache.y, nlp, cache.x, params)
-        L2norm(cache.y)
+        compute_new_iterate!(solution(cache), solution(state), α, direction(cache))
+        value!(value(cache), nlp, solution(cache), params)
+        L2norm(value(cache))
     end
 
     function d(α)
-        compute_new_iterate!(cache.x, cache.x̄, α, cache.δx)
-        value!(cache.y, nlp, cache.x, params)
-        jacobian_instance(jacobian(cache), cache.x, params)
-        2 * dot(cache.y, jacobian(cache), direction(cache))
+        compute_new_iterate!(solution(cache), solution(state), α, direction(cache))
+        value!(value(cache), nlp, solution(cache), params)
+        jacobian_instance(jacobian(cache), solution(cache), params)
+        2 * dot(value(cache), jacobian(cache), direction(cache))
     end
 
     # the last argument is to specify the "type" in the problem
@@ -29,8 +29,8 @@ function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobia
 end
 
 """
-    linesearch_problem(nl::NonlinearSolver, params)
+    linesearch_problem(nl::NonlinearSolver, state, params)
 
 Build a line search problem based on a [`NonlinearSolver`](@ref) (almost always a [`NewtonSolver`](@ref) in practice).
 """
-linesearch_problem(nl::NonlinearSolver, params) = linesearch_problem(nonlinearproblem(nl), Jacobian(nl), cache(nl), params)
+linesearch_problem(nl::NonlinearSolver, state::NonlinearSolverState, params::OptionalParameters) = linesearch_problem(nonlinearproblem(nl), Jacobian(nl), cache(nl), state, params)

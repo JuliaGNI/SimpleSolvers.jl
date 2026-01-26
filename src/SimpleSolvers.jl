@@ -107,19 +107,15 @@ include("linesearch/quadratic.jl")
 include("linesearch/bierlaire_quadratic.jl")
 include("linesearch/dummy_linesearch.jl")
 
-export NonlinearProblem, NonlinearSolver, NonlinearSolverException,
-    AbstractNewtonSolver, NewtonSolver, QuasiNewtonSolver,
-    residual_initial!, residual_absolute!, residual_relative!,
-    assess_convergence, assess_convergence!,
-    print_status, check_solver_status,
-    get_solver_status, get_solver_status!,
-    solve!
+export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
+    NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!
 
 export FixedPointIterator
 
 include("nonlinear/nonlinear_problem.jl")
-include("nonlinear/nonlinear_solver_status.jl")
+include("nonlinear/nonlinear_solver_state.jl")
 include("nonlinear/nonlinear_solver_cache.jl")
+include("nonlinear/nonlinear_solver_status.jl")
 include("nonlinear/nonlinear_solver.jl")
 include("nonlinear/fixed_point_iterator.jl")
 include("nonlinear/newton_solver.jl")
