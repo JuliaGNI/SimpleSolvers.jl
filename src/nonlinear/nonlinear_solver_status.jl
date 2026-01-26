@@ -29,11 +29,13 @@ NonlinearSolverStatus{Float64}(3)
 
 # output
 
-i=   0,
-x= NaN,
-f= NaN,
-rxₐ= NaN,
-rfₐ= NaN
+i =    0,
+x =  NaN,
+f =  NaN,
+rxₐ =  NaN,
+rxₛ =  NaN,
+rfₐ =  NaN,
+rfₛ =  NaN
 ```
 """
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
@@ -116,11 +118,13 @@ function clear!(status::NonlinearSolverStatus{XT,YT}) where {XT,YT}
 end
 
 Base.show(io::IO, status::NonlinearSolverStatus{XT,YT,AXT,AYT}) where {XT,YT,AXT<:AbstractArray,AYT<:AbstractArray} = print(io,
-    (@sprintf "i=%4i" iteration_number(status)), ",\n",
-    (@sprintf "x=%4e" status.x[1]), ",\n",
-    (@sprintf "f=%4e" status.f[1]), ",\n",
-    (@sprintf "rxₐ=%4e" status.rxₐ), ",\n",
-    (@sprintf "rfₐ=%4e" status.rfₐ))
+    (@sprintf "i = %4i" iteration_number(status)), ",\n",
+    (@sprintf "x = %4e" status.x[1]), ",\n",
+    (@sprintf "f = %4e" status.f[1]), ",\n",
+    (@sprintf "rxₐ = %4e" status.rxₐ), ",\n",
+    (@sprintf "rxₛ = %4e" status.rxₛ), ",\n",
+    (@sprintf "rfₐ = %4e" status.rfₐ), ",\n",
+    (@sprintf "rfₛ = %4e" status.rfₛ), "\n")
 
 @doc raw"""
     print_status(status, config)
@@ -257,14 +261,11 @@ The computed residuals are the following:
 - `rfₛ` : successive residual (the norm of ``\gamma``).
 """
 function residual!(status::NonlinearSolverStatus)
-    status.rxₐ = norm(status.δ)
-    status.x̃ .= status.δ ./ status.x
+    status.rxₐ = norm(status.x)
     status.rxₛ = norm(status.δ)
-
     status.rfₐ = norm(status.f)
     status.rfₛ = norm(status.γ)
-
-    nothing
+    status
 end
 
 """
@@ -274,8 +275,6 @@ Clear `status::`[`NonlinearSolverStatus`](@ref) (via the function [`clear!`](@re
 """
 function initialize!(status::NonlinearSolverStatus, x::AbstractVector)
     clear!(status)
-
-    status
 end
 
 """
@@ -292,14 +291,14 @@ The new `f` and `f̄` stored in `status` are used to compute `γ`.
 See [`NonlinearSolverStatus`](@ref) for an explanation of those variables.
 """
 function update!(status::NonlinearSolverStatus, x::AbstractVector, nls::NonlinearProblem, params)
-    status.x̄ .= solution(status)
+    status.x̄ .= status.x
     status.f̄ .= status.f
 
-    solution(status) .= x
+    status.x .= x
     value!(status.f, nls, x, params)
-    (iteration_number(status) != 0) || (status.f₀ .= status.f)
+    iteration_number(status) == 0 && copy!(status.f₀, status.f)
 
-    status.δ .= solution(status) .- status.x̄
+    status.δ .= status.x .- status.x̄
     status.γ .= status.f .- status.f̄
 
     residual!(status)

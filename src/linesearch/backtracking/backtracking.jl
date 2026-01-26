@@ -32,7 +32,7 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 Constant used in [`BacktrackingState`](@ref).
 Its value is $(DEFAULT_ARMIJO_p)
 """
-const DEFAULT_ARMIJO_p  = 0.5
+const DEFAULT_ARMIJO_p = 0.5
 
 @doc raw"""
     const DEFAULT_WOLFE_c₁
@@ -121,11 +121,11 @@ struct BacktrackingState{T} <: LinesearchState{T}
     end
 end
 
-Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * "and p = " * string(ls.p) * ".")
+Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * " and p = " * string(ls.p) * ".")
 
-LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
+LinesearchState(algorithm::Backtracking; T::DataType=Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T = ls.α₀) where {T}
+function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T=ls.α₀) where {T}
     x₀ = zero(α)
     y₀ = value(obj, x₀)
     d(α) = derivative(obj, α)
