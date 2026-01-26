@@ -29,11 +29,13 @@ NonlinearSolverStatus{Float64}(3)
 
 # output
 
-i=   0,
-x= NaN,
-f= NaN,
-rxₐ= NaN,
-rfₐ= NaN
+i =    0,
+x =  NaN,
+f =  NaN,
+rxₐ =  NaN,
+rxₛ =  NaN,
+rfₐ =  NaN,
+rfₛ =  NaN
 ```
 """
 mutable struct NonlinearSolverStatus{XT,YT,AXT,AYT}
