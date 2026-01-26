@@ -21,7 +21,7 @@ struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}}
         x̄ .= T(NaN)
         f̄ .= T(NaN)
         f₀ .= T(NaN)
-        new{T, typeof(x), typeof(y)}(x̄, f̄, f₀)
+        new{T, typeof(x̄), typeof(f̄)}(x̄, f̄, f₀)
     end
 end
 
