@@ -32,7 +32,7 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 Constant used in [`BacktrackingState`](@ref).
 Its value is $(DEFAULT_ARMIJO_p)
 """
-const DEFAULT_ARMIJO_p  = 0.5
+const DEFAULT_ARMIJO_p = 0.5
 
 @doc raw"""
     const DEFAULT_WOLFE_c₁
@@ -47,7 +47,7 @@ A constant ``\epsilon`` on which a finite difference approximation of the deriva
 
 
 """
-const DEFAULT_WOLFE_c₁  = 1E-4
+const DEFAULT_WOLFE_c₁ = 1E-4
 
 @doc raw"""
     BacktrackingState <: LinesearchState
@@ -96,10 +96,10 @@ struct BacktrackingState{T} <: LinesearchState{T}
     p::T
 
     function BacktrackingState(::Type{T₁}=Float64;
-                    α₀::T = DEFAULT_ARMIJO_α₀,
-                    ϵ::T = DEFAULT_WOLFE_c₁,
-                    p::T = DEFAULT_ARMIJO_p,
-                    options_kwargs...) where {T₁, T}
+        α₀::T=DEFAULT_ARMIJO_α₀,
+        ϵ::T=DEFAULT_WOLFE_c₁,
+        p::T=DEFAULT_ARMIJO_p,
+        options_kwargs...) where {T₁,T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
         configT = Options(T₁; options_kwargs...)
@@ -107,11 +107,11 @@ struct BacktrackingState{T} <: LinesearchState{T}
     end
 end
 
-Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * "and p = " * string(ls.p) * ".")
+Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * " and p = " * string(ls.p) * ".")
 
-LinesearchState(algorithm::Backtracking; T::DataType = Float64, kwargs...) = BacktrackingState(T; kwargs...)
+LinesearchState(algorithm::Backtracking; T::DataType=Float64, kwargs...) = BacktrackingState(T; kwargs...)
 
-function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T = ls.α₀) where {T}
+function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T=ls.α₀) where {T}
     x₀ = zero(α)
     y₀ = value(obj, x₀)
     d(α) = derivative(obj, α)
@@ -119,7 +119,7 @@ function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T = ls.α₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
     sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)
-    cc = CurvatureCondition(T(.9), x₀, d₀, one(α), obj, d; mode=:Standard)
+    cc = CurvatureCondition(T(0.9), x₀, d₀, one(α), obj, d; mode=:Standard)
     for _ in 1:ls.config.max_iterations
         if (sdc(α) && cc(α))
             break

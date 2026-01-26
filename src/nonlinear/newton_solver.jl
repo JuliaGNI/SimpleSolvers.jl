@@ -17,11 +17,13 @@ NewtonSolver(x, y; F = F, linesearch = linesearch)
 
 # output
 
-i=   0,
-x= NaN,
-f= NaN,
-rxₐ= NaN,
-rfₐ= NaN
+i =    0,
+x =  NaN,
+f =  NaN,
+rxₐ =  NaN,
+rxₛ =  NaN,
+rfₐ =  NaN,
+rfₛ =  NaN
 ```
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
