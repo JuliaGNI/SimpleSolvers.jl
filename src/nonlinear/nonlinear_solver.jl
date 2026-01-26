@@ -117,7 +117,7 @@ Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver, params) where {T}
     update!(cache(s), x)
-    compute_new_direction(x, s, params)
+    direction!(s, x, params)
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
     for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
