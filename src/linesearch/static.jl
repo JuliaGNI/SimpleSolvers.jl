@@ -1,28 +1,27 @@
 """
-    StaticState <: LinesearchState
+    Static <: LinesearchMethod
 
-The state for [`Static`](@ref).
+The *static* method.
 
-# Functors
+# Constructors
 
-For a `Number` `a` and an [`LinesearchProblem`](@ref) `obj` we have the following functors:
 ```julia
-ls.(a) = ls.α
-ls.(obj, a) = ls.α
+Static(α)
 ```
+
+# Keys
+
+Keys include:
+-`α`: equivalent to a step size. The default is `1`.
+
+# Extended help
 """
-struct StaticState{T} <: LinesearchState{T}
+struct Static{T<:Number} <: LinesearchMethod
     α::T
-    StaticState(α::T = 1.0) where {T} = new{T}(α)
+
+    Static(α::T = 1.0) where {T} = new{T}(α)
 end
 
-# StaticState(args...; α = 1.0, kwargs...) = StaticState(α)
+Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 
-LinesearchState(algorithm::Static{T₁}; T::DataType=T₁, kwargs...) where {T₁} = StaticState(T(algorithm.α))
-
-Base.show(io::IO, state::StaticState) = show(io, Static(state.α))
-
-(ls::StaticState)(::Number = 0) = ls.α
-(ls::StaticState)(::LinesearchProblem, ::Number = 0) = ls.α
-
-# (ls::StaticState)(x::AbstractVector, δx::AbstractVector) = x .+= ls.α .* δx
+solve(::LinesearchProblem{T}, ls::Linesearch{T, LST}) where {T, LST<:Static{T}} = ls.algorithm.α
