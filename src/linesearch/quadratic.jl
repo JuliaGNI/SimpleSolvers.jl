@@ -31,7 +31,7 @@ A factor by which `s` is reduced in each bracketing iteration (see [`bracket_min
 const DEFAULT_s_REDUCTION = .5
 
 """
-    QuadraticState <: LinesearchState
+    Quadratic <: LinesearchMethod
 
 Quadratic Polynomial line search. Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from the old `QuadraticState` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
 
@@ -51,7 +51,7 @@ This algorithm repeatedly builds new quadratic polynomials until a minimum is fo
 
 The *quadratic* method. Compare this to [`BierlaireQuadratic`](@ref). The algorithm is adjusted from [kelley1995iterative](@cite).
 """
-struct Quadratic{T} <: LinesearchMethod{T}
+struct Quadratic{T} <: LinesearchMethod
     ε::T
     s::T
     s_reduction::T
@@ -89,3 +89,5 @@ function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_
 end
 
 solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, s::T=ls.s) where {T, LST <: Quadratic} = solve(problem, ls, 0, x₀, s)
+
+Base.show(io::IO, ::Quadratic) = print(io, "Quadratic Polynomial")

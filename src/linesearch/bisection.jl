@@ -84,18 +84,9 @@ Use [`bracket_minimum`](@ref) to find a starting interval and then do bisections
 bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
 """
-    BisectionState <: LinesearchState
-
-Corresponding [`LinesearchState`](@ref) to [`Bisection`](@ref).
+    Bisection <: Linesearch
 
 See [`bisection`](@ref) for the implementation of the algorithm.
-
-# Constructors
-
-```julia
-BisectionState(options)
-BisectionState(; options)
-```
 """
 mutable struct Bisection{T} <: LinesearchMethod
     config::Options{T}
@@ -108,3 +99,5 @@ end
 function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x::T=zero(T)) where {T, LST <: LinesearchMethod}
     solve(problem, ls, bracket_minimum(problem.F, x)...)
 end
+
+Base.show(io::IO, ::Bisection) = print(io, "Bisection")

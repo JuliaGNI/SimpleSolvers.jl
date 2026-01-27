@@ -62,14 +62,11 @@ We also use ``c_2 =``$(DEFAULT_WOLFE_c₂) here.
 const DEFAULT_WOLFE_c₂ = 0.9
 
 @doc raw"""
-    BacktrackingState <: LinesearchState
-
-Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
+    Backtracking <: LinesearchMethod
 
 # Keys
 
 The keys are:
-- `config::`[`Options`](@ref)
 - `α₀`:
 - `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
@@ -125,7 +122,7 @@ Note that if the stopping criterion is not reached, ``\alpha`` is multiplied wit
 
 [Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``\epsilon`` have different names such as ``\tau`` and ``c``.
 """
-struct Backtracking{T} <: LinesearchMethod{T}
+struct Backtracking{T} <: LinesearchMethod
     α₀::T
     ϵ::T
     c₂::T

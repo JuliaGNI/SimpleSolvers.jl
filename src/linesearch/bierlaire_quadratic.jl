@@ -93,7 +93,7 @@ function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, a::T, b::T
     bierlaire_quadratic(problem.F, ls, a, b, c, iteration_number)
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T=zero(T), iteration_number::Integer=1) where {T}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T=zero(T), iteration_number::Integer=1) where {T, LST <: BierlaireQuadratic}
     # check if the minimum has already been reached
     !(l2norm(derivative(problem, x₀)) < ls.algorithm.ξ) || return x₀
     solve(problem, ls, triple_point_finder(problem, x₀)..., iteration_number)

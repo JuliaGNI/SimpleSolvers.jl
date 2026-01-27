@@ -1,8 +1,8 @@
 """
-    NoLinesearchState <: LinesearchState
+    NoLinesearch <: LinesearchMethod
 
 Used for the *fixed point iterator* ([`PicardMethod`](@ref)).
 """
-struct NoLinesearchState{T} <: LinesearchState{T} end
+struct NoLinesearch{T} <: LinesearchMethod end
 
-NoLinesearchState(T::DataType) = NoLinesearchState{T}()
+NoLinesearch(T::DataType) = NoLinesearch{T}()
