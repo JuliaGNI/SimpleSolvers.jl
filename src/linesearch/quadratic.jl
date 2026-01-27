@@ -46,41 +46,37 @@ This algorithm repeatedly builds new quadratic polynomials until a minimum is fo
 - `ε`: A constant that checks the *precision*/*tolerance*.
 - `s`: A constant that determines the initial interval for bracketing. By default this is [`DEFAULT_BRACKETING_s`](@ref).
 - `s_reduction:` A constant that determines the factor by which `s` is decreased in each new *bracketing iteration*.
-"""
-struct QuadraticState{T} <: LinesearchState{T}
-    config::Options{T}
 
+# Extended help
+
+The *quadratic* method. Compare this to [`BierlaireQuadratic`](@ref). The algorithm is adjusted from [kelley1995iterative](@cite).
+"""
+struct Quadratic{T} <: LinesearchMethod{T}
     ε::T
     s::T
     s_reduction::T
 
-    function QuadraticState(T₁::DataType=Float64;
+    function Quadratic(T₁::DataType=Float64;
                     ε = eps(T₁),
                     s::T = DEFAULT_BRACKETING_s,
-                    s_reduction::T = DEFAULT_s_REDUCTION,
-                    options_kwargs...) where {T}
-        config₁ = Options(T₁; options_kwargs...)
-        new{T₁}(config₁, T₁(ε), T₁(s), T₁(s_reduction))
+                    s_reduction::T = DEFAULT_s_REDUCTION) where {T}
+        new{T₁}(T₁(ε), T₁(s), T₁(s_reduction))
     end
 end
 
-Base.show(io::IO, ::QuadraticState) = print(io, "Polynomial quadratic")
-
-LinesearchState(algorithm::Quadratic; T::DataType=Float64, kwargs...) = QuadraticState(T; kwargs...)
-
-function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T, LST <: Quadratic}
     number_of_iterations != max_number_of_quadratic_linesearch_iterations(T) || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
-    a, b = bracket_minimum_with_fixed_point(obj, x₀; s = s)
-    y₀ = value(obj, a)
-    d₀ = derivative(obj, a)
+    a, b = bracket_minimum_with_fixed_point(problem, x₀; s = s)
+    y₀ = value(problem, a)
+    d₀ = derivative(problem, a)
     !(abs(d₀) < ls.ε) || return x₀
 
     p₀ = y₀
     p₁ = d₀
 
     # compute value at `b`
-    y₁ = value(obj, b)
+    y₁ = value(problem, b)
 
     # determine coefficient p₂ of p(α)
     p₂ = (y₁^2 - p₀ - p₁*(b-a)) / (b-a)^2
@@ -89,7 +85,7 @@ function (ls::QuadraticState{T})(obj::LinesearchProblem{T}, number_of_iterations
     αₜ = -p₁ / (2p₂) + a
     !(l2norm(αₜ - x₀) < ls.ε) || return αₜ
 
-    ls(obj, number_of_iterations + 1, αₜ, s * ls.s_reduction)
+    ls(problem, number_of_iterations + 1, αₜ, s * ls.s_reduction)
 end
 
-(ls::QuadraticState{T})(obj::LinesearchProblem{T}, x₀::T, s::T=ls.s) where {T} = ls(obj, 0, x₀, s)
+solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, s::T=ls.s) where {T, LST <: Quadratic} = solve(problem, ls, 0, x₀, s)
