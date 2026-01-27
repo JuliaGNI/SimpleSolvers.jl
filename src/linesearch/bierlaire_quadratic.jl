@@ -69,35 +69,38 @@ function default_precision(::Type{T}) where {T<:AbstractFloat}
 end
 
 """
-    BierlaireQuadraticState <: LinesearchState
+    BierlaireQuadratic <: Linesearch
 
+Algorithm taken from [bierlaire2015optimization](@cite).
 
 # Extended help
 
 Note that the performance of [`BierlaireQuadratic`](@ref) may heavily depend on the choice of [`DEFAULT_BIERLAIRE_ε`](@ref) (i.e. the precision) and [`DEFAULT_BIERLAIRE_ξ`](@ref).
 """
-struct BierlaireQuadraticState{T} <: LinesearchState{T}
-    config::Options{T}
-
+struct BierlaireQuadratic{T} <: LinesearchMethod
     ε::T
     ξ::T
 
-    function BierlaireQuadraticState(T₁::DataType=Float64;
+    function BierlaireQuadratic(T₁::DataType=Float64;
         ε::T=default_precision(T₁), # DEFAULT_BIERLAIRE_ε,
-        ξ::T=default_precision(T₁), # DEFAULT_BIERLAIRE_ξ,
-        options_kwargs...) where {T}
-        config₁ = Options(T₁; options_kwargs...)
-        new{T₁}(config₁, T₁(ε), T₁(ξ))
+        ξ::T=default_precision(T₁) # DEFAULT_BIERLAIRE_ξ
+        ) where {T}
+        new{T₁}(T₁(ε), T₁(ξ))
     end
 end
 
-LinesearchState(algorithm::BierlaireQuadratic; T::DataType=Float64, kwargs...) = BierlaireQuadraticState(T; kwargs...)
-
-function (ls::BierlaireQuadraticState{T})(obj::LinesearchProblem{T}, a::T, b::T, c::T, iteration_number::Integer=1) where {T}
-    ls(obj.F, a, b, c, iteration_number)
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, a::T, b::T, c::T, iteration_number::Integer=1) where {T, LST <: BierlaireQuadratic}
+    bierlaire_quadratic(problem.F, ls, a, b, c, iteration_number)
 end
 
-Base.show(io::IO, ls::BierlaireQuadraticState) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T=zero(T), iteration_number::Integer=1) where {T}
+    # check if the minimum has already been reached
+    !(l2norm(derivative(problem, x₀)) < ls.algorithm.ξ) || return x₀
+    solve(problem, ls, triple_point_finder(problem, x₀)..., iteration_number)
+end
+
+
+Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
@@ -112,7 +115,7 @@ function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
     end
 end
 
-function (ls::BierlaireQuadraticState{T})(fˡˢ::Callable, a::T, b::T, c::T, iteration_number::Integer) where {T}
+function bierlire_quadratic(fˡˢ::Callable, ls::Linesearch{T, LST}, a::T, b::T, c::T, iteration_number::Integer) where {T, LST <: BierlaireQuadratic{T}}
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
     χ = T(0.5) * (fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2)) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
@@ -131,13 +134,7 @@ function (ls::BierlaireQuadraticState{T})(fˡˢ::Callable, a::T, b::T, c::T, ite
             c, b = b, χ
         end
     end
-    !(((c - a) ≤ ls.ε)) || !(((fˡˢ(a) - fˡˢ(b)) ≤ ls.ε) && ((fˡˢ(c) - fˡˢ(b)) ≤ ls.ε)) || return b
+    !(((c - a) ≤ ls.algorithm.ε)) || !(((fˡˢ(a) - fˡˢ(b)) ≤ ls.algorithm.ε) && ((fˡˢ(c) - fˡˢ(b)) ≤ ls.algorithm.ε)) || return b
     # ( (c - a) ≤ ls.ε ) || return b
-    ls(fˡˢ, a, b, c, iteration_number + 1)
-end
-
-function (ls::BierlaireQuadraticState{T})(f, x₀::T=zero(T), iteration_number::Integer=1) where {T}
-    # check if the minimum has already been reached
-    !(l2norm(derivative(f, x₀)) < ls.ξ) || return x₀
-    ls(f, triple_point_finder(f, x₀)..., iteration_number)
+    bierlaire_quadratic(fˡˢ, ls, a, b, c, iteration_number + 1)
 end
