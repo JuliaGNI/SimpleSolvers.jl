@@ -1,11 +1,7 @@
-abstract type LinearMethod <: SolverMethod end
 "A supertype collecting all nonlinear methods, including `NewtonMethod`s."
 abstract type NonlinearMethod <: SolverMethod end
 
 abstract type NonlinearSolverMethod <: SolverMethod end
-
-# abstract type DirectMethod <: LinearMethod end
-# abstract type IterativeMethod <: LinearMethod end
 
 
 """

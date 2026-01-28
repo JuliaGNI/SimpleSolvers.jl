@@ -9,6 +9,9 @@ The abstract type `SolverMethod` was imported from `GeometricBase`.
 """
 abstract type LinearSolverMethod <: SolverMethod end
 
+abstract type DirectMethod <: LinearSolverMethod end
+# abstract type IterativeMethod <: LinearSolverMethod end
+
 """
     solve(ls, method)
 
