@@ -122,7 +122,7 @@ Note that if the stopping criterion is not reached, ``\alpha`` is multiplied wit
 
 [Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``\epsilon`` have different names such as ``\tau`` and ``c``.
 """
-struct Backtracking{T} <: LinesearchMethod
+struct Backtracking{T} <: LinesearchMethod{T}
     α₀::T
     ϵ::T
     c₂::T
@@ -141,7 +141,7 @@ end
 
 Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * " and p = " * string(ls.p) * ".")
 
-function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.α₀) where {T, LST <: Backtracking}
+function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.algorithm.α₀) where {T, LST <: Backtracking}
     x₀ = zero(α)
     y₀ = value(obj, x₀)
     d(α) = derivative(obj, α)
@@ -159,4 +159,9 @@ function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.α₀
     end
 
     α
+end
+
+function Base.convert(::Type{T}, algorithm::Backtracking) where {T}
+    T ≠ eltype(algorithm) || return algorithm
+    Backtracking(T; α₀=T(algorithm.α₀), ϵ=T(algorithm.ϵ), c₂=T(algorithm.c₂), p=T(algorithm.p))
 end

@@ -128,7 +128,7 @@ function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <:
     compute_direction(opt, state)
 
     # apply line search
-    α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
+    α = solve(linesearch_problem(problem(opt), gradient(opt), cache(opt), state), linesearch(opt))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))

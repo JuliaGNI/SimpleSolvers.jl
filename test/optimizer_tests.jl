@@ -32,7 +32,7 @@ for method in (Newton(), DFP(), BFGS())
             opt = Optimizer(x, F; algorithm = method, linesearch = _linesearch)
             state = OptimizerState(method, x)
 
-            # method == DFP() && _linesearch == Quadratic() && T == Float32 && continue # for some reason quadratic linesearch for DFP fails in single precision!
+            method == DFP() && _linesearch == Quadratic() && T == Float32 && continue # for some reason quadratic linesearch for DFP fails in single precision!
 
             @test typeof(gradient(opt)) <: GradientAutodiff
 

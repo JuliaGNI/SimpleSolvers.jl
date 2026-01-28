@@ -51,7 +51,7 @@ This algorithm repeatedly builds new quadratic polynomials until a minimum is fo
 
 The *quadratic* method. Compare this to [`BierlaireQuadratic`](@ref). The algorithm is adjusted from [kelley1995iterative](@cite).
 """
-struct Quadratic{T} <: LinesearchMethod
+struct Quadratic{T} <: LinesearchMethod{T}
     ε::T
     s::T
     s_reduction::T
@@ -64,13 +64,13 @@ struct Quadratic{T} <: LinesearchMethod
     end
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.s) where {T, LST <: Quadratic}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.algorithm.s) where {T, LST <: Quadratic}
     number_of_iterations != max_number_of_quadratic_linesearch_iterations(T) || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(problem, x₀; s = s)
     y₀ = value(problem, a)
     d₀ = derivative(problem, a)
-    !(abs(d₀) < ls.ε) || return x₀
+    !(abs(d₀) < ls.algorithm.ε) || return x₀
 
     p₀ = y₀
     p₁ = d₀
@@ -83,11 +83,16 @@ function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
     αₜ = -p₁ / (2p₂) + a
-    !(l2norm(αₜ - x₀) < ls.ε) || return αₜ
+    !(l2norm(αₜ - x₀) < ls.algorithm.ε) || return αₜ
 
-    ls(problem, number_of_iterations + 1, αₜ, s * ls.s_reduction)
+    solve(problem, ls, number_of_iterations + 1, αₜ, s * ls.algorithm.s_reduction)
 end
 
 solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, s::T=ls.s) where {T, LST <: Quadratic} = solve(problem, ls, 0, x₀, s)
 
 Base.show(io::IO, ::Quadratic) = print(io, "Quadratic Polynomial")
+
+function Base.convert(::Type{T}, algorithm::Quadratic) where {T}
+    T ≠ eltype(algorithm) || return algorithm
+    Quadratic(T; ε=T(algorithm.ε), s=T(algorithm.s), s_reduction=T(algorithm.s_reduction))
+end

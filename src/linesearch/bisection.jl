@@ -88,16 +88,21 @@ bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwar
 
 See [`bisection`](@ref) for the implementation of the algorithm.
 """
-mutable struct Bisection{T} <: LinesearchMethod
-    config::Options{T}
-end
+struct Bisection{T} <: LinesearchMethod{T} end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, x₁::T) where {T, LST <: LinesearchMethod}
+Bisection(T::DataType=Float64) = Bisection{T}()
+
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, x₁::T) where {T, LST <: Bisection}
     bisection(problem, x₀, x₁; config = ls.config)
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x::T=zero(T)) where {T, LST <: LinesearchMethod}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x::T=zero(T)) where {T, LST <: Bisection}
     solve(problem, ls, bracket_minimum(problem.F, x)...)
 end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")
+
+function Base.convert(::Type{T}, algorithm::Bisection) where {T}
+    T ≠ eltype(algorithm) || return algorithm
+    Bisection(T)
+end

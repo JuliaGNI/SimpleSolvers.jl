@@ -53,10 +53,10 @@ end
     δx = x₁ - x₀
     x  = copy(x₀)
 
-    ls = StaticState()
+    ls_method = Static()
+    ls = Linesearch(ls_method)
 
-    @test ls == Linesearch(Static())
-    @test ls == Linesearch(Static(1.0))
+    @test Linesearch(ls_method) == Linesearch(Static(1.0))
 
     ls_problem = make_linesearch_problem(x₀)
     @test solve(ls_problem, ls) == 1.
@@ -121,14 +121,14 @@ end
         linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), state, params)
     end
 
-    function check_linesearch(ls::LineSearch, ls_obj::LinesearchProblem)
+    function check_linesearch(ls::Linesearch, ls_obj::LinesearchProblem)
         α = solve(ls_obj, ls)
         T = eltype(α)
         @test ≈(ls_obj.D(α), zero(T); atol = atol=∛(2eps(T)))
     end
 
     for T ∈ (Float32, Float64)
-        for ls_method ∈ (Bisection(), Quadratic(), BierlaireQuadratic())
+        for ls_method ∈ (Bisection(T), Quadratic(T), BierlaireQuadratic(T))
             ls = Linesearch(ls_method; T = T)
             ls_obj = make_linesearch_problem2(T.(x))
             check_linesearch(ls, ls_obj)

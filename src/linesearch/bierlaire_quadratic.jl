@@ -77,7 +77,7 @@ Algorithm taken from [bierlaire2015optimization](@cite).
 
 Note that the performance of [`BierlaireQuadratic`](@ref) may heavily depend on the choice of [`DEFAULT_BIERLAIRE_ε`](@ref) (i.e. the precision) and [`DEFAULT_BIERLAIRE_ξ`](@ref).
 """
-struct BierlaireQuadratic{T} <: LinesearchMethod
+struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ε::T
     ξ::T
 
@@ -105,7 +105,7 @@ Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
 
-Check whether `b` is closer to `a` or `c` and shift `χ` accordingly.
+Check whether `b` is closer to `a` or `c` and shift `χ` accordingly. This is taken from [bierlaire2015optimization](@cite).
 """
 function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
     if (c - b) > (b - a)
@@ -115,12 +115,12 @@ function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
     end
 end
 
-function bierlire_quadratic(fˡˢ::Callable, ls::Linesearch{T, LST}, a::T, b::T, c::T, iteration_number::Integer) where {T, LST <: BierlaireQuadratic{T}}
+function bierlaire_quadratic(fˡˢ::Callable, ls::Linesearch{T, LST}, a::T, b::T, c::T, iteration_number::Integer) where {T, LST <: BierlaireQuadratic{T}}
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
     χ = T(0.5) * (fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2)) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
     # perform a perturbation if χ ≈ b (in order "to avoid stalling")
-    χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, ls.ε) : χ
+    χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, ls.algorithm.ε) : χ
     if χ > b
         if fˡˢ(χ) > fˡˢ(b)
             c = χ
@@ -137,4 +137,13 @@ function bierlire_quadratic(fˡˢ::Callable, ls::Linesearch{T, LST}, a::T, b::T,
     !(((c - a) ≤ ls.algorithm.ε)) || !(((fˡˢ(a) - fˡˢ(b)) ≤ ls.algorithm.ε) && ((fˡˢ(c) - fˡˢ(b)) ≤ ls.algorithm.ε)) || return b
     # ( (c - a) ≤ ls.ε ) || return b
     bierlaire_quadratic(fˡˢ, ls, a, b, c, iteration_number + 1)
+end
+
+function Base.convert(::Type{T}, algorithm::BierlaireQuadratic) where {T}
+    T ≠ eltype(algorithm) || return algorithm
+    if algorithm.ε == default_precision(eltype(algorithm)) && algorithm.ξ == default_precision(eltype(algorithm))
+        BierlaireQuadratic(T; ε=default_precision(T), ξ =default_precision(T))
+    else
+        BierlaireQuadratic(T; ε=T(algorithm.ε), ξ=T(algorithm.ξ))
+    end
 end
