@@ -10,7 +10,7 @@ Make a line search problem for a *Newton solver* (the `cache` here is an instanc
 
 Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::OptimizerCache{T}, ::OptimizerState) where {T}`](@ref).
 """
-function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, params::OptionalParameters) where {T}
+function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobian{T}, cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, params) where {T}
     function f(α)
         compute_new_iterate!(solution(cache), solution(state), α, direction(cache))
         value!(value(cache), nlp, solution(cache), params)
@@ -33,4 +33,4 @@ end
 
 Build a line search problem based on a [`NonlinearSolver`](@ref) (almost always a [`NewtonSolver`](@ref) in practice).
 """
-linesearch_problem(nl::NonlinearSolver, state::NonlinearSolverState, params::OptionalParameters) = linesearch_problem(nonlinearproblem(nl), Jacobian(nl), cache(nl), state, params)
+linesearch_problem(nl::NonlinearSolver, state::NonlinearSolverState, params) = linesearch_problem(nonlinearproblem(nl), Jacobian(nl), cache(nl), state, params)

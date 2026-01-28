@@ -37,7 +37,7 @@ end
 
 Evaluate the [`NonlinearProblem`](@ref) at `x`.
 """
-function value!(y::AbstractArray{T}, nlp::NonlinearProblem{T}, x::AbstractArray{T}, params::OptionalParameters) where {T}
+function value!(y::AbstractArray{T}, nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
     nlp.F(y, x, params)
     y
 end
