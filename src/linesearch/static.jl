@@ -20,6 +20,8 @@ struct Static{T<:Number} <: LinesearchMethod{T}
     α::T
 
     Static(α::T = 1.0) where {T} = new{T}(α)
+
+    Static(T::DataType; α = 1.0) = Static(T(α))
 end
 
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
@@ -32,3 +34,5 @@ function Base.convert(::Type{T}, algorithm::Static) where {T}
     T ≠ eltype(algorithm) || return algorithm
     Static(T(algorithm.α))
 end
+
+Base.isapprox(st₁::Static{T}, st₂::Static{T}; kwargs...) where {T} = isapprox(st₁.α, st₂.α; kwargs...)
