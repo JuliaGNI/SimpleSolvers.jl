@@ -1,5 +1,5 @@
 """
-    struct LU <: LinearSolverMethod
+    struct LU <: DirectMethod
 
 A custom implementation of an LU solver, meant to solve a [`LinearProblem`](@ref).
 
@@ -49,7 +49,7 @@ solve(lu, ls) ≈ inv(A) * v
 true
 ```
 """
-struct LU{ST<:Union{Missing,Bool}} <: LinearSolverMethod
+struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
     static::ST
     pivot::Bool
 
