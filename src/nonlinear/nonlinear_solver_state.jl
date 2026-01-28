@@ -9,7 +9,7 @@ The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 !!! warn
     Note the difference to the [`NonlinearSolverCache`](@ref) and the [`NonlinearSolverStatus`](@ref).
 """
-struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}}
+struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}} <: AbstractSolverState
     x̄::XT
     f̄::YT
     f₀::YT

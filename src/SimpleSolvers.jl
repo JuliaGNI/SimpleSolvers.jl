@@ -8,7 +8,7 @@ using Printf
 
 import Base.minimum
 import Base.Callable
-import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, update!, NullParameters, OptionalParameters
+import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, update!, NullParameters, OptionalParameters, AbstractSolverState
 import GeometricBase: value
 
 include("utils.jl")

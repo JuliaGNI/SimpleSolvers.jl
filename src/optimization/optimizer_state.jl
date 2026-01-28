@@ -24,7 +24,7 @@ See [`NewtonOptimizerState`](@ref) for a `struct` that was derived from `Optimiz
 !!! info
     Note that a `OptimizerState` is not necessarily a `NewtonOptimizerState` as we can also have other optimizers, *Adam* for example.
 """
-abstract type OptimizerState{T} end
+abstract type OptimizerState{T} <: AbstractSolverState end
 
 OptimizerState(alg::OptimizerMethod, args...; kwargs...) = error("OptimizerState not implemented for $(typeof(alg))")
 
