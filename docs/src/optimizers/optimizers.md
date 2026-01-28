@@ -20,11 +20,11 @@ opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
 Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.NewtonOptimizerState`](@ref) and [`Hessian`](@ref). We can also allocate these objects manually and then call a different constructor for [`Optimizer`](@ref):
 
 ```@example optimizer
-using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, initialize!, LinesearchState
+using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, initialize!
 
 _cache = NewtonOptimizerCache(x)
 hes = Hessian(alg, obj, x)
-_linesearch = LinesearchState(Static(.1))
+_linesearch = Linesearch(Static(.1))
 opt₂ = Optimizer(alg, obj, hes, _cache, _linesearch)
 ```
 
@@ -65,7 +65,7 @@ cache(opt).x .= x
 
 ### Solving the Line Search Problem with Backtracking
 
-Calling an instance of [`SimpleSolvers.LinesearchState`](@ref) (in this case [`SimpleSolvers.BacktrackingState`](@ref)) on an [`SimpleSolvers.LinesearchProblem`](@ref) in turn does:
+Calling [`solve`](@ref) together with [`Linesearch`](@ref) (in this case [`SimpleSolvers.Backtracking`](@ref)) on an [`SimpleSolvers.LinesearchProblem`](@ref) in turn does:
 
 ```julia
 α *= ls.p
@@ -82,12 +82,12 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 ```@example optimizer
 using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, cache # hide
 ls = linesearch(opt)
-α = ls.α₀
+α = ls.algorithm.α₀
 x₀ = zero(α)
 grad = GradientAutodiff{Float64}(problem(opt).F, length(x))
 lso = linesearch_problem(problem(opt), grad, cache(opt), state)
 y₀ = value(lso, x₀)
 d₀ = derivative(lso, x₀)
 
-sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, d₀, obj)
+sdc = SufficientDecreaseCondition(ls.algorithm.ϵ, x₀, y₀, d₀, d₀, obj)
 ```

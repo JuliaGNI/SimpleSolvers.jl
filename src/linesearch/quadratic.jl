@@ -2,7 +2,7 @@
     determine_initial_α(y₀, obj, α₀)
 
 Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
-This is used as a starting point for using the functor of `QuadraticState` and makes sure that `α` describes *a point past the minimum*.
+This is used as a starting point for using the functor of [`Quadratic`](@ref) and makes sure that `α` describes *a point past the minimum*.
 
 !!! warning
     This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
@@ -16,7 +16,7 @@ function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T),
 end
 
 """
-This constant is used for [`QuadraticState`](@ref) and [`BierlaireQuadraticState`](@ref).
+This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref).
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
 
@@ -33,10 +33,10 @@ const DEFAULT_s_REDUCTION = .5
 """
     Quadratic <: LinesearchMethod
 
-Quadratic Polynomial line search. Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from the old `QuadraticState` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
+Quadratic Polynomial line search. Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from the old `Quadratic` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
 
 !!! warning
-    The old `QuadraticState` was deprecated!
+    The old `Quadratic` was deprecated!
 
 This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy). The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
 

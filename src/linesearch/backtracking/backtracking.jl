@@ -2,7 +2,7 @@ using Printf
 @doc raw"""
     const DEFAULT_ARMIJO_α₀
 
-The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`BacktrackingState`](@ref) and [`QuadraticState`](@ref)).
+The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`Backtracking`](@ref) and [`Quadratic`](@ref)).
 Its value is """ * """$(DEFAULT_ARMIJO_α₀)
 """
 const DEFAULT_ARMIJO_α₀ = 1.0
@@ -10,7 +10,7 @@ const DEFAULT_ARMIJO_α₀ = 1.0
 """
     const DEFAULT_ARMIJO_σ₀
 
-Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
+Constant used in [`Quadratic`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
 
 It is meant to *safeguard against stagnation* when performing line searches (see [kelley1995iterative](@cite)).
 
@@ -21,7 +21,7 @@ const DEFAULT_ARMIJO_σ₀ = 0.1
 """
     const DEFAULT_ARMIJO_σ₁
 
-Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
+Constant used in [`Quadratic`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
 Its value is $(DEFAULT_ARMIJO_σ₁)
 """
 const DEFAULT_ARMIJO_σ₁ = 0.5
@@ -29,7 +29,7 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 """
     const DEFAULT_ARMIJO_p
 
-Constant used in [`BacktrackingState`](@ref).
+Constant used in [`Backtracking`](@ref).
 Its value is $(DEFAULT_ARMIJO_p)
 """
 const DEFAULT_ARMIJO_p = 0.5
@@ -102,7 +102,7 @@ where ``\epsilon`` is stored in `ls`.
 
 The backtracking algorithm starts by setting ``y_0 \gets f(0)`` and ``d_0 \gets \nabla_0f``.
 
-The algorithm is executed by calling the functor of [`BacktrackingState`](@ref).
+The algorithm is executed by calling the functor of [`Backtracking`](@ref).
 
 The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
 

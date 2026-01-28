@@ -122,7 +122,7 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `g_restol_break = Inf`,
 - `allow_f_increases = $(ALLOW_F_INCREASES)`,
 - `min_iterations = $(MIN_ITERATIONS)`,
-- `max_iterations = $(MAX_ITERATIONS)`: the maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`BacktrackingState`](@ref),
+- `max_iterations = $(MAX_ITERATIONS)`: the maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`Backtracking`](@ref),
 - `warn_iterations = $(WARN_ITERATIONS)`,
 - `show_trace = $(SHOW_TRACE)`,
 - `store_trace = $(STORE_TRACE)`,

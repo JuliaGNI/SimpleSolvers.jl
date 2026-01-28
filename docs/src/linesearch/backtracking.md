@@ -50,7 +50,7 @@ mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
-using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 update!(cache, state, grad, hes, x)
@@ -95,20 +95,19 @@ We show how to use line searches in `SimpleSolvers` to solve a simple toy proble
 ```@example ls_obj
 using SimpleSolvers # hide
 
-sl = Backtracking()
+ls_method = Backtracking()
 nothing # hide
 ```
 
 `SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
-We now use this to compute a *backtracking line search*[^4]:
+We now use this to compute a *backtracking line search*:
 
-[^4]: We also note the use of the [`SimpleSolvers.LinesearchState`](@ref) constructor here, which has to be used together with a [`SimpleSolvers.LinesearchMethod`](@ref).
 
 ```@example ls_obj
-ls = LinesearchState(sl)
+ls = Linesearch(ls_method)
 α = 50.
-αₜ = ls(ls_obj, α)
+αₜ = solve(ls_obj, ls, α)
 ```
 
 And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:

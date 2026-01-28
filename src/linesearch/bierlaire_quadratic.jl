@@ -1,7 +1,7 @@
 """
     DEFAULT_BIERLAIRE_ε
 
-A constant that determines the *precision* in [`BierlaireQuadraticState`](@ref). The constant recommended in [bierlaire2015optimization](@cite) is `1E-3`.
+A constant that determines the *precision* in [`BierlaireQuadratic`](@ref). The constant recommended in [bierlaire2015optimization](@cite) is `1E-3`.
 
 Note that this constant may also depend on whether we deal with optimizers or solvers.
 
@@ -13,7 +13,7 @@ const DEFAULT_BIERLAIRE_ε::Float64 = 2eps(Float32)
 """
     DEFAULT_BIERLAIRE_ξ
 
-A constant on basis of which the `b` in [`BierlaireQuadraticState`](@ref) is perturbed in order "to avoid stalling" (see [bierlaire2015optimization; Chapter 11.2.1](@cite); in this reference the author recommends ``10^{-7}`` as a value).
+A constant on basis of which the `b` in [`BierlaireQuadratic`](@ref) is perturbed in order "to avoid stalling" (see [bierlaire2015optimization; Chapter 11.2.1](@cite); in this reference the author recommends ``10^{-7}`` as a value).
 Its value is $(DEFAULT_BIERLAIRE_ξ).
 
 !!! warning
@@ -24,7 +24,7 @@ const DEFAULT_BIERLAIRE_ξ::Float64 = 2eps(Float32)
 """
     default_precision(T)
 
-Compute the default precision used for [`BierlaireQuadraticState`](@ref).
+Compute the default precision used for [`BierlaireQuadratic`](@ref).
 Compare this to the [`default_tolerance`](@ref) used in [`Options`](@ref).
 
 # Examples

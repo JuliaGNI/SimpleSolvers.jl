@@ -36,7 +36,7 @@ mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
-using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 update!(cache, state, grad, hes, x)

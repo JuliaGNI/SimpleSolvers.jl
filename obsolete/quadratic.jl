@@ -7,7 +7,7 @@ We first check the following:
 ```math
     \alpha_t  < \alpha_0\alpha,
 ```
-where ``\sigma_0`` is stored in `ls` (i.e. in an instance of [`QuadraticState`](@ref)).
+where ``\sigma_0`` is stored in `ls` (i.e. in an instance of [`Quadratic`](@ref)).
 If this is not true we check:
 ```math
     \alpha_t > \sigma_1\alpha,

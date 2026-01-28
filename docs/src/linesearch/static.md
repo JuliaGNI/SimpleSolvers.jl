@@ -14,14 +14,14 @@ f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 
 α = .1
-sl = Static(α)
+ls_method = Static(α)
 nothing # hide
 ```
 
 `SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
 ```@example static
-using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, LinesearchState, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
@@ -32,13 +32,11 @@ ls_obj = linesearch_problem(obj, grad, cache, state)
 nothing # hide
 ```
 
-We now use this to compute a *static line search*[^1]:
-
-[^1]: We also note the use of the [`SimpleSolvers.LinesearchState`](@ref) constructor here, which has to be used together with a [`SimpleSolvers.LinesearchMethod`](@ref).
+We now use this to compute a *static line search*:
 
 ```@example static
-ls = LinesearchState(sl)
-ls(ls_obj, α)
+ls = Linesearch(ls_method)
+solve(ls_obj, ls)
 ```
 
 !!! info

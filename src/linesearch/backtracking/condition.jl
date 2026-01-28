@@ -1,7 +1,7 @@
 """
     BacktrackingCondition
 
-Abstract type comprising the conditions that are used for checking step sizes for the backtracking line search (see [`BacktrackingState`](@ref)).
+Abstract type comprising the conditions that are used for checking step sizes for the backtracking line search (see [`Backtracking`](@ref)).
 """
 abstract type BacktrackingCondition{T} end
 

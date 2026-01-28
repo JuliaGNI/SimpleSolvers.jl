@@ -1,7 +1,7 @@
 """
     LinesearchMethod
 
-Examples include [`StaticState`](@ref), [`Backtracking`](@ref), [`Bisection`](@ref) and [`Quadratic`](@ref).
+Examples include [`Static`](@ref), [`Backtracking`](@ref), [`Bisection`](@ref) and [`Quadratic`](@ref).
 See these examples for specific information on linesearch algorithms.
 
 # Extended help
