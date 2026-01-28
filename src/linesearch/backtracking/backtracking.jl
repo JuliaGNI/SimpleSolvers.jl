@@ -139,7 +139,7 @@ struct Backtracking{T} <: LinesearchMethod{T}
     end
 end
 
-Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * " and p = " * string(ls.p) * ".")
+Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = $(ls.α₀) ϵ = $(ls.ϵ), p = $(ls.p) and c₂ = $(ls.c₂).")
 
 function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.algorithm.α₀) where {T, LST <: Backtracking}
     x₀ = zero(α)
@@ -164,4 +164,8 @@ end
 function Base.convert(::Type{T}, algorithm::Backtracking) where {T}
     T ≠ eltype(algorithm) || return algorithm
     Backtracking(T; α₀=T(algorithm.α₀), ϵ=T(algorithm.ϵ), c₂=T(algorithm.c₂), p=T(algorithm.p))
+end
+
+function Base.isapprox(bt₁::Backtracking{T}, bt₂::Backtracking{T}; kwargs...) where {T}
+    isapprox(bt₁.α₀, bt₂.α₀; kwargs...) && isapprox(bt₁.ϵ, bt₂.ϵ; kwargs...) && isapprox(bt₁.c₂, bt₂.c₂; kwargs...) && isapprox(bt₁.p, bt₂.p; kwargs...)
 end
