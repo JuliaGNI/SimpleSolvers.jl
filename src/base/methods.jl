@@ -4,9 +4,6 @@ abstract type NonlinearMethod <: SolverMethod end
 
 abstract type NonlinearSolverMethod <: SolverMethod end
 
-abstract type DirectMethod <: LinearSolverMethod end
-# abstract type IterativeMethod <: LinearSolverMethod end
-
 
 """
     NewtonMethod(refactorize)
