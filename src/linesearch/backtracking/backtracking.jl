@@ -135,7 +135,7 @@ struct Backtracking{T} <: LinesearchMethod{T}
                     p::T = DEFAULT_ARMIJO_p) where {T₁, T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
-        new{T₁}(T₁(α₀), T₁(ϵ), T(c₂), T₁(p))
+        new{T₁}(T₁(α₀), T₁(ϵ), T₁(c₂), T₁(p))
     end
 end
 
