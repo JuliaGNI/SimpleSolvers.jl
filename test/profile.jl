@@ -17,18 +17,19 @@ function profile(Solver, kwarguments, n=100)
     x = ones(n)
     y = zero(x)
     nl = Solver(x, y; F=F!, kwarguments...)
+    ss = NonlinearSolverState(x, y)
 
-    solve!(x, nl)
+    solve!(x, nl, ss)
 
     x = ones(n)
 
     Profile.clear()
     Profile.clear_malloc_data()
 
-    Profile.Allocs.@profile solve!(x, nl)
+    Profile.Allocs.@profile solve!(x, nl, ss)
 end
 
-profile(NewtonSolver, (linesearch=Static(),))
+# profile(NewtonSolver, (linesearch=Static(),))
 # profile(NewtonSolver, (linesearch=Backtracking(),))
 # profile(NewtonSolver, (linesearch=Quadratic(),))
 # profile(NewtonSolver, (linesearch=BierlaireQuadratic(),))

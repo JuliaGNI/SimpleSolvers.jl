@@ -25,14 +25,15 @@ function test(n)
             x = ones(T, n)
             y = zero(x)
             nl = Solver(x, y; F=F!, verbosity=2, kwarguments...)
+            ss = NonlinearSolverState(x, y)
 
             println(Solver, ", ", kwarguments, ", ", T, "\n")
 
             x = ones(T, n)
-            solve!(x, nl)
+            solve!(x, nl, ss)
 
             x = ones(T, n)
-            @time solve!(x, nl)
+            @time solve!(x, nl, ss)
 
             println()
         end
