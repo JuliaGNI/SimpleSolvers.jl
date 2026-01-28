@@ -18,7 +18,7 @@ mutable struct Optimizer{T,
                  GT <: Gradient{T},
                  HT <: Hessian{T},
                  OCT <: OptimizerCache,
-                 LST <: LinesearchState} <: AbstractSolver
+                 LST <: Linesearch} <: AbstractSolver
     algorithm::ALG
     problem::OBJ
     gradient::GT
@@ -28,7 +28,7 @@ mutable struct Optimizer{T,
     linesearch::LST
     iterations::Int
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::LinesearchState; gradient = GradientAutodiff{T}(problem.F, length(cache.x)), iterations = 1, options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::Linesearch; gradient = GradientAutodiff{T}(problem.F, length(cache.x)), iterations = 1, options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
         new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, cache, lst, iterations)
     end
@@ -37,7 +37,7 @@ end
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
     cache = OptimizerCache(algorithm, x)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, cache, LinesearchState(linesearch; T = T); options_kwargs...)
+    Optimizer(algorithm, problem, hes, cache, Linesearch(linesearch; T = T); options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :autodiff, kwargs...)
@@ -128,7 +128,7 @@ function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <:
     compute_direction(opt, state)
 
     # apply line search
-    α = linesearch(opt)(linesearch_problem(problem(opt), gradient(opt), cache(opt), state))
+    α = solve(linesearch_problem(problem(opt), gradient(opt), cache(opt), state), linesearch(opt))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))

@@ -20,12 +20,12 @@ It's arguments are:
 - `nlp::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
 - `ls::`[`LinearProblem`](@ref),
 - `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
-- `linesearch::`[`LinesearchState`](@ref)
+- `linesearch::`[`Linesearch`](@ref)
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
-mutable struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:LinesearchState{T},CT<:NonlinearSolverCache{T}} <: AbstractSolver
+mutable struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:NonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
     linearproblem::LST
     jacobian::JT
@@ -118,7 +118,6 @@ end
 
 Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
 
-
 """
     solver_step!(x, s, state, params)
 
@@ -139,7 +138,7 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
             break
         end
     end
-    α = linesearch(s)(linesearch_problem(s, state, params))
+    α = solve(linesearch_problem(s, state, params), linesearch(s))
     compute_new_iterate!(x, α, direction(cache(s)))
     x
 end

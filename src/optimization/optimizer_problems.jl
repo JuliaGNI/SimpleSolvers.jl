@@ -56,7 +56,7 @@ LinesearchProblem{Float64, typeof(_f), typeof(_d)}(_f, _d)
 
 Here we wrote `ls_obj` to mean *line search problem*.
 """
-struct LinesearchProblem{Tx <: Number, TF, TD} <: AbstractOptimizerProblem{Tx}
+struct LinesearchProblem{Tx, TF, TD} <: AbstractOptimizerProblem{Tx}
     F::TF
     D::TD
 end

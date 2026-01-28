@@ -2,7 +2,7 @@ using Printf
 @doc raw"""
     const DEFAULT_ARMIJO_α₀
 
-The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`BacktrackingState`](@ref) and [`QuadraticState`](@ref)).
+The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`Backtracking`](@ref) and [`Quadratic`](@ref)).
 Its value is """ * """$(DEFAULT_ARMIJO_α₀)
 """
 const DEFAULT_ARMIJO_α₀ = 1.0
@@ -10,7 +10,7 @@ const DEFAULT_ARMIJO_α₀ = 1.0
 """
     const DEFAULT_ARMIJO_σ₀
 
-Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
+Constant used in [`Quadratic`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
 
 It is meant to *safeguard against stagnation* when performing line searches (see [kelley1995iterative](@cite)).
 
@@ -21,7 +21,7 @@ const DEFAULT_ARMIJO_σ₀ = 0.1
 """
     const DEFAULT_ARMIJO_σ₁
 
-Constant used in [`QuadraticState`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
+Constant used in [`Quadratic`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
 Its value is $(DEFAULT_ARMIJO_σ₁)
 """
 const DEFAULT_ARMIJO_σ₁ = 0.5
@@ -29,7 +29,7 @@ const DEFAULT_ARMIJO_σ₁ = 0.5
 """
     const DEFAULT_ARMIJO_p
 
-Constant used in [`BacktrackingState`](@ref).
+Constant used in [`Backtracking`](@ref).
 Its value is $(DEFAULT_ARMIJO_p)
 """
 const DEFAULT_ARMIJO_p = 0.5
@@ -62,14 +62,11 @@ We also use ``c_2 =``$(DEFAULT_WOLFE_c₂) here.
 const DEFAULT_WOLFE_c₂ = 0.9
 
 @doc raw"""
-    BacktrackingState <: LinesearchState
-
-Corresponding [`LinesearchState`](@ref) to [`Backtracking`](@ref).
+    Backtracking <: LinesearchMethod
 
 # Keys
 
 The keys are:
-- `config::`[`Options`](@ref)
 - `α₀`:
 - `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
@@ -100,47 +97,71 @@ where ``\epsilon`` is stored in `ls`.
 
 !!! info
     The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search problem.
+
+# Extended help
+
+The backtracking algorithm starts by setting ``y_0 \gets f(0)`` and ``d_0 \gets \nabla_0f``.
+
+The algorithm is executed by calling the functor of [`Backtracking`](@ref).
+
+The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
+
+```julia
+if value(obj, α) ≥ y₀ + ls.ϵ * α * d₀
+    α *= ls.p
+else
+    break
+end
+```
+The stopping criterion as an equation can be written as:
+
+```math
+f(\alpha) < y_0 + \epsilon \alpha \nabla_0f = y_0 + \epsilon (\alpha - 0)\nabla_0f.
+```
+Note that if the stopping criterion is not reached, ``\alpha`` is multiplied with ``p`` and the process continues.
+
+[Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``\epsilon`` have different names such as ``\tau`` and ``c``.
 """
-struct BacktrackingState{T} <: LinesearchState{T}
-    config::Options{T}
+struct Backtracking{T} <: LinesearchMethod{T}
     α₀::T
     ϵ::T
     c₂::T
     p::T
 
-    function BacktrackingState(::Type{T₁}=Float64;
+    function Backtracking(::Type{T₁}=Float64;
                     α₀::T = DEFAULT_ARMIJO_α₀,
                     ϵ::T = DEFAULT_WOLFE_c₁,
                     c₂::T = DEFAULT_WOLFE_c₂,
-                    p::T = DEFAULT_ARMIJO_p,
-                    options_kwargs...) where {T₁, T}
+                    p::T = DEFAULT_ARMIJO_p) where {T₁, T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
         @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
-        configT = Options(T₁; options_kwargs...)
-        new{T₁}(configT, T₁(α₀), T₁(ϵ), T(c₂), T₁(p))
+        new{T₁}(T₁(α₀), T₁(ϵ), T₁(c₂), T₁(p))
     end
 end
 
-Base.show(io::IO, ls::BacktrackingState) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * " and p = " * string(ls.p) * ".")
+Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = " * string(ls.α₀) * ", ϵ = " * string(ls.ϵ) * " and p = " * string(ls.p) * ".")
 
-LinesearchState(algorithm::Backtracking; T::DataType=Float64, kwargs...) = BacktrackingState(T; kwargs...)
-
-function (ls::BacktrackingState{T})(obj::LinesearchProblem{T}, α::T=ls.α₀) where {T}
+function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.algorithm.α₀) where {T, LST <: Backtracking}
     x₀ = zero(α)
     y₀ = value(obj, x₀)
     d(α) = derivative(obj, α)
     d₀ = d(x₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
-    sdc = SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)
-    cc = CurvatureCondition(T(ls.c₂), x₀, d₀, one(α), obj, d; mode=:Standard)
+    sdc = SufficientDecreaseCondition(ls.algorithm.ϵ, x₀, y₀, d₀, one(α), obj)
+    cc = CurvatureCondition(T(ls.algorithm.c₂), x₀, d₀, one(α), obj, d; mode=:Standard)
     for _ in 1:ls.config.max_iterations
         if (sdc(α) && cc(α))
             break
         else
-            α *= ls.p
+            α *= ls.algorithm.p
         end
     end
 
     α
+end
+
+function Base.convert(::Type{T}, algorithm::Backtracking) where {T}
+    T ≠ eltype(algorithm) || return algorithm
+    Backtracking(T; α₀=T(algorithm.α₀), ϵ=T(algorithm.ϵ), c₂=T(algorithm.c₂), p=T(algorithm.p))
 end

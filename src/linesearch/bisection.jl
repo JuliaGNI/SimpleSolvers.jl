@@ -73,8 +73,8 @@ function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: N
     x
 end
 
-bisection(obj::AbstractOptimizerProblem, xmin::T, xmax::T; config::Options) where {T <: Number} = bisection(obj.D, xmin, xmax; config = config)
-# bisection(obj::AbstractOptimizerProblem, x::T; kwargs...) = bisection(obj.D, x; kwargs...)
+bisection(problem::AbstractOptimizerProblem, xmin::T, xmax::T; config::Options) where {T <: Number} = bisection(problem.D, xmin, xmax; config = config)
+# bisection(problem::AbstractOptimizerProblem, x::T; kwargs...) = bisection(problem.D, x; kwargs...)
 
 """
     bisection(f, x)
@@ -84,41 +84,25 @@ Use [`bracket_minimum`](@ref) to find a starting interval and then do bisections
 bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
 
 """
-    BisectionState <: LinesearchState
-
-Corresponding [`LinesearchState`](@ref) to [`Bisection`](@ref).
+    Bisection <: Linesearch
 
 See [`bisection`](@ref) for the implementation of the algorithm.
-
-# Constructors
-
-```julia
-BisectionState(options)
-BisectionState(; options)
-```
 """
-mutable struct BisectionState{T} <: LinesearchState{T}
-    config::Options{T}
+struct Bisection{T} <: LinesearchMethod{T} end
+
+Bisection(T::DataType=Float64) = Bisection{T}()
+
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, x₁::T) where {T, LST <: Bisection}
+    bisection(problem, x₀, x₁; config = ls.config)
 end
 
-function BisectionState(T::DataType=Float64; options_kwargs...)
-    config = Options(T; options_kwargs...)
-    BisectionState(config)
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x::T=zero(T)) where {T, LST <: Bisection}
+    solve(problem, ls, bracket_minimum(problem.F, x)...)
 end
 
-Base.show(io::IO, ls::BisectionState) = print(io, "Bisection")
+Base.show(io::IO, ::Bisection) = print(io, "Bisection")
 
-LinesearchState(algorithm::Bisection; T::DataType=Float64, kwargs...) = BisectionState(T; kwargs...)
-
-function (ls::BisectionState)(obj::LinesearchProblem{T}) where {T}
-    # initialize on 0.
-    ls(obj, zero(T))
-end
-
-function (ls::BisectionState)(obj::LinesearchProblem, x)
-    ls(obj, bracket_minimum(obj.F, x)...)
-end
-
-function (ls::BisectionState)(obj::LinesearchProblem, x₀, x₁)
-    bisection(obj, x₀, x₁; config = ls.config)
+function Base.convert(::Type{T}, algorithm::Bisection) where {T}
+    T ≠ eltype(algorithm) || return algorithm
+    Bisection(T)
 end
