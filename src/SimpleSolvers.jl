@@ -23,7 +23,7 @@ export solution, minimizer, minimum
 
 export SolverMethod
 export BracketingMethod
-export LinearMethod, DirectMethod, IterativeMethod
+export DirectMethod, IterativeMethod
 export NonlinearMethod, PicardMethod, LinesearchMethod
 
 export NewtonMethod, Newton, DFP, BFGS
