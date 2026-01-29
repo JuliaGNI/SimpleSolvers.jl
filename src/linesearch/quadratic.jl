@@ -76,14 +76,16 @@ function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_
     y₀ = value(problem, a)
     y₁ = value(problem, b)
 
-    p₀ = y₀
-    p₁ = d₀
+    # p₀ = y₀
+    # p₁ = d₀
 
     # determine coefficient p₂ of p(α)
-    p₂ = (y₁^2 - p₀ - p₁*(b-a)) / (b-a)^2
+    # p₂ = (y₁ - p₀ - p₁*(b-a)) / (b-a)^2
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-    αₜ = a - p₁ / (2p₂)
+    # αₜ = a - p₁ / (2p₂)
+
+    αₜ = a - d₀ * (b-a)^2 / 2(y₁ - y₀ - d₀*(b-a))
 
     !(l2norm(αₜ - x₀) < ls.algorithm.ε) || return αₜ
 
