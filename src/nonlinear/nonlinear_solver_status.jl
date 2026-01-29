@@ -51,10 +51,10 @@ The computed residuals are the following:
 - `rfₐ`: absolute residual in ``f``,
 - `rfₛ` : successive residual (the norm of ``\Delta{}y``).
 """
-function residuals(cache::NonlinearSolverCache, state::NonlinearSolverState)
-    rxₛ = l2norm(solution(cache), solution(state))
-    rfₐ = l2norm(value(cache))
-    rfₛ = l2norm(value(cache), value(state))
+function residuals(state::NonlinearSolverState)
+    rxₛ = l2norm(solution(state), previoussolution(state))
+    rfₐ = l2norm(value(state))
+    rfₛ = l2norm(value(state), previousvalue(state))
 
     rxₛ, rfₐ, rfₛ
 end
@@ -69,20 +69,19 @@ Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@r
 
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
-function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, cache::NonlinearSolverCache, state::NonlinearSolverState)
-    x_converged = rxₛ ≤ norm(solution(cache)) * config.x_suctol
+function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, state::NonlinearSolverState)
+    x_converged = rxₛ ≤ norm(solution(state)) * config.x_suctol
 
-    f_converged = rfₛ ≤ norm(value(cache)) * config.f_suctol || rfₐ ≤ config.f_abstol # should this be AND or OR?
+    f_converged = rfₛ ≤ norm(value(state)) * config.f_suctol || rfₐ ≤ config.f_abstol
 
-    f_increased = norm(value(cache)) > norm(value(state))
+    f_increased = norm(value(state)) > norm(previousvalue(state))
 
     x_converged, f_converged, f_increased
 end
 
-function NonlinearSolverStatus(state::NonlinearSolverState{T}, cache::NonlinearSolverCache{T}, config::Options{T}) where {T}
-    rxₛ, rfₐ, rfₛ = residuals(cache, state)
-    x_converged, f_converged, f_increased = assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
-
+function NonlinearSolverStatus(state::NonlinearSolverState{T}, config::Options{T}) where {T}
+    rxₛ, rfₐ, rfₛ = residuals(state)
+    x_converged, f_converged, f_increased = assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
     NonlinearSolverStatus{T}(iteration_number(state), rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased)
 end
 
@@ -99,8 +98,8 @@ Print the solver status if:
 1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `iteration_number(status) > config.max_iterations`
 2. `config.verbosity > 1`.
 """
-function print_status(status::NonlinearSolverStatus, iteration_number::Integer, config::Options)
-    if (config.verbosity ≥ 1 && !(isconverged(status) && iteration_number ≤ config.max_iterations)) || config.verbosity > 1
+function print_status(status::NonlinearSolverStatus, config::Options)
+    if (config.verbosity ≥ 1 && !(isconverged(status) && status.iterations ≤ config.max_iterations)) || config.verbosity > 1
         println(status)
     end
 end
@@ -144,19 +143,21 @@ true
 This obviously has not converged. To check convergence we can use [`assess_convergence`](@ref).
 ```
 """
-function meets_stopping_criteria(status::NonlinearSolverStatus, iterations::Integer, config::Options)
-    (isconverged(status) && iterations ≥ config.min_iterations) ||
+function meets_stopping_criteria(state::NonlinearSolverState, config::Options)
+    status = NonlinearSolverStatus(state, config)
+
+    (isconverged(status) && state.iterations ≥ config.min_iterations) ||
         (status.f_increased && !config.allow_f_increases) ||
-        iterations ≥ config.max_iterations ||
+        state.iterations ≥ config.max_iterations ||
         status.rfₐ > config.f_abstol_break ||
         (havenan(status) && iterations ≥ 1)
 end
 
-function nonlinear_solver_warnings(status::NonlinearSolverStatus, iterations::Integer, config::Options)
-    (config.warn_iterations > 0 && iterations ≥ config.warn_iterations) && (@warn "Solver took $(iterations) iterations.")
+function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Options)
+    (config.warn_iterations > 0 && status.iterations ≥ config.warn_iterations) && (@warn "Solver took $(status.iterations) iterations.")
     (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
-    (havenan(status) && iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
+    (havenan(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
 
     # status.x_converged && (@warn "x supposedly converged!")
     # status.f_converged && (@warn "f supposedly converged!")

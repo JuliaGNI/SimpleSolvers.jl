@@ -8,15 +8,14 @@ abstract type AbstractNonlinearSolverCache{T} end
 """
     NonlinearSolverCache
 
-Stores `x̄`, `x`, `δx`, `rhs`, `y` and `J`.
+Stores `x`, `Δx`, `rhs`, `y`, and `J`.
 
 Compare this to [`NewtonOptimizerCache`](@ref).
 
 # Keys
 
-- `x̄`: the previous iterate,
 - `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_problem`](@ref),
-- `δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
+- `Δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
 - `rhs`: the right-hand-side (this can be accessed by calling [`rhs`](@ref)),
 - `y`: the problem evaluated at `x`. This is used in [`linesearch_problem`](@ref),
 - `j::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_problem`](@ref). Note that this is not of type [`Jacobian`](@ref)!
@@ -33,13 +32,12 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
 
     rhs::AT
     y::AT
-    Δy::AT
 
     j::JT
 
     function NonlinearSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
         j = alloc_j(x, y)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(y), zero(y), zero(y), j)
+        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c
     end
@@ -49,7 +47,6 @@ direction(cache::NonlinearSolverCache) = cache.Δx
 jacobian(cache::NonlinearSolverCache) = cache.j
 solution(cache::NonlinearSolverCache) = cache.x
 value(cache::NonlinearSolverCache) = cache.y
-diff(cache::NonlinearSolverCache) = cache.Δy
 
 """
     rhs(cache)
@@ -73,7 +70,6 @@ function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where 
 
     rhs(cache) .= T(NaN)
     value(cache) .= T(NaN)
-    diff(cache) .= T(NaN)
 
     jacobian(cache) .= T(NaN)
 

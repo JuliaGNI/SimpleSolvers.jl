@@ -144,14 +144,13 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     while true
         increase_iteration_number!(state)
         solver_step!(x, s, state, params)
-        status = NonlinearSolverStatus(state, cache(s), config(s))
-        update!(state, x, value!(value(state), nonlinearproblem(s), x, params))
-        meets_stopping_criteria(status, iteration_number(state), config(s)) && break
+        update!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
+        meets_stopping_criteria(state, config(s)) && break
     end
 
-    status = NonlinearSolverStatus(state, cache(s), config(s))
-    nonlinear_solver_warnings(status, iteration_number(state), config(s))
-    config(s).verbosity > 1 && print_status(status, iteration_number(state), config(s))
+    status = NonlinearSolverStatus(state, config(s))
+    nonlinear_solver_warnings(status, config(s))
+    config(s).verbosity > 1 && print_status(status, config(s))
 
     x
 end
