@@ -37,15 +37,15 @@ end
 for T ∈ (Float64, Float32)
     # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
     for (Solver, kwarguments, tolfac) in (
-                (NewtonSolver, (linesearch = Static(),), 2),#
-                (NewtonSolver, (linesearch = Backtracking(),), 2),#
-                #(NewtonSolver, (linesearch = Quadratic(),), 8), ### this combination fails!!!
-                (NewtonSolver, (linesearch = BierlaireQuadratic(),), 2),#
-                (NewtonSolver, (linesearch = Bisection(),), 8),#
-                #(QuasiNewtonSolver, (linesearch = Static(),), 8), ### this combination fails!!!
-                (QuasiNewtonSolver, (linesearch = Backtracking(),), 2),#
-                #(QuasiNewtonSolver, (linesearch = Quadratic(),), 8), ### this combination fails!!!
-                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),), 8),#
+                (NewtonSolver, (linesearch = Static(),), 2),
+                (NewtonSolver, (linesearch = Backtracking(),), 2),
+                # (NewtonSolver, (linesearch = Quadratic(),), 8),
+                (NewtonSolver, (linesearch = BierlaireQuadratic(),), 2),
+                (NewtonSolver, (linesearch = Bisection(),), 8),
+                (QuasiNewtonSolver, (linesearch = Static(),), 2),
+                (QuasiNewtonSolver, (linesearch = Backtracking(),), 2),
+                # (QuasiNewtonSolver, (linesearch = Quadratic(),), 8),
+                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),), 8),
                 (QuasiNewtonSolver, (linesearch = Bisection(),), 2),#
             )
 
@@ -53,8 +53,9 @@ for T ∈ (Float64, Float32)
             x = T.(copy(x₀))
             y = F(x)
             nl = Solver(x, y; F = F!, kwarguments...)
+            # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
 
-#            println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
+           # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
 
             solve!(x, nl)
 
