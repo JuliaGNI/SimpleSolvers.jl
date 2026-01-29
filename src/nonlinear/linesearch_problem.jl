@@ -21,7 +21,7 @@ function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobia
         compute_new_iterate!(solution(cache), x, α, direction(cache))
         value!(value(cache), nlp, solution(cache), params)
         jacobian_instance(jacobian(cache), solution(cache), params)
-        2 * dot(value(cache), jacobian(cache), direction(cache))
+        2dot(value(cache), jacobian(cache), direction(cache))
     end
 
     # the last argument is to specify the "type" in the problem

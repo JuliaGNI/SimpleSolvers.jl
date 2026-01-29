@@ -54,7 +54,7 @@ ERROR: No default precision defined for Float16.
 [...]
 ```
 """
-default_precision
+function default_precision end
 
 function default_precision(::Type{Float32})
     8eps(Float32)
