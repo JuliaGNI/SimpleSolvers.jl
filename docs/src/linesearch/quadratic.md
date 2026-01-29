@@ -52,7 +52,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState # hide
+using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState, jacobianmatrix # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -73,12 +73,12 @@ F!(cache(solver).rhs, x, params)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(solver))
+factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 nlp = NonlinearProblem(F!, J!, x, f(x))
 state = NonlinearSolverState(x)
 update!(state, x, f(x))
-ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), x, params)
+ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -388,7 +388,7 @@ Here we consider the same example as when discussing the [Bierlaire quadratic li
 
 ```@setup II
 using SimpleSolvers
-using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, NullParameters
+using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, NullParameters, jacobianmatrix
 using LinearAlgebra: rmul!, ldiv!
 using Random
 Random.seed!(1234)
@@ -410,7 +410,7 @@ f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(solver))
+factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
 nlp = NonlinearProblem(F!, J!, x, f(x))

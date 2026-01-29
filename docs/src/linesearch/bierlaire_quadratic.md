@@ -4,7 +4,7 @@ In [bierlaire2015optimization](@cite) quadratic line search is defined as an int
 
 ```@example bierlaire
 using SimpleSolvers
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState # hide
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(1234) # hide
@@ -27,11 +27,11 @@ f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(solver))
+factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
 nlp = NonlinearProblem(F!, x, f(x))
-ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), x, params)
+ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
