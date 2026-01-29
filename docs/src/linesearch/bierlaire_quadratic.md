@@ -131,7 +131,7 @@ We now use this ``\chi`` to either replace ``a``, ``b`` or ``c`` and distinguish
 3. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) > f^\mathrm{ls}(b)`` ``\implies`` we replace ``a \gets \chi``,
 4. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) \leq f^\mathrm{ls}(b)`` ``\implies`` we replace ``b, c \gets \chi, b``.
 
-In our example we have the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is smaller than ``f(b)``. We therefore replace ``a`` with ``b`` and ``\b`` with ``\chi``. The new approximation is the following one:
+In our example we have the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is smaller than ``f(b)``. We therefore replace ``a`` with ``b`` and ``b`` with ``\chi``. The new approximation is the following one:
 
 ```@setup bierlaire
 fig = Figure()
