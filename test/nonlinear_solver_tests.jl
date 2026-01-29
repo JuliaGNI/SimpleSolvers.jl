@@ -39,12 +39,12 @@ for T ∈ (Float64, Float32)
     for (Solver, kwarguments, tolfac) in (
                 (NewtonSolver, (linesearch = Static(),), 2),#
                 (NewtonSolver, (linesearch = Backtracking(),), 2),#
-                #(NewtonSolver, (linesearch = Quadratic(),), 1e6), ### this combination fails!!!
+                #(NewtonSolver, (linesearch = Quadratic(),), 8), ### this combination fails!!!
                 (NewtonSolver, (linesearch = BierlaireQuadratic(),), 2),#
                 (NewtonSolver, (linesearch = Bisection(),), 8),#
-                #(QuasiNewtonSolver, (linesearch = Static(),), 1e6), ### this combination fails!!!
+                #(QuasiNewtonSolver, (linesearch = Static(),), 8), ### this combination fails!!!
                 (QuasiNewtonSolver, (linesearch = Backtracking(),), 2),#
-                #(QuasiNewtonSolver, (linesearch = Quadratic(),), 1e6), ### this combination fails!!!
+                #(QuasiNewtonSolver, (linesearch = Quadratic(),), 8), ### this combination fails!!!
                 (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),), 8),#
                 (QuasiNewtonSolver, (linesearch = Bisection(),), 2),#
             )
@@ -54,7 +54,7 @@ for T ∈ (Float64, Float32)
             y = F(x)
             nl = Solver(x, y; F = F!, kwarguments...)
 
-#        println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
+#            println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
 
             solve!(x, nl)
 
@@ -66,7 +66,7 @@ for T ∈ (Float64, Float32)
             # use custom Jacobian
             nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
             solve!(x, nl)
-                for _x in x
+            for _x in x
                 @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
             end
         end

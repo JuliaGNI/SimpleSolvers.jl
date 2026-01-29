@@ -65,7 +65,7 @@ struct Quadratic{T} <: LinesearchMethod{T}
 end
 
 function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.algorithm.s) where {T, LST <: Quadratic}
-    number_of_iterations != max_number_of_quadratic_linesearch_iterations(T) || return x₀
+    number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return x₀
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(problem, x₀; s = s)
     y₀ = value(problem, a)
