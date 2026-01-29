@@ -37,16 +37,16 @@ end
 for T ∈ (Float64, Float32)
     # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
     for (Solver, kwarguments, tolfac) in (
-                (NewtonSolver, (linesearch = Static(),), 2),
-                (NewtonSolver, (linesearch = Backtracking(),), 2),
-                # (NewtonSolver, (linesearch = Quadratic(),), 8),
-                (NewtonSolver, (linesearch = BierlaireQuadratic(),), 2),
-                (NewtonSolver, (linesearch = Bisection(),), 8),
-                (QuasiNewtonSolver, (linesearch = Static(),), 2),
-                (QuasiNewtonSolver, (linesearch = Backtracking(),), 2),
-                # (QuasiNewtonSolver, (linesearch = Quadratic(),), 8),
-                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),), 8),
-                (QuasiNewtonSolver, (linesearch = Bisection(),), 2),#
+                (NewtonSolver, (linesearch = Static(T),), 2),
+                (NewtonSolver, (linesearch = Backtracking(T),), 2),
+                (NewtonSolver, (linesearch = Quadratic(T),), 2),
+                (NewtonSolver, (linesearch = BierlaireQuadratic(T),), 2),
+                (NewtonSolver, (linesearch = Bisection(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Static(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Backtracking(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Quadratic(T),), 2),
+                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(T),), 8),
+                (QuasiNewtonSolver, (linesearch = Bisection(T),), 2),
             )
 
         @testset "$(Solver) & $(kwarguments) & $(T)" begin

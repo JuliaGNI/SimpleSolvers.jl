@@ -8,20 +8,20 @@ end
 
 
 function test(n)
-    for (Solver, kwarguments) in (
-        (NewtonSolver, (linesearch=Static(),)),
-        (NewtonSolver, (linesearch=Backtracking(),)),
-        (NewtonSolver, (linesearch=Quadratic(),)),
-        (NewtonSolver, (linesearch=BierlaireQuadratic(),)),
-        (NewtonSolver, (linesearch=Bisection(),)),
-        (FixedPointIterator, (linesearch=Static(),)),
-        (FixedPointIterator, (linesearch=Backtracking(),)),
-        (FixedPointIterator, (linesearch=Quadratic(),)),
-        (FixedPointIterator, (linesearch=BierlaireQuadratic(),)),
-        (FixedPointIterator, (linesearch=Bisection(),)),
-    )
+    for T in (Float64, Float32)
+        for (Solver, kwarguments) in (
+            (NewtonSolver, (linesearch=Static(T),)),
+            (NewtonSolver, (linesearch=Backtracking(T),)),
+            (NewtonSolver, (linesearch=Quadratic(T),)),
+            (NewtonSolver, (linesearch=BierlaireQuadratic(T),)),
+            (NewtonSolver, (linesearch=Bisection(T),)),
+            (FixedPointIterator, (linesearch=Static(T),)),
+            (FixedPointIterator, (linesearch=Backtracking(T),)),
+            (FixedPointIterator, (linesearch=Quadratic(T),)),
+            (FixedPointIterator, (linesearch=BierlaireQuadratic(T),)),
+            (FixedPointIterator, (linesearch=Bisection(T),)),
+            )
 
-        for T in (Float64, Float32)
             x = ones(T, n)
             y = zero(x)
             nl = Solver(x, y; F=F!, verbosity=2, kwarguments...)
