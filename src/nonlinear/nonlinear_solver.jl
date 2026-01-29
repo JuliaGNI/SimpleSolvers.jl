@@ -139,8 +139,7 @@ mean(x::AbstractVector) = sum(x) / length(x)
 """
 function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
     initialize!(s, x)
-    value!(value(cache(s)), nonlinearproblem(s), x, params)
-    initialize!(state, x, value(cache(s)))
+    initialize!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
 
     while true
         increase_iteration_number!(state)
