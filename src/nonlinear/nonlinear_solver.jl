@@ -112,7 +112,6 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     direction!(s, x, params, iteration_number(state))
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
-    update!(state, x, value!(value(state), nonlinearproblem(s), x, params), iteration_number(state))
     for _ in 1:linesearch(s).config.linesearch_nan_max_iterations
         solution(cache(s)) .= x .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
@@ -140,18 +139,21 @@ mean(x::AbstractVector) = sum(x) / length(x)
 """
 function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
     initialize!(s, x)
+    value!(value(cache(s)), nonlinearproblem(s), x, params)
+    initialize!(state, x, value(cache(s)))
 
     while true
         increase_iteration_number!(state)
         solver_step!(x, s, state, params)
-        # update!(cache(s), state, x, nonlinearproblem(s), params) # this should not be necessary!
         status = NonlinearSolverStatus(state, cache(s), config(s))
-        meets_stopping_criteria(status, iteration_number(state), config(s)) && break 
+        update!(state, x, value!(value(state), nonlinearproblem(s), x, params))
+        meets_stopping_criteria(status, iteration_number(state), config(s)) && break
     end
 
     status = NonlinearSolverStatus(state, cache(s), config(s))
     config(s).verbosity > 1 && print_status(status, iteration_number(state), config(s))
     warn_iteration_number(iteration_number(state), config(s))
+
     x
 end
 

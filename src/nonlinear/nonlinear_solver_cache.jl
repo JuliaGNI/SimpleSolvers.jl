@@ -49,36 +49,14 @@ direction(cache::NonlinearSolverCache) = cache.Δx
 jacobian(cache::NonlinearSolverCache) = cache.j
 solution(cache::NonlinearSolverCache) = cache.x
 value(cache::NonlinearSolverCache) = cache.y
+diff(cache::NonlinearSolverCache) = cache.Δy
+
 """
     rhs(cache)
 
 Return the right-hand side of the equation, stored in `cache::`[`NonlinearSolverCache`](@ref).
 """
 rhs(cache::NonlinearSolverCache) = cache.rhs
-
-@doc raw"""
-    update!(cache, x)
-
-Update the [`NonlinearSolverCache`](@ref) based on `x`, i.e.:
-1. `cache.x̄` ``\gets`` x,
-2. `cache.x` ``\gets`` x,
-3. `cache.δx` ``\gets`` 0.
-"""
-function update!(cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, x::AbstractVector{T}, y::AbstractVector{T}) where {T}
-    solution(cache) .= x
-    direction(cache) .= solution(cache) .- solution(state)
-    value(cache) .= y
-    cache.Δy .= value(cache) .- value(state)
-    cache
-end
-
-function update!(cache::NonlinearSolverCache{T}, state::NonlinearSolverState{T}, x::AbstractVector{T}, problem::NonlinearProblem{T}, params) where {T}
-    solution(cache) .= x
-    value!(value(cache), problem, x, params)
-    direction(cache) .= solution(cache) .- solution(state)
-    cache.Δy .= value(cache) .- value(state)
-    cache
-end
 
 """
     initialize!(cache, x)
@@ -95,7 +73,7 @@ function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where 
 
     rhs(cache) .= T(NaN)
     value(cache) .= T(NaN)
-    cache.Δy .= T(NaN)
+    diff(cache) .= T(NaN)
 
     jacobian(cache) .= T(NaN)
 
