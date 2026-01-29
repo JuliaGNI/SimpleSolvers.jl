@@ -8,8 +8,9 @@ using Printf
 
 import Base.minimum
 import Base.Callable
-import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, update!, NullParameters, OptionalParameters, AbstractSolverState
-import GeometricBase: value
+import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, NullParameters, OptionalParameters, AbstractSolverState
+import GeometricBase: update!, value
+import GeometricBase.Utils: L2norm, l2norm
 
 include("utils.jl")
 include("base/realcomplex.jl")
