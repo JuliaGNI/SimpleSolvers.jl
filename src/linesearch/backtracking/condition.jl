@@ -26,7 +26,12 @@ function compute_new_iterate!(xₖ₊₁::VT, xₖ::VT, αₖ::T, pₖ::TVT) whe
     error("Not implemented for $(VT).")
 end
 
-function compute_new_iterate!(xₖ₊₁::VT, xₖ::VT, αₖ::T, pₖ::TVT) where {T<:Number,VT<:Union{T,AbstractArray{T}},TVT<:Union{T,AbstractArray{T}}}
+function compute_new_iterate!(xₖ₊₁::T, xₖ::T, αₖ::T, pₖ::T) where {T<:Number}
+    xₖ₊₁ = xₖ + αₖ * pₖ
+end
+
+function compute_new_iterate!(xₖ₊₁::VT1, xₖ::VT2, αₖ::T, pₖ::TVT) where {T<:Number,VT1<:AbstractArray{T},VT2<:AbstractArray{T},TVT<:AbstractArray{T}}
+    @assert axes(xₖ₊₁) == axes(xₖ) == axes(pₖ)
     xₖ₊₁ .= xₖ .+ αₖ .* pₖ
 end
 
