@@ -106,6 +106,7 @@ function print_status(status::NonlinearSolverStatus, iteration_number::Integer, 
 end
 
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
+havenan(status::NonlinearSolverStatus) = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
 
 """
     meets_stopping_criteria(status, iterations, config)
@@ -144,24 +145,21 @@ This obviously has not converged. To check convergence we can use [`assess_conve
 ```
 """
 function meets_stopping_criteria(status::NonlinearSolverStatus, iterations::Integer, config::Options)
-    havenan = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
-
-    (havenan && iterations ≥ 2 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
-    (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
-    (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
-    # status.x_converged && (@warn "x supposedly converged!")
-    # status.f_converged && (@warn "f supposedly converged!")
-
     (isconverged(status) && iterations ≥ config.min_iterations) ||
         (status.f_increased && !config.allow_f_increases) ||
         iterations ≥ config.max_iterations ||
         status.rfₐ > config.f_abstol_break ||
-        (havenan && iterations ≥ 2)
+        (havenan(status) && iterations ≥ 1)
 end
 
-function warn_iteration_number(iterations::Integer, config::Options)
-    if config.warn_iterations > 0 && iterations ≥ config.warn_iterations
-        @warn "Solver took $(iterations) iterations."
-    end
+function nonlinear_solver_warnings(status::NonlinearSolverStatus, iterations::Integer, config::Options)
+    (config.warn_iterations > 0 && iterations ≥ config.warn_iterations) && (@warn "Solver took $(iterations) iterations.")
+    (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
+    (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
+    (havenan(status) && iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
+
+    # status.x_converged && (@warn "x supposedly converged!")
+    # status.f_converged && (@warn "f supposedly converged!")
+
     nothing
 end

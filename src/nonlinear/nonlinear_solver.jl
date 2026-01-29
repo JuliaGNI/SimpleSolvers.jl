@@ -151,8 +151,8 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     end
 
     status = NonlinearSolverStatus(state, cache(s), config(s))
+    nonlinear_solver_warnings(status, iteration_number(state), config(s))
     config(s).verbosity > 1 && print_status(status, iteration_number(state), config(s))
-    warn_iteration_number(iteration_number(state), config(s))
 
     x
 end
