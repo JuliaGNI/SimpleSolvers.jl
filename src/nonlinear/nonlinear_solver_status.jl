@@ -29,7 +29,6 @@ rfₛ= NaN
 """
 struct NonlinearSolverStatus{T}
     rxₛ::T
-
     rfₐ::T
     rfₛ::T
 
@@ -49,10 +48,9 @@ The computed residuals are the following:
 - `rfₛ` : successive residual (the norm of ``\Delta{}y``).
 """
 function residuals(cache::NonlinearSolverCache, state::NonlinearSolverState)
-    rxₛ = norm(solution(cache) - solution(state))
-
-    rfₐ = norm(value(cache))
-    rfₛ = norm(value(cache) - value(state))
+    rxₛ = l2norm(solution(cache), solution(state))
+    rfₐ = l2norm(value(cache))
+    rfₛ = l2norm(value(cache), value(state))
 
     rxₛ, rfₐ, rfₛ
 end
