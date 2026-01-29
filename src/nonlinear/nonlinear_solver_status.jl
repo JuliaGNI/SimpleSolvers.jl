@@ -4,6 +4,7 @@
 Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
 # Keys
+- `iteration`: number of iterations
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
 - `rfₛ`: successive residual in `f`,
@@ -22,12 +23,15 @@ NonlinearSolverStatus(state, cache, config)
 
 # output
 
+i=0,
 rxₛ= NaN,
 rfₐ= NaN,
 rfₛ= NaN
 ```
 """
 struct NonlinearSolverStatus{T}
+    iterations::Int
+
     rxₛ::T
     rfₐ::T
     rfₛ::T
@@ -79,10 +83,11 @@ function NonlinearSolverStatus(state::NonlinearSolverState{T}, cache::NonlinearS
     rxₛ, rfₐ, rfₛ = residuals(cache, state)
     x_converged, f_converged, f_increased = assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
 
-    NonlinearSolverStatus{T}(rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased)
+    NonlinearSolverStatus{T}(iteration_number(state), rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased)
 end
 
 Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
+    (@sprintf "i=%4i" status.iterations), ",\n",
     (@sprintf "rxₛ=%4e" status.rxₛ), ",\n",
     (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
     (@sprintf "rfₛ=%4e" status.rfₛ))
