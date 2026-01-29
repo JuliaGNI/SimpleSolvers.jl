@@ -15,9 +15,10 @@ mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArr
     x̄::AT
     ḡ::GT
     f̄::T
+    iterations::Int
 
     function NewtonOptimizerState(x̄::AT, ḡ::GT, f̄::T) where {T, AT <: AbstractArray{T}, GT <: AbstractArray{T}}
-        new{T, AT, GT}(x̄, ḡ, f̄)
+        new{T, AT, GT}(x̄, ḡ, f̄, 0)
     end
 end
 
@@ -30,6 +31,7 @@ function initialize!(state::NewtonOptimizerState{T}, ::AbstractVector{T}) where 
     state.x̄ .= NaN
     state.ḡ .= NaN
     state.f̄ = NaN
+    state.iterations = 0
 
     state
 end
@@ -54,7 +56,7 @@ update!(state, grad, x)
 
 # output
 
-NewtonOptimizerState{Float64, Vector{Float64}, Vector{Float64}}([1.0, 2.0], [2.0, 4.0], 0.0)
+NewtonOptimizerState{Float64, Vector{Float64}, Vector{Float64}}([1.0, 2.0], [2.0, 4.0], 0.0, 0)
 ```
 """
 function update!(state::NewtonOptimizerState, gradient::Gradient, x::AbstractVector)

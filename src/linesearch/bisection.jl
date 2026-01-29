@@ -106,3 +106,5 @@ function Base.convert(::Type{T}, algorithm::Bisection) where {T}
     T ≠ eltype(algorithm) || return algorithm
     Bisection(T)
 end
+
+Base.isapprox(::Bisection{T}, ::Bisection{T}; kwargs...) where {T} = true

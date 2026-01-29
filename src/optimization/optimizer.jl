@@ -12,7 +12,7 @@ The optimizer that stores all the information needed for an optimization problem
 - `config::`[`Options`](@ref),
 - `state::`[`OptimizerState`](@ref).
 """
-mutable struct Optimizer{T,
+struct Optimizer{T,
                  ALG <: OptimizerMethod,
                  OBJ <: OptimizerProblem{T},
                  GT <: Gradient{T},
@@ -26,11 +26,10 @@ mutable struct Optimizer{T,
     config::Options{T}
     cache::OCT
     linesearch::LST
-    iterations::Int
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::Linesearch; gradient = GradientAutodiff{T}(problem.F, length(cache.x)), iterations = 1, options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::Linesearch; gradient = GradientAutodiff{T}(problem.F, length(cache.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, cache, lst, iterations)
+        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, cache, lst)
     end
 end
 
@@ -62,21 +61,15 @@ hessian(opt::Optimizer) = opt.hessian
 direction(opt::Optimizer) = direction(cache(opt))
 rhs(opt::Optimizer) = rhs(cache(opt))
 cache(opt::Optimizer) = opt.cache
-iteration_number(opt::Optimizer) = opt.iterations
 gradient(opt::Optimizer) = opt.gradient
-
-function increase_iteration_number!(opt)
-    opt.iterations = iteration_number(opt) + 1
-end
 
 check_gradient(opt::Optimizer) = check_gradient(gradient(problem(opt)))
 print_gradient(opt::Optimizer) = print_gradient(gradient(problem(opt)))
 
-meets_stopping_criteria(status::OptimizerStatus, opt::Optimizer) = meets_stopping_criteria(status, config(opt), iteration_number(opt))
+meets_stopping_criteria(status::OptimizerStatus, opt::Optimizer, state::OptimizerState) = meets_stopping_criteria(status, config(opt), iteration_number(state))
 
 function initialize!(opt::Optimizer, x::AbstractVector)
     initialize!(cache(opt), x)
-    opt.iterations = 0
 
     opt
 end
@@ -140,7 +133,7 @@ function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <:
 end
 
 function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
-    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
+    direction(opt) .= solve(LU(), hessian(cache(opt)), rhs(opt))
 end
 
 function compute_direction(opt::Optimizer{T, IOM}, state::Union{BFGSState, DFPState}) where {T, IOM <: QuasiNewtonOptimizerMethod}
@@ -178,11 +171,11 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
 We can also check how many iterations it took:
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); state = NewtonOptimizerState(x); solve!(x, state, opt))
-iteration_number(opt)
+iteration_number(state)
 
 # output
 
-5
+4
 ```
 Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
 """
@@ -190,14 +183,14 @@ function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     initialize_state!(state)
 
     while true
-        increase_iteration_number!(opt)
+        increase_iteration_number!(state)
         solver_step!(x, state, opt)
         status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
-        meets_stopping_criteria(status, opt) && break
+        meets_stopping_criteria(status, opt, state) && break
         update!(state, gradient(opt), x)
     end
 
-    warn_iteration_number(opt, config(opt))
+    warn_iteration_number(state, config(opt))
 
     status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
     OptimizerResult(status, x, value(problem(opt), x))
@@ -220,8 +213,8 @@ function initialize_state!(state::Union{BFGSState{T}, DFPState{T}}) where {T}
     state
 end
 
-function warn_iteration_number(opt::Optimizer, config::Options)
-    if config.warn_iterations > 0 && iteration_number(opt) ≥ config.warn_iterations
-        println("WARNING: Optimizer took ", iteration_number(opt), " iterations.")
+function warn_iteration_number(state::OptimizerState, config::Options)
+    if config.warn_iterations > 0 && iteration_number(state) ≥ config.warn_iterations
+        println("WARNING: Optimizer took ", iteration_number(state), " iterations.")
     end
 end

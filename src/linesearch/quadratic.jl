@@ -90,9 +90,13 @@ end
 
 solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, s::T=ls.s) where {T, LST <: Quadratic} = solve(problem, ls, 0, x₀, s)
 
-Base.show(io::IO, ::Quadratic) = print(io, "Quadratic Polynomial")
+Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
 
 function Base.convert(::Type{T}, algorithm::Quadratic) where {T}
     T ≠ eltype(algorithm) || return algorithm
     Quadratic(T; ε=T(algorithm.ε), s=T(algorithm.s), s_reduction=T(algorithm.s_reduction))
+end
+
+function Base.isapprox(qu₁::Quadratic{T}, qu₂::Quadratic{T}; kwargs...) where {T}
+    isapprox(qu₁.ε, qu₂.ε; kwargs...) && isapprox(qu₁.s, qu₂.s; kwargs...) && isapprox(qu₁.s_reduction, qu₂.s_reduction; kwargs...)
 end

@@ -68,7 +68,7 @@ Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@r
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
 function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, cache::NonlinearSolverCache, state::NonlinearSolverState)
-    x_converged = rxₛ ≤ config.x_suctol
+    x_converged = rxₛ ≤ norm(solution(cache)) * config.x_suctol
 
     f_converged = rfₛ ≤ norm(value(cache)) * config.f_suctol || rfₐ ≤ config.f_abstol # should this be AND or OR?
 
