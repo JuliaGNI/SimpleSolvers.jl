@@ -17,7 +17,7 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
     y::YT
     ȳ::YT
 
-    function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=x) where {T}
+    function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=X) where {T}
         x = zero(X)
         x̄ = zero(X)
         y = zero(Y)

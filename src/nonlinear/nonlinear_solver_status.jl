@@ -19,7 +19,7 @@ x = [1., 2., 3., 4.]
 state = NonlinearSolverState(x)
 cache = NonlinearSolverCache(x, x)
 config = Options()
-NonlinearSolverStatus(state, cache, config)
+NonlinearSolverStatus(state, config)
 
 # output
 
@@ -107,7 +107,7 @@ isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_conv
 havenan(status::NonlinearSolverStatus) = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
 
 """
-    meets_stopping_criteria(status, iterations, config)
+    meets_stopping_criteria(status, config)
 
 Determines whether the iteration stops based on the current [`NonlinearSolverStatus`](@ref).
 
@@ -132,12 +132,12 @@ config = Options(verbosity=0)
 x = [NaN, 2., 3.]
 cache = NonlinearSolverCache(x, copy(x))
 state = NonlinearSolverState(x)
-status = NonlinearSolverStatus(state, cache, config)
-meets_stopping_criteria(status, 2, config)
+status = NonlinearSolverStatus(state, config)
+meets_stopping_criteria(state, config)
 
 # output
 
-true
+false
 ```
 This obviously has not converged. To check convergence we can use [`assess_convergence`](@ref).
 ```
@@ -149,7 +149,7 @@ function meets_stopping_criteria(state::NonlinearSolverState, config::Options)
         (status.f_increased && !config.allow_f_increases) ||
         state.iterations ≥ config.max_iterations ||
         status.rfₐ > config.f_abstol_break ||
-        (havenan(status) && iterations ≥ 1)
+        (havenan(status) && state.iterations ≥ 1)
 end
 
 function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Options)
