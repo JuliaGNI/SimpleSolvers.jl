@@ -23,13 +23,14 @@ const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod}
 
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     cache = NonlinearSolverCache(x, x)
+    config = Options(T; options_kwargs...)
 
     if refactorize > 1 && typeof(linesearch.algorithm) <: Static
         @warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1."
         refactorize = 1
     end
 
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method=NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=NewtonMethod(refactorize), jacobian=jacobian)
 end
 
 function QuasiNewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; options_kwargs...)
