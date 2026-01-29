@@ -26,7 +26,7 @@ function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
     config = Options(T; options_kwargs...)
 
     if refactorize > 1 && typeof(linesearch.algorithm) <: Static
-        @warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1."
+        config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
         refactorize = 1
     end
 

@@ -52,7 +52,7 @@ for T ∈ (Float64, Float32)
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
             x = T.(copy(x₀))
             y = F(x)
-            nl = Solver(x, y; F = F!, kwarguments...)
+            nl = Solver(x, y; F = F!, verbosity=0, kwarguments...)
             # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
 
            # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
@@ -65,7 +65,7 @@ for T ∈ (Float64, Float32)
 
             x .= T.(x₀)
             # use custom Jacobian
-            nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
+            nl = Solver(x, y; F = F!, DF! = J!, verbosity=0, kwarguments...)
             solve!(x, nl)
             for _x in x
                 @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
