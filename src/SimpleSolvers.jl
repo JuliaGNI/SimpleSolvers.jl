@@ -105,7 +105,6 @@ include("linesearch/backtracking/curvature_condition.jl")
 include("linesearch/bisection.jl")
 include("linesearch/quadratic.jl")
 include("linesearch/bierlaire_quadratic.jl")
-include("linesearch/dummy_linesearch.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!
