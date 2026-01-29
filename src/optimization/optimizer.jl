@@ -133,7 +133,7 @@ function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <:
 end
 
 function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
-    direction(opt) .= hessian(cache(opt)) \ rhs(opt)
+    direction(opt) .= solve(LU(), hessian(cache(opt)), rhs(opt))
 end
 
 function compute_direction(opt::Optimizer{T, IOM}, state::Union{BFGSState, DFPState}) where {T, IOM <: QuasiNewtonOptimizerMethod}
