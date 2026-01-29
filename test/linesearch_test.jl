@@ -4,7 +4,7 @@ using Test
 
 using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: AbstractOptimizerProblem, BierlaireQuadratic, Quadratic, NullParameters
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, direction!, nonlinearproblem
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, direction!, nonlinearproblem, iteration_number
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -115,10 +115,9 @@ end
         jacobian_instance = JacobianFunction{T}(f!, j!)
         solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian_instance)
         state = NonlinearSolverState(x, value(cache(solver)))
-        direction!(solver, x, params; state = state)
-
-        update!(state, x, value(cache(solver)), 0)
-        linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), state, params)
+        direction!(solver, x, params, iteration_number(state))
+        update!(state, x, value(cache(solver)))
+        linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), x, params)
     end
 
     function check_linesearch(ls::Linesearch, ls_obj::LinesearchProblem)

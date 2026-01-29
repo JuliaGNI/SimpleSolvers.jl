@@ -109,12 +109,12 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
-    direction!(s, x, params; state = state)
+    direction!(s, x, params, iteration_number(state))
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
     update!(state, x, value!(value(state), nonlinearproblem(s), x, params), iteration_number(state))
     for _ in 1:linesearch(s).config.linesearch_nan_max_iterations
-        solution(cache(s)) .= solution(state) .+ direction(cache(s))
+        solution(cache(s)) .= x .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         if any(isnan, value(cache(s)))
             (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
@@ -123,7 +123,7 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
             break
         end
     end
-    α = solve(linesearch_problem(s, state, params), linesearch(s))
+    α = solve(linesearch_problem(s, x, params), linesearch(s))
     compute_new_iterate!(x, α, direction(cache(s)))
     x
 end
