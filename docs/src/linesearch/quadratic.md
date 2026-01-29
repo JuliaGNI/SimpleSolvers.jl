@@ -14,7 +14,7 @@ and we also call ``p_0:=f^\mathrm{ls}(0)`` and ``p_1:=(f^\mathrm{ls})'(0)``. The
 - take a value ``\alpha`` (typically initialized as [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
 - set ``p_2 \gets \frac{(y^2 - p_0 - p_1\alpha)}{\alpha^2}.``
 
-After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alph`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
+After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alpha`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
 
 ## Example
 
