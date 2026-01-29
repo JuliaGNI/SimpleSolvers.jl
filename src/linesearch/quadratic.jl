@@ -56,10 +56,10 @@ struct Quadratic{T} <: LinesearchMethod{T}
     s::T
     s_reduction::T
 
-    function Quadratic(T₁::DataType=Float64;
-                    ε = default_precision(T₁)^2,
-                    s::T = DEFAULT_BRACKETING_s^2,
-                    s_reduction::T = DEFAULT_s_REDUCTION^2) where {T}
+    function Quadratic(T₁::DataType=Float64, power = 1;
+                    ε = default_precision(T₁)^power,
+                    s::T = DEFAULT_BRACKETING_s^power,
+                    s_reduction::T = DEFAULT_s_REDUCTION^power) where {T}
         new{T₁}(T₁(ε), T₁(s), T₁(s_reduction))
     end
 end

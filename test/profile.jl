@@ -1,6 +1,8 @@
 using Profile
 using SimpleSolvers
 
+const T = Float64
+# const T = Float32
 
 function F!(f, x, params)
     f .= tan.(x)
@@ -29,13 +31,13 @@ function profile(Solver, kwarguments, n=100)
     Profile.Allocs.@profile solve!(x, nl, ss)
 end
 
-# profile(NewtonSolver, (linesearch=Static(),))
-# profile(NewtonSolver, (linesearch=Backtracking(),))
-# profile(NewtonSolver, (linesearch=Quadratic(),))
-# profile(NewtonSolver, (linesearch=BierlaireQuadratic(),))
-# profile(NewtonSolver, (linesearch=Bisection(),))
-# profile(FixedPointIterator, (linesearch = Static(),))
-# profile(FixedPointIterator, (linesearch = Backtracking(),))
-# profile(FixedPointIterator, (linesearch = Quadratic(),))
-# profile(FixedPointIterator, (linesearch = BierlaireQuadratic(),))
-# profile(FixedPointIterator, (linesearch = Bisection(),))
+# profile(NewtonSolver, (linesearch=Static(T),))
+# profile(NewtonSolver, (linesearch=Backtracking(T),))
+# profile(NewtonSolver, (linesearch=Quadratic(T,2),))
+# profile(NewtonSolver, (linesearch=BierlaireQuadratic(T),))
+# profile(NewtonSolver, (linesearch=Bisection(T),))
+# profile(FixedPointIterator, (linesearch = Static(T),))
+# profile(FixedPointIterator, (linesearch = Backtracking(T),))
+# profile(FixedPointIterator, (linesearch = Quadratic(T,2),))
+# profile(FixedPointIterator, (linesearch = BierlaireQuadratic(T),))
+# profile(FixedPointIterator, (linesearch = Bisection(T),))

@@ -39,12 +39,12 @@ for T ∈ (Float64, Float32)
     for (Solver, kwarguments, tolfac) in (
                 (NewtonSolver, (linesearch = Static(T),), 2),
                 (NewtonSolver, (linesearch = Backtracking(T),), 2),
-                (NewtonSolver, (linesearch = Quadratic(T),), 2),
+                (NewtonSolver, (linesearch = Quadratic(T,2),), 2),
                 (NewtonSolver, (linesearch = BierlaireQuadratic(T),), 2),
                 (NewtonSolver, (linesearch = Bisection(T),), 2),
                 (QuasiNewtonSolver, (linesearch = Static(T),), 2),
                 (QuasiNewtonSolver, (linesearch = Backtracking(T),), 2),
-                (QuasiNewtonSolver, (linesearch = Quadratic(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Quadratic(T,2),), 2),
                 (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(T),), 8),
                 (QuasiNewtonSolver, (linesearch = Bisection(T),), 2),
             )
