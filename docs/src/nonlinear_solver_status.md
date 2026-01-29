@@ -36,5 +36,5 @@ We now compute the [`NonlinearSolverStatus`](@ref):
 ```@example status
 using SimpleSolvers: NonlinearSolverStatus # hide
 
-NonlinearSolverStatus(state, cache(solver), config(solver))
+NonlinearSolverStatus(state, config(solver))
 ```

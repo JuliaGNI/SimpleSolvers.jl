@@ -23,9 +23,9 @@ test_obj = OptimizerProblem(F, test_x)
 @test_throws MethodError update!(test_optim, test_x)
 @test_throws MethodError solver_step!(test_x, test_optim)
 
-for method in (Newton(), DFP(), BFGS())
-    for _linesearch in (Static(0.1), Backtracking(), BierlaireQuadratic(), Quadratic(), Bisection())
-        for T in (Float64, Float32)
+for T in (Float64, Float32)
+    for method in (Newton(), DFP(), BFGS())
+        for _linesearch in (Static(T(0.1)), Backtracking(T), BierlaireQuadratic(T), Quadratic(T), Bisection(T))
             @testset "$(method) & $(_linesearch) & $(T)" begin
             n = 1
             x = ones(T, n)

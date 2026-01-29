@@ -56,33 +56,37 @@ struct Quadratic{T} <: LinesearchMethod{T}
     s::T
     s_reduction::T
 
-    function Quadratic(T₁::DataType=Float64;
-                    ε = eps(T₁),
-                    s::T = DEFAULT_BRACKETING_s,
-                    s_reduction::T = DEFAULT_s_REDUCTION) where {T}
+    function Quadratic(T₁::DataType=Float64, power = 1;
+                    ε = default_precision(T₁)^power,
+                    s::T = DEFAULT_BRACKETING_s^power,
+                    s_reduction::T = DEFAULT_s_REDUCTION^power) where {T}
         new{T₁}(T₁(ε), T₁(s), T₁(s_reduction))
     end
 end
 
 function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.algorithm.s) where {T, LST <: Quadratic}
-    number_of_iterations != max_number_of_quadratic_linesearch_iterations(T) || return x₀
+    number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return x₀
+
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(problem, x₀; s = s)
-    y₀ = value(problem, a)
     d₀ = derivative(problem, a)
     !(abs(d₀) < ls.algorithm.ε) || return x₀
 
-    p₀ = y₀
-    p₁ = d₀
-
-    # compute value at `b`
+    # compute values at `a` and `b`
+    y₀ = value(problem, a)
     y₁ = value(problem, b)
 
+    # p₀ = y₀
+    # p₁ = d₀
+
     # determine coefficient p₂ of p(α)
-    p₂ = (y₁^2 - p₀ - p₁*(b-a)) / (b-a)^2
+    # p₂ = (y₁ - p₀ - p₁*(b-a)) / (b-a)^2
 
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-    αₜ = -p₁ / (2p₂) + a
+    # αₜ = a - p₁ / (2p₂)
+
+    αₜ = a - d₀ * (b-a)^2 / 2(y₁ - y₀ - d₀*(b-a))
+
     !(l2norm(αₜ - x₀) < ls.algorithm.ε) || return αₜ
 
     solve(problem, ls, number_of_iterations + 1, αₜ, s * ls.algorithm.s_reduction)

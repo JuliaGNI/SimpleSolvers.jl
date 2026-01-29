@@ -4,7 +4,7 @@ In [bierlaire2015optimization](@cite) quadratic line search is defined as an int
 
 ```@example bierlaire
 using SimpleSolvers
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState # hide
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(1234) # hide
@@ -19,7 +19,7 @@ x = -10 * rand(1)
 solver = NewtonSolver(x, f.(x); F = F!, DF! = J!)
 params = NullParameters()
 state = NonlinearSolverState(x)
-update!(state, x, f(x), 0)
+update!(state, x, f(x))
 jacobian!(solver, x, params)
 
 # compute rhs
@@ -27,11 +27,11 @@ f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(solver))
+factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
 nlp = NonlinearProblem(F!, x, f(x))
-ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), state, params)
+ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -131,7 +131,7 @@ We now use this ``\chi`` to either replace ``a``, ``b`` or ``c`` and distinguish
 3. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) > f^\mathrm{ls}(b)`` ``\implies`` we replace ``a \gets \chi``,
 4. ``\chi \leq b`` and ``f^\mathrm{ls}(\chi) \leq f^\mathrm{ls}(b)`` ``\implies`` we replace ``b, c \gets \chi, b``.
 
-In our example we have the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is smaller than ``f(b)``. We therefore replace ``a`` with ``b`` and ``\b`` with ``\chi``. The new approximation is the following one:
+In our example we have the second case: ``\chi`` is to the right of ``b`` and ``f^\mathrm{ls}(\chi)`` is smaller than ``f(b)``. We therefore replace ``a`` with ``b`` and ``b`` with ``\chi``. The new approximation is the following one:
 
 ```@setup bierlaire
 fig = Figure()

@@ -37,24 +37,25 @@ end
 for T ∈ (Float64, Float32)
     # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
     for (Solver, kwarguments, tolfac) in (
-                (NewtonSolver, (linesearch = Static(),), 2),#
-                (NewtonSolver, (linesearch = Backtracking(),), 2),#
-                #(NewtonSolver, (linesearch = Quadratic(),), 1e6), ### this combination fails!!!
-                (NewtonSolver, (linesearch = BierlaireQuadratic(),), 2),#
-                (NewtonSolver, (linesearch = Bisection(),), 8),#
-                #(QuasiNewtonSolver, (linesearch = Static(),), 1e6), ### this combination fails!!!
-                (QuasiNewtonSolver, (linesearch = Backtracking(),), 2),#
-                #(QuasiNewtonSolver, (linesearch = Quadratic(),), 1e6), ### this combination fails!!!
-                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(),), 8),#
-                (QuasiNewtonSolver, (linesearch = Bisection(),), 2),#
+                (NewtonSolver, (linesearch = Static(T),), 2),
+                (NewtonSolver, (linesearch = Backtracking(T),), 2),
+                (NewtonSolver, (linesearch = Quadratic(T,2),), 2),
+                (NewtonSolver, (linesearch = BierlaireQuadratic(T),), 2),
+                (NewtonSolver, (linesearch = Bisection(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Static(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Backtracking(T),), 2),
+                (QuasiNewtonSolver, (linesearch = Quadratic(T,2),), 2),
+                (QuasiNewtonSolver, (linesearch = BierlaireQuadratic(T),), 8),
+                (QuasiNewtonSolver, (linesearch = Bisection(T),), 2),
             )
 
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
             x = T.(copy(x₀))
             y = F(x)
-            nl = Solver(x, y; F = F!, kwarguments...)
+            nl = Solver(x, y; F = F!, verbosity=0, kwarguments...)
+            # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
 
-#        println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
+           # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
 
             solve!(x, nl)
 
@@ -64,9 +65,9 @@ for T ∈ (Float64, Float32)
 
             x .= T.(x₀)
             # use custom Jacobian
-            nl = Solver(x, y; F = F!, DF! = J!, kwarguments...)
+            nl = Solver(x, y; F = F!, DF! = J!, verbosity=0, kwarguments...)
             solve!(x, nl)
-                for _x in x
+            for _x in x
                 @test ≈(_x, T(root₁); atol=tolfac*eps(T)) || ≈(_x, T(root₂); atol=tolfac*eps(T)) || ≈(_x, T(root₃); atol=tolfac*eps(T)) || ≈(_x, T(root₄); atol=tolfac*eps(T))
             end
         end

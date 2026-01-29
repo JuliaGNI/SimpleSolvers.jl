@@ -23,7 +23,14 @@ const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod}
 
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     cache = NonlinearSolverCache(x, x)
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method=NewtonMethod(refactorize), jacobian=jacobian, options_kwargs...)
+    config = Options(T; options_kwargs...)
+
+    if refactorize > 1 && typeof(linesearch.algorithm) <: Static
+        config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
+        refactorize = 1
+    end
+
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=NewtonMethod(refactorize), jacobian=jacobian)
 end
 
 function QuasiNewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; options_kwargs...)
@@ -55,21 +62,21 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params; state::NonlinearSolverState) where {T} 
-     # first we update the rhs of the linearproblem 
-     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params) 
-     rhs(linearproblem(s)) .*= -1
-     # for a quasi-Newton method the Jacobian isn't updated in every iteration 
-     if (mod(iteration_number(state) - 1, method(s).refactorize) == 0 || iteration_number(state) == 1) 
-         jacobian!(s, x, params)
-         matrix(linearproblem(s)) .= jacobian(s)
-         factorize!(linearsolver(s), linearproblem(s)) 
-     end 
-     ldiv!(d, linearsolver(s), rhs(linearproblem(s))) 
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration) where {T}
+    # first we update the rhs of the linearproblem
+    value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
+    rhs(linearproblem(s)) .*= -1
+    # for a quasi-Newton method the Jacobian isn't updated in every iteration
+    if (mod(iteration - 1, method(s).refactorize) == 0 || iteration == 1)
+        jacobian!(s, x, params)
+        matrix(linearproblem(s)) .= jacobianmatrix(s)
+        factorize!(linearsolver(s), linearproblem(s))
+    end
+    ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
 end
 
-function direction!(s::NewtonSolver, x::AbstractVector, params; state::NonlinearSolverState)
-    direction!(direction(cache(s)), x, s, params; state = state)
+function direction!(s::NewtonSolver, x::AbstractVector, params, iteration)
+    direction!(direction(cache(s)), x, s, params, iteration)
 end
 
 """

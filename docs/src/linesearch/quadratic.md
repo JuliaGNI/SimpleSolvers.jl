@@ -12,9 +12,9 @@ p(\alpha) = f^\mathrm{ls}(0) + (f^\mathrm{ls})'(0)\alpha + p_2\alpha^2,
 
 and we also call ``p_0:=f^\mathrm{ls}(0)`` and ``p_1:=(f^\mathrm{ls})'(0)``. The coefficient ``p_2`` is then determined the following way:
 - take a value ``\alpha`` (typically initialized as [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
-- set ``p_2 \gets \frac{(y^2 - p_0 - p_1\alpha)}{\alpha^2}.``
+- set ``p_2 \gets \frac{(y - p_0 - p_1\alpha)}{\alpha^2}.``
 
-After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alph`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
+After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alpha`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
 
 ## Example
 
@@ -52,7 +52,7 @@ We now want to use quadratic line search to find the root of this function start
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState # hide
+using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState, jacobianmatrix # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
@@ -73,12 +73,12 @@ F!(cache(solver).rhs, x, params)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(solver))
+factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 nlp = NonlinearProblem(F!, J!, x, f(x))
 state = NonlinearSolverState(x)
-update!(state, x, f(x), 0)
-ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), state, params)
+update!(state, x, f(x))
+ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -388,7 +388,7 @@ Here we consider the same example as when discussing the [Bierlaire quadratic li
 
 ```@setup II
 using SimpleSolvers
-using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, NullParameters
+using SimpleSolvers: jacobian!, factorize!, linearsolver, jacobian, cache, linesearch_problem, direction, NullParameters, jacobianmatrix
 using LinearAlgebra: rmul!, ldiv!
 using Random
 Random.seed!(1234)
@@ -410,7 +410,7 @@ f!(cache(solver).rhs, x)
 rmul!(cache(solver).rhs, -1)
 
 # multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobian(solver))
+factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 
 nlp = NonlinearProblem(F!, J!, x, f(x))
@@ -419,8 +419,8 @@ nothing # hide
 
 ```@example II
 state = NonlinearSolverState(x)
-update!(state, x, f(x), 0)
-ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), state, params)
+update!(state, x, f(x))
+ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide

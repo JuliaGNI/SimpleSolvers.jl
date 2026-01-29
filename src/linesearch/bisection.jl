@@ -65,7 +65,7 @@ function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: N
             y₁ = y
         end
 
-        !isapprox(x₁ - x₀, zero(x), atol=config.x_abstol) || break
+        !isapprox(x₁ - x₀, zero(x), atol=config.x_suctol * max(abs(x₀), abs(x₁))) || break
 
         j != config.max_iterations || (println(x₀, " ", x₁, " ", x₁ - x₀); error("Max iteration number exceeded"))
     end
