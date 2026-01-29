@@ -44,3 +44,9 @@ function isaOptimizerState(alg)
     applicable(update!, alg, x) &&
     applicable(solver_step!, x, alg)
 end
+
+iteration_number(state::OptimizerState) = state.iterations
+
+function increase_iteration_number!(state::OptimizerState)
+    state.iterations = iteration_number(state) + 1
+end
