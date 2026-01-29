@@ -115,7 +115,7 @@ end
         jacobian_instance = JacobianFunction{T}(f!, j!)
         solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian_instance)
         state = NonlinearSolverState(x, value(cache(solver)))
-        direction!(solver, x, params)
+        direction!(solver, x, params; state = state)
 
         update!(state, x, value(cache(solver)), 0)
         linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), state, params)

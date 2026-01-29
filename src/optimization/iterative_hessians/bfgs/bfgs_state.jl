@@ -14,9 +14,10 @@ mutable struct BFGSState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}, MT <
     ḡ::GT
     f̄::T
     Q::MT
+    iterations::Int
 
     function BFGSState(x̄::AT, ḡ::GT, f̄::T, Q::MT) where {T, AT <: AbstractArray{T}, GT <: AbstractArray{T}, MT <: AbstractMatrix{T}}
-        state = new{T, AT, GT, MT}(x̄, ḡ, f̄, Q)
+        state = new{T, AT, GT, MT}(x̄, ḡ, f̄, Q, 0)
         initialize!(state, x̄)
         state
     end
@@ -35,6 +36,7 @@ function initialize!(state::BFGSState{T}, ::AbstractVector{T}) where {T}
     state.ḡ .= NaN
     state.f̄ = NaN
     inverse_hessian(state) .= one(inverse_hessian(state))
+    state.iterations = 0
 
     state
 end

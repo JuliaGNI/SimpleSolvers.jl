@@ -34,6 +34,8 @@ function direction!(it::FixedPointIterator, x::AbstractVector, params)
     direction!(direction(cache(it)), x, it, params)
 end
 
+direction!(it::FixedPointIterator, x::AbstractArray, params; state::NonlinearSolverState) = direction!(it, x, params)
+
 """
     update!(iterator, x, params)
 

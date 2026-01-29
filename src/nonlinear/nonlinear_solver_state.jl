@@ -9,10 +9,11 @@ The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 !!! warn
     Note the difference to the [`NonlinearSolverCache`](@ref) and the [`NonlinearSolverStatus`](@ref).
 """
-struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}} <: AbstractSolverState
+mutable struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}} <: AbstractSolverState
     x̄::XT
     f̄::YT
     f₀::YT
+    iterations::Int
 
     function NonlinearSolverState(x::AbstractVector{T}, y::AbstractVector{T}=x) where {T}
         x̄ = zero(x)
@@ -21,12 +22,22 @@ struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}}
         x̄ .= T(NaN)
         f̄ .= T(NaN)
         f₀ .= T(NaN)
-        new{T, typeof(x̄), typeof(f̄)}(x̄, f̄, f₀)
+        new{T, typeof(x̄), typeof(f̄)}(x̄, f̄, f₀, 0)
     end
 end
 
 solution(state::NonlinearSolverState) = state.x̄
 value(state::NonlinearSolverState) = state.f̄
+
+iteration_number(state::NonlinearSolverState) = state.iterations
+"""
+    increase_iteration_number!(s)
+
+To be used together with [`NonlinearSolver`](@ref).
+"""
+function increase_iteration_number!(state::NonlinearSolverState)
+    state.iterations += 1
+end
 
 function NonlinearSolverState{T}(n::Integer, m::Integer=n) where {T}
     x = zeros(T, n)
