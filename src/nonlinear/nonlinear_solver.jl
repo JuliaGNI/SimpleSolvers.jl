@@ -1,8 +1,5 @@
 using Printf
 
-const LINESEARCH_NAN_MAX_ITERATIONS = 10
-const LINESEARCH_NAN_FACTOR = 0.5
-
 """
     NonlinearSolver
 
@@ -116,12 +113,12 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
     update!(state, x, value!(value(state), nonlinearproblem(s), x, params), iteration_number(state))
-    for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
+    for _ in 1:linesearch(s).config.linesearch_nan_max_iterations
         solution(cache(s)) .= solution(state) .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         if any(isnan, value(cache(s)))
             (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
-            direction(cache(s)) .*= T(LINESEARCH_NAN_FACTOR)
+            direction(cache(s)) .*= T(linesearch(s).config.linesearch_nan_factor)
         else
             break
         end

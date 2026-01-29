@@ -101,6 +101,9 @@ const EXTENDED_TRACE::Bool = false
 const SHOW_EVERY::Int = 1
 const VERBOSITY::Int = 1
 
+const LINESEARCH_NAN_MAX_ITERATIONS = 10
+const LINESEARCH_NAN_FACTOR = 0.5
+
 """
     Options
 
@@ -129,6 +132,8 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `extended_trace = $(EXTENDED_TRACE)`,
 - `show_every = $(SHOW_EVERY)`,
 - `verbosity = $(VERBOSITY)`
+- `linesearch_nan_max_iterations = $(LINESEARCH_NAN_MAX_ITERATIONS)`
+- `linesearch_nan_factor = $(LINESEARCH_NAN_FACTOR)`
 
 Some of the constants are defined by the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
 """
@@ -155,6 +160,8 @@ struct Options{T}
     extended_trace::Bool
     show_every::Int
     verbosity::Int
+    linesearch_nan_max_iterations::Int
+    linesearch_nan_factor::T
 end
 
 function Options(T = Float64;
@@ -179,7 +186,9 @@ function Options(T = Float64;
         store_trace::Bool = STORE_TRACE,
         extended_trace::Bool = EXTENDED_TRACE,
         show_every::Integer = SHOW_EVERY,
-        verbosity::Integer = VERBOSITY)
+        verbosity::Integer = VERBOSITY,
+        linesearch_nan_max_iterations::Integer = LINESEARCH_NAN_MAX_ITERATIONS,
+        linesearch_nan_factor::AbstractFloat = LINESEARCH_NAN_FACTOR)
 
     show_every = show_every > 0 ? show_every : 1
 
@@ -204,7 +213,9 @@ function Options(T = Float64;
                         store_trace, 
                         extended_trace, 
                         show_every, 
-                        verbosity)
+                        verbosity,
+                        linesearch_nan_max_iterations,
+                        linesearch_nan_factor)
 end
 
 function Base.show(io::IO, o::SimpleSolvers.Options)
