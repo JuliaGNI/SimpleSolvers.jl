@@ -55,12 +55,12 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params) where {T} 
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params; state::NonlinearSolverState) where {T} 
      # first we update the rhs of the linearproblem 
      value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params) 
      rhs(linearproblem(s)) .*= -1
      # for a quasi-Newton method the Jacobian isn't updated in every iteration 
-     if (mod(iteration_number(s) - 1, method(s).refactorize) == 0 || iteration_number(s) == 1) 
+     if (mod(iteration_number(state) - 1, method(s).refactorize) == 0 || iteration_number(state) == 1) 
          jacobian!(s, x, params)
          matrix(linearproblem(s)) .= jacobian(s)
          factorize!(linearsolver(s), linearproblem(s)) 
@@ -68,8 +68,8 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{
      ldiv!(d, linearsolver(s), rhs(linearproblem(s))) 
 end
 
-function direction!(s::NewtonSolver, x::AbstractVector, params)
-    direction!(direction(cache(s)), x, s, params)
+function direction!(s::NewtonSolver, x::AbstractVector, params; state::NonlinearSolverState)
+    direction!(direction(cache(s)), x, s, params; state = state)
 end
 
 """

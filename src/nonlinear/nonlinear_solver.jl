@@ -25,7 +25,7 @@ It's arguments are:
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
-mutable struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:NonlinearSolverCache{T}} <: AbstractSolver
+struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:NonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
     linearproblem::LST
     jacobian::JT
@@ -35,11 +35,10 @@ mutable struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearPro
 
     cache::CT
     config::Options{T}
-    iterations::Int
 
     function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; method::MT=NewtonMethod(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian,NLST,LST,LSoT,LiSeT,CT}
         config = Options(T; options_kwargs...)
-        new{T,MT,AT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config, 0)
+        new{T,MT,AT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
     end
 end
 
@@ -51,21 +50,10 @@ linearproblem(s::NonlinearSolver) = s.linearproblem
 linesearch(s::NonlinearSolver) = s.linesearch
 Jacobian(s::NonlinearSolver) = s.jacobian
 
-iteration_number(s::NonlinearSolver) = s.iterations
-"""
-    increase_iteration_number!(s)
-
-To be used together with [`NonlinearSolver`](@ref).
-"""
-function increase_iteration_number!(s::NonlinearSolver)
-    s.iterations += 1
-end
-
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
 function initialize!(s::NonlinearSolver, x::AbstractVector)
     initialize!(cache(s), x)
-    s.iterations = 0
 
     s
 end
@@ -124,10 +112,10 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
-    direction!(s, x, params)
+    direction!(s, x, params; state = state)
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
-    update!(state, x, value!(value(state), nonlinearproblem(s), x, params), iteration_number(s))
+    update!(state, x, value!(value(state), nonlinearproblem(s), x, params), iteration_number(state))
     for _ in 1:LINESEARCH_NAN_MAX_ITERATIONS
         solution(cache(s)) .= solution(state) .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
@@ -157,16 +145,16 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     initialize!(s, x)
 
     while true
-        increase_iteration_number!(s)
+        increase_iteration_number!(state)
         solver_step!(x, s, state, params)
         # update!(cache(s), state, x, nonlinearproblem(s), params) # this should not be necessary!
         status = NonlinearSolverStatus(state, cache(s), config(s))
-        meets_stopping_criteria(status, iteration_number(s), config(s)) && break 
+        meets_stopping_criteria(status, iteration_number(state), config(s)) && break 
     end
 
     status = NonlinearSolverStatus(state, cache(s), config(s))
-    config(s).verbosity > 1 && print_status(status, iteration_number(s), config(s))
-    warn_iteration_number(iteration_number(s), config(s))
+    config(s).verbosity > 1 && print_status(status, iteration_number(state), config(s))
+    warn_iteration_number(iteration_number(state), config(s))
     x
 end
 
