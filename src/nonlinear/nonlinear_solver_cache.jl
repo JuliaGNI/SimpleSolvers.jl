@@ -44,7 +44,7 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
 end
 
 direction(cache::NonlinearSolverCache) = cache.Δx
-jacobian(cache::NonlinearSolverCache) = cache.j
+jacobianmatrix(cache::NonlinearSolverCache) = cache.j
 solution(cache::NonlinearSolverCache) = cache.x
 value(cache::NonlinearSolverCache) = cache.y
 
@@ -71,7 +71,7 @@ function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where 
     rhs(cache) .= T(NaN)
     value(cache) .= T(NaN)
 
-    jacobian(cache) .= T(NaN)
+    jacobianmatrix(cache) .= T(NaN)
 
     cache
 end

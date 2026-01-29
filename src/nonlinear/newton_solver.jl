@@ -69,7 +69,7 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
     if (mod(iteration - 1, method(s).refactorize) == 0 || iteration == 1)
         jacobian!(s, x, params)
-        matrix(linearproblem(s)) .= jacobian(s)
+        matrix(linearproblem(s)) .= jacobianmatrix(s)
         factorize!(linearsolver(s), linearproblem(s))
     end
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))

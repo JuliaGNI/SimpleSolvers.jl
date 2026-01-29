@@ -44,7 +44,7 @@ method(s::NonlinearSolver) = s.method
 
 linearproblem(s::NonlinearSolver) = s.linearproblem
 linesearch(s::NonlinearSolver) = s.linesearch
-Jacobian(s::NonlinearSolver) = s.jacobian
+jacobian(s::NonlinearSolver) = s.jacobian
 
 solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
@@ -62,16 +62,16 @@ Return the [`NonlinearProblem`](@ref) contained in the [`NonlinearSolver`](@ref)
 """
 nonlinearproblem(s::NonlinearSolver) = s.nonlinearproblem
 
-jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = Jacobian(s)(jacobian(cache(s)), x, params)
+jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = jacobian(s)(jacobianmatrix(cache(s)), x, params)
 
 """
-    jacobian(solver::NewtonSolver)
+    jacobianmatrix(solver::NewtonSolver)
 
-Return the evaluated Jacobian (a Matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
+Return the evaluated Jacobian (a matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
 
 Also see [`jacobian(::NonlinearProblem)`](@ref) and [`Jacobian(::NonlinearProblem)`](@ref).
 """
-jacobian(solver::NonlinearSolver) = jacobian(cache(solver))
+jacobianmatrix(solver::NonlinearSolver) = jacobianmatrix(cache(solver))
 
 """
     linearsolver(solver)

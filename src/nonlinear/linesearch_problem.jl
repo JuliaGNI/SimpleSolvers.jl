@@ -20,8 +20,8 @@ function linesearch_problem(nlp::NonlinearProblem{T}, jacobian_instance::Jacobia
     function d(α)
         compute_new_iterate!(solution(cache), x, α, direction(cache))
         value!(value(cache), nlp, solution(cache), params)
-        jacobian_instance(jacobian(cache), solution(cache), params)
-        2dot(value(cache), jacobian(cache), direction(cache))
+        jacobian_instance(jacobianmatrix(cache), solution(cache), params)
+        2dot(value(cache), jacobianmatrix(cache), direction(cache))
     end
 
     # the last argument is to specify the "type" in the problem
@@ -33,4 +33,4 @@ end
 
 Build a line search problem based on a [`NonlinearSolver`](@ref) (almost always a [`NewtonSolver`](@ref) in practice).
 """
-linesearch_problem(nl::NonlinearSolver, x::AbstractVector, params) = linesearch_problem(nonlinearproblem(nl), Jacobian(nl), cache(nl), x, params)
+linesearch_problem(nl::NonlinearSolver, x::AbstractVector, params) = linesearch_problem(nonlinearproblem(nl), jacobian(nl), cache(nl), x, params)

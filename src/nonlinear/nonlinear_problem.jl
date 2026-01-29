@@ -9,7 +9,7 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 
 # Keys
 - `F`: accessed by calling `Function(nlp)`,
-- `J::Union{Callable, Missing}`: accessed by calling `Jacobian(nlp)`,
+- `J::Union{Callable, Missing}`: accessed by calling `jacobian(nlp)`,
 """
 struct NonlinearProblem{T,TF<:Callable,TJ<:Union{Callable,Missing}} <: AbstractProblem
     F::TF
@@ -42,24 +42,13 @@ function value!(y::AbstractArray{T}, nlp::NonlinearProblem{T}, x::AbstractArray{
     y
 end
 
-# function value(nlp::NonlinearProblem{T}, x::AbstractVector{T}, params) where {T<:Number}
-#     f = zero(value(nlp))
-#     Function(nlp)(f, x, params)
-#     f
-# end
-
-Base.Function(nlp::NonlinearProblem) = nlp.F
-
 
 """
-    Jacobian(nlp::NonlinearProblem)
+    jacobian(nlp::NonlinearProblem)
 
 Return the *Jacobian function* stored in `nlp`.
-
-!!! warning
-    Note that this is different from the [`Jacobian`](@ref) used in the [`NonlinearSolver`](@ref)! There the [`Jacobian`](@ref) is a separate `struct`.
 """
-Jacobian(nlp::NonlinearProblem) = nlp.J
+jacobian(nlp::NonlinearProblem) = nlp.J
 
 function jacobian!(j::AbstractMatrix{T}, nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
     nlp.J(j, x, params)
