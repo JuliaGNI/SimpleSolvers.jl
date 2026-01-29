@@ -23,7 +23,7 @@ NonlinearSolverStatus(state, cache, config)
 
 # output
 
-i=0,
+i=   0,
 rxₛ= NaN,
 rfₐ= NaN,
 rfₛ= NaN
@@ -45,7 +45,6 @@ end
     residuals(cache, state)
 
 Compute the residuals for `cache::`[`NonlinearSolverCache`](@ref).
-Note that this does not update the `cache`. These are updated with [`update!(::NonlinearSolverCache{T}, ::NonlinearSolverState{T}, ::AbstractVector{T}, ::AbstractVector{T}) where {T}`](@ref).
 The computed residuals are the following:
 - `rxₛ` : successive residual (the norm of ``\delta``),
 - `rfₐ`: absolute residual in ``f``,

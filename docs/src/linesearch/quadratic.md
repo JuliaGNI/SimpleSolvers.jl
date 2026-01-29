@@ -77,8 +77,8 @@ factorize!(linearsolver(solver), jacobian(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 nlp = NonlinearProblem(F!, J!, x, f(x))
 state = NonlinearSolverState(x)
-update!(state, x, f(x), 0)
-ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), state, params)
+update!(state, x, f(x))
+ls_obj = linesearch_problem(nlp, Jacobian(solver), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
@@ -419,8 +419,8 @@ nothing # hide
 
 ```@example II
 state = NonlinearSolverState(x)
-update!(state, x, f(x), 0)
-ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), state, params)
+update!(state, x, f(x))
+ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), x, params)
 fˡˢ = ls_obj.F
 ∂fˡˢ∂α = ls_obj.D
 nothing # hide
