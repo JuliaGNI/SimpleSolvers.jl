@@ -147,3 +147,7 @@ function Base.convert(::Type{T}, algorithm::BierlaireQuadratic) where {T}
         BierlaireQuadratic(T; ε=T(algorithm.ε), ξ=T(algorithm.ξ))
     end
 end
+
+function Base.isapprox(bq₁::BierlaireQuadratic{T}, bq₂::BierlaireQuadratic{T}; kwargs...) where {T}
+    isapprox(bq₁.ε, bq₂.ε; kwargs...) && isapprox(bq₁.ξ, bq₂.ξ; kwargs...)
+end
