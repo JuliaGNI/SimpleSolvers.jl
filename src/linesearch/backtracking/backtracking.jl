@@ -67,9 +67,9 @@ const DEFAULT_WOLFE_c₂ = 0.9
 # Keys
 
 The keys are:
-- `α₀`:
+- `α₀=$(DEFAULT_ARMIJO_α₀)`: the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the Wolfe conditions (the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref)) are satisfied.
 - `c₁=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
-- `c₂=$(DEFAULT_WOLFE_c₂)`:
+- `c₂=$(DEFAULT_WOLFE_c₂)`: the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
 # Functor
@@ -92,9 +92,9 @@ d_0 \gets f'(x_0),
 ```
 where ``f`` is the *univariate optimizer problem* (of type [`LinesearchProblem`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
 ```math
-    f(\alpha) < y_0 + \epsilon \cdot \alpha \cdot d_0,
+    f(\alpha) < y_0 + c_1 \cdot \alpha \cdot d_0,
 ```
-where ``\epsilon`` is stored in `ls`.
+where ``c_1`` is stored in `ls`.
 
 !!! info
     The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.c₁, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search problem.
