@@ -36,17 +36,19 @@ So the algorithm checks in each step where the sign change occurred and moves th
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
 """
-function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: Number}
+function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T<:Number}
     x₀ = xmin
     x₁ = xmax
-    x  = zero(T)
+    x = zero(T)
 
     # flip x₀ and x₁ if the former is bigger than the latter
-    x₀ < x₁ || begin x₀, x₁ = x₁, x₀ end
+    x₀ < x₁ || begin
+        x₀, x₁ = x₁, x₀
+    end
 
     y₀ = f(x₀)
     y₁ = f(x₁)
-    y  = zero(y₀)
+    y = zero(y₀)
 
     # @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
 
@@ -67,13 +69,14 @@ function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T <: N
 
         !isapprox(x₁ - x₀, zero(x), atol=config.x_suctol * max(abs(x₀), abs(x₁))) || break
 
-        j != config.max_iterations || (println(x₀, " ", x₁, " ", x₁ - x₀); error("Max iteration number exceeded"))
+        j != config.max_iterations || (println(x₀, " ", x₁, " ", x₁ - x₀);
+        error("Max iteration number exceeded"))
     end
 
     x
 end
 
-bisection(problem::AbstractOptimizerProblem, xmin::T, xmax::T; config::Options) where {T <: Number} = bisection(problem.D, xmin, xmax; config = config)
+bisection(problem::AbstractOptimizerProblem, xmin::T, xmax::T; config::Options) where {T<:Number} = bisection(problem.D, xmin, xmax; config=config)
 # bisection(problem::AbstractOptimizerProblem, x::T; kwargs...) = bisection(problem.D, x; kwargs...)
 
 """
@@ -91,12 +94,14 @@ See [`bisection`](@ref) for the implementation of the algorithm.
 struct Bisection{T} <: LinesearchMethod{T} end
 
 Bisection(T::DataType=Float64) = Bisection{T}()
+Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, x₁::T) where {T, LST <: Bisection}
-    bisection(problem, x₀, x₁; config = ls.config)
+
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x₀::T, x₁::T) where {T,LST<:Bisection}
+    bisection(problem, x₀, x₁; config=ls.config)
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x::T=zero(T)) where {T, LST <: Bisection}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x::T=zero(T)) where {T,LST<:Bisection}
     solve(problem, ls, bracket_minimum(problem.F, x)...)
 end
 

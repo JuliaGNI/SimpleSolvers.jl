@@ -12,15 +12,15 @@ function test(n)
         for (Solver, kwarguments) in (
             (NewtonSolver, (linesearch=Static(T),)),
             (NewtonSolver, (linesearch=Backtracking(T),)),
-            (NewtonSolver, (linesearch=Quadratic(T,2),)),
+            (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),)),
             (NewtonSolver, (linesearch=BierlaireQuadratic(T),)),
             (NewtonSolver, (linesearch=Bisection(T),)),
             (FixedPointIterator, (linesearch=Static(T),)),
             (FixedPointIterator, (linesearch=Backtracking(T),)),
-            (FixedPointIterator, (linesearch=Quadratic(T,2),)),
+            (FixedPointIterator, (linesearch=Quadratic(T, NewtonMethod()),)),
             (FixedPointIterator, (linesearch=BierlaireQuadratic(T),)),
             (FixedPointIterator, (linesearch=Bisection(T),)),
-            )
+        )
 
             x = ones(T, n)
             y = zero(x)
