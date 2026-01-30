@@ -47,7 +47,7 @@ A constant ``\epsilon`` on which a finite difference approximation of the deriva
 
 
 """
-const DEFAULT_WOLFE_c₁  = 1E-4
+const DEFAULT_WOLFE_c₁ = 1E-4
 
 @doc raw"""
     const DEFAULT_WOLFE_c₂
@@ -68,7 +68,8 @@ const DEFAULT_WOLFE_c₂ = 0.9
 
 The keys are:
 - `α₀`:
-- `ϵ=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
+- `c₁=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
+- `c₂=$(DEFAULT_WOLFE_c₂)`:
 - `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
 # Functor
@@ -96,7 +97,7 @@ where ``f`` is the *univariate optimizer problem* (of type [`LinesearchProblem`]
 where ``\epsilon`` is stored in `ls`.
 
 !!! info
-    The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.ϵ, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search problem.
+    The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.c₁, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search problem.
 
 # Extended help
 
@@ -107,7 +108,7 @@ The algorithm is executed by calling the functor of [`Backtracking`](@ref).
 The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
 
 ```julia
-if value(obj, α) ≥ y₀ + ls.ϵ * α * d₀
+if value(obj, α) ≥ y₀ + ls.c₁ * α * d₀
     α *= ls.p
 else
     break
@@ -124,31 +125,37 @@ Note that if the stopping criterion is not reached, ``\alpha`` is multiplied wit
 """
 struct Backtracking{T} <: LinesearchMethod{T}
     α₀::T
-    ϵ::T
+    c₁::T
     c₂::T
     p::T
 
-    function Backtracking(::Type{T₁}=Float64;
-                    α₀::T = DEFAULT_ARMIJO_α₀,
-                    ϵ::T = DEFAULT_WOLFE_c₁,
-                    c₂::T = DEFAULT_WOLFE_c₂,
-                    p::T = DEFAULT_ARMIJO_p) where {T₁, T}
+    function Backtracking{T}(α₀::T, c₁::T, c₂::T, p::T) where {T}
         @assert p < 1 "The shrinking parameter needs to be less than 1, it is $(p)."
-        @assert ϵ < 1 "The search control parameter needs to be less than 1, it is $(ϵ)."
-        new{T₁}(T₁(α₀), T₁(ϵ), T₁(c₂), T₁(p))
+        @assert c₁ < 1 "The search control parameter needs to be less than 1, it is $(c₁)."
+        new{T}(α₀, c₁, c₂, p)
     end
 end
 
-Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = $(ls.α₀) ϵ = $(ls.ϵ), p = $(ls.p) and c₂ = $(ls.c₂).")
+function Backtracking(::Type{T}=Float64;
+    α₀=T(DEFAULT_ARMIJO_α₀),
+    c₁=T(DEFAULT_WOLFE_c₁),
+    c₂=T(DEFAULT_WOLFE_c₂),
+    p=T(DEFAULT_ARMIJO_p)
+) where {T}
+    Backtracking{T}(α₀, c₁, c₂, p)
+end
 
-function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.algorithm.α₀) where {T, LST <: Backtracking}
+Backtracking(::Type{T}, ::SolverMethod) where {T} = Backtracking(T)
+
+
+function solve(obj::LinesearchProblem{T}, ls::Linesearch{T,LST}, α::T=ls.algorithm.α₀) where {T,LST<:Backtracking}
     x₀ = zero(α)
     y₀ = value(obj, x₀)
     d(α) = derivative(obj, α)
     d₀ = d(x₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
-    sdc = SufficientDecreaseCondition(ls.algorithm.ϵ, x₀, y₀, d₀, one(α), obj)
+    sdc = SufficientDecreaseCondition(ls.algorithm.c₁, x₀, y₀, d₀, one(α), obj)
     cc = CurvatureCondition(T(ls.algorithm.c₂), x₀, d₀, one(α), obj, d; mode=:Standard)
     for _ in 1:ls.config.max_iterations
         if (sdc(α) && cc(α))
@@ -161,11 +168,13 @@ function solve(obj::LinesearchProblem{T}, ls::Linesearch{T, LST}, α::T=ls.algor
     α
 end
 
+Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = $(ls.α₀) c₁ = $(ls.c₁), c₂ = $(ls.c₂) and p = $(ls.p).")
+
 function Base.convert(::Type{T}, algorithm::Backtracking) where {T}
     T ≠ eltype(algorithm) || return algorithm
-    Backtracking(T; α₀=T(algorithm.α₀), ϵ=T(algorithm.ϵ), c₂=T(algorithm.c₂), p=T(algorithm.p))
+    Backtracking{T}(T(algorithm.α₀), T(algorithm.c₁), T(algorithm.c₂), T(algorithm.p))
 end
 
 function Base.isapprox(bt₁::Backtracking{T}, bt₂::Backtracking{T}; kwargs...) where {T}
-    isapprox(bt₁.α₀, bt₂.α₀; kwargs...) && isapprox(bt₁.ϵ, bt₂.ϵ; kwargs...) && isapprox(bt₁.c₂, bt₂.c₂; kwargs...) && isapprox(bt₁.p, bt₂.p; kwargs...)
+    isapprox(bt₁.α₀, bt₂.α₀; kwargs...) && isapprox(bt₁.c₁, bt₂.c₁; kwargs...) && isapprox(bt₁.c₂, bt₂.c₂; kwargs...) && isapprox(bt₁.p, bt₂.p; kwargs...)
 end

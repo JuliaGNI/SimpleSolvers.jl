@@ -81,26 +81,31 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ε::T
     ξ::T
 
-    function BierlaireQuadratic(T₁::DataType=Float64;
-        ε::T=default_precision(T₁), # DEFAULT_BIERLAIRE_ε,
-        ξ::T=default_precision(T₁) # DEFAULT_BIERLAIRE_ξ
-        ) where {T}
-        new{T₁}(T₁(ε), T₁(ξ))
+    function BierlaireQuadratic{T}(ε::T, ξ::T) where {T}
+        new{T}(ε, ξ)
     end
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, a::T, b::T, c::T, iteration_number::Integer=1) where {T, LST <: BierlaireQuadratic}
+function BierlaireQuadratic(::Type{T}=Float64;
+    ε=default_precision(T), # DEFAULT_BIERLAIRE_ε,
+    ξ=default_precision(T)  # DEFAULT_BIERLAIRE_ξ
+) where {T}
+    BierlaireQuadratic{T}(ε, ξ)
+end
+
+BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
+
+
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, a::T, b::T, c::T, iteration_number::Integer=1) where {T,LST<:BierlaireQuadratic}
     bierlaire_quadratic(problem.F, ls, a, b, c, iteration_number)
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T=zero(T), iteration_number::Integer=1) where {T, LST <: BierlaireQuadratic}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x₀::T=zero(T), iteration_number::Integer=1) where {T,LST<:BierlaireQuadratic}
     # check if the minimum has already been reached
     !(l2norm(derivative(problem, x₀)) < ls.algorithm.ξ) || return x₀
     solve(problem, ls, triple_point_finder(problem, x₀)..., iteration_number)
 end
 
-
-Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
@@ -115,7 +120,7 @@ function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
     end
 end
 
-function bierlaire_quadratic(fˡˢ::Callable, ls::Linesearch{T, LST}, a::T, b::T, c::T, iteration_number::Integer) where {T, LST <: BierlaireQuadratic{T}}
+function bierlaire_quadratic(fˡˢ::Callable, ls::Linesearch{T,LST}, a::T, b::T, c::T, iteration_number::Integer) where {T,LST<:BierlaireQuadratic{T}}
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
     χ = T(0.5) * (fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2)) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
@@ -139,12 +144,14 @@ function bierlaire_quadratic(fˡˢ::Callable, ls::Linesearch{T, LST}, a::T, b::T
     bierlaire_quadratic(fˡˢ, ls, a, b, c, iteration_number + 1)
 end
 
-function Base.convert(::Type{T}, algorithm::BierlaireQuadratic) where {T}
-    T ≠ eltype(algorithm) || return algorithm
-    if algorithm.ε == default_precision(eltype(algorithm)) && algorithm.ξ == default_precision(eltype(algorithm))
-        BierlaireQuadratic(T; ε=default_precision(T), ξ =default_precision(T))
+Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
+
+function Base.convert(::Type{T}, algorithm::BierlaireQuadratic{AT}) where {T,AT}
+    T ≠ AT || return algorithm
+    if algorithm.ε == default_precision(AT) && algorithm.ξ == default_precision(AT)
+        BierlaireQuadratic{T}(default_precision(T), default_precision(T))
     else
-        BierlaireQuadratic(T; ε=T(algorithm.ε), ξ=T(algorithm.ξ))
+        BierlaireQuadratic{T}(T(algorithm.ε), T(algorithm.ξ))
     end
 end
 

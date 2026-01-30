@@ -28,7 +28,7 @@ max_number_of_quadratic_linesearch_iterations(::Type{Float64}) = MAX_NUMBER_OF_I
 """
 A factor by which `s` is reduced in each bracketing iteration (see [`bracket_minimum_with_fixed_point`](@ref)).
 """
-const DEFAULT_s_REDUCTION = .5
+const DEFAULT_s_REDUCTION = 0.5
 
 """
     Quadratic <: LinesearchMethod
@@ -56,19 +56,33 @@ struct Quadratic{T} <: LinesearchMethod{T}
     s::T
     s_reduction::T
 
-    function Quadratic(T₁::DataType=Float64, power = 1;
-                    ε = default_precision(T₁)^power,
-                    s::T = DEFAULT_BRACKETING_s^power,
-                    s_reduction::T = DEFAULT_s_REDUCTION^power) where {T}
-        new{T₁}(T₁(ε), T₁(s), T₁(s_reduction))
+    function Quadratic{T}(ε::T, s::T, s_reduction::T) where {T}
+        new{T}(ε, s, s_reduction)
     end
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_iterations::Integer = 0, x₀::T=zero(T), s::T=ls.algorithm.s) where {T, LST <: Quadratic}
+function Quadratic(::Type{T}=Float64;
+    ε=default_precision(T),
+    s=T(DEFAULT_BRACKETING_s),
+    s_reduction=T(DEFAULT_s_REDUCTION)
+) where {T}
+    Quadratic{T}(ε, s, s_reduction)
+end
+
+Quadratic(::Type{T}, ::NonlinearSolverMethod) where {T} = Quadratic{T}(
+    default_precision(T)^2,
+    T(DEFAULT_BRACKETING_s^2),
+    T(DEFAULT_s_REDUCTION^2)
+)
+
+Quadratic(::Type{T}, ::OptimizerMethod) where {T} = Quadratic(T)
+
+
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, number_of_iterations::Integer=0, x₀::T=zero(T), s::T=ls.algorithm.s) where {T,LST<:Quadratic}
     number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return x₀
 
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
-    a, b = bracket_minimum_with_fixed_point(problem, x₀; s = s)
+    a, b = bracket_minimum_with_fixed_point(problem, x₀; s=s)
     d₀ = derivative(problem, a)
     !(abs(d₀) < ls.algorithm.ε) || return x₀
 
@@ -85,20 +99,20 @@ function solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, number_of_
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
     # αₜ = a - p₁ / (2p₂)
 
-    αₜ = a - d₀ * (b-a)^2 / 2(y₁ - y₀ - d₀*(b-a))
+    αₜ = a - d₀ * (b - a)^2 / 2(y₁ - y₀ - d₀ * (b - a))
 
     !(l2norm(αₜ - x₀) < ls.algorithm.ε) || return αₜ
 
     solve(problem, ls, number_of_iterations + 1, αₜ, s * ls.algorithm.s_reduction)
 end
 
-solve(problem::LinesearchProblem{T}, ls::Linesearch{T, LST}, x₀::T, s::T=ls.s) where {T, LST <: Quadratic} = solve(problem, ls, 0, x₀, s)
+solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x₀::T, s::T=ls.s) where {T,LST<:Quadratic} = solve(problem, ls, 0, x₀, s)
 
 Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
 
 function Base.convert(::Type{T}, algorithm::Quadratic) where {T}
     T ≠ eltype(algorithm) || return algorithm
-    Quadratic(T; ε=T(algorithm.ε), s=T(algorithm.s), s_reduction=T(algorithm.s_reduction))
+    Quadratic{T}(T(algorithm.ε), T(algorithm.s), T(algorithm.s_reduction))
 end
 
 function Base.isapprox(qu₁::Quadratic{T}, qu₂::Quadratic{T}; kwargs...) where {T}
