@@ -54,7 +54,6 @@ function initialize!(s::NonlinearSolver, x::AbstractVector)
     s
 end
 
-
 """
     nonlinearproblem(solver)
 
