@@ -32,3 +32,18 @@ for T ∈ (Float64, Float32)
         @test _x ≈ T(root₁) atol = ∛(2eps(T))
     end
 end
+
+# test new constructor
+for T ∈ (Float64, Float32)
+    x = ones(T, n)
+    y = F.(x)
+    it = NonlinearSolver(PicardMethod(), x, y; F=F!)
+    # println(x)
+
+    @test config(it) == it.config
+
+    solve!(x, it)
+    for _x in x
+        @test _x ≈ T(root₁) atol = ∛(2eps(T))
+    end
+end

@@ -26,6 +26,8 @@ function FixedPointIterator(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:Abs
     FixedPointIterator(x, F, y; kwargs...)
 end
 
+NonlinearSolver(::PicardMethod, x...; kwargs...) = FixedPointIterator(x...; kwargs...)
+
 function direction!(d::AbstractVector{T}, x::AbstractVector{T}, it::FixedPointIterator{T}, params) where {T}
     value!(d, nonlinearproblem(it), x, params)
     d .*= -1
