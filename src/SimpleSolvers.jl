@@ -122,7 +122,7 @@ include("nonlinear/fixed_point_iterator.jl")
 include("nonlinear/newton_solver.jl")
 include("nonlinear/linesearch_problem.jl")
 
-SovlerState(s::NonlinearSolver) = NonlinearSolverState(solution(cache(s)), value(cache(s)))
+SolverState(s::NonlinearSolver) = NonlinearSolverState(solution(cache(s)), value(cache(s)))
 
 
 export Optimizer,
