@@ -73,3 +73,29 @@ for T ∈ (Float64, Float32)
         end
     end
 end
+
+# test alternative constructors
+for T ∈ (Float64, Float32)
+    # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
+    for (solver_method, kwarguments, tolfac) in (
+        (NewtonMethod(), (linesearch=Static(T),), 2),
+        (QuasiNewtonMethod(), (linesearch=Static(T),), 2),
+    )
+
+        @testset "Testing with different constructor; method = $(solver_method) & $(kwarguments) & $(T)" begin
+            x = T.(copy(x₀))
+            y = F(x)
+            nl = NonlinearSolver(solver_method, x, y; F=F!, verbosity=0, kwarguments...)
+            # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
+
+            # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
+
+            solve!(x, nl)
+
+            for _x in x
+                @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+            end
+
+        end
+    end
+end

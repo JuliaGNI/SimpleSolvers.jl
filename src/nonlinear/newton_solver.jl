@@ -19,9 +19,17 @@ What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`No
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
-const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod}
+const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}
+const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewtonMethod}
 
-function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
+function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
+    cache = NonlinearSolverCache(x, x)
+    config = Options(T; options_kwargs...)
+
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=NewtonMethod(), jacobian=jacobian)
+end
+
+function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     cache = NonlinearSolverCache(x, x)
     config = Options(T; options_kwargs...)
 
@@ -30,11 +38,7 @@ function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
         refactorize = 1
     end
 
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=NewtonMethod(refactorize), jacobian=jacobian)
-end
-
-function QuasiNewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; options_kwargs...)
-    NewtonSolver(x, nlp, ls, linearsolver, linesearch, cache; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=QuasiNewtonMethod(refactorize), jacobian=jacobian)
 end
 
 """
@@ -47,14 +51,18 @@ end
 - `mode`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
+function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = ismissing(DF!) ? NonlinearProblem(F, x, y) : NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = Linesearch(linesearch; T=T)
-    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
+    if refactorize == 1
+        NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
+    else
+        QuasiNewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, refactorize=refactorize, kwargs...)
+    end
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
@@ -62,7 +70,7 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration) where {T}
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonSolver{T},QuasiNewtonSolver{T}}, params, iteration) where {T}
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
@@ -75,7 +83,7 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
 end
 
-function direction!(s::NewtonSolver, x::AbstractVector, params, iteration)
+function direction!(s::Union{NewtonSolver,QuasiNewtonSolver}, x::AbstractVector, params, iteration)
     direction!(direction(cache(s)), x, s, params, iteration)
 end
 
@@ -96,8 +104,8 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
 
-check_jacobian(s::NewtonSolver) = check_jacobian(jacobian(s))
-print_jacobian(s::NewtonSolver) = print_jacobian(jacobian(s))
+check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobian(s))
+print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobian(s))
 
 
 """
@@ -109,8 +117,11 @@ This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
-function update!(s::NewtonSolver, state::NonlinearSolverState, x₀::AbstractArray, params)
+function update!(s::Union{NewtonSolver,QuasiNewtonSolver}, state::NonlinearSolverState, x₀::AbstractArray, params)
     update!(cache(s), state, x₀, nonlinearproblem(s), params)
 
     s
 end
+
+NonlinearSolver(method::NewtonMethod, x...; kwargs...) = NewtonSolver(x...; kwargs...)
+NonlinearSolver(method::QuasiNewtonMethod, x...; kwargs...) = QuasiNewtonSolver(x...; kwargs...)

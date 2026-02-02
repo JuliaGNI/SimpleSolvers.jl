@@ -108,7 +108,7 @@ include("linesearch/quadratic.jl")
 include("linesearch/bierlaire_quadratic.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
-    NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!
+    NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!, NewtonMethod, QuasiNewtonMethod
 
 export FixedPointIterator
 

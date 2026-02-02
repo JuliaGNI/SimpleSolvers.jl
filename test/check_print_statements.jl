@@ -11,19 +11,18 @@ function check_value_for_nonlinearsolverstatus(T::DataType)
 
     # s₁ = NewtonSolver(x₁, f)
     s = NewtonSolver(x, F, f(x))
-    expected_statement =
-    "i =    0,
-x =  NaN,
-f =  NaN,
-rxₐ =  NaN,
-rxₛ =  NaN,
-rfₐ =  NaN,
-rfₛ =  NaN
-"
+    expected_statement = "i =    0,
+                     x =  NaN,
+                     f =  NaN,
+                     rxₐ =  NaN,
+                     rxₛ =  NaN,
+                     rfₐ =  NaN,
+                     rfₛ =  NaN
+                     "
     compare_statements(s, expected_statement)
 end
 
-function compare_statements(s::NewtonSolver, expected_statement::String)
+function compare_statements(s::Union{NewtonSolver,QuasiNewtonSolver}, expected_statement::String)
     io = IOBuffer()
     show(io, s)
     statement_we_have = String(take!(io))
