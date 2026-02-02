@@ -111,9 +111,10 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
     for _ in 1:linesearch(s).config.linesearch_nan_max_iterations
-        solution(cache(s)) .= x .+ direction(cache(s))
-        if typeof(linesearch(s).algorithm) <: Static
-            solution(cache(s)) .*= solution(cache(s))
+        solution(cache(s)) .= x .+ if typeof(linesearch(s).algorithm) <: Static
+            direction(cache(s)) .* linesearch(s).algorithm.α
+        else
+            direction(cache(s))
         end
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         if any(isnan, value(cache(s)))

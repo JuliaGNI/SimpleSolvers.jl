@@ -121,9 +121,10 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     compute_direction(opt, state)
 
     for _ in 1:linesearch(opt).config.linesearch_nan_max_iterations
-        solution(cache(opt)) .= x .+ direction(cache(opt))
-        if typeof(linesearch(opt).algorithm) <: Static
-            solution(cache(opt)) .*= solution(cache(opt))
+        solution(cache(opt)) .= x .+ if typeof(linesearch(opt).algorithm) <: Static
+            direction(cache(opt)) .* linesearch(opt).algorithm.α
+        else
+            direction(cache(opt))
         end
         f = value(problem(opt), solution(cache(opt)))
         if isnan(f)
