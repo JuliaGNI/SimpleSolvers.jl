@@ -39,3 +39,6 @@ end
 @safetestset "Optimizers                                                                      " begin
     include("optimizer_tests.jl")
 end
+@safetestset "Check whether direction NaN test works                                          " begin
+    include("check_whether_direction_contains_nans.jl")
+end
