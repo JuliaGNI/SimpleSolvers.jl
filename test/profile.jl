@@ -19,7 +19,7 @@ function profile(Solver, kwarguments, n=100)
     x = ones(n)
     y = zero(x)
     nl = Solver(x, y; F=F!, kwarguments...)
-    ss = NonlinearSolverState(x, y)
+    ss = SolverState(nl)
 
     solve!(x, nl, ss)
 

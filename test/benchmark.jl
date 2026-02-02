@@ -25,7 +25,7 @@ function test(n)
             x = ones(T, n)
             y = zero(x)
             nl = Solver(x, y; F=F!, verbosity=2, kwarguments...)
-            ss = NonlinearSolverState(x, y)
+            ss = SolverState(nl)
 
             println(Solver, ", ", kwarguments, ", ", T, "\n")
 
