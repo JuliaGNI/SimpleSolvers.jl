@@ -8,7 +8,8 @@ using Printf
 
 import Base.minimum
 import Base.Callable
-import GeometricBase: AbstractSolver, SolverMethod, AbstractProblem, NullParameters, OptionalParameters, AbstractSolverState
+import GeometricBase: AbstractProblem, AbstractSolver, AbstractSolverState
+import GeometricBase: NullParameters, OptionalParameters, SolverMethod, SolverState
 import GeometricBase: update!, value
 import GeometricBase.Utils: L2norm, l2norm
 
@@ -22,7 +23,7 @@ export config, result, state, status
 export algorithm, problem
 export solution, minimizer, minimum
 
-export SolverMethod
+export SolverMethod, SolverState
 export BracketingMethod
 export DirectMethod, IterativeMethod
 export NonlinearMethod, PicardMethod, LinesearchMethod
@@ -120,6 +121,9 @@ include("nonlinear/nonlinear_solver.jl")
 include("nonlinear/fixed_point_iterator.jl")
 include("nonlinear/newton_solver.jl")
 include("nonlinear/linesearch_problem.jl")
+
+SovlerState(s::NonlinearSolver) = NonlinearSolverState(solution(cache(s)), value(cache(s)))
+
 
 export Optimizer,
     OptimizerState, isaOptimizerState,
