@@ -39,6 +39,7 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
+update!(state, grad, x)
 update!(cache, state, grad, hes, x)
 nothing # hide
 ```
@@ -54,7 +55,7 @@ For bracketing [kochenderfer2019algorithms](@cite) we move an interval successiv
 
 ```@example bisection
 α₀ = 0.0
-(a, c) = bracket_minimum(Function(ls_obj), α₀)
+(a, c) = bracket_minimum(ls_obj, α₀)
 ```
 
 ```@setup bisection

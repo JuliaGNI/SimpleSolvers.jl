@@ -182,8 +182,8 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
 
     |x - x'|               = 7.82e-03
     |x - x'|/|x'|          = 2.56e+02
-    |f(x) - f(x')|         = 9.31e-10
-    |f(x) - f(x')|/|f(x')| = 1.00e+00
+    |f(x) - f(x')|         = 6.18e-05
+    |f(x) - f(x')|/|f(x')| = 6.63e+04
     |g(x) - g(x')|         = 1.57e-02
     |g(x)|                 = 6.10e-05
 

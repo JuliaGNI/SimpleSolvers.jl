@@ -206,7 +206,7 @@ And we see that we already very close to the root.
 We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
 ```@example quadratic
-using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient
+using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction
 
 x₀, x₁ = [0.], x
 obj = OptimizerProblem(sum∘f, x₀)
@@ -216,9 +216,9 @@ state = NewtonOptimizerState(x₀)
 hess = HessianAutodiff(obj, x₀)
 H = SimpleSolvers.alloc_h(x)
 hess(H, x₀)
+update!(state, grad, x₀)
 update!(_cache, state, grad, hess, x₀)
-hess(H, x₁)
-update!(_cache, state, grad, hess, x₁)
+compute_direction(_cache)
 ls_obj = linesearch_problem(obj, grad, _cache, state)
 
 fˡˢ = ls_obj.F
