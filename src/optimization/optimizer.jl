@@ -1,5 +1,6 @@
 
 const SOLUTION_MAX_PRINT_LENGTH = 10
+using Core: OptimizedGenerics
 
 """
     Optimizer
@@ -115,6 +116,7 @@ solver_step!(x, state, opt)
 function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where {T,VT<:AbstractVector{T}}
     # update problem, hessian, state and status
     update!(opt, state, x)
+    typeof(algorithm(opt)) <: Newton && update!(state, gradient(opt), x) # this will have to be removed later
 
     # solve H δx = - ∇f
     # rhs is -g
@@ -143,9 +145,18 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     x
 end
 
-function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
-    direction(opt) .= solve(LU(), hessian(cache(opt)), rhs(opt))
+function compute_direction(direction::AbstractVector{T}, cache::OptimizerCache{T}) where {T}
+    direction .= solve(LU(), hessian(cache), rhs(cache))
 end
+
+function compute_direction(cache::OptimizerCache{T}) where {T}
+    compute_direction(direction(cache), cache)
+end
+
+function compute_direction(opt::Optimizer)
+    compute_direction(cache(opt))
+end
+compute_direction(opt::Optimizer, ::OptimizerState) = compute_direction(opt)
 
 function compute_direction(opt::Optimizer{T,IOM}, state::Union{BFGSState,DFPState}) where {T,IOM<:QuasiNewtonOptimizerMethod}
     direction(opt) .= inverse_hessian(state) * rhs(opt)

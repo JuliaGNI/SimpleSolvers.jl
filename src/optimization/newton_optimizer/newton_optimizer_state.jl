@@ -11,29 +11,50 @@ Note that this is also used for the [`BFGS`](@ref) and the [`DFP`](@ref) optimiz
 - `ḡ`
 - `f̄`
 """
-mutable struct NewtonOptimizerState{T, AT <: AbstractArray{T}, GT <: AbstractArray{T}} <: OptimizerState{T}
-    x̄::AT
-    ḡ::GT
-    f̄::T
+mutable struct NewtonOptimizerState{T,AT<:AbstractArray{T},GT<:AbstractArray{T}} <: OptimizerState{T}
     iterations::Int
 
-    function NewtonOptimizerState(x̄::AT, ḡ::GT, f̄::T) where {T, AT <: AbstractArray{T}, GT <: AbstractArray{T}}
-        new{T, AT, GT}(x̄, ḡ, f̄, 0)
-    end
-end
+    x::AT
+    x̄::AT
+    g::GT
+    ḡ::GT
+    f::T
+    f̄::T
 
-NewtonOptimizerState(x::AbstractVector{T}, g::AbstractVector{T}) where {T} = NewtonOptimizerState(copy(x), copy(g), zero(T))
-NewtonOptimizerState(x::AbstractVector) = NewtonOptimizerState(copy(x), zero(x))
+    function NewtonOptimizerState(X::AT, G::GT) where {T,AT<:AbstractArray{T},GT<:AbstractArray{T}}
+        x = zero(X)
+        x̄ = zero(X)
+        g = zero(X)
+        ḡ = zero(X)
+        x .= T(NaN)
+        x̄ .= T(NaN)
+        g .= T(NaN)
+        ḡ .= T(NaN)
+        new{T,AT,GT}(0, x, x̄, g, ḡ, T(NaN), T(NaN))
+    end
+
+    NewtonOptimizerState(x) = NewtonOptimizerState(x, x)
+end
 
 OptimizerState(::Newton, x_args...) = NewtonOptimizerState(x_args...)
 
-function initialize!(state::NewtonOptimizerState{T}, ::AbstractVector{T}) where {T}
-    state.x̄ .= NaN
-    state.ḡ .= NaN
-    state.f̄ = NaN
+function initialize!(state::NewtonOptimizerState{T}, x::AbstractVector{T}, g::AbstractVector{T}, f::T) where {T}
     state.iterations = 0
+    state.x .= x
+    state.g .= g
+    state.f = f
+    state.x̄ .= T(NaN)
+    state.ḡ .= T(NaN)
+    state.f̄ = T(NaN)
+end
 
-    state
+function update!(state::NewtonOptimizerState{T}, x::AbstractVector{T}, g::AbstractVector{T}, f::T) where {T}
+    state.x̄ .= state.x
+    state.ḡ .= state.g
+    state.f̄ = state.f
+    state.x .= x
+    state.g .= g
+    state.f = f
 end
 
 """
@@ -56,12 +77,11 @@ update!(state, grad, x)
 
 # output
 
-NewtonOptimizerState{Float64, Vector{Float64}, Vector{Float64}}([1.0, 2.0], [2.0, 4.0], 0.0, 0)
+NewtonOptimizerState{Float64, Vector{Float64}, Vector{Float64}}(0, [1.0, 2.0], [NaN, NaN], [2.0, 4.0], [NaN, NaN], 5.0, NaN)
 ```
 """
 function update!(state::NewtonOptimizerState, gradient::Gradient, x::AbstractVector)
-    state.x̄ .= x
-    state.ḡ .= gradient(x)
+    update!(state, x, gradient(x), gradient.F(x))
 
     state
 end
