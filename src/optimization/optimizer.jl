@@ -13,12 +13,12 @@ The optimizer that stores all the information needed for an optimization problem
 - `state::`[`OptimizerState`](@ref).
 """
 struct Optimizer{T,
-                 ALG <: OptimizerMethod,
-                 OBJ <: OptimizerProblem{T},
-                 GT <: Gradient{T},
-                 HT <: Hessian{T},
-                 OCT <: OptimizerCache,
-                 LST <: Linesearch} <: AbstractSolver
+    ALG<:OptimizerMethod,
+    OBJ<:OptimizerProblem{T},
+    GT<:Gradient{T},
+    HT<:Hessian{T},
+    OCT<:OptimizerCache,
+    LST<:Linesearch} <: AbstractSolver
     algorithm::ALG
     problem::OBJ
     gradient::GT
@@ -27,30 +27,30 @@ struct Optimizer{T,
     cache::OCT
     linesearch::LST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::Linesearch; gradient = GradientAutodiff{T}(problem.F, length(cache.x)), options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::Linesearch; gradient=GradientAutodiff{T}(problem.F, length(cache.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T, typeof(algorithm), typeof(problem), typeof(gradient), typeof(hessian), typeof(cache), typeof(lst)}(algorithm, problem, gradient, hessian, config, cache, lst)
+        new{T,typeof(algorithm),typeof(problem),typeof(gradient),typeof(hessian),typeof(cache),typeof(lst)}(algorithm, problem, gradient, hessian, config, cache, lst)
     end
 end
 
-function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod = BFGS(), linesearch::LinesearchMethod = Backtracking(), options_kwargs...) where {T, VT <: AbstractVector{T}}
+function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod=BFGS(), linesearch::LinesearchMethod=Backtracking(), options_kwargs...) where {T,VT<:AbstractVector{T}}
     cache = OptimizerCache(algorithm, x)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, cache, Linesearch(linesearch; T = T); options_kwargs...)
+    Optimizer(algorithm, problem, hes, cache, Linesearch(linesearch; T=T); options_kwargs...)
 end
 
-function Optimizer(x::AbstractVector, F::Function; ∇F! = nothing, mode = :autodiff, kwargs...)
-    G = if (ismissing(∇F!)|isnothing(∇F!))
-            if mode == :autodiff
-                GradientAutodiff(F, x)
-            else
-                GradientFiniteDifferences(F, x)
-            end
+function Optimizer(x::AbstractVector, F::Function; (∇F!)=nothing, mode=:autodiff, kwargs...)
+    G = if (ismissing(∇F!) | isnothing(∇F!))
+        if mode == :autodiff
+            GradientAutodiff(F, x)
         else
-            GradientFunction(F, ∇F!, x)
+            GradientFiniteDifferences(F, x)
         end
-    problem = (ismissing(∇F!)|isnothing(∇F!)) ? OptimizerProblem(F, x) : OptimizerProblem(F, ∇F!, x)
-    Optimizer(x, problem; gradient = G, kwargs...)
+    else
+        GradientFunction(F, ∇F!, x)
+    end
+    problem = (ismissing(∇F!) | isnothing(∇F!)) ? OptimizerProblem(F, x) : OptimizerProblem(F, ∇F!, x)
+    Optimizer(x, problem; gradient=G, kwargs...)
 end
 
 config(opt::Optimizer) = opt.config
@@ -112,7 +112,7 @@ solver_step!(x, state, opt)
  0.6666666
 ```
 """
-function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <: AbstractVector}
+function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where {T,VT<:AbstractVector{T}}
     # update problem, hessian, state and status
     update!(opt, state, x)
 
@@ -120,13 +120,24 @@ function solver_step!(x::VT, state::OptimizerState, opt::Optimizer) where {VT <:
     # rhs is -g
     compute_direction(opt, state)
 
+    for _ in 1:linesearch(opt).config.linesearch_nan_max_iterations
+        solution(cache(opt)) .= x .+ _linesearch_factor(linesearch(opt)) * direction(cache(opt))
+        f = value(problem(opt), solution(cache(opt)))
+        if isnan(f) || isinf(f)
+            (opt.config.verbosity ≥ 2 && @warn "NaN or Inf detected in nonlinear solver. Reducing length of direction vector.")
+            direction(cache(opt)) .*= T(linesearch(opt).config.linesearch_nan_factor)
+        else
+            break
+        end
+    end
+
     # apply line search
     α = solve(linesearch_problem(problem(opt), gradient(opt), cache(opt), state), linesearch(opt))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
 
-    # cache has to be updated to compute the correct status
+    # cache has to be updated to compute the correct status (this should only be necessary for the Static linesearch)
     cache(opt).x .= x
     gradient(opt)(cache(opt).g, x)
     x
@@ -136,7 +147,7 @@ function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
     direction(opt) .= solve(LU(), hessian(cache(opt)), rhs(opt))
 end
 
-function compute_direction(opt::Optimizer{T, IOM}, state::Union{BFGSState, DFPState}) where {T, IOM <: QuasiNewtonOptimizerMethod}
+function compute_direction(opt::Optimizer{T,IOM}, state::Union{BFGSState,DFPState}) where {T,IOM<:QuasiNewtonOptimizerMethod}
     direction(opt) .= inverse_hessian(state) * rhs(opt)
 end
 
@@ -185,26 +196,26 @@ function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     while true
         increase_iteration_number!(state)
         solver_step!(x, state, opt)
-        status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
+        status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config=config(opt))
         meets_stopping_criteria(status, opt, state) && break
         update!(state, gradient(opt), x)
     end
 
     warn_iteration_number(state, config(opt))
 
-    status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config = config(opt))
+    status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config=config(opt))
     OptimizerResult(status, x, value(problem(opt), x))
 end
 
 function initialize_state!(state::OptimizerState)
-    state 
+    state
 end
 
 const INITIAL_BFGS_X = 0.12345
 const INITIAL_BFGS_G = 0.54321
 const INITIAL_BFGS_F = 0.23456
 
-function initialize_state!(state::Union{BFGSState{T}, DFPState{T}}) where {T}
+function initialize_state!(state::Union{BFGSState{T},DFPState{T}}) where {T}
     state.x̄ .= T(INITIAL_BFGS_X)
     state.ḡ .= T(INITIAL_BFGS_G)
     state.f̄ = T(INITIAL_BFGS_F)

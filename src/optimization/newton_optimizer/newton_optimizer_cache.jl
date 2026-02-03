@@ -12,7 +12,7 @@ To understand how these are used in practice see e.g. [`linesearch_problem`](@re
 
 Also compare this to [`NonlinearSolverCache`](@ref).
 """
-struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} <: OptimizerCache{T}
+struct NewtonOptimizerCache{T,AT<:AbstractArray{T},HT<:AbstractMatrix{T}} <: OptimizerCache{T}
     x::AT
     Δx::AT
     g::AT
@@ -20,18 +20,18 @@ struct NewtonOptimizerCache{T, AT <: AbstractArray{T}, HT <: AbstractMatrix{T}} 
     rhs::AT
     H::HT
 
-    function NewtonOptimizerCache(x::AT) where {T, AT <: AbstractArray{T}}
+    function NewtonOptimizerCache(x::AT) where {T,AT<:AbstractArray{T}}
         h = zeros(T, length(x), length(x))
-        cache = new{T, AT, typeof(h)}(similar(x), similar(x), similar(x), similar(x), similar(x), h)
+        cache = new{T,AT,typeof(h)}(similar(x), similar(x), similar(x), similar(x), similar(x), h)
         initialize!(cache, x)
         cache
     end
 
     # we probably don't need this constructor
-    function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T <: Number, AT <: AbstractArray{T}}
+    function NewtonOptimizerCache(x::AT, problem::OptimizerProblem) where {T<:Number,AT<:AbstractArray{T}}
         g = Gradient(problem)(x)
         h = Hessian(problem)(x)
-        new{T, AT, typeof(h)}(copy(x), copy(x), zero(x), g, -g, zero(x), h)
+        new{T,AT,typeof(h)}(copy(x), copy(x), zero(x), g, -g, zero(x), h)
     end
 end
 
@@ -59,6 +59,8 @@ Return the direction of the gradient step (i.e. `Δx`) of an instance of [`Newto
 direction(cache::NewtonOptimizerCache) = cache.Δx
 
 hessian(cache::NewtonOptimizerCache) = cache.H
+
+solution(cache::NewtonOptimizerCache) = cache.x
 
 function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::AbstractVector)
     cache.x .= x

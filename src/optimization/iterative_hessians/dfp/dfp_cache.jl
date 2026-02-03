@@ -3,7 +3,7 @@
 
 The [`OptimizerCache`](@ref) corresponding to the [`DFP`](@ref) method.
 """
-struct DFPCache{T, VT, MT} <: OptimizerCache{T} 
+struct DFPCache{T,VT,MT} <: OptimizerCache{T}
     x::VT    # current solution
 
     g::VT    # current gradient
@@ -17,9 +17,9 @@ struct DFPCache{T, VT, MT} <: OptimizerCache{T}
     Δx::VT
     Δg::VT
 
-    function DFPCache(x::AT) where {T, AT <: AbstractVector{T}}
+    function DFPCache(x::AT) where {T,AT<:AbstractVector{T}}
         q = zeros(T, length(x), length(x))
-        cache = new{T, AT, typeof(q)}(similar(x), similar(x), similar(q), similar(q), similar(q), similar(q), similar(x), similar(x), similar(x))
+        cache = new{T,AT,typeof(q)}(similar(x), similar(x), similar(q), similar(q), similar(q), similar(q), similar(x), similar(x), similar(x))
         initialize!(cache, x)
         cache
     end
@@ -47,6 +47,8 @@ gradient(cache::DFPCache) = cache.g
 Return the direction of the gradient step (i.e. `δ`) of an instance of [`DFPCache`](@ref).
 """
 direction(cache::DFPCache) = cache.Δx
+
+solution(cache::DFPCache) = cache.x
 
 hessian(::DFPCache) = error("DFPCache does not store the Hessian, but it's inverse! Call inverse_hessian.")
 inverse_hessian(::DFPCache) = error("The inverse Hessian is stored in the state, not the cache!")
