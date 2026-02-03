@@ -39,3 +39,6 @@ end
 @safetestset "Optimizers                                                                      " begin
     include("optimizer_tests.jl")
 end
+@safetestset "Nan handling for linesearches (optimizers)" begin
+    include("test_nan_handling_for_linesearches.jl")
+end
