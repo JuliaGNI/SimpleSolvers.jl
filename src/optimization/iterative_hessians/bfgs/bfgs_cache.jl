@@ -3,7 +3,7 @@
 
 The [`OptimizerCache`](@ref) for the [`BFGS`](@ref) algorithm. Also see [`update!(::BFGSCache, ::OptimizerState, ::AbstractVector, ::AbstractVector`)](@ref).
 """
-struct BFGSCache{T, VT, MT} <: OptimizerCache{T} 
+struct BFGSCache{T,VT,MT} <: OptimizerCache{T}
     x::VT    # current solution
 
     g::VT    # current gradient
@@ -18,9 +18,9 @@ struct BFGSCache{T, VT, MT} <: OptimizerCache{T}
     Δx::VT
     Δg::VT
 
-    function BFGSCache(x::AT) where {T, AT <: AbstractVector{T}}
+    function BFGSCache(x::AT) where {T,AT<:AbstractVector{T}}
         q = zeros(T, length(x), length(x))
-        cache = new{T, AT, typeof(q)}(similar(x), similar(x), similar(q), similar(q), similar(q), similar(q), similar(q), similar(x), similar(x), similar(x))
+        cache = new{T,AT,typeof(q)}(similar(x), similar(x), similar(q), similar(q), similar(q), similar(q), similar(q), similar(x), similar(x), similar(x))
         initialize!(cache, x)
         cache
     end
@@ -48,6 +48,8 @@ gradient(cache::BFGSCache) = cache.g
 Return the direction of the gradient step (i.e. `δ`) of an instance of [`BFGSCache`](@ref).
 """
 direction(cache::BFGSCache) = cache.Δx
+
+solution(cache::BFGSCache) = cache.x
 
 hessian(::BFGSCache) = error("BFGSCache does not store the Hessian, but it's inverse! Call inverse_hessian.")
 inverse_hessian(::BFGSCache) = error("The inverse Hessian is stored in the state, not the cache!")
