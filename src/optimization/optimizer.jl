@@ -1,6 +1,5 @@
 
 const SOLUTION_MAX_PRINT_LENGTH = 10
-using Core: OptimizedGenerics
 
 """
     Optimizer
