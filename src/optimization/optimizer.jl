@@ -127,8 +127,8 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
             direction(cache(opt))
         end
         f = value(problem(opt), solution(cache(opt)))
-        if isnan(f)
-            (opt.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
+        if isnan(f) || isinf(f)
+            (opt.config.verbosity ≥ 2 && @warn "NaN or Inf detected in nonlinear solver. Reducing length of direction vector.")
             direction(cache(opt)) .*= T(linesearch(opt).config.linesearch_nan_factor)
         else
             break
@@ -141,7 +141,7 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
 
-    # cache has to be updated to compute the correct status
+    # cache has to be updated to compute the correct status (this should only be necessary for the Static linesearch)
     cache(opt).x .= x
     gradient(opt)(cache(opt).g, x)
     x
