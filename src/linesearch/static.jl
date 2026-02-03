@@ -29,6 +29,8 @@ end
 
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 
+_linesearch_factor(ls::Static) = ls.α
+
 function Base.convert(::Type{T}, algorithm::Static) where {T}
     T ≠ eltype(algorithm) || return algorithm
     Static{T}(T(algorithm.α))

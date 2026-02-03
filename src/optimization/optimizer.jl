@@ -121,11 +121,7 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     compute_direction(opt, state)
 
     for _ in 1:linesearch(opt).config.linesearch_nan_max_iterations
-        solution(cache(opt)) .= x .+ if typeof(linesearch(opt).algorithm) <: Static
-            direction(cache(opt)) .* linesearch(opt).algorithm.α
-        else
-            direction(cache(opt))
-        end
+        solution(cache(opt)) .= x .+ _linesearch_factor(linesearch(opt)) * direction(cache(opt))
         f = value(problem(opt), solution(cache(opt)))
         if isnan(f) || isinf(f)
             (opt.config.verbosity ≥ 2 && @warn "NaN or Inf detected in nonlinear solver. Reducing length of direction vector.")
