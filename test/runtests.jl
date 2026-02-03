@@ -42,3 +42,6 @@ end
 @safetestset "Nan handling for linesearches (optimizers)" begin
     include("test_nan_handling_for_linesearches.jl")
 end
+@safetestset "Check whether direction NaN test works                                          " begin
+    include("check_whether_direction_contains_nans.jl")
+end

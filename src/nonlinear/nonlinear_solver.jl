@@ -1,5 +1,3 @@
-using Printf
-
 """
     NonlinearSolver
 
@@ -108,6 +106,7 @@ Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params, iteration_number(state))
+    any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
     # The following loop checks if the RHS contains any NaNs.
     # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
     for _ in 1:linesearch(s).config.linesearch_nan_max_iterations
