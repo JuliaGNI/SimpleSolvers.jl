@@ -8,13 +8,13 @@ j = reshape(2x, 1, 1)
 
 
 function F!(f::AbstractVector, x::AbstractVector, params)
-    f .= x.^2
+    f .= x .^ 2
 end
 
 function J!(g::AbstractMatrix, x::AbstractVector, params)
     g .= 0
     for i in eachindex(x)
-        g[i,i] = 2x[i]
+        g[i, i] = 2x[i]
     end
     g
 end
@@ -28,6 +28,11 @@ JPUS = JacobianFunction{T}(F!, J!)
 @test typeof(JPFD) <: JacobianFiniteDifferences
 @test typeof(JPUS) <: JacobianFunction
 
+@test JPAD == JacobianAutodiff{T}(F!, n)
+@test JPAD == JacobianAutodiff(F!, x)
+@test JPFD == JacobianFiniteDifferences{T}(F!, n)
+@test JPFD == JacobianFiniteDifferences(F!, x)
+
 
 jad = zero(j)
 jfd = zero(j)
@@ -37,8 +42,8 @@ JPAD(jad, x, nothing)
 JPFD(jfd, x, nothing)
 JPUS(jus, x, nothing)
 
-@test jad ≈ j  atol = eps()
-@test jfd ≈ j  atol = 1E-7
+@test jad ≈ j atol = eps()
+@test jfd ≈ j atol = 1E-7
 @test jus == j
 
 
