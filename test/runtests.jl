@@ -45,3 +45,6 @@ end
 @safetestset "Check whether direction NaN test works                                          " begin
     include("check_whether_direction_contains_nans.jl")
 end
+@safetestset "Check whether standard Newton fails                                             " begin
+    include("failing_newton_iterations.jl")
+end
