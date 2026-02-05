@@ -18,7 +18,7 @@ function triple_point_finder(f::Callable, x₀::T, δ, nmax::Integer=DEFAULT_BRA
 
     if f(x₁) ≥ f(x₀)
         if adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS
-            error("The function `f` must be decreasing at `$(x₀)``; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`.")
+            error("The function `f` must be decreasing at `$(x₀)`; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`.")
         end
         triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end
