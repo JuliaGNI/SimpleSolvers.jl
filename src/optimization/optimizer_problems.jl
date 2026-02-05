@@ -47,11 +47,11 @@ function OptimizerProblem(F::Callable, x::Tx; gradient=missing, hessian=missing)
     ismissing(hessian) ? OptimizerProblem(F, gradient, x) : OptimizerProblem(F, gradient, hessian, x)
 end
 
-gradient(obj::OptimizerProblem) = obj.G
-hessian(obj::OptimizerProblem) = obj.H
+gradient(prob::OptimizerProblem) = prob.G
+hessian(prob::OptimizerProblem) = prob.H
 
 function GradientFunction(prob::OptimizerProblem{T}) where {T}
-    GradientFunction{T,typeof(prob.F),typeof(Gradient(prob))}(prob.F, Gradient(prob))
+    GradientFunction{T,typeof(prob.F),typeof(prob.G)}(prob.F, prob.G)
 end
 
 function GradientFunction(::OptimizerProblem{T,TF,Missing}) where {T,TF<:Callable}
