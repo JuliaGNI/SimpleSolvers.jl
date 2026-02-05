@@ -10,14 +10,6 @@ A `LinesearchMethod` always has to be used together in [`Linesearch`](@ref) (or 
 """
 abstract type LinesearchMethod{T} <: NonlinearMethod end
 
-"""
-    _linesearch_factor(ls::LinesearchMethod)
-
-Returns the *factor* used in the linesearch algorithm.
-This is used for checking if `NaN`s or `Inf`s can be expected.
-"""
-_linesearch_factor(::LinesearchMethod{T}) where {T} = one(T)
-
 Base.eltype(::LinesearchMethod{T}) where {T} = T
 
 function solve(ls_prob::LinesearchProblem, ls_method::LinesearchMethod; config::Options=Options())

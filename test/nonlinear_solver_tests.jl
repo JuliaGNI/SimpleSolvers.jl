@@ -101,3 +101,29 @@ for T ∈ (Float64, Float32)
         end
     end
 end
+
+
+@testset "Check whether direction NaN test works" begin
+
+    function Fnan(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
+        y .= exp.(-one(T) ./ (x .^ 2))
+    end
+
+    n = 10
+    T = Float32
+
+    J₁ = JacobianFiniteDifferences{T}(Fnan, n, n) # the finite difference Jacobian doesn't return NaNs in the first iteration.
+    J₂ = JacobianAutodiff{T}(Fnan, n)
+    x = zeros(T, n)
+    y = zeros(T, n)
+
+    nl₁ = NonlinearSolver(NewtonMethod(), x, y; F=Fnan, jacobian=J₁, verbosity=2)
+    nl₂ = NonlinearSolver(NewtonMethod(), x, y; F=Fnan, jacobian=J₂, verbosity=2)
+
+    x₁ = zeros(T, n)
+    x₂ = zeros(T, n)
+
+    @test_throws NonlinearSolverException solve!(x₁, nl₁)
+    @test_throws NonlinearSolverException solve!(x₂, nl₂)
+
+end
