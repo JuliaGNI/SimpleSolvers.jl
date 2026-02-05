@@ -57,7 +57,7 @@ The constant used in the second Wolfe condition (the [`CurvatureCondition`](@ref
 c_2 \in (c_1, 1).
 ```
 Furthermore [nocedal2006numerical](@cite) recommend ``c_2 = 0.9`` and [kochenderfer2019algorithms](@cite) write that "it is common to set [``c_2=0.1``] when approximate line search is used with the conjugate gradient method and to 0.9 when used with Newton's method."
-We also use ``c_2 =``$(DEFAULT_WOLFE_c₂) here.
+We use ``c_2 = 0.9`` as default.
 """
 const DEFAULT_WOLFE_c₂ = 0.9
 
