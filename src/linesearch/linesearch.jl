@@ -25,8 +25,6 @@ struct Linesearch{T,ALG<:LinesearchMethod{T},OPT<:Options{T}}
     config::OPT
 end
 
-_linesearch_factor(ls::Linesearch) = _linesearch_factor(ls.algorithm)
-
 """
     solve(ls_prob, ls)
     solve(ls_prob, ls_method)

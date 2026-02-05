@@ -29,7 +29,7 @@ default_tolerance(Float16)
 Float16(0.001953)
 ```
 """
-function default_tolerance(::Type{T}) where {T <: AbstractFloat}
+function default_tolerance(::Type{T}) where {T<:AbstractFloat}
     2eps(T)
 end
 
@@ -58,7 +58,7 @@ absolute_tolerance(Float32)
 0.0f0
 ```
 """
-function absolute_tolerance(::Type{T}) where {T <: AbstractFloat}
+function absolute_tolerance(::Type{T}) where {T<:AbstractFloat}
     zero(T)
 end
 
@@ -87,7 +87,7 @@ minimum_decrease_threshold(Float32)
 0.0001f0
 ```
 """
-function minimum_decrease_threshold(::Type{T}) where {T <: AbstractFloat}
+function minimum_decrease_threshold(::Type{T}) where {T<:AbstractFloat}
     T(10)^-4
 end
 
@@ -101,8 +101,8 @@ const EXTENDED_TRACE::Bool = false
 const SHOW_EVERY::Int = 1
 const VERBOSITY::Int = 1
 
-const LINESEARCH_NAN_MAX_ITERATIONS = 10
-const LINESEARCH_NAN_FACTOR = 0.5
+const NAN_MAX_ITERATIONS = 10
+const NAN_FACTOR = 0.5
 
 """
     Options
@@ -132,8 +132,8 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `extended_trace = $(EXTENDED_TRACE)`,
 - `show_every = $(SHOW_EVERY)`,
 - `verbosity = $(VERBOSITY)`
-- `linesearch_nan_max_iterations = $(LINESEARCH_NAN_MAX_ITERATIONS)`
-- `linesearch_nan_factor = $(LINESEARCH_NAN_FACTOR)`
+- `nan_max_iterations = $(NAN_MAX_ITERATIONS)`
+- `nan_factor = $(NAN_FACTOR)`
 
 Some of the constants are defined by the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
 """
@@ -160,62 +160,62 @@ struct Options{T}
     extended_trace::Bool
     show_every::Int
     verbosity::Int
-    linesearch_nan_max_iterations::Int
-    linesearch_nan_factor::T
+    nan_max_iterations::Int
+    nan_factor::T
 end
 
-function Options(T = Float64;
-        x_abstol::AbstractFloat = default_tolerance(T),
-        x_reltol::AbstractFloat = default_tolerance(T),
-        x_suctol::AbstractFloat = default_tolerance(T),
-        f_abstol::AbstractFloat = 4absolute_tolerance(T),
-        f_reltol::AbstractFloat = default_tolerance(T),
-        f_suctol::AbstractFloat = default_tolerance(T),
-        f_mindec::AbstractFloat = minimum_decrease_threshold(T),
-        g_restol::AbstractFloat = √(default_tolerance(T) / 2),
-        x_abstol_break::AbstractFloat = T(Inf),
-        x_reltol_break::AbstractFloat = T(Inf),
-        f_abstol_break::AbstractFloat = T(Inf),
-        f_reltol_break::AbstractFloat = T(Inf),
-        g_restol_break::AbstractFloat = T(Inf),
-        allow_f_increases::Bool = ALLOW_F_INCREASES,
-        min_iterations::Integer = MIN_ITERATIONS,
-        max_iterations::Integer = MAX_ITERATIONS,
-        warn_iterations::Integer = WARN_ITERATIONS,
-        show_trace::Bool = SHOW_TRACE,
-        store_trace::Bool = STORE_TRACE,
-        extended_trace::Bool = EXTENDED_TRACE,
-        show_every::Integer = SHOW_EVERY,
-        verbosity::Integer = VERBOSITY,
-        linesearch_nan_max_iterations::Integer = LINESEARCH_NAN_MAX_ITERATIONS,
-        linesearch_nan_factor::AbstractFloat = LINESEARCH_NAN_FACTOR)
+function Options(T=Float64;
+    x_abstol::AbstractFloat=default_tolerance(T),
+    x_reltol::AbstractFloat=default_tolerance(T),
+    x_suctol::AbstractFloat=default_tolerance(T),
+    f_abstol::AbstractFloat=4absolute_tolerance(T),
+    f_reltol::AbstractFloat=default_tolerance(T),
+    f_suctol::AbstractFloat=default_tolerance(T),
+    f_mindec::AbstractFloat=minimum_decrease_threshold(T),
+    g_restol::AbstractFloat=(√(default_tolerance(T) / 2)),
+    x_abstol_break::AbstractFloat=T(Inf),
+    x_reltol_break::AbstractFloat=T(Inf),
+    f_abstol_break::AbstractFloat=T(Inf),
+    f_reltol_break::AbstractFloat=T(Inf),
+    g_restol_break::AbstractFloat=T(Inf),
+    allow_f_increases::Bool=ALLOW_F_INCREASES,
+    min_iterations::Integer=MIN_ITERATIONS,
+    max_iterations::Integer=MAX_ITERATIONS,
+    warn_iterations::Integer=WARN_ITERATIONS,
+    show_trace::Bool=SHOW_TRACE,
+    store_trace::Bool=STORE_TRACE,
+    extended_trace::Bool=EXTENDED_TRACE,
+    show_every::Integer=SHOW_EVERY,
+    verbosity::Integer=VERBOSITY,
+    nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
+    nan_factor::AbstractFloat=NAN_FACTOR)
 
     show_every = show_every > 0 ? show_every : 1
 
-    Options{T}(promote( x_abstol, 
-                        x_reltol,  
-                        x_suctol, 
-                        f_abstol, 
-                        f_reltol, 
-                        f_suctol, 
-                        f_mindec, 
-                        g_restol,
-                        x_abstol_break,
-                        x_reltol_break,    
-                        f_abstol_break, 
-                        f_reltol_break, 
-                        g_restol_break)...,
-                        allow_f_increases, 
-                        min_iterations, 
-                        max_iterations, 
-                        warn_iterations,
-                        show_trace, 
-                        store_trace, 
-                        extended_trace, 
-                        show_every, 
-                        verbosity,
-                        linesearch_nan_max_iterations,
-                        linesearch_nan_factor)
+    Options{T}(promote(x_abstol,
+            x_reltol,
+            x_suctol,
+            f_abstol,
+            f_reltol,
+            f_suctol,
+            f_mindec,
+            g_restol,
+            x_abstol_break,
+            x_reltol_break,
+            f_abstol_break,
+            f_reltol_break,
+            g_restol_break)...,
+        allow_f_increases,
+        min_iterations,
+        max_iterations,
+        warn_iterations,
+        show_trace,
+        store_trace,
+        extended_trace,
+        show_every,
+        verbosity,
+        nan_max_iterations,
+        nan_factor)
 end
 
 function Base.show(io::IO, o::SimpleSolvers.Options)
