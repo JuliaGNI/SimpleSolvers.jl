@@ -36,7 +36,7 @@ end
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod=BFGS(), linesearch::LinesearchMethod=Backtracking(), options_kwargs...) where {T,VT<:AbstractVector{T}}
     cache = OptimizerCache(algorithm, x)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, cache, Linesearch(linesearch; T=T); options_kwargs...)
+    Optimizer(algorithm, problem, hes, cache, Linesearch(T, linesearch); options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; (∇F!)=nothing, mode=:autodiff, kwargs...)
@@ -132,7 +132,7 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     end
 
     # apply line search
-    α = solve(linesearch_problem(problem(opt), gradient(opt), cache(opt), state), linesearch(opt))
+    α = solve(linesearch_problem(problem(opt), gradient(opt), cache(opt), state), linesearch(opt), one(T))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))

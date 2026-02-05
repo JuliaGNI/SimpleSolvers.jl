@@ -51,6 +51,7 @@ export value,
     hessian
 
 include("optimization/optimizer_problems.jl")
+include("linesearch/linesearch_problem.jl")
 
 export Options
 
@@ -97,16 +98,15 @@ export Backtracking,
     Quadratic,
     BierlaireQuadratic
 
-include("linesearch/methods.jl")
 include("linesearch/linesearch.jl")
-include("linesearch/static.jl")
-include("linesearch/backtracking/backtracking.jl")
-include("linesearch/backtracking/condition.jl")
-include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking/backtracking_condition.jl")
 include("linesearch/backtracking/curvature_condition.jl")
+include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking.jl")
 include("linesearch/bisection.jl")
 include("linesearch/quadratic.jl")
-include("linesearch/bierlaire_quadratic.jl")
+include("linesearch/quadratic_bierlaire.jl")
+include("linesearch/static.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!, NewtonMethod, QuasiNewtonMethod

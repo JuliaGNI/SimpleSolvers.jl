@@ -148,20 +148,21 @@ end
 Backtracking(::Type{T}, ::SolverMethod) where {T} = Backtracking(T)
 
 
-function solve(obj::LinesearchProblem{T}, ls::Linesearch{T,LST}, α::T=ls.algorithm.α₀) where {T,LST<:Backtracking}
-    x₀ = zero(α)
-    y₀ = value(obj, x₀)
-    d(α) = derivative(obj, α)
-    d₀ = d(x₀)
+# function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, α::T=method(ls).α₀) where {T,LST<:Backtracking}
+function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, α::T, params=NullParameters()) where {T,LST<:Backtracking}
+    α₀ = zero(α)
+    y₀ = value(problem, α₀)
+    d(α) = derivative(problem, α)
+    d₀ = d(α₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
-    sdc = SufficientDecreaseCondition(ls.algorithm.c₁, x₀, y₀, d₀, one(α), obj)
-    cc = CurvatureCondition(T(ls.algorithm.c₂), x₀, d₀, one(α), obj, d; mode=:Standard)
-    for _ in 1:ls.config.max_iterations
+    sdc = SufficientDecreaseCondition(method(ls).c₁, α₀, y₀, d₀, one(α), problem)
+    cc = CurvatureCondition(T(method(ls).c₂), α₀, d₀, one(α), problem, d; mode=:Standard)
+    for _ in 1:config(ls).max_iterations
         if (sdc(α) && cc(α))
             break
         else
-            α *= ls.algorithm.p
+            α *= method(ls).p
         end
     end
 
@@ -170,9 +171,9 @@ end
 
 Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = $(ls.α₀) c₁ = $(ls.c₁), c₂ = $(ls.c₂) and p = $(ls.p).")
 
-function Base.convert(::Type{T}, algorithm::Backtracking) where {T}
-    T ≠ eltype(algorithm) || return algorithm
-    Backtracking{T}(T(algorithm.α₀), T(algorithm.c₁), T(algorithm.c₂), T(algorithm.p))
+function Base.convert(::Type{T}, method::Backtracking) where {T}
+    T ≠ eltype(method) || return method
+    Backtracking{T}(T(method.α₀), T(method.c₁), T(method.c₂), T(method.p))
 end
 
 function Base.isapprox(bt₁::Backtracking{T}, bt₂::Backtracking{T}; kwargs...) where {T}

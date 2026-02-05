@@ -17,7 +17,7 @@ function FixedPointIterator(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch
     nlp = NonlinearProblem(F, missing, x, x)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
-    ls = Linesearch(linesearch; T=T)
+    ls = Linesearch(T, linesearch)
     FixedPointIterator(x, nlp, y, ls, cache; jacobian=jacobian, kwargs...)
 end
 

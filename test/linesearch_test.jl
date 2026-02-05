@@ -18,7 +18,7 @@ end
 
 function compute_next_iterate(ls::Linesearch, x₀::T) where {T}
     ls_obj = make_linesearch_problem(x₀)
-    α = solve(ls_obj, ls)
+    α = solve(ls_obj, ls, 1.0)
     compute_new_iterate(x₀, α, δx(x₀))
 end
 
@@ -59,15 +59,15 @@ end
     @test Linesearch(ls_method) == Linesearch(Static(1.0))
 
     ls_problem = make_linesearch_problem(x₀)
-    @test solve(ls_problem, ls) == 1.0
+    @test solve(ls_problem, ls, 0.0) == 1.0
 
-    ls1 = Linesearch(algorithm=Static())
-    ls2 = Linesearch(algorithm=Static(1.0))
-    ls3 = Linesearch(algorithm=Static(0.8))
+    ls1 = Linesearch(Static())
+    ls2 = Linesearch(Static(1.0))
+    ls3 = Linesearch(Static(0.8))
 
-    @test solve(ls_problem, ls1) == 1
-    @test solve(ls_problem, ls2) == 1
-    @test solve(ls_problem, ls3) == 0.8
+    @test solve(ls_problem, ls1, 0.0) == 1
+    @test solve(ls_problem, ls2, 0.0) == 1
+    @test solve(ls_problem, ls3, 0.0) == 0.8
 
 end
 
@@ -102,7 +102,7 @@ end
 
     x = -10 * rand(1)
 
-    function make_linesearch_problem2(x::AbstractVector{T}, params=NullParameters()) where {T}
+    function linesearch_factory(x::AbstractVector{T}, params=NullParameters()) where {T}
         f(x::T) where {T<:Number} = exp(x) * (T(0.5) * x^3 - 5x^2 + 2x) + 2one(T)
         f(x::AbstractArray{T}) where {T<:Number} = @. exp(x) * (T(0.5) * x^3 - 5 * x^2 + 2x) + 2one(T)
         f!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = y .= f.(x)
@@ -120,16 +120,15 @@ end
         linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), x, params)
     end
 
-    function check_linesearch(ls::Linesearch, ls_obj::LinesearchProblem)
-        α = solve(ls_obj, ls)
-        T = eltype(α)
-        @test ≈(ls_obj.D(α), zero(T); atol=atol = ∛(2eps(T)))
+    function check_linesearch(ls::Linesearch{T}, ls_obj::LinesearchProblem{T}) where {T}
+        α = solve(ls_obj, ls, zero(T))
+        @test ≈(ls_obj.D(α), zero(T); atol=(∛(2eps(T))))
     end
 
     for T ∈ (Float32, Float64)
         for ls_method ∈ (Bisection(T), Quadratic(T), BierlaireQuadratic(T))
-            ls = Linesearch(ls_method; T=T)
-            ls_obj = make_linesearch_problem2(T.(x))
+            ls = Linesearch(T, ls_method)
+            ls_obj = linesearch_factory(T.(x))
             check_linesearch(ls, ls_obj)
         end
     end

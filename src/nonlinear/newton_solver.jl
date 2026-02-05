@@ -33,7 +33,7 @@ function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linese
     cache = NonlinearSolverCache(x, x)
     config = Options(T; options_kwargs...)
 
-    if refactorize > 1 && typeof(linesearch.algorithm) <: Static
+    if refactorize > 1 && typeof(method(linesearch)) <: Static
         config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
         refactorize = 1
     end
@@ -57,7 +57,7 @@ function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!
     cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
-    ls = Linesearch(linesearch; T=T)
+    ls = Linesearch(T, linesearch)
     if refactorize == 1
         NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
     else

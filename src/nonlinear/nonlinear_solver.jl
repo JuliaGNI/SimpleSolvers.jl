@@ -119,7 +119,7 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
             break
         end
     end
-    α = solve(linesearch_problem(s, x, params), linesearch(s))
+    α = solve(linesearch_problem(s, x, params), linesearch(s), one(T), params)
     compute_new_iterate!(x, α, direction(cache(s)))
     x
 end
