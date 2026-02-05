@@ -109,7 +109,8 @@ end
 
 BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
-function solve(f::Callable, ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, iteration_number::Integer) where {T}
+function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, iteration_number::Integer) where {T}
+    f = x -> problem(ls).F(x, params)
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
     χ = T(0.5) * (f(a) * (b^2 - c^2) + f(b) * (c^2 - a^2) + f(c) * (a^2 - b^2)) / (f(a) * (b - c) + f(b) * (c - a) + f(c) * (a - b))
@@ -130,19 +131,19 @@ function solve(f::Callable, ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, 
     end
     !(((c - a) ≤ method(ls).ε)) || !(((f(a) - f(b)) ≤ method(ls).ε) && ((f(c) - f(b)) ≤ method(ls).ε)) || return b
     # ( (c - a) ≤ ls.ε ) || return b
-    solve(f, ls, a, b, c, params, iteration_number + 1)
+    solve(ls, a, b, c, params, iteration_number + 1)
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iteration_number::Integer) where {T}
+function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iteration_number::Integer) where {T}
     # check if the minimum has already been reached
-    !(l2norm(derivative(problem, α₀)) < method(ls).ξ) || return α₀
-    solve(problem.F, ls, triple_point_finder(problem, α₀)..., params, iteration_number)
+    !(l2norm(derivative(problem(ls), α₀, params)) < method(ls).ξ) || return α₀
+    solve(ls, triple_point_finder(problem(ls), params, α₀)..., params, iteration_number)
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
+function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
     # TODO: The following line should use α₀ instead of zero(T) but that requires a rework of the bracketing algorithm
     # solve(problem, ls, α₀, params, 1)
-    solve(problem, ls, zero(T), params, 1)
+    solve(ls, zero(T), params, 1)
 end
 
 

@@ -46,15 +46,15 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
         α₀, α₁ = α₁, α₀
     end
 
-    y₀ = f(α₀)
-    y₁ = f(α₁)
+    y₀ = f(α₀, params)
+    y₁ = f(α₁, params)
     y = zero(y₀)
 
     # @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
 
     for j in 1:config.max_iterations
         α = (α₀ + α₁) / 2
-        y = f(α)
+        y = f(α, params)
 
         # break if y is close to zero.
         !≈(y, zero(y); atol=config.f_abstol) || break
@@ -94,14 +94,14 @@ Bisection(T::DataType=Float64) = Bisection{T}()
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullParameters()) where {T}
-    bisection(problem.D, α₀, α₁, params, config(ls))
+function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullParameters()) where {T}
+    bisection(problem(ls).D, α₀, α₁, params, config(ls))
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
+function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
     # TODO: The following line should use α instead of zero(T) but that requires a rework of the bracketing algorithm
     # solve(problem, ls, bracket_minimum(problem.F, α)..., params)
-    solve(problem, ls, bracket_minimum(problem.F, zero(T))..., params)
+    solve(ls, bracket_minimum(problem(ls), params, zero(T))..., params)
 end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")

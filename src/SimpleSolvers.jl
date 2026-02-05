@@ -92,11 +92,12 @@ export bracket_minimum
 include("bracketing/bracket_minimum.jl")
 include("bracketing/triple_point_finder.jl")
 
-export Linesearch, Static
+export Linesearch
 export Backtracking,
     Bisection,
     Quadratic,
-    BierlaireQuadratic
+    BierlaireQuadratic,
+    Static
 
 include("linesearch/linesearch.jl")
 include("linesearch/backtracking/backtracking_condition.jl")

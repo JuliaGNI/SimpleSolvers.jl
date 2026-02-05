@@ -23,7 +23,7 @@ end
 Static(::Type{T}=Float64; α=one(T)) where {T} = Static{T}(α)
 Static(::Type{T}, ::SolverMethod) where {T} = Static(T)
 
-function solve(::LinesearchProblem{T}, ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T}
+function solve(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T}
     method(ls).α
 end
 

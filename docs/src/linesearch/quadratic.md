@@ -130,7 +130,7 @@ nothing # hide
 We therefore see that calling [`SimpleSolvers.determine_initial_α`](@ref) returns a different ``\alpha`` (the result of calling [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)):
 
 ```@example quadratic
-α₀ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀ = determine_initial_α(ls_obj, NullParameters(), SimpleSolvers.DEFAULT_ARMIJO_α₀)
 ```
 
 ```@setup quadratic

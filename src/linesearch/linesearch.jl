@@ -39,29 +39,32 @@ Linesearch(method; T, kwargs...)
 Linesearch(; T, kwargs...)
 ```
 """
-struct Linesearch{T,MET<:LinesearchMethod{T},OPT<:Options{T}}
+struct Linesearch{T,MET<:LinesearchMethod{T},PT<:LinesearchProblem{T},OPT<:Options{T}}
+    problem::PT
     method::MET
     config::OPT
-    Linesearch{T}(method, config) where {T} = new{T,typeof(method),typeof(config)}(method, config)
+    Linesearch{T}(problem, method, config) where {T} = new{T,typeof(method),typeof(problem),typeof(config)}(problem, method, config)
 end
 
-Linesearch(T::DataType, method::LinesearchMethod=Static(), options_kwargs...) = Linesearch{T}(convert(T, method), Options(T; options_kwargs...))
-Linesearch(method::LinesearchMethod{T}; options_kwargs...) where {T} = Linesearch{T}(method, Options(T; options_kwargs...))
+Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); options_kwargs...) where {T} = Linesearch{T}(problem, convert(T, method), Options(T; options_kwargs...))
 
+problem(s::Linesearch) = s.problem
 config(s::Linesearch) = s.config
 method(s::Linesearch) = s.method
 
 
 """
-    solve(problem, linesearch, α, params=NullParameters())
+    solve(linesearch, α, params=NullParameters())
     solve(problem, method, α, params=NullParameters())
 
 Minimize the [`LinesearchProblem`](@ref) with the [`LinesearchMethod`](@ref) `method`.
+
+The argument `params` needs to be of an appropriate form expected by the respective [`LinesearchProblem`](@ref).
 """
-function solve(::LinesearchProblem{T}, ::Linesearch{T,MET}, α::T, params=NullParameters()) where {T,MET<:LinesearchMethod{T}}
+function solve(::Linesearch{T,MET}, α::T, params=NullParameters()) where {T,MET<:LinesearchMethod{T}}
     error("Solve method missing for $(MET).")
 end
 
 function solve(prob::LinesearchProblem, method::LinesearchMethod, α, params=NullParameters(), config::Options=Options())
-    solve(prob, Linesearch(method, config), α, params=NullParameters())
+    solve(Linesearch(prob, method, config), α, params)
 end

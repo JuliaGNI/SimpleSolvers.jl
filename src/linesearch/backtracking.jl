@@ -148,17 +148,20 @@ end
 Backtracking(::Type{T}, ::SolverMethod) where {T} = Backtracking(T)
 
 
-# function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, α::T=method(ls).α₀) where {T,LST<:Backtracking}
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, α::T, params=NullParameters()) where {T,LST<:Backtracking}
+# function solve(ls::Linesearch{T,<:Backtracking}, α::T=method(ls).α₀) where {T,LST}
+function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters()) where {T}
+    f(α) = value(problem(ls), α, params)
+    d(α) = derivative(problem(ls), α, params)
+
     α₀ = zero(α)
-    y₀ = value(problem, α₀)
-    d(α) = derivative(problem, α)
+    y₀ = f(α₀)
     d₀ = d(α₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
-    sdc = SufficientDecreaseCondition(method(ls).c₁, α₀, y₀, d₀, one(α), problem)
-    cc = CurvatureCondition(T(method(ls).c₂), α₀, d₀, one(α), problem, d; mode=:Standard)
-    for _ in 1:config(ls).max_iterations
+    sdc = SufficientDecreaseCondition(method(ls).c₁, α₀, y₀, d₀, one(α), f)
+    cc = CurvatureCondition(method(ls).c₂, α₀, d₀, one(α), d; mode=:Standard)
+
+    for i in 1:config(ls).max_iterations
         if (sdc(α) && cc(α))
             break
         else

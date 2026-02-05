@@ -132,8 +132,16 @@ function bracket_minimum(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), 
     bracket(f, a, BracketMinimumCriterion(), s, k, nmax)
 end
 
-function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+function bracket_minimum(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     bracket_minimum(f, x, s, k, nmax)
+end
+
+function bracket_minimum(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum(x -> value(prob, x, params), x, s, k, nmax)
+end
+
+function bracket_minimum(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum(prob, params, x, s, k, nmax)
 end
 
 @doc raw"""
@@ -150,9 +158,9 @@ where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``
 """
 function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
-    ya = f(a)
-
     b = a + s
+
+    ya = f(a)
     yb = f(b)
 
     # flip a & b if necessary
@@ -163,7 +171,6 @@ function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, 
     end
 
     da = d(a)
-
     bc = BracketRootCriterion()
 
     # check if condition is already satisfied
@@ -180,11 +187,20 @@ function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, 
         end
         s *= k
     end
+
     error("Unable to bracket f starting at x = $x.")
 end
 
-function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     bracket_minimum_with_fixed_point(f, d, x, s, k, nmax)
+end
+
+function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum_with_fixed_point(x -> value(prob, x, params), x -> derivative(prob, x, params), x, s, k, nmax)
+end
+
+function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum_with_fixed_point(prob, params, x, s, k, nmax)
 end
 
 """
@@ -194,6 +210,10 @@ Make a bracket for the function based on `x` (for root finding).
 
 This is largely equivalent to [`bracket_minimum`](@ref). See the end of that docstring for more information.
 """
-function bracket_root(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
+function bracket_root(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
     bracket(f, x, BracketRootCriterion(), s, k, nmax)
+end
+
+function bracket_root(prob::LinesearchProblem{T}, params, x::T; kwargs...) where {T<:Number}
+    bracket_root(x -> value(prob, x, params), x -> derivative(prob, x, params), x; kwargs...)
 end

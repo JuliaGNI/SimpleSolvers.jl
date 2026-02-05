@@ -8,54 +8,33 @@ This encompasses the *standard curvature condition* and the *strong curvature co
 # Constructor
 
 ```julia
-CurvatureCondition(c, xₖ, gradₖ, pₖ, obj, grad; mode)
+CurvatureCondition(c, xₖ, dₖ, pₖ, grad; mode)
 ```
-Here `grad` has to be a [`Gradient`](@ref) and `obj` an [`AbstractOptimizerProblem`](@ref). The other inputs are either arrays or numbers.
-
-# Implementation
-
-For computational reasons `CurvatureCondition` also has a field `gradₖ₊₁` in which the temporary new gradient is saved.
+Here `grad` has to be a function computing the derivative of the objective. The other inputs are numbers.
 """
-mutable struct CurvatureCondition{T,VT<:Union{T,AbstractArray{T}},TVT<:Union{T,AbstractArray{T}},PT<:Union{OptimizerProblem{T},LinesearchProblem{T}},GT<:Union{Callable,Gradient{T}},CCT} <: BacktrackingCondition{T}
+struct CurvatureCondition{T,DT<:Callable,COND} <: BacktrackingCondition{T}
     c::T
-    xₖ::VT
-    gradₖ::TVT
-    pₖ::TVT
-    problem::PT
-    grad::GT
-    gradₖ₊₁::TVT
-    function CurvatureCondition(c::T, xₖ::VT, gradₖ::TVT, pₖ::TVT, problem::PT, grad::GT; mode=:Standard) where {T<:Number,VT<:AbstractArray{T},TVT<:AbstractArray{T},PT<:OptimizerProblem{T},GT<:Gradient{T}}
+    xₖ::T
+    dₖ::T
+    pₖ::T
+
+    d::DT
+
+    function CurvatureCondition(c::T, xₖ::T, dₖ::T, pₖ::T, d::DT; mode=:Standard) where {T<:Number,DT}
         @assert ((mode == :Standard) || (mode == :Strong)) "Mode has to be either :Strong or :Standard!"
-        new{T,VT,TVT,PT,GT,mode}(c, xₖ, gradₖ, pₖ, problem, grad, alloc_g(xₖ))
+        @assert !isnan(xₖ) "xₖ is NaN"
+        @assert !isnan(dₖ) "dₖ is NaN"
+        @assert !isnan(pₖ) "pₖ is NaN"
+        new{T,DT,mode}(c, xₖ, dₖ, pₖ, d)
     end
-    function CurvatureCondition(c::T, xₖ::T, dₖ::T, pₖ::T, problem::PT, d::DT; mode=:Standard) where {T<:Number,DT,PT<:LinesearchProblem}
-        @assert ((mode == :Standard) || (mode == :Strong)) "Mode has to be either :Strong or :Standard!"
-        new{T,T,T,PT,DT,mode}(c, xₖ, dₖ, pₖ, problem, d, alloc_d(xₖ))
-    end
 end
 
-function standard_curvature_condition(cc::CurvatureCondition{T,VT,TVT,OT,GT}, xₖ₊₁::VT, αₖ::T) where {T,VT,TVT,OT,GT}
-    cc.grad(cc.gradₖ₊₁, xₖ₊₁)' * cc.pₖ ≥ cc.c * cc.gradₖ' * cc.pₖ
+function (cc::CurvatureCondition{T,DT,:Standard})(xₖ₊₁::T, αₖ::T) where {T,DT}
+    cc.d(xₖ₊₁) * cc.pₖ ≥ cc.c * cc.dₖ * cc.pₖ
 end
 
-function strong_curvature_condition(cc::CurvatureCondition{T,VT,TVT,OT,GT}, xₖ₊₁::VT, αₖ::T) where {T,VT,TVT,OT,GT}
-    abs(cc.grad(cc.gradₖ₊₁, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
-end
-
-function standard_curvature_condition(cc::CurvatureCondition{T,T,T,OT,GT}, xₖ₊₁::T, αₖ::T) where {T,OT,GT}
-    derivative(cc.problem, xₖ₊₁) ⋅ cc.pₖ ≥ cc.c * cc.gradₖ ⋅ cc.pₖ
-end
-
-function strong_curvature_condition(cc::CurvatureCondition{T,T,T,OT,GT}, xₖ₊₁::T, αₖ::T) where {T,OT,GT}
-    abs(derivative(cc.problem, xₖ₊₁)' * cc.pₖ) < abs(cc.c * cc.gradₖ' * cc.pₖ)
-end
-
-function (cc::CurvatureCondition{T,VT,TVT,OT,GT,:Standard})(xₖ₊₁::VT, αₖ::T) where {T,VT,TVT,OT,GT}
-    standard_curvature_condition(cc, xₖ₊₁, αₖ)
-end
-
-function (cc::CurvatureCondition{T,VT,TVT,OT,GT,:Strong})(xₖ₊₁::VT, αₖ::T) where {T,VT,TVT,OT,GT}
-    strong_curvature_condition(cc, xₖ₊₁, αₖ)
+function (cc::CurvatureCondition{T,DT,:Strong})(xₖ₊₁::T, αₖ::T) where {T,DT}
+    abs(cc.d(xₖ₊₁) * cc.pₖ) < abs(cc.c * cc.dₖ * cc.pₖ)
 end
 
 function (cc::CurvatureCondition{T})(αₖ::T) where {T}
