@@ -45,5 +45,5 @@ LinesearchProblem{Tx}(f, d) where {Tx<:Number} = LinesearchProblem{Tx,typeof(f),
 
 LinesearchProblem(f, d, ::Tx=zero(Float64)) where {Tx<:Number} = LinesearchProblem{Tx}(f, d)
 
-value(obj::LinesearchProblem, x::Number) = obj.F(x)
-derivative(obj::LinesearchProblem, x::Number) = obj.D(x)
+value(problem::LinesearchProblem, x::Number) = problem.F(x)
+derivative(problem::LinesearchProblem, x::Number) = problem.D(x)

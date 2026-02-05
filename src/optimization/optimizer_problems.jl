@@ -7,7 +7,6 @@ See [`LinesearchProblem`](@ref) and [`OptimizerProblem`](@ref).
 """
 abstract type AbstractOptimizerProblem{T<:Number} <: AbstractProblem end
 
-Base.Function(obj::AbstractOptimizerProblem) = obj.F
 
 """
     value(obj::AbstractOptimizerProblem, x)
@@ -48,7 +47,8 @@ function OptimizerProblem(F::Callable, x::Tx; gradient=missing, hessian=missing)
     ismissing(hessian) ? OptimizerProblem(F, gradient, x) : OptimizerProblem(F, gradient, hessian, x)
 end
 
-Gradient(obj::OptimizerProblem) = obj.G
+gradient(obj::OptimizerProblem) = obj.G
+hessian(obj::OptimizerProblem) = obj.H
 
 function GradientFunction(prob::OptimizerProblem{T}) where {T}
     GradientFunction{T,typeof(prob.F),typeof(Gradient(prob))}(prob.F, Gradient(prob))

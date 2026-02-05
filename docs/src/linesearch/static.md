@@ -36,7 +36,7 @@ We now use this to compute a *static line search*:
 
 ```@example static
 ls = Linesearch(ls_method)
-solve(ls_obj, ls)
+solve(ls_obj, ls, 1.0)
 ```
 
 !!! info

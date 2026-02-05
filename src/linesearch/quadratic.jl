@@ -7,11 +7,11 @@ This is used as a starting point for using the functor of [`Quadratic`](@ref) an
 !!! warning
     This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
 """
-function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
-    if derivative(obj, x₀) < zero(T)
-        BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
+function determine_initial_α(problem::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(problem, x₀)) where {T}
+    if derivative(problem, x₀) < zero(T)
+        BracketMinimumCriterion()(y₀, value(problem, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(problem.F, problem.D, x₀)[2]
     else
-        bracket_minimum_with_fixed_point(obj, x₀)[1]
+        bracket_minimum_with_fixed_point(problem.F, problem.D, x₀)[1]
     end
 end
 

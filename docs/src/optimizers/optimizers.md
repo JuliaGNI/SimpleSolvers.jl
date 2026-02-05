@@ -80,14 +80,14 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 `sdc` is first allocated as:
 
 ```@example optimizer
-using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, cache # hide
+using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, method, cache # hide
 ls = linesearch(opt)
-α = ls.algorithm.α₀
+α = method(ls).α₀
 x₀ = zero(α)
 grad = GradientAutodiff{Float64}(problem(opt).F, length(x))
 lso = linesearch_problem(problem(opt), grad, cache(opt), state)
 y₀ = value(lso, x₀)
 d₀ = derivative(lso, x₀)
 
-sdc = SufficientDecreaseCondition(ls.algorithm.c₁, x₀, y₀, d₀, d₀, obj)
+sdc = SufficientDecreaseCondition(method(ls).c₁, x₀, y₀, d₀, d₀, obj)
 ```

@@ -54,7 +54,7 @@ For bracketing [kochenderfer2019algorithms](@cite) we move an interval successiv
 
 ```@example bisection
 α₀ = 0.0
-(a, c) = bracket_minimum(Function(ls_obj), α₀)
+(a, c) = bracket_minimum(ls_obj.F, α₀)
 ```
 
 ```@setup bisection
