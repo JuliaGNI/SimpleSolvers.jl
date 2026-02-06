@@ -158,8 +158,8 @@ function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters())
     d₀ = d(α₀)
 
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
-    sdc = SufficientDecreaseCondition(method(ls).c₁, α₀, y₀, d₀, one(α), f)
-    cc = CurvatureCondition(method(ls).c₂, α₀, d₀, one(α), d; mode=:Standard)
+    sdc = SufficientDecreaseCondition(method(ls).c₁, y₀, d₀, f)
+    cc = CurvatureCondition(method(ls).c₂, d₀, d; mode=:Standard)
 
     for i in 1:config(ls).max_iterations
         if (sdc(α) && cc(α))
