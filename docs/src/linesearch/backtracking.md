@@ -53,12 +53,13 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
+params = (x = state.x̄,)
 update!(cache, state, grad, hes, x)
 nothing # hide
 ```
 
 ```@example ls_obj
-ls_obj = linesearch_problem(obj, grad, cache, state)
+ls_obj = linesearch_problem(obj, grad, cache)
 nothing # hide
 ```
 
@@ -67,7 +68,7 @@ This optimizer problem only depends on the parameter ``\alpha``. We plot it:
 ```@setup ls_obj
 alpha = 0.:.01:1.5
 
-y = ls_obj.F.(alpha)
+y = ls_obj.F.(alpha, params)
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha", ylabel = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, y)
@@ -105,9 +106,9 @@ We now use this to compute a *backtracking line search*:
 
 
 ```@example ls_obj
-ls = Linesearch(ls_method)
+ls = Linesearch(ls_obj, ls_method)
 α = 50.
-αₜ = solve(ls_obj, ls, α)
+αₜ = solve(ls, α, params)
 ```
 
 And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:

@@ -51,6 +51,7 @@ export value,
     hessian
 
 include("optimization/optimizer_problems.jl")
+include("linesearch/linesearch_problem.jl")
 
 export Options
 
@@ -91,22 +92,22 @@ export bracket_minimum
 include("bracketing/bracket_minimum.jl")
 include("bracketing/triple_point_finder.jl")
 
-export Linesearch, Static
+export Linesearch
 export Backtracking,
     Bisection,
     Quadratic,
-    BierlaireQuadratic
+    BierlaireQuadratic,
+    Static
 
-include("linesearch/methods.jl")
 include("linesearch/linesearch.jl")
-include("linesearch/static.jl")
-include("linesearch/backtracking/backtracking.jl")
-include("linesearch/backtracking/condition.jl")
-include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking/backtracking_condition.jl")
 include("linesearch/backtracking/curvature_condition.jl")
+include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking.jl")
 include("linesearch/bisection.jl")
 include("linesearch/quadratic.jl")
-include("linesearch/bierlaire_quadratic.jl")
+include("linesearch/quadratic_bierlaire.jl")
+include("linesearch/static.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!, NewtonMethod, QuasiNewtonMethod
@@ -139,11 +140,11 @@ include("optimization/optimizer_state.jl")
 include("optimization/optimizer_cache.jl")
 include("optimization/optimizer_status.jl")
 include("optimization/optimizer_result.jl")
+include("optimization/linesearch_problem.jl")
 include("optimization/iterative_hessians/iterative_hessians.jl")
 include("optimization/iterative_hessians/bfgs/hessian_bfgs.jl")
 include("optimization/iterative_hessians/dfp/hessian_dfp.jl")
 include("optimization/newton_optimizer/newton_optimizer_cache.jl")
-include("optimization/optimizer_linesearch_problem.jl")
 include("optimization/newton_optimizer/newton_optimizer_state.jl")
 
 include("optimization/iterative_hessians/bfgs/bfgs_state.jl")

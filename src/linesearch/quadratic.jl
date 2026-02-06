@@ -7,11 +7,11 @@ This is used as a starting point for using the functor of [`Quadratic`](@ref) an
 !!! warning
     This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
 """
-function determine_initial_α(obj::LinesearchProblem, α₀::T, x₀::T=zero(T), y₀::T=value(obj, x₀)) where {T}
-    if derivative(obj, x₀) < zero(T)
-        BracketMinimumCriterion()(y₀, value(obj, x₀ + α₀)) ? α₀ : bracket_minimum_with_fixed_point(obj, x₀)[2]
+function determine_initial_α(problem::LinesearchProblem, params, α₀::T, x₀::T=zero(T), y₀::T=value(problem, x₀, params)) where {T}
+    if derivative(problem, x₀, params) < zero(T)
+        BracketMinimumCriterion()(y₀, value(problem, x₀ + α₀, params)) ? α₀ : bracket_minimum_with_fixed_point(problem, params, x₀)[2]
     else
-        bracket_minimum_with_fixed_point(obj, x₀)[1]
+        bracket_minimum_with_fixed_point(problem, params, x₀)[1]
     end
 end
 
@@ -33,12 +33,12 @@ const DEFAULT_s_REDUCTION = 0.5
 """
     Quadratic <: LinesearchMethod
 
-Quadratic Polynomial line search. Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are changed. This is different from the old `Quadratic` (taken from [kelley1995iterative](@cite)), where only ``p_2`` is changed. We further do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *small enough*.
+Quadratic Polynomial line search based on the polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)².
+Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
+We do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *sufficiently small*.
 
-!!! warning
-    The old `Quadratic` was deprecated!
-
-This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy). The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
+This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy).
+The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
 
 # Keywords
 
@@ -78,17 +78,17 @@ Quadratic(::Type{T}, ::NonlinearSolverMethod) where {T} = Quadratic{T}(
 Quadratic(::Type{T}, ::OptimizerMethod) where {T} = Quadratic(T)
 
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, number_of_iterations::Integer=0, x₀::T=zero(T), s::T=ls.algorithm.s) where {T,LST<:Quadratic}
-    number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return x₀
+function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_iterations::Integer) where {T}
+    number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return α₀
 
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
-    a, b = bracket_minimum_with_fixed_point(problem, x₀; s=s)
-    d₀ = derivative(problem, a)
-    !(abs(d₀) < ls.algorithm.ε) || return x₀
+    a, b = bracket_minimum_with_fixed_point(problem(ls), params, α₀, s)
+    d₀ = derivative(problem(ls), a, params)
+    !(abs(d₀) < method(ls).ε) || return α₀
 
     # compute values at `a` and `b`
-    y₀ = value(problem, a)
-    y₁ = value(problem, b)
+    y₀ = value(problem(ls), a, params)
+    y₁ = value(problem(ls), b, params)
 
     # p₀ = y₀
     # p₁ = d₀
@@ -101,18 +101,22 @@ function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, number_of_i
 
     αₜ = a - d₀ * (b - a)^2 / 2(y₁ - y₀ - d₀ * (b - a))
 
-    !(l2norm(αₜ - x₀) < ls.algorithm.ε) || return αₜ
+    !(l2norm(αₜ - α₀) < method(ls).ε) || return αₜ
 
-    solve(problem, ls, number_of_iterations + 1, αₜ, s * ls.algorithm.s_reduction)
+    solve(ls, αₜ, params, s * method(ls).s_reduction, number_of_iterations + 1)
 end
 
-solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x₀::T, s::T=ls.s) where {T,LST<:Quadratic} = solve(problem, ls, 0, x₀, s)
+function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
+    # TODO: The following line should use α₀ instead of zero(T) but that requires a rework of the bracketing algorithm
+    # solve(ls, α₀, params, method(ls).s, 0)
+    solve(ls, zero(T), params, method(ls).s, 0)
+end
 
 Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
 
-function Base.convert(::Type{T}, algorithm::Quadratic) where {T}
-    T ≠ eltype(algorithm) || return algorithm
-    Quadratic{T}(T(algorithm.ε), T(algorithm.s), T(algorithm.s_reduction))
+function Base.convert(::Type{T}, method::Quadratic) where {T}
+    T ≠ eltype(method) || return method
+    Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction))
 end
 
 function Base.isapprox(qu₁::Quadratic{T}, qu₂::Quadratic{T}; kwargs...) where {T}

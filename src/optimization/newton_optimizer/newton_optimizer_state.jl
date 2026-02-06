@@ -36,6 +36,9 @@ function initialize!(state::NewtonOptimizerState{T}, ::AbstractVector{T}) where 
     state
 end
 
+solution(cache::NewtonOptimizerState) = cache.x̄
+gradient(cache::NewtonOptimizerState) = cache.ḡ
+
 """
     update!(state::NewtonOptimizerState, gradient, x)
 
