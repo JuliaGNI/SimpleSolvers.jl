@@ -8,7 +8,7 @@ We consider the same example as we had when demonstrating [backtracking line sea
 
 ```@setup bisection
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
@@ -24,8 +24,12 @@ rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
 p .= H \ rhs
-sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
-
+cache = NewtonOptimizerCache(x)
+direction(cache) .= p
+problem = linesearch_problem(obj, grad, cache)
+state = NewtonOptimizerState(x)
+params = (x = state.x̄,)
+sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
 
@@ -35,16 +39,10 @@ mpurple = RGBf(148 / 256, 103 / 256, 189 / 256)
 mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
-
-using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
-cache = NewtonOptimizerCache(x)
-state = NewtonOptimizerState(x)
-update!(cache, state, grad, hes, x)
-nothing # hide
 ```
 
 ```@example bisection
-ls_obj = linesearch_problem(obj, grad, cache, state)
+ls_obj = linesearch_problem(obj, grad, cache)
 nothing # hide
 ```
 
@@ -54,18 +52,18 @@ For bracketing [kochenderfer2019algorithms](@cite) we move an interval successiv
 
 ```@example bisection
 α₀ = 0.0
-(a, c) = bracket_minimum(ls_obj.F, α₀)
+(a, c) = bracket_minimum(alpha -> ls_obj.F(alpha, params), α₀)
 ```
 
 ```@setup bisection
 alpha = 0.:.01:1.5
 
-y = ls_obj.F.(alpha)
+y = [ls_obj.F(_alpha, params) for _alpha in alpha]
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha", ylabel = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, y)
 
-scatter!(ax, [α₀], [ls_obj.F(α₀)]; color=mred, label=L"\alpha_0")
+scatter!(ax, [α₀], [ls_obj.F(α₀, params)]; color=mred, label=L"\alpha_0")
 vlines!(ax, [a]; label = L"a", color=mpurple)
 vlines!(ax, [c]; label = L"c", color=mgreen)
 

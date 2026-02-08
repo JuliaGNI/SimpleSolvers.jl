@@ -21,22 +21,22 @@ nothing # hide
 `SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
 ```@example static
-using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
+using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, NewtonOptimizerState, update! # hide
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 update!(cache, state, grad, x)
 x₂ = [.9, 0., 0.]
 update!(cache, state, grad, x₂)
-ls_obj = linesearch_problem(obj, grad, cache, state)
+ls_obj = linesearch_problem(obj, grad, cache)
 nothing # hide
 ```
 
 We now use this to compute a *static line search*:
 
 ```@example static
-ls = Linesearch(ls_method)
-solve(ls_obj, ls, 1.0)
+ls = Linesearch(ls_obj, ls_method)
+solve(ls, 1.0)
 ```
 
 !!! info
