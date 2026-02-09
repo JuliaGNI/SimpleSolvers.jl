@@ -25,6 +25,7 @@ A `struct` that stores the [`LinesearchMethod`](@ref) and [`Options`](@ref).
 
 # Keys
 
+- `problem::`[`LinesearchProblem`](@ref)
 - `method::`[`LinesearchMethod`](@ref)
 - `config::`[`Options`](@ref)
 
@@ -33,10 +34,8 @@ A `struct` that stores the [`LinesearchMethod`](@ref) and [`Options`](@ref).
 The following constructors can be used:
 
 ```julia
-Linesearch{T}(method, config)
-Linesearch(T; method, kwargs...)
-Linesearch(method; T, kwargs...)
-Linesearch(; T, kwargs...)
+Linesearch{T}(problem, method, config)
+Linesearch(problem, method=Static(); kwargs...)
 ```
 """
 struct Linesearch{T,MET<:LinesearchMethod{T},PT<:LinesearchProblem{T},OPT<:Options{T}}
