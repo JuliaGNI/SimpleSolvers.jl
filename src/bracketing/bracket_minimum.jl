@@ -13,7 +13,7 @@ Gives the default ratio by which the bracket is increased if bracketing was not 
 const DEFAULT_BRACKETING_k = 2.0
 
 "Default constant"
-const DEFAULT_BRACKETING_nmax=100
+const DEFAULT_BRACKETING_nmax = 100
 
 abstract type BracketingCriterion end
 """
@@ -33,7 +33,7 @@ struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
 
-function bracket(f::Callable, x::T, bc::BracketingCriterion; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T, T} where {T <: Number}    
+function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
     a = x
     ya = f(a)
 
@@ -64,8 +64,8 @@ end
 @doc raw"""
     bracket_minimum(f, x)
 
-Move a bracket successively in the search direction (starting at `x`) and increase its size until a local minimum of `f` is found. 
-This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval). 
+Move a bracket successively in the search direction (starting at `x`) and increase its size until a local minimum of `f` is found.
+This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval).
 This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Also compare it to [`bracket_minimum_with_fixed_point`](@ref).
 
 # Keyword arguments
@@ -76,7 +76,7 @@ This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Als
 
 # Extended help
 
-For bracketing we need two constants ``s`` and ``k`` (see [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)). 
+For bracketing we need two constants ``s`` and ``k`` (see [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)).
 
 Before we start the algorithm we *initialize* it, i.e. we check that we indeed have a descent direction:
 ```math
@@ -100,7 +100,7 @@ If this is not satisfied ``a,`` ``b`` and ``s`` are updated:
 \begin{aligned}
 a \gets & b, \\
 b \gets & c, \\
-s \gets & sk, 
+s \gets & sk,
 \end{aligned}
 ```
 and the algorithm is continued. If we have not found a sign chance after ``n_\mathrm{max}`` iterations (see [`DEFAULT_BRACKETING_nmax`](@ref)) the algorithm is terminated and returns an error.
@@ -115,8 +115,7 @@ The interval that is returned by `bracket_minimum` is then typically used as a s
 
 See [`bracket_root`](@ref).
 """
-function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T <: Number}
-    
+function bracket_minimum(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
     ya = f(a)
 
@@ -130,17 +129,25 @@ function bracket_minimum(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k:
         s = -s
     end
 
-    bracket(f, a, BracketMinimumCriterion(); s=s, k=k, nmax=nmax)
+    bracket(f, a, BracketMinimumCriterion(), s, k, nmax)
 end
 
-function bracket_minimum(obj::AbstractOptimizerProblem{T}, x::T=zero(T); kwargs...) where {T <: Number}
-    bracket_minimum(obj.F, x; kwargs...)
+function bracket_minimum(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum(f, x, s, k, nmax)
+end
+
+function bracket_minimum(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum(x -> value(prob, x, params), x, s, k, nmax)
+end
+
+function bracket_minimum(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum(prob, params, x, s, k, nmax)
 end
 
 @doc raw"""
     bracket_minimum_with_fixed_point(f, x)
 
-Find a bracket while keeping the left side (i.e. `x`) fixed. 
+Find a bracket while keeping the left side (i.e. `x`) fixed.
 The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
 
 The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (taken from [kelley1995iterative](@cite)), as the minimum of the polynomial approximation is:
@@ -149,12 +156,11 @@ p_2 = \frac{f(b) - f(a) - f'(0)b}{b^2},
 ```
 where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
 """
-function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T <: Number}
-    
+function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
-    ya = f(a)
-
     b = a + s
+
+    ya = f(a)
     yb = f(b)
 
     # flip a & b if necessary
@@ -165,7 +171,6 @@ function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T=0.0; s:
     end
 
     da = d(a)
-
     bc = BracketRootCriterion()
 
     # check if condition is already satisfied
@@ -182,11 +187,20 @@ function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T=0.0; s:
         end
         s *= k
     end
+
     error("Unable to bracket f starting at x = $x.")
 end
 
-function bracket_minimum_with_fixed_point(obj::AbstractOptimizerProblem{T}, x::T=zero(T); kwargs...) where {T <: Number}
-    bracket_minimum_with_fixed_point(obj.F, obj.D, x; kwargs...)
+function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum_with_fixed_point(f, d, x, s, k, nmax)
+end
+
+function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum_with_fixed_point(x -> value(prob, x, params), x -> derivative(prob, x, params), x, s, k, nmax)
+end
+
+function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum_with_fixed_point(prob, params, x, s, k, nmax)
 end
 
 """
@@ -196,6 +210,10 @@ Make a bracket for the function based on `x` (for root finding).
 
 This is largely equivalent to [`bracket_minimum`](@ref). See the end of that docstring for more information.
 """
-function bracket_root(f::Callable, x::T=0.0; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T, T} where {T <: Number}
-    bracket(f, x, BracketRootCriterion(); s=s, k=k, nmax=nmax)
+function bracket_root(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
+    bracket(f, x, BracketRootCriterion(), s, k, nmax)
+end
+
+function bracket_root(prob::LinesearchProblem{T}, params, x::T; kwargs...) where {T<:Number}
+    bracket_root(x -> value(prob, x, params), x -> derivative(prob, x, params), x; kwargs...)
 end

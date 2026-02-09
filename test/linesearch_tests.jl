@@ -10,15 +10,8 @@ f(x) = x^2 - 1
 g(x) = 2x
 δx(x) = -g(x) / 2
 
-function make_linesearch_problem(x₀::Number)
-    _f(α) = f(compute_new_iterate(x₀, α, δx(x₀)))
-    _d(α) = g(compute_new_iterate(x₀, α, δx(x₀)))
-    LinesearchProblem(_f, _d)
-end
-
 function compute_next_iterate(ls::Linesearch, x₀::T) where {T}
-    ls_obj = make_linesearch_problem(x₀)
-    α = solve(ls_obj, ls)
+    α = solve(ls, 1.0, (x = x₀,))
     compute_new_iterate(x₀, α, δx(x₀))
 end
 
@@ -30,21 +23,27 @@ function compute_next_iterate(ls::Linesearch, x₀::T, n::Integer) where {T}
     x
 end
 
-function test_linesearch(algorithm::LinesearchMethod, n::Integer=1)
+function make_linesearch_problem(x₀::Number)
+    _f(α, _) = f(compute_new_iterate(x₀, α, δx(x₀)))
+    _d(α, _) = g(compute_new_iterate(x₀, α, δx(x₀)))
+    LinesearchProblem{typeof(x₀)}(_f, _d)
+end
 
+function test_linesearch(method::LinesearchMethod, n::Integer=1)
     x₀ = -3.0
     x₁ = +3.0
     xₛ = 0.0
 
-    ls = Linesearch(algorithm; x_abstol=zero(x₀))
+    ls = Linesearch(make_linesearch_problem(x₀), method; x_abstol=zero(x₀))
 
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ atol = ∛(2eps())
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ atol = ∛(2eps())
 end
 
+
 @testset "$(rpad("Bracketing",80))" begin
-    @test bracket_minimum(x -> x^2) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
-    @test bracket_minimum(x -> (x - 1)^2) == (0.64, 2.56)
+    @test bracket_minimum(x -> x^2, 0.0) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
+    @test bracket_minimum(x -> (x - 1)^2, 0.0) == (0.64, 2.56)
 end
 
 @testset "$(rpad("Static",80))" begin
@@ -53,21 +52,17 @@ end
     δx = x₁ - x₀
     x = copy(x₀)
 
-    ls_method = Static()
-    ls = Linesearch(ls_method)
-
-    @test Linesearch(ls_method) == Linesearch(Static(1.0))
-
     ls_problem = make_linesearch_problem(x₀)
-    @test solve(ls_problem, ls) == 1.0
 
-    ls1 = Linesearch(algorithm=Static())
-    ls2 = Linesearch(algorithm=Static(1.0))
-    ls3 = Linesearch(algorithm=Static(0.8))
+    @test Linesearch(ls_problem, Static()) == Linesearch(ls_problem, Static(1.0))
 
-    @test solve(ls_problem, ls1) == 1
-    @test solve(ls_problem, ls2) == 1
-    @test solve(ls_problem, ls3) == 0.8
+    ls1 = Linesearch(ls_problem, Static())
+    ls2 = Linesearch(ls_problem, Static(1.0))
+    ls3 = Linesearch(ls_problem, Static(0.8))
+
+    @test solve(ls1, 0.0) == 1.0
+    @test solve(ls2, 0.0) == 1.0
+    @test solve(ls3, 0.0) == 0.8
 
 end
 
@@ -96,13 +91,13 @@ end
 end
 
 
-@testset "$(rpad("Additional Linesearch Tests", 80))" begin
+@testset "$(rpad("Linesearch Integration Tests", 80))" begin
 
     Random.seed!(1234)
 
     x = -10 * rand(1)
 
-    function make_linesearch_problem2(x::AbstractVector{T}, params=NullParameters()) where {T}
+    function linesearch_factory(x::AbstractVector{T}, params) where {T}
         f(x::T) where {T<:Number} = exp(x) * (T(0.5) * x^3 - 5x^2 + 2x) + 2one(T)
         f(x::AbstractArray{T}) where {T<:Number} = @. exp(x) * (T(0.5) * x^3 - 5 * x^2 + 2x) + 2one(T)
         f!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = y .= f.(x)
@@ -112,28 +107,28 @@ end
             SimpleSolvers.ForwardDiff.jacobian!(j, f_closure!, similar(x), x)
         end
 
-        jacobian_instance = JacobianFunction{T}(f!, j!)
-        solver = NewtonSolver(x, f.(x); F=f!, (DF!)=j!, jacobian=jacobian_instance)
+        jacobian = JacobianFunction{T}(f!, j!)
+        solver = NewtonSolver(x, f.(x); F=f!, (DF!)=j!, jacobian=jacobian)
         state = NonlinearSolverState(x, value(cache(solver)))
+
         direction!(solver, x, params, iteration_number(state))
-        update!(state, x, value(cache(solver)))
-        linesearch_problem(nonlinearproblem(solver), jacobian_instance, cache(solver), x, params)
+        # update!(state, x, value(cache(solver)))
+
+        linesearch_problem(solver)
     end
 
-    function check_linesearch(ls::Linesearch, ls_obj::LinesearchProblem)
-        α = solve(ls_obj, ls)
-        T = eltype(α)
-        @test ≈(ls_obj.D(α), zero(T); atol=atol = ∛(2eps(T)))
+    function check_linesearch(T, ls_method)
+        params = (x=T.(x), parameters=NullParameters())
+        ls = Linesearch(linesearch_factory(params.x, params.parameters), ls_method)
+        α = solve(ls, one(T), params)
+        @test ≈(problem(ls).D(α, params), zero(T); atol=(∛(2eps(T))))
     end
 
     for T ∈ (Float32, Float64)
         for ls_method ∈ (Bisection(T), Quadratic(T), BierlaireQuadratic(T))
-            ls = Linesearch(ls_method; T=T)
-            ls_obj = make_linesearch_problem2(T.(x))
-            check_linesearch(ls, ls_obj)
+            check_linesearch(T, ls_method)
         end
     end
-
 end
 
 

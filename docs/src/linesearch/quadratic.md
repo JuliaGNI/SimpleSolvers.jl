@@ -77,10 +77,11 @@ factorize!(linearsolver(solver), jacobianmatrix(solver))
 ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
 nlp = NonlinearProblem(F!, J!, x, f(x))
 state = NonlinearSolverState(x)
+params = (x = state.x, parameters = NullParameters())
 update!(state, x, f(x))
-ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver), x, params)
-fˡˢ = ls_obj.F
-∂fˡˢ∂α = ls_obj.D
+ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver))
+fˡˢ(alpha) = ls_obj.F(alpha, params)
+∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 nothing # hide
 ```
 
@@ -130,7 +131,10 @@ nothing # hide
 We therefore see that calling [`SimpleSolvers.determine_initial_α`](@ref) returns a different ``\alpha`` (the result of calling [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)):
 
 ```@example quadratic
-α₀ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+state = NonlinearSolverState(x)
+update!(state, x, f(x))
+params = (x = state.x, parameters = NullParameters())
+α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 ```
 
 ```@setup quadratic
@@ -179,7 +183,7 @@ We now check wether ``\alpha_1`` satisfies the [sufficient decrease condition](@
 
 ```@example quadratic
 using SimpleSolvers: DEFAULT_WOLFE_c₁, SufficientDecreaseCondition # hide
-sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, 0., fˡˢ(0.), derivative(ls_obj, 0.), 1., ls_obj)
+sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, fˡˢ(0.), ∂fˡˢ∂α(0.), fˡˢ)
 @assert sdc(α₁) # hide
 sdc(α₁)
 ```
@@ -213,16 +217,17 @@ obj = OptimizerProblem(sum∘f, x₀)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
+params = (x = state.x̄,)
 hess = HessianAutodiff(obj, x₀)
 H = SimpleSolvers.alloc_h(x)
 hess(H, x₀)
 update!(_cache, state, grad, hess, x₀)
 hess(H, x₁)
 update!(_cache, state, grad, hess, x₁)
-ls_obj = linesearch_problem(obj, grad, _cache, state)
+ls_obj = linesearch_problem(obj, grad, _cache)
 
-fˡˢ = ls_obj.F
-∂fˡˢ∂α = ls_obj.D
+fˡˢ(alpha) = ls_obj.F(alpha, params)
+∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 nothing # hide
 ```
 
@@ -252,7 +257,8 @@ p₁ = ∂fˡˢ∂α(0.)
 ```
 
 ```@example quadratic
-α₀ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+params = (x = state.x̄, parameters = NullParameters())
+α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -303,13 +309,13 @@ We make another iteration:
 ```@example quadratic
 hess(H, x)
 update!(_cache, state, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache, state)
-
-fˡˢ = ls_obj.F
-∂fˡˢ∂α = ls_obj.D
+ls_obj = linesearch_problem(obj, grad, _cache)
+fˡˢ(alpha) = ls_obj.F(alpha, params)
+∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
-α₀⁽²⁾ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+params = (x = state.x̄, parameters = NullParameters())
+α₀⁽²⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -353,13 +359,14 @@ We finally compute a third iterate:
 ```@example quadratic
 hess(H, x)
 update!(_cache, state, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache, state)
+ls_obj = linesearch_problem(obj, grad, _cache)
 
-fˡˢ = ls_obj.F
-∂fˡˢ∂α = ls_obj.D
+fˡˢ(alpha) = ls_obj.F(alpha, params)
+∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
-α₀⁽³⁾ = determine_initial_α(ls_obj, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+params = (x = state.x̄, parameters = NullParameters())
+α₀⁽³⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -420,9 +427,10 @@ nothing # hide
 ```@example II
 state = NonlinearSolverState(x)
 update!(state, x, f(x))
-ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver), x, params)
-fˡˢ = ls_obj.F
-∂fˡˢ∂α = ls_obj.D
+params = (x = state.x, parameters = NullParameters())
+ls_obj = linesearch_problem(nlp, JacobianFunction{Float64}(F!, J!), cache(solver))
+fˡˢ(alpha) = ls_obj.F(alpha, params)
+∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 nothing # hide
 ```
 

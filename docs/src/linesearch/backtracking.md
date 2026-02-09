@@ -22,7 +22,7 @@ We again look at [the example introduced when talking about the sufficient decre
 
 ```@setup ls_obj
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv! # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
@@ -38,7 +38,12 @@ rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
 p .= H \ rhs
-sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
+cache = NewtonOptimizerCache(x)
+direction(cache) .= p
+problem = linesearch_problem(obj, grad, cache)
+state = NewtonOptimizerState(x)
+params = (x = state.x̄,)
+sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
@@ -51,32 +56,25 @@ mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
-cache = NewtonOptimizerCache(x)
-state = NewtonOptimizerState(x)
 update!(cache, state, grad, hes, x)
 nothing # hide
 ```
 
-```@example ls_obj
-ls_obj = linesearch_problem(obj, grad, cache, state)
-nothing # hide
-```
-
-This optimizer problem only depends on the parameter ``\alpha``. We plot it:
+This linesearch problem only depends on the parameter ``\alpha``. We plot it:
 
 ```@setup ls_obj
 alpha = 0.:.01:1.5
 
-y = ls_obj.F.(alpha)
+y = [problem.F(_alpha, params) for _alpha in alpha]
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha", ylabel = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, y)
 
-scatter!(ax, [α₁], [ls_obj.F(α₁)]; color=mpurple, label=L"\alpha_1")
-scatter!(ax, [α₂], [ls_obj.F(α₂)]; color=morange, label=L"\alpha_2")
-scatter!(ax, [α₃], [ls_obj.F(α₃)]; color=mblue, label=L"\alpha_3")
-scatter!(ax, [α₄], [ls_obj.F(α₄)]; color=mgreen, label=L"\alpha_4")
-scatter!(ax, [α₅], [ls_obj.F(α₅)]; color=mred, label=L"\alpha_5")
+scatter!(ax, [α₁], [problem.F(α₁, params)]; color=mpurple, label=L"\alpha_1")
+scatter!(ax, [α₂], [problem.F(α₂, params)]; color=morange, label=L"\alpha_2")
+scatter!(ax, [α₃], [problem.F(α₃, params)]; color=mblue, label=L"\alpha_3")
+scatter!(ax, [α₄], [problem.F(α₄, params)]; color=mgreen, label=L"\alpha_4")
+scatter!(ax, [α₅], [problem.F(α₅, params)]; color=mred, label=L"\alpha_5")
 
 axislegend(ax)
 
@@ -105,14 +103,14 @@ We now use this to compute a *backtracking line search*:
 
 
 ```@example ls_obj
-ls = Linesearch(ls_method)
+ls = Linesearch(problem, ls_method)
 α = 50.
-αₜ = solve(ls_obj, ls, α)
+αₜ = solve(ls, α, params)
 ```
 
 And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:
 ```@example ls_obj
-sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
+sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 sdc(αₜ)
 ```
 
@@ -121,6 +119,6 @@ Similarly for the [`SimpleSolvers.CurvatureCondition`](@ref):
 ```@example ls_obj
 using SimpleSolvers: CurvatureCondition # hide
 c₂ = .9
-cc = CurvatureCondition(c₂, x, g, p, obj, grad)
+cc = CurvatureCondition(c₂, problem.D(0., params), alpha -> problem.D(alpha, params))
 cc(αₜ)
 ```

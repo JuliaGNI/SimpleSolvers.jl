@@ -15,14 +15,14 @@ end
 @safetestset "Hessians                                                                        " begin
     include("hessian_tests.jl")
 end
-@safetestset "Multivariate problems                                                           " begin
+@safetestset "Multivariate Problems                                                           " begin
     include("multivariate_problems.jl")
 end
 @safetestset "Linear Solvers                                                                  " begin
     include("linear_solver_tests.jl")
 end
 @safetestset "Line Searches                                                                   " begin
-    include("linesearch_test.jl")
+    include("linesearch_tests.jl")
 end
 @safetestset "Nonlinear Solvers                                                               " begin
     include("nonlinear_solver_tests.jl")

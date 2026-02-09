@@ -2,7 +2,6 @@
 const FixedPointIterator{T} = NonlinearSolver{T,PicardMethod}
 
 function FixedPointIterator(x::AT, nlp::NLST, y::AT, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
-    cache = NonlinearSolverCache(x, y)
     config = Options(T; options_kwargs...)
     NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache, config; jacobian=jacobian, method=PicardMethod())
 end
@@ -14,10 +13,10 @@ end
 - `options_kwargs`: see [`Options`](@ref)
 """
 function FixedPointIterator(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
-    nlp = NonlinearProblem(F, missing, x, x)
+    nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
-    ls = Linesearch(linesearch; T=T)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
     FixedPointIterator(x, nlp, y, ls, cache; jacobian=jacobian, kwargs...)
 end
 

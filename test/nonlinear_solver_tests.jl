@@ -39,14 +39,14 @@ for T ∈ (Float64, Float32)
     for (Solver, kwarguments, tolfac) in (
         (NewtonSolver, (linesearch=Static(T),), 2),
         (NewtonSolver, (linesearch=Backtracking(T),), 2),
+        (NewtonSolver, (linesearch=Bisection(T),), 2),
         (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 2),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
-        (NewtonSolver, (linesearch=Bisection(T),), 2),
         (QuasiNewtonSolver, (linesearch=Static(T),), 2),
         (QuasiNewtonSolver, (linesearch=Backtracking(T),), 2),
+        (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
         (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 2),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
-        (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
     )
 
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
@@ -68,7 +68,9 @@ for T ∈ (Float64, Float32)
             # use custom Jacobian
             nl = Solver(x, y; F=F!, (DF!)=J!, verbosity=0, kwarguments...)
             ss = SolverState(nl)
+
             solve!(x, nl, ss)
+
             for _x in x
                 @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
             end
