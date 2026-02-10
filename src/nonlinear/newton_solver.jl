@@ -76,6 +76,7 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonS
     if (mod(iteration - 1, method(s).refactorize) == 0 || iteration == 1)
         jacobian!(s, x, params)
         matrix(linearproblem(s)) .= jacobianmatrix(s)
+        matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
         factorize!(linearsolver(s), linearproblem(s))
     end
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
