@@ -103,6 +103,7 @@ const VERBOSITY::Int = 1
 
 const NAN_MAX_ITERATIONS = 10
 const NAN_FACTOR = 0.5
+const REGULARIZATION_FACTOR = 0
 
 """
     Options
@@ -134,6 +135,7 @@ Configurable options with defaults (values 0 and NaN indicate unlimited):
 - `verbosity = $(VERBOSITY)`
 - `nan_max_iterations = $(NAN_MAX_ITERATIONS)`
 - `nan_factor = $(NAN_FACTOR)`
+- `regularization_factor = $(REGULARIZATION_FACTOR)`
 
 Some of the constants are defined by the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
 """
@@ -162,6 +164,7 @@ struct Options{T}
     verbosity::Int
     nan_max_iterations::Int
     nan_factor::T
+    regularization_factor::T
 end
 
 function Options(T=Float64;
@@ -188,7 +191,9 @@ function Options(T=Float64;
     show_every::Integer=SHOW_EVERY,
     verbosity::Integer=VERBOSITY,
     nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
-    nan_factor::AbstractFloat=NAN_FACTOR)
+    nan_factor::AbstractFloat=NAN_FACTOR,
+    regularization_factor::AbstractFloat=T(REGULARIZATION_FACTOR),
+)
 
     show_every = show_every > 0 ? show_every : 1
 
@@ -215,7 +220,9 @@ function Options(T=Float64;
         show_every,
         verbosity,
         nan_max_iterations,
-        nan_factor)
+        nan_factor,
+        regularization_factor,
+    )
 end
 
 function Base.show(io::IO, o::SimpleSolvers.Options)

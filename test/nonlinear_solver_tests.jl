@@ -80,13 +80,12 @@ end
 
 # test alternative constructors
 for T ∈ (Float64, Float32)
-    # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
-    for (solver_method, kwarguments, tolfac) in (
-        (NewtonMethod(), (linesearch=Static(T),), 2),
-        (QuasiNewtonMethod(), (linesearch=Static(T),), 2),
+    for (solver_method, kwarguments) in (
+        (NewtonMethod(), (linesearch=Static(T),)),
+        (QuasiNewtonMethod(), (linesearch=Static(T),)),
     )
 
-        @testset "Testing with different constructor; method = $(solver_method) & $(kwarguments) & $(T)" begin
+        @testset "Testing alternative constructor with method = $(solver_method) & $(kwarguments) & $(T)" begin
             x = T.(copy(x₀))
             y = F(x)
             nl = NonlinearSolver(solver_method, x, y; F=F!, verbosity=0, kwarguments...)
@@ -97,7 +96,30 @@ for T ∈ (Float64, Float32)
             solve!(x, nl)
 
             for _x in x
-                @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+                @test ≈(_x, T(root₁); atol=2eps(T)) || ≈(_x, T(root₂); atol=2eps(T)) || ≈(_x, T(root₃); atol=2eps(T)) || ≈(_x, T(root₄); atol=2eps(T))
+            end
+
+        end
+    end
+end
+
+
+# test regularization
+for T ∈ (Float64, Float32)
+    for (solver_method, kwarguments) in (
+        (NewtonMethod(), (linesearch=Static(T),)),
+        (QuasiNewtonMethod(5), (linesearch=Static(T),)),
+    )
+
+        @testset "Testing regularization with method = $(solver_method) & $(kwarguments) & $(T)" begin
+            x = T.(copy(x₀))
+            y = F(x)
+            nl = NonlinearSolver(solver_method, x, y; F=F!, verbosity=0, regularization_factor=1E-3, kwarguments...)
+
+            solve!(x, nl)
+
+            for _x in x
+                @test ≈(_x, T(root₁); atol=2eps(T)) || ≈(_x, T(root₂); atol=2eps(T)) || ≈(_x, T(root₃); atol=2eps(T)) || ≈(_x, T(root₄); atol=2eps(T))
             end
 
         end
