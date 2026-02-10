@@ -112,7 +112,7 @@ include("linesearch/static.jl")
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!, NewtonMethod, QuasiNewtonMethod
 
-export FixedPointIterator
+export PicardSolver
 
 include("nonlinear/nonlinear_problem.jl")
 include("nonlinear/nonlinear_solver_state.jl")

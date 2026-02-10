@@ -14,17 +14,20 @@ Random.seed!(1234)
 # @test_throws ErrorException initialize!(test_solver, rand(3))
 # @test_throws ErrorException solver_step!(test_solver)
 
+# f(x::T) where {T<:Number} = abs(tanh(x - T(0.1)))
+# const root₁ = 0.1
+
 f(x::T) where {T<:Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
+const root₁ = -4.735035753706987262178160540350200552633
+const root₂ = -0.6737697823920028217727631890832279199433
+const root₃ = 0.7613128434711647120463439168731683731732
+const root₄ = 4.560440205363600153577140702025401006278
+
 F(x) = f.(x)
 F!(y, x, params) = y .= F(x)
 
 n = 1
 x₀ = rand(n)
-
-const root₁ = -4.735035753706987262178160540350200552633
-const root₂ = -0.6737697823920028217727631890832279199433
-const root₃ = 0.7613128434711647120463439168731683731732
-const root₄ = 4.560440205363600153577140702025401006278
 
 function J!(g, x, params)
     g .= 0
@@ -47,6 +50,7 @@ for T ∈ (Float64, Float32)
         (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
         (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 2),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
+        (PicardSolver, (linesearch=Bisection(T),), 8),
     )
 
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
@@ -80,9 +84,11 @@ end
 
 # test alternative constructors
 for T ∈ (Float64, Float32)
-    for (solver_method, kwarguments) in (
-        (NewtonMethod(), (linesearch=Static(T),)),
-        (QuasiNewtonMethod(), (linesearch=Static(T),)),
+    # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
+    for (solver_method, kwarguments, tolfac) in (
+        (NewtonMethod(), (linesearch=Static(T),), 2),
+        (QuasiNewtonMethod(), (linesearch=Static(T),), 2),
+        (PicardMethod(), (linesearch=Bisection(T),), 8),
     )
 
         @testset "Testing alternative constructor with method = $(solver_method) & $(kwarguments) & $(T)" begin
@@ -93,10 +99,12 @@ for T ∈ (Float64, Float32)
 
             # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
 
+            @test config(nl) == nl.config
+
             solve!(x, nl)
 
             for _x in x
-                @test ≈(_x, T(root₁); atol=2eps(T)) || ≈(_x, T(root₂); atol=2eps(T)) || ≈(_x, T(root₃); atol=2eps(T)) || ≈(_x, T(root₄); atol=2eps(T))
+                @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
             end
 
         end
