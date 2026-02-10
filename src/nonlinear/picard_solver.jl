@@ -1,53 +1,53 @@
 
-const FixedPointIterator{T} = NonlinearSolver{T,PicardMethod}
+const PicardSolver{T} = NonlinearSolver{T,PicardMethod}
 
-function FixedPointIterator(x::AT, nlp::NLST, y::AT, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
+function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
     config = Options(T; options_kwargs...)
     NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache, config; jacobian=jacobian, method=PicardMethod())
 end
 
 """
-    FixedPointIterator(x, F)
+    PicardSolver(x, F)
 
 # Keywords
 - `options_kwargs`: see [`Options`](@ref)
 """
-function FixedPointIterator(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
     ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
-    FixedPointIterator(x, nlp, y, ls, cache; jacobian=jacobian, kwargs...)
+    PicardSolver(x, nlp, ls, cache; jacobian=jacobian, kwargs...)
 end
 
-function FixedPointIterator(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
     !ismissing(F) || error("You have to provide an F.")
-    FixedPointIterator(x, F, y; kwargs...)
+    PicardSolver(x, F, y; kwargs...)
 end
 
-NonlinearSolver(::PicardMethod, x...; kwargs...) = FixedPointIterator(x...; kwargs...)
+NonlinearSolver(::PicardMethod, x...; kwargs...) = PicardSolver(x...; kwargs...)
 
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, it::FixedPointIterator{T}, params) where {T}
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, it::PicardSolver{T}, params) where {T}
     value!(d, nonlinearproblem(it), x, params)
     d .*= -1
 end
 
-function direction!(it::FixedPointIterator, x::AbstractVector, params)
+function direction!(it::PicardSolver, x::AbstractVector, params)
     direction!(direction(cache(it)), x, it, params)
 end
 
-direction!(it::FixedPointIterator, x::AbstractVector, params, iteration) = direction!(it, x, params)
+direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(it, x, params)
 
 """
     update!(iterator, x, params)
 
-Update the `solver::`[`FixedPointIterator`](@ref) based on `x`.
+Update the `solver::`[`PicardSolver`](@ref) based on `x`.
 This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `iterator` (and `status(iterator)`).
 
 !!! info
     At the moment this is neither used in `solver_step!` nor `solve!`.
 """
-function update!(it::FixedPointIterator, x₀::AbstractArray, params)
+function update!(it::PicardSolver, x₀::AbstractArray, params)
     update!(status(it), x₀, nonlinearproblem(it), params)
     update!(nonlinearproblem(it), x₀, params)
     update!(cache(it), x₀)

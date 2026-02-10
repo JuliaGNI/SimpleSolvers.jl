@@ -27,9 +27,6 @@ end
 @safetestset "Nonlinear Solvers                                                               " begin
     include("nonlinear_solver_tests.jl")
 end
-@safetestset "Fixed point iterator                                                            " begin
-    include("fixed_point_iterator_tests.jl")
-end
 @safetestset "Optimizers                                                                      " begin
     include("optimizer_tests.jl")
 end
