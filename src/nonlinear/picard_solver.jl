@@ -7,7 +7,7 @@ function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, 
 end
 
 """
-    FixedPointIterator(x, F)
+    PicardSolver(x, F)
 
 # Keywords
 - `options_kwargs`: see [`Options`](@ref)
@@ -41,7 +41,7 @@ direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(
 """
     update!(iterator, x, params)
 
-Update the `solver::`[`FixedPointIterator`](@ref) based on `x`.
+Update the `solver::`[`PicardSolver`](@ref) based on `x`.
 This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `iterator` (and `status(iterator)`).
 
 !!! info
