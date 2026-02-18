@@ -12,14 +12,15 @@ obj = OptimizerProblem(f, x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
+params = (x = state.x̄,)
 state.x̄ .= x
 hess = HessianAutodiff(obj, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
 update!(cache, state, grad, hess, x₂)
-ls_obj = linesearch_problem(obj, grad, cache, state)
+ls_obj = linesearch_problem(obj, grad, cache)
 α = .1
-(ls_obj.F(α), ls_obj.D(α))
+(ls_obj.F(α, params), ls_obj.D(α, params))
 x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
@@ -31,9 +32,9 @@ hess = HessianAutodiff(obj, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
 update!(cache, state, grad, hess, x₂)
-ls_obj = linesearch_problem(obj, grad, cache, state)
+ls_obj = linesearch_problem(obj, grad, cache)
 α = .1
-(ls_obj.F(α), ls_obj.D(α))
+(ls_obj.F(α, params), ls_obj.D(α, params))
 
 # output
 
@@ -46,18 +47,17 @@ In the example above we have to apply [`update!`](@ref) twice on the instance of
 
 Calling the function and derivative stored in the [`LinesearchProblem`](@ref) created with `linesearch_problem` does not allocate a new array, but uses the one stored in the instance of [`NewtonOptimizerCache`](@ref).
 """
-function linesearch_problem(problem::OptimizerProblem{T}, gradient_instance::Gradient, cache::OptimizerCache{T}, state::OptimizerState) where {T}
-    function f(α)
-        compute_new_iterate!(cache.x, state.x̄, α, direction(cache))
-        value(problem, cache.x)
+function linesearch_problem(problem::OptimizerProblem{T}, gradient_instance::Gradient, cache::OptimizerCache{T}) where {T}
+    function f(α, params)
+        compute_new_iterate!(solution(cache), params.x, α, direction(cache))
+        value(problem, solution(cache))
     end
 
-    function d(α)
-        compute_new_iterate!(cache.x, state.x̄, α, direction(cache))
-        gradient_instance(cache.g, cache.x)
-        dot(cache.g, direction(cache))
+    function d(α, params)
+        compute_new_iterate!(solution(cache), params.x, α, direction(cache))
+        gradient_instance(gradient(cache), solution(cache))
+        dot(gradient(cache), direction(cache))
     end
 
     LinesearchProblem{T}(f, d)
 end
-

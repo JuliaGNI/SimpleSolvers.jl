@@ -23,17 +23,15 @@ const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}
 const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewtonMethod}
 
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    cache = NonlinearSolverCache(x, x)
     config = Options(T; options_kwargs...)
 
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=NewtonMethod(), jacobian=jacobian)
 end
 
 function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    cache = NonlinearSolverCache(x, x)
     config = Options(T; options_kwargs...)
 
-    if refactorize > 1 && typeof(linesearch.algorithm) <: Static
+    if refactorize > 1 && typeof(method(linesearch)) <: Static
         config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
         refactorize = 1
     end
@@ -51,13 +49,13 @@ end
 - `mode`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AT, F::Callable, y::AT; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T,AT<:AbstractVector{T}}
-    nlp = ismissing(DF!) ? NonlinearProblem(F, x, y) : NonlinearProblem(F, DF!, x, y)
+function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T}
+    nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
-    ls = Linesearch(linesearch; T=T)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
     if refactorize == 1
         NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
     else
@@ -78,6 +76,7 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonS
     if (mod(iteration - 1, method(s).refactorize) == 0 || iteration == 1)
         jacobian!(s, x, params)
         matrix(linearproblem(s)) .= jacobianmatrix(s)
+        matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
         factorize!(linearsolver(s), linearproblem(s))
     end
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
@@ -123,5 +122,5 @@ function update!(s::Union{NewtonSolver,QuasiNewtonSolver}, state::NonlinearSolve
     s
 end
 
-NonlinearSolver(method::NewtonMethod, x...; kwargs...) = NewtonSolver(x...; kwargs...)
-NonlinearSolver(method::QuasiNewtonMethod, x...; kwargs...) = QuasiNewtonSolver(x...; kwargs...)
+NonlinearSolver(method::NewtonMethod, args...; kwargs...) = NewtonSolver(args...; kwargs...)
+NonlinearSolver(method::QuasiNewtonMethod, args...; kwargs...) = QuasiNewtonSolver(args...; kwargs...)

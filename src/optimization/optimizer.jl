@@ -27,16 +27,18 @@ struct Optimizer{T,
     cache::OCT
     linesearch::LST
 
-    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, lst::Linesearch; gradient=GradientAutodiff{T}(problem.F, length(cache.x)), options_kwargs...) where {T}
+    function Optimizer(algorithm::OptimizerMethod, problem::OptimizerProblem{T}, hessian::Hessian{T}, cache::OptimizerCache, linesearch::LinesearchMethod; gradient=GradientAutodiff{T}(problem.F, length(cache.x)), options_kwargs...) where {T}
         config = Options(T; options_kwargs...)
-        new{T,typeof(algorithm),typeof(problem),typeof(gradient),typeof(hessian),typeof(cache),typeof(lst)}(algorithm, problem, gradient, hessian, config, cache, lst)
+        ls_problem = linesearch_problem(problem, gradient, cache)
+        ls = Linesearch(ls_problem, linesearch)
+        new{T,typeof(algorithm),typeof(problem),typeof(gradient),typeof(hessian),typeof(cache),typeof(ls)}(algorithm, problem, gradient, hessian, config, cache, ls)
     end
 end
 
 function Optimizer(x::VT, problem::OptimizerProblem; algorithm::OptimizerMethod=BFGS(), linesearch::LinesearchMethod=Backtracking(), options_kwargs...) where {T,VT<:AbstractVector{T}}
     cache = OptimizerCache(algorithm, x)
     hes = Hessian(algorithm, problem, x)
-    Optimizer(algorithm, problem, hes, cache, Linesearch(linesearch; T=T); options_kwargs...)
+    Optimizer(algorithm, problem, hes, cache, linesearch; options_kwargs...)
 end
 
 function Optimizer(x::AbstractVector, F::Function; (∇F!)=nothing, mode=:autodiff, kwargs...)
@@ -120,19 +122,19 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     # rhs is -g
     compute_direction(opt, state)
 
-    for _ in 1:linesearch(opt).config.linesearch_nan_max_iterations
-        solution(cache(opt)) .= x .+ _linesearch_factor(linesearch(opt)) * direction(cache(opt))
+    for _ in 1:config(opt).nan_max_iterations
+        solution(cache(opt)) .= x .+ direction(cache(opt))
         f = value(problem(opt), solution(cache(opt)))
         if isnan(f) || isinf(f)
-            (opt.config.verbosity ≥ 2 && @warn "NaN or Inf detected in nonlinear solver. Reducing length of direction vector.")
-            direction(cache(opt)) .*= T(linesearch(opt).config.linesearch_nan_factor)
+            (opt.config.verbosity ≥ 2 && @warn "NaN or Inf detected in optimizer. Reducing length of direction vector.")
+            direction(cache(opt)) .*= T(config(opt).nan_factor)
         else
             break
         end
     end
 
     # apply line search
-    α = solve(linesearch_problem(problem(opt), gradient(opt), cache(opt), state), linesearch(opt))
+    α = solve(linesearch(opt), one(T), (x = state.x̄,))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))

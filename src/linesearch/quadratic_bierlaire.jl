@@ -69,6 +69,20 @@ function default_precision(::Type{T}) where {T<:AbstractFloat}
 end
 
 """
+    shift_χ_to_avoid_stalling(χ, a, b, c, ε)
+
+Check whether `b` is closer to `a` or `c` and shift `χ` accordingly. This is taken from [bierlaire2015optimization](@cite).
+"""
+function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
+    if (c - b) > (b - a)
+        χ + ε / 2
+    else
+        χ - ε / 2
+    end
+end
+
+
+"""
     BierlaireQuadratic <: Linesearch
 
 Algorithm taken from [bierlaire2015optimization](@cite).
@@ -95,63 +109,53 @@ end
 
 BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
-
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, a::T, b::T, c::T, iteration_number::Integer=1) where {T,LST<:BierlaireQuadratic}
-    bierlaire_quadratic(problem.F, ls, a, b, c, iteration_number)
-end
-
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x₀::T=zero(T), iteration_number::Integer=1) where {T,LST<:BierlaireQuadratic}
-    # check if the minimum has already been reached
-    !(l2norm(derivative(problem, x₀)) < ls.algorithm.ξ) || return x₀
-    solve(problem, ls, triple_point_finder(problem, x₀)..., iteration_number)
-end
-
-
-"""
-    shift_χ_to_avoid_stalling(χ, a, b, c, ε)
-
-Check whether `b` is closer to `a` or `c` and shift `χ` accordingly. This is taken from [bierlaire2015optimization](@cite).
-"""
-function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
-    if (c - b) > (b - a)
-        χ + ε / 2
-    else
-        χ - ε / 2
-    end
-end
-
-function bierlaire_quadratic(fˡˢ::Callable, ls::Linesearch{T,LST}, a::T, b::T, c::T, iteration_number::Integer) where {T,LST<:BierlaireQuadratic{T}}
+function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, iteration_number::Integer) where {T}
+    f = x -> problem(ls).F(x, params)
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
-    χ = T(0.5) * (fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2)) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
+    χ = T(0.5) * (f(a) * (b^2 - c^2) + f(b) * (c^2 - a^2) + f(c) * (a^2 - b^2)) / (f(a) * (b - c) + f(b) * (c - a) + f(c) * (a - b))
     # perform a perturbation if χ ≈ b (in order "to avoid stalling")
-    χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, ls.algorithm.ε) : χ
+    χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, method(ls).ε) : χ
     if χ > b
-        if fˡˢ(χ) > fˡˢ(b)
+        if f(χ) > f(b)
             c = χ
         else
             a, b = b, χ
         end
     else
-        if fˡˢ(χ) > fˡˢ(b)
+        if f(χ) > f(b)
             a = χ
         else
             c, b = b, χ
         end
     end
-    !(((c - a) ≤ ls.algorithm.ε)) || !(((fˡˢ(a) - fˡˢ(b)) ≤ ls.algorithm.ε) && ((fˡˢ(c) - fˡˢ(b)) ≤ ls.algorithm.ε)) || return b
+    !(((c - a) ≤ method(ls).ε)) || !(((f(a) - f(b)) ≤ method(ls).ε) && ((f(c) - f(b)) ≤ method(ls).ε)) || return b
     # ( (c - a) ≤ ls.ε ) || return b
-    bierlaire_quadratic(fˡˢ, ls, a, b, c, iteration_number + 1)
+    solve(ls, a, b, c, params, iteration_number + 1)
 end
+
+function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iteration_number::Integer) where {T}
+    # check if the minimum has already been reached
+    !(l2norm(derivative(problem(ls), α₀, params)) < method(ls).ξ) || return α₀
+    solve(ls, triple_point_finder(problem(ls), params, α₀)..., params, iteration_number)
+end
+
+function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
+    # TODO: The following line should use α₀ instead of zero(T) but that requires a rework of the bracketing algorithm
+    # solve(problem, ls, α₀, params, 1)
+    solve(ls, zero(T), params, 1)
+end
+
+
 
 Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
 
-function Base.convert(::Type{T}, algorithm::BierlaireQuadratic{AT}) where {T,AT}
-    T ≠ AT || return algorithm
-    if algorithm.ε == default_precision(AT) && algorithm.ξ == default_precision(AT)
+function Base.convert(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
+    T ≠ AT || return method
+    if method.ε == default_precision(AT) && method.ξ == default_precision(AT)
         BierlaireQuadratic{T}(default_precision(T), default_precision(T))
     else
-        BierlaireQuadratic{T}(T(algorithm.ε), T(algorithm.ξ))
+        BierlaireQuadratic{T}(T(method.ε), T(method.ξ))
     end
 end
 

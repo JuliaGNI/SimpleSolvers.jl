@@ -27,7 +27,7 @@ We can visualize the sufficient decrease condition with an example:
 
 ```@example sdc
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem # hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, NullParameters# hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
@@ -43,7 +43,12 @@ rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
 p = similar(rhs)
 p .= H \ rhs
-sdc = SufficientDecreaseCondition(c₁, x, f(x), g, p, obj)
+cache = NewtonOptimizerCache(x)
+state = NewtonOptimizerState(x)
+update!(cache, state, grad, x)
+ls_obj = linesearch_problem(obj, grad, cache)
+params = (x = state.x̄, parameters = NullParameters())
+sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_obj.F(alpha, params))
 
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3

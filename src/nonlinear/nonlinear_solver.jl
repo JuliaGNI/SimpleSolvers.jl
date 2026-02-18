@@ -1,7 +1,7 @@
 """
     NonlinearSolver
 
-A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)) and the *fixed point iterator* (see [`PicardMethod`](@ref)).
+A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)) and the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)).
 
 # Constructors
 
@@ -107,20 +107,23 @@ Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params, iteration_number(state))
     any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
+
     # The following loop checks if the RHS contains any NaNs.
-    # If so, the direction vector is reduced by a factor of LINESEARCH_NAN_FACTOR.
-    for _ in 1:linesearch(s).config.linesearch_nan_max_iterations
-        solution(cache(s)) .= x .+ _linesearch_factor(linesearch(s)) * direction(cache(s))
+    # If so, the direction vector is reduced by a factor of NAN_FACTOR.
+    for _ in 1:config(s).nan_max_iterations
+        solution(cache(s)) .= x .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         if any(isnan, value(cache(s)))
             (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
-            direction(cache(s)) .*= T(linesearch(s).config.linesearch_nan_factor)
+            direction(cache(s)) .*= T(config(s).nan_factor)
         else
             break
         end
     end
-    α = solve(linesearch_problem(s, x, params), linesearch(s))
+
+    α = solve(linesearch(s), one(T), (x=x, parameters=params))
     compute_new_iterate!(x, α, direction(cache(s)))
+
     x
 end
 

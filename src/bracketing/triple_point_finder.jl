@@ -13,19 +13,21 @@ For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax we take [`
 
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
-function triple_point_finder(f::Callable, x₀::T=0.0; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+function triple_point_finder(f::Callable, x₀::T, δ, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
     x₁ = x₀ + δ
+
     if f(x₁) ≥ f(x₀)
-        if adjust_constant_iteration ≤ MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS 
-            triple_point_finder(f, x₀; δ=δ/2, nmax=nmax, adjust_constant_iteration=adjust_constant_iteration+1)
-        else
-            "The function `f` must be decreasing at `$(x₀)``; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`."
+        if adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS
+            error("The function `f` must be decreasing at `$(x₀)`; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`.")
         end
+        triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end
+
     local xₖ₋₁ = x₀
     local xₖ = x₁
     local xₖ₊₁ = xₖ
     local increment = δ
+
     for k in 1:nmax
         xₖ₋₁ = xₖ
         xₖ = xₖ₊₁
@@ -35,9 +37,14 @@ function triple_point_finder(f::Callable, x₀::T=0.0; δ::T=T(DEFAULT_BRACKETIN
             return (xₖ₋₁, xₖ, xₖ₊₁)
         end
     end
+
     error("Unable to find a triple point for quadratic line search starting at x = $x₀.")
 end
 
-function triple_point_finder(obj::LinesearchProblem{T}, x₀::T=zero(T); δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
-    triple_point_finder(obj.F, x₀; δ = δ, nmax = nmax)
+function triple_point_finder(f::Callable, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+    triple_point_finder(f, x₀, δ, nmax, adjust_constant_iteration)
+end
+
+function triple_point_finder(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
+    triple_point_finder(x -> value(prob, x, params), x₀, δ, nmax)
 end

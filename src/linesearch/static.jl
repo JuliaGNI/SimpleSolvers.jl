@@ -23,17 +23,15 @@ end
 Static(::Type{T}=Float64; α=one(T)) where {T} = Static{T}(α)
 Static(::Type{T}, ::SolverMethod) where {T} = Static(T)
 
-function solve(::LinesearchProblem{T}, ls::Linesearch{T,LST}) where {T,LST<:Static{T}}
-    ls.algorithm.α
+function solve(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T}
+    method(ls).α
 end
 
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 
-_linesearch_factor(ls::Static) = ls.α
-
-function Base.convert(::Type{T}, algorithm::Static) where {T}
-    T ≠ eltype(algorithm) || return algorithm
-    Static{T}(T(algorithm.α))
+function Base.convert(::Type{T}, method::Static) where {T}
+    T ≠ eltype(method) || return method
+    Static{T}(T(method.α))
 end
 
 Base.isapprox(st₁::Static{T}, st₂::Static{T}; kwargs...) where {T} = isapprox(st₁.α, st₂.α; kwargs...)
