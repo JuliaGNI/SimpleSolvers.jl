@@ -20,7 +20,7 @@ function try_different_solvers(T::DataType)
     @test_throws AssertionError @assert x0 ≈ _root
 
     x0 = ics(T)
-    solver = FixedPointIterator(x0, F, copy(x0))
+    solver = PicardSolver(x0, F, copy(x0))
 
     solve!(x0, solver)
     @test_throws AssertionError @assert x0 ≈ _root
