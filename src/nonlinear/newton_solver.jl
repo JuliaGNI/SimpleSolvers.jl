@@ -68,6 +68,11 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     NewtonSolver(x, F, y; kwargs...)
 end
 
+"""
+    direction!(d, x, s, params, iteration)
+
+Compute the Newton direction (for the [`NewtonSolver`](@ref)).
+"""
 function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonSolver{T},QuasiNewtonSolver{T}}, params, iteration) where {T}
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)

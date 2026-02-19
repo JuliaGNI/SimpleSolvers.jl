@@ -1,3 +1,8 @@
+"""
+    DogLegSolver
+
+The [`NonlinearSolver`](@ref) for the [`DogLeg`](@ref) method.
+"""
 const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
 @doc raw"""
