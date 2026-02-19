@@ -1,29 +1,46 @@
-const DogLegSolver{T} = NonlinearSolver{T, DogLeg}
+const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
-"""
+@doc raw"""
     directions!(s, x, params)
 
 Compute [`direction₁`](@ref) and [`direction₂`](@ref) for the [`DogLegSolver`](@ref).
 This is equivalent to [`direction!`](@ref) for the [`NewtonSolver`](@ref).
+
+# Extended help
+
+The Gauss-Newton direction (i.e. [`direction₂`](@ref)) is computed using the following formula:
+
+```math
+\mathbf{d}_2 = (\mathbf{J}^T \mathbf{J})^{-1} \mathbf{r}
+```
+
+where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector:
+
+```math
+\mathbf{r} = -\mathbf{J}(\mathbf{x})^T\mathbf{f}(\mathbf{x})
+```
 """
 function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
-    direction₁(cache(s)) .= Nan(T)
-    direction₂(cache(s)) .= Nan(T)
+    # first we update the rhs of the linearproblem
+    value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
+    rhs(linearproblem(s)) .*= -1
+    jacobian!(s, x, params)
+    matrix(linearproblem(s)) .= jacobianmatrix(s)
+    matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
+    factorize!(linearsolver(s), linearproblem(s))
+    ldiv!(direction₁(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+
+    lmul!(rhs(linearproblem(s)), transpose(jacobianmatrix(s)), rhs(linearproblem(s)))
+    mul!(matrix(linearproblem(s)), transpose(jacobianmatrix(s)), jacobianmatrix(s))
+    matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
+    factorize!(linearsolver(s), linearproblem(s))
+    ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+
+    direction₁(cache(s)), direction₂(cache(s))
 end
 
-# function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonSolver{T},QuasiNewtonSolver{T}}, params, iteration) where {T}
-#     # first we update the rhs of the linearproblem
-#     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
-#     rhs(linearproblem(s)) .*= -1
-#     jacobian!(s, x, params)
-#     matrix(linearproblem(s)) .= jacobianmatrix(s)
-#     matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
-#     factorize!(linearsolver(s), linearproblem(s))
-#     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
-# end
-
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
-    direction!(s, x, params, iteration_number(state))
+    directions!(s, x, params)
     any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
 
     # The following loop checks if the RHS contains any NaNs.
