@@ -114,6 +114,8 @@ export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSol
 
 export PicardSolver
 
+export DogLegSolver
+
 include("nonlinear/nonlinear_problem.jl")
 include("nonlinear/nonlinear_solver_state.jl")
 include("nonlinear/nonlinear_solver_cache.jl")

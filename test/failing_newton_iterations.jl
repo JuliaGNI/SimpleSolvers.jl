@@ -5,11 +5,12 @@ using SimpleSolvers
 function F(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
     @assert length(y) == length(x) == 2
     y[1] = x[1]
-    y[2] = 10x[1] / (x[1] + one(T) / 10) + 2(x[2] ^ 2)
+    y[2] = 10x[1] / (x[1] + one(T) / 10) + 2(x[2]^2)
 end
 
 ics(::Type{T}) where {T} = T[3one(T), one(T)]
 root(::Type{T}) where {T} = zeros(T, 2)
+tol(::Type{T}) where {T} = T == Float64 ? 1e-6 : T(1e-4)
 
 function try_different_solvers(T::DataType)
     x0 = ics(T)
@@ -17,13 +18,19 @@ function try_different_solvers(T::DataType)
     solver = NewtonSolver(x0, F, copy(x0))
 
     solve!(x0, solver)
-    @test_throws AssertionError @assert x0 ≈ _root
+    @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 
     x0 = ics(T)
     solver = PicardSolver(x0, F, copy(x0))
 
     solve!(x0, solver)
-    @test_throws AssertionError @assert x0 ≈ _root
+    @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
+
+    x0 = ics(T)
+    solver = DogLegSolver(x0, F, copy(x0))
+
+    solve!(x0, solver)
+    @test ≈(x0, _root; atol=tol(T))
 end
 
 try_different_solvers(Float64)
