@@ -1,7 +1,7 @@
 """
     NonlinearSolver
 
-A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)) and the *Dogleg solver* (see [`DoglegMethod`](@ref)).
+A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
 
 # Constructors
 
