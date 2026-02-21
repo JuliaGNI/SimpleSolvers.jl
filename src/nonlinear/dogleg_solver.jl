@@ -36,13 +36,14 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     matrix(linearproblem(s)) .= jacobianmatrix(s)
     matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
     factorize!(linearsolver(s), linearproblem(s))
-    ldiv!(direction₁(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+    ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
     mul!(rhs(linearproblem(s)), transpose(jacobianmatrix(s)), copy(rhs(linearproblem(s))))
     mul!(matrix(linearproblem(s)), transpose(jacobianmatrix(s)), jacobianmatrix(s))
     matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
     factorize!(linearsolver(s), linearproblem(s))
-    ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+    # ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+    direction₁(cache(s)) .= rhs(linearproblem(s))
 
     direction₁(cache(s)), direction₂(cache(s))
 end
