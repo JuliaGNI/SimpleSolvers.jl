@@ -59,5 +59,5 @@ cc = CurvatureCondition(problem.F(0., params), problem.D(0., params), alpha -> p
 
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
-(cc(α₁), cc(α₂), cc(α₃), cc(α₄), cc(α₅))
+# (cc(α₁), cc(α₂), cc(α₃), cc(α₄), cc(α₅))
 ```
