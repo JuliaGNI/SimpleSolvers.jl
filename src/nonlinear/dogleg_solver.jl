@@ -81,26 +81,23 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     elseif l2norm(direction₁(cache(s))) > Δ
         direction₁(cache(s)) / l2norm(direction₁(cache(s))) * Δ
     else
-        d_diff = direction₂(cache(s)) - direction₁(cache(s))
-        d₁d₂d₁ = direction₁(cache(s)) ⋅ d_diff
+        direction_difference(cache(s)) .= direction₂(cache(s)) .- direction₁(cache(s))
+        d₁d₂d₁ = direction₁(cache(s)) ⋅ direction_difference(cache(s))
         #expression under the square root
-        eusr = d₁d₂d₁^2 - L2norm(d_diff) * (L2norm(direction₁(cache(s))) - Δ^2)
+        eusr = d₁d₂d₁^2 - L2norm(direction_difference(cache(s))) * (L2norm(direction₁(cache(s))) - Δ^2)
         # τ₁ = (-d₁d₂d₁ - √eusr) / L2norm(d_diff) + 1
-        τ₂ = (-d₁d₂d₁ + √eusr) / L2norm(d_diff) + 1
+        τ₂ = (-d₁d₂d₁ + √eusr) / L2norm(direction_difference(cache(s))) + 1
         τ = if τ₂ ≥ 1 && τ₂ ≤ 2
             τ₂
         else
             error("No valid solution found")
         end
-        direction₁(cache(s)) + (τ - 1) * d_diff
+        direction₁(cache(s)) .+ (τ - 1) .* direction_difference(cache(s))
     end
-    # println(direction₁(cache(s)))
-    # println(direction₂(cache(s)))
-    # println(direction(cache(s)))
-    # println("")
 
     compute_new_iterate!(solution(cache(s)), one(T), direction(cache(s)))
     value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+    # here we test if the sufficient decrease condition is satisfied; else we shrink Δ.
     if L2norm(value(cache(s))) ≤ L2norm(value(state)) + DEFAULT_WOLFE_c₁ * dot(direction(cache(s)), jacobianmatrix(s), value(state))
         x .= solution(cache(s))
     else
