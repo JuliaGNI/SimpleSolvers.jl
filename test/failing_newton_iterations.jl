@@ -10,7 +10,7 @@ end
 
 ics(::Type{T}) where {T} = T[3one(T), one(T)]
 root(::Type{T}) where {T} = zeros(T, 2)
-tol(::Type{T}) where {T} = T == Float64 ? 1e-4 : T(1e-4)
+tol(::Type{T}) where {T} = T == Float64 ? sqrt(1e-6) : T(1f-6)
 
 function try_different_solvers(T::DataType)
     x0 = ics(T)

@@ -29,7 +29,7 @@ where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual v
 ```
 """
 function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
-    # first we update the rhs of the linearproblem
+    # the Newton direction
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
     jacobian!(s, x, params)
@@ -38,12 +38,11 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     factorize!(linearsolver(s), linearproblem(s))
     ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
-    mul!(rhs(linearproblem(s)), transpose(jacobianmatrix(s)), copy(rhs(linearproblem(s))))
-    mul!(matrix(linearproblem(s)), transpose(jacobianmatrix(s)), jacobianmatrix(s))
-    matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
-    factorize!(linearsolver(s), linearproblem(s))
-    # ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+    # the steepest descent direction
+
     direction₁(cache(s)) .= rhs(linearproblem(s))
+    direction₁(cache(s)) .*= L2norm(rhs(linearproblem(s)))
+    direction₁(cache(s)) ./= (rhs(linearproblem(s)) ⋅ (jacobianmatrix(s) * rhs(linearproblem(s))))
 
     direction₁(cache(s)), direction₂(cache(s))
 end
@@ -84,8 +83,16 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     else
         d_diff = direction₂(cache(s)) - direction₁(cache(s))
         d₁d₂d₁ = direction₁(cache(s)) ⋅ d_diff
-        s = -d₁d₂d₁ / L2norm(d_diff) + √(d₁d₂d₁^2 / L2norm(d_diff)^2 - (L2norm(direction₁(cache(s))) - Δ^2))
-        direction₁(cache(s)) + s * (direction₂(cache(s)) - direction₁(cache(s)))
+        #expression under the square root
+        eusr = d₁d₂d₁^2 - L2norm(d_diff) * (L2norm(direction₁(cache(s))) - Δ^2)
+        # τ₁ = (-d₁d₂d₁ - √eusr) / L2norm(d_diff) + 1
+        τ₂ = (-d₁d₂d₁ + √eusr) / L2norm(d_diff) + 1
+        τ = if τ₂ ≥ 1 && τ₂ ≤ 2
+            τ₂
+        else
+            error("No valid solution found")
+        end
+        direction₁(cache(s)) + (τ - 1) * d_diff
     end
     # println(direction₁(cache(s)))
     # println(direction₂(cache(s)))
