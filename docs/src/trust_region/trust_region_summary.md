@@ -68,19 +68,21 @@ The efficiency and convergence properties of a trust-region method depend on how
 ### The Cauchy Point
 The **Cauchy point** ``p_k^C`` is the simplest approximate solution. It is defined as the minimizer of the quadratic model ``m_k`` along the steepest descent direction, subject to the trust-region constraint.
 
-To compute it, we first define the vector $p_k^s$ which is the steepest descent direction scaled to the trust-region boundary:
+To compute it, we first define the vector ``p_k^s`` which is the steepest descent direction scaled to the trust-region boundary:
 ```math
 p_k^s = -\frac{\Delta_k}{\|g_k\|} g_k.
 ```
-We then find the scalar ``\tau_k > 0`` that minimizes ``m_k(\tau p_k^s)`` subject to ``\| \tau p_k^s \| \le \Delta_k``:
+We then find the scalar ``\tau_k > 0`` that minimizes ``m_k(\tau p_k^s) = f_k + \tau{}g_k^Tp_k^s + \frac{1}{2}\tau^2(p_k^s)^TB_kp_k^s`` s.t. ``\tau \le 1``:
 ```math
 \tau_k = 
-\begin{cases} 
-1 & \text{if } g_k^T B_k g_k \le 0, \\
-\min(1, \|g_k\|^3 / (\Delta_k g_k^T B_k g_k)) & \text{otherwise.}
+\begin{cases}
+1 & \text{if } (p_k^s)^TB_kp_k^s \le 0, \\
+\min(1, -g_k^T\frac{p_k^s}{(p_k^s)^TB_kp_k^s}) & \text{otherwise.}
 \end{cases}
 ```
-The Cauchy point is then:
+Note that, because ``g_k^Tp_k^s`` is negative by definition, if we have ``(p_k^s)^TB_kp_k^s \le 0,`` then ``\tau \mapsto m_k(\tau p_k^s)`` is contiuously decreasing and hence we pick ``\tau = 1`` in this case.
+
+After we determined ``\tau``, the Cauchy point is
 ```math
 p_k^C = \tau_k p_k^s.
 ```
@@ -94,19 +96,23 @@ p_k^C = \tau_k p_k^s.
 The **Dogleg method** is a more sophisticated approximation introduced by Powell [powell1970new](@cite). It is particularly effective when the Hessian ``B_k`` (or its approximation) is positive definite. It constructs a piecewise linear path from the origin to the unconstrained Newton point.
 
 The *dogleg path* consists of two line segments:
-1. A segment from the origin to the unconstrained minimizer along the steepest descent direction ``p^U``:
+
+1\. A segment from the origin to the unconstrained minimizer along the steepest descent direction ``p^U``:
 ```math
 p^U = -\frac{g_k^T g_k}{g_k^T B_k g_k} g_k.
 ```
-2. A segment from ``p^U`` to the full Newton step ``p^B``:
+!!! info
+    This is the Cauchy point for the case ``(p_k^s)^TB_kp_k^s \le 0`` and ``-g_k^T\frac{p_k^s}{(p_k^s)^TB_kp_k^s} \le 1.``
+
+2\. A segment from ``p^U`` to the full Newton step ``p^B``:
 ```math
 p^B = -B_k^{-1} g_k.
 ```
 
 The algorithm chooses ``p_k`` based on the position of these points relative to the radius ``\Delta_k``:
 - If ``\|p^B\| \le \Delta_k``, the model is trusted all the way to the Newton point; we set ``p_k = p^B``.
-- If ``\|p^U\| \ge \Delta_k``, we take a step of length $\Delta_k$ in the steepest descent direction; ``p_k = \frac{\Delta_k}{\|p^U\|} p^U``.
-- If ``\|p^U\| < \Delta_k < \|p^B\|``, we find the point ``p_k`` where the segment connecting $p^U$ and $p^B$ intersects the trust-region boundary (``\|p_k\| = \Delta_k``).
+- If ``\|p^U\| \ge \Delta_k``, we take a step of length ``\Delta_k`` in the steepest descent direction; ``p_k = \frac{\Delta_k}{\|p^U\|} p^U``.
+- If ``\|p^U\| < \Delta_k < \|p^B\|``, we find the point ``p_k`` where the segment connecting ``p^U`` and ``p^B`` intersects the trust-region boundary (``\|p_k\| = \Delta_k``).
 
 The intersection point in the third case is found by solving the quadratic equation:
 ```math
@@ -115,7 +121,8 @@ The intersection point in the third case is found by solving the quadratic equat
 for ``\beta \in [0, 1]``.
 
 This can be visualized:
-!()[dogleg_tikz.png]
+![](dogleg_tikz_light.png)
+![](dogleg_tikz_dark.png)
 
 !!! tip "Performance"
     The Dogleg method is significantly faster than exact subproblem solvers because it only requires one linear system solve (to find ``p^B``) per iteration. It offers a smooth transition between steepest descent (when the trust region is small) and Newton's method (when the trust region is large), often leading to superlinear convergence near the solution.

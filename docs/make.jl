@@ -18,9 +18,9 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://JuliaGNI.github.io/SimpleSolvers.jl",
-        assets=String[],
         size_threshold = 1_048_576,
         size_threshold_warn = 1_048_576,
+        assets = ["assets/extra_styles.css"],
     ),
     pages=[
         "Home" => "index.md",
