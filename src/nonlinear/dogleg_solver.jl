@@ -48,7 +48,7 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params; Δ::T=T(INITIAL_Δ)) where {T}
-    Δ > eps(T) || (@warn "Δ must be greater than zero. Iteration stops."; return x)
+    Δ > eps(T) || (@warn "Δ must be greater than zero. Iteration stops (iterations: $(iteration_number(state)))."; return x)
     directions!(s, x, params)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
@@ -95,7 +95,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         direction₁(cache(s)) .+ (τ - 1) .* direction_difference(cache(s))
     end
 
-    compute_new_iterate!(solution(cache(s)), one(T), direction(cache(s)))
+    compute_new_iterate!(solution(cache(s)), solution(state), one(T), direction(cache(s)))
     value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
     # here we test if the sufficient decrease condition is satisfied; else we shrink Δ.
     if L2norm(value(cache(s))) ≤ L2norm(value(state)) + DEFAULT_WOLFE_c₁ * dot(direction(cache(s)), jacobianmatrix(s), value(state))
@@ -122,3 +122,6 @@ function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; l
     ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
     DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
 end
+
+DogLegSolver(x::AbstractVector, y::AbstractVector; F::Callable, kwargs...) = DogLegSolver(x, F, y; kwargs...)
+NonlinearSolver(::DogLeg, x...; kwargs...) = DogLegSolver(x...; kwargs...)
