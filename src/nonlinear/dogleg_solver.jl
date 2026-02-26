@@ -40,15 +40,19 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
 
     # the steepest descent direction
 
-    direction₁(cache(s)) .= rhs(linearproblem(s))
-    direction₁(cache(s)) .*= L2norm(rhs(linearproblem(s)))
-    direction₁(cache(s)) ./= (rhs(linearproblem(s)) ⋅ (jacobianmatrix(s) * rhs(linearproblem(s))))
+    mul!(direction₁(cache(s)), transpose(jacobianmatrix(s)), rhs(linearproblem(s)))
+    fac₁ = L2norm(direction₁(cache(s)))
+    mul!(cache(s).y₂, jacobianmatrix(s), direction₁(cache(s)))
+    mul!(cache(s).y₃, transpose(jacobianmatrix(s)), cache(s).y₂)
+    fac₂ = direction₁(cache(s)) ⋅ cache(s).y₃
+    direction₁(cache(s)) .*= fac₁
+    direction₁(cache(s)) ./= fac₂
 
     direction₁(cache(s)), direction₂(cache(s))
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params; Δ::T=T(INITIAL_Δ)) where {T}
-    Δ > eps(T) || (@warn "Δ must be greater than zero. Iteration stops (iterations: $(iteration_number(state)))."; return x)
+    verbosity(config(s)) > 1 && (Δ > eps(T) || (@warn "Δ must be greater than zero. Iteration stops (iterations: $(iteration_number(state)))."; return x))
     directions!(s, x, params)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
