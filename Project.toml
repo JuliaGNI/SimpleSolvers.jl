@@ -1,6 +1,6 @@
 name = "SimpleSolvers"
 uuid = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
-version = "0.7.7"
+version = "0.7.8"
 authors = ["Michael Kraus"]
 
 [deps]
