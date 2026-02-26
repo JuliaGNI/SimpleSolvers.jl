@@ -1,0 +1,37 @@
+using SimpleSolvers
+
+# This example is taken from (Powell, 1970) (the dogleg paper)
+
+function F(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
+    @assert length(y) == length(x) == 2
+    y[1] = x[1]
+    y[2] = 10x[1] / (x[1] + one(T) / 10) + 2(x[2]^2)
+end
+
+ics(::Type{T}) where {T} = T[3one(T), one(T)]
+root(::Type{T}) where {T} = zeros(T, 2)
+tol(::Type{T}) where {T} = T == Float64 ? eps(T) : eps(T)
+
+function try_different_solvers(T::DataType)
+    x0 = ics(T)
+    _root = root(T)
+    solver = NewtonSolver(x0, F, copy(x0))
+
+    solve!(x0, solver)
+    @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
+
+    x0 = ics(T)
+    solver = PicardSolver(x0, F, copy(x0))
+
+    solve!(x0, solver)
+    @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
+
+    x0 = ics(T)
+    solver = DogLegSolver(x0, F, copy(x0); verbosity=2)
+
+    solve!(x0, solver)
+    @test ≈(x0, _root; atol=tol(T))
+end
+
+try_different_solvers(Float64)
+try_different_solvers(Float32)

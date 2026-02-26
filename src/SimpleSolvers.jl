@@ -114,6 +114,8 @@ export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSol
 
 export PicardSolver
 
+export DogLegSolver, DogLeg
+
 include("nonlinear/nonlinear_problem.jl")
 include("nonlinear/nonlinear_solver_state.jl")
 include("nonlinear/nonlinear_solver_cache.jl")
@@ -121,6 +123,8 @@ include("nonlinear/nonlinear_solver_status.jl")
 include("nonlinear/nonlinear_solver.jl")
 include("nonlinear/newton_solver.jl")
 include("nonlinear/picard_solver.jl")
+include("nonlinear/dogleg_cache.jl")
+include("nonlinear/dogleg_solver.jl")
 include("nonlinear/linesearch_problem.jl")
 
 SolverState(s::NonlinearSolver) = NonlinearSolverState(solution(cache(s)), value(cache(s)))

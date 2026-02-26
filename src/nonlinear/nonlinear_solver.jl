@@ -1,7 +1,7 @@
 """
     NonlinearSolver
 
-A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)) and the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)).
+A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
 
 # Constructors
 
@@ -20,7 +20,7 @@ It's arguments are:
 - `config::`[`Options`](@ref)
 - `status::`[`NonlinearSolverStatus`](@ref):
 """
-struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:NonlinearSolverCache{T}} <: AbstractSolver
+struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
     linearproblem::LST
     jacobian::JT

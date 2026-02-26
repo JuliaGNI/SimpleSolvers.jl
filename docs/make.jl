@@ -18,9 +18,9 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://JuliaGNI.github.io/SimpleSolvers.jl",
-        assets=String[],
         size_threshold = 1_048_576,
         size_threshold_warn = 1_048_576,
+        assets = ["assets/extra_styles.css"],
     ),
     pages=[
         "Home" => "index.md",
@@ -37,6 +37,7 @@ makedocs(;
                          "Quadratic" => "linesearch/quadratic.md",
                          "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md",
                          ],
+        "Trust Region" => ["Trust Region" => "trust_region/trust_region_summary.md",],
         "Optimizers" => ["optimizers/optimizers.md"],
         "Updates" => "update.md",
         "Initialization" => "initialize.md",

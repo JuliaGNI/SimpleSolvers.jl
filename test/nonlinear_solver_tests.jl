@@ -51,6 +51,7 @@ for T ∈ (Float64, Float32)
         (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 2),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
         (PicardSolver, (linesearch=Bisection(T),), 8),
+        (DogLegSolver, (), 1),
     )
 
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
@@ -59,8 +60,6 @@ for T ∈ (Float64, Float32)
             nl = Solver(x, y; F=F!, verbosity=0, kwarguments...)
             # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
             ss = SolverState(nl)
-
-            # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
 
             solve!(x, nl, ss)
 
@@ -89,6 +88,7 @@ for T ∈ (Float64, Float32)
         (NewtonMethod(), (linesearch=Static(T),), 2),
         (QuasiNewtonMethod(), (linesearch=Static(T),), 2),
         (PicardMethod(), (linesearch=Bisection(T),), 8),
+        (DogLeg(), (), 1)
     )
 
         @testset "Testing alternative constructor with method = $(solver_method) & $(kwarguments) & $(T)" begin
@@ -117,6 +117,7 @@ for T ∈ (Float64, Float32)
     for (solver_method, kwarguments) in (
         (NewtonMethod(), (linesearch=Static(T),)),
         (QuasiNewtonMethod(5), (linesearch=Static(T),)),
+        (DogLeg(), ())
     )
 
         @testset "Testing regularization with method = $(solver_method) & $(kwarguments) & $(T)" begin
