@@ -12,12 +12,14 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
 
     rhs::AT
     y::AT
+    y₂::AT
+    y₃::AT
 
     j::JT
 
     function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
         j = alloc_j(x, y)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), j)
+        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c
     end
@@ -52,6 +54,8 @@ function initialize!(cache::DogLegCache{T}, ::AbstractVector{T}) where {T}
 
     rhs(cache) .= T(NaN)
     value(cache) .= T(NaN)
+    cache.y₂ .= T(NaN)
+    cache.y₃ .= T(NaN)
 
     jacobianmatrix(cache) .= T(NaN)
 
