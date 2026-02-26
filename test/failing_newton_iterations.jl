@@ -10,7 +10,7 @@ end
 
 ics(::Type{T}) where {T} = T[3one(T), one(T)]
 root(::Type{T}) where {T} = zeros(T, 2)
-tol(::Type{T}) where {T} = T == Float64 ? sqrt(1e-6) : T(1f-6)
+tol(::Type{T}) where {T} = T == Float64 ? eps(T) : eps(T)
 
 function try_different_solvers(T::DataType)
     x0 = ics(T)
@@ -27,7 +27,7 @@ function try_different_solvers(T::DataType)
     @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 
     x0 = ics(T)
-    solver = DogLegSolver(x0, F, copy(x0))
+    solver = DogLegSolver(x0, F, copy(x0); verbosity=2)
 
     solve!(x0, solver)
     @test ≈(x0, _root; atol=tol(T))
