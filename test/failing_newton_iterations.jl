@@ -27,7 +27,7 @@ function try_different_solvers(T::DataType)
     @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 
     x0 = ics(T)
-    solver = DogLegSolver(x0, F, copy(x0); verbosity=2)
+    solver = DogLegSolver(x0, F, copy(x0))#; verbosity=2
 
     solve!(x0, solver)
     @test ≈(x0, _root; atol=tol(T))
