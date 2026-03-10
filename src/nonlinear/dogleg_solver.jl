@@ -34,7 +34,8 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     rhs(linearproblem(s)) .*= -1
     jacobian!(s, x, params)
     matrix(linearproblem(s)) .= jacobianmatrix(s)
-    matrix(linearproblem(s)) .+= config(s).regularization_factor .* I(length(x))
+    idxs = diagind(matrix(linearproblem(s)))
+    @view(matrix(linearproblem(s))[idxs]) .+= config(s).regularization_factor
     factorize!(linearsolver(s), linearproblem(s))
     ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
