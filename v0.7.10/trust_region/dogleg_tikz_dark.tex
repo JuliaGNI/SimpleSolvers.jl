@@ -1,0 +1,53 @@
+\documentclass[tikz, border=10pt]{standalone}
+\usetikzlibrary{arrows.meta, intersections, calc, backgrounds}
+
+\definecolor{morange}{RGB}{255,127,14}
+\definecolor{mblue}{RGB}{31,119,180}
+\definecolor{mred}{RGB}{214,39,40}
+\definecolor{mpurple}{RGB}{148,103,189}
+\definecolor{mgreen}{RGB}{44,160,44}
+
+\begin{document}
+\begin{tikzpicture}[
+    scale=1.5,
+    every node/.style={text=white}
+]
+    % Coordinates
+    \coordinate (O) at (0,0);
+    \coordinate (PU) at (0,-1.5);    % Cauchy point (Steepest Descent)
+    \coordinate (PB) at (3.5,-0.5); % Newton Point
+
+    % Draw Trust Region (Circle) - Lightened gray
+    \def\radius{2.5}
+    \draw[thick, dashed, color=white!40] (O) circle (\radius);
+    \node[color=white!60, anchor=north west] at (1.8, 1.8) {Trust Region ($\Delta_k$)};
+
+    % Draw Axes - Very subtle white
+    \draw[->, color=white!20] (-1,0) -- (4,0);
+    \draw[->, color=white!20] (0,1) -- (0,-2.5);
+
+    % Draw the Dogleg Path
+    % Segment 1: Origin to Cauchy Point - Cyan pops better on dark than pure blue
+    \draw[thick, mblue] (O) -- (PU);
+    % Segment 2: Cauchy Point to Newton Point
+    \draw[thick, mblue, name path=dogleg_seg] (PU) -- (PB);
+
+    % Find intersection of the path with the circle
+    \path[name path=circle] (O) circle (\radius);
+    \path [name intersections={of=dogleg_seg and circle, by={pk}}];
+
+    % Mark the points
+    \filldraw[white] (O) circle (1.5pt) node[anchor=south east] {$x_k$};
+    \filldraw[mblue] (PU) circle (1.5pt) node[anchor=east, xshift=-2pt] {$p^U$};
+    \filldraw[mred] (PB) circle (1.5pt) node[anchor=west] {$p^B$ (Newton point)};
+    \filldraw[white] (pk) circle (1.8pt) node[anchor=south west, yshift=-9pt] {$p_k$ (Dogleg step)};
+
+    % Labels for the path
+    \draw[<-, >=Stealth, shorten <=3pt, color=white] (1.2, -1.1) -- (1.8, -1.8)
+        node[anchor=north] {Dogleg Path};
+
+    % Highlighting the gradient direction - White arrow
+    \draw[->, thick, white!80] (O) -- (0,-0.7) node[midway, left, text=white!80] {$-g_k$};
+
+\end{tikzpicture}
+\end{document}
