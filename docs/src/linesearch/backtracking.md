@@ -42,7 +42,8 @@ cache = NewtonOptimizerCache(x)
 direction(cache) .= p
 problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
-params = (x = state.x̄,)
+update!(state, grad, x)
+params = (x = state.x,)
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 
 # check different values
@@ -55,7 +56,6 @@ mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
-using SimpleSolvers: linesearch_problem, NewtonOptimizerCache, update! # hide
 update!(cache, state, grad, hes, x)
 nothing # hide
 ```

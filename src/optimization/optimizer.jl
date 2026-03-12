@@ -104,6 +104,7 @@ f(x) = sum(x .^ 2 + x .^ 3 / 3)
 x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
 state = NewtonOptimizerState(x)
+update!(state, gradient(opt), x)
 
 solver_step!(x, state, opt)
 
@@ -135,7 +136,7 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     end
 
     # apply line search
-    α = solve(linesearch(opt), one(T), (x = state.x̄,))
+    α = solve(linesearch(opt), one(T), (x=state.x̄,))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
@@ -205,6 +206,7 @@ Too see the value of `x` after one iteration confer the docstring of [`solver_st
 function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     initialize_state!(state)
 
+    update!(state, gradient(opt), x)
     while true
         increase_iteration_number!(state)
         solver_step!(x, state, opt)

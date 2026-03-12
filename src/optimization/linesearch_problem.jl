@@ -12,10 +12,9 @@ obj = OptimizerProblem(f, x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
-params = (x = state.x̄,)
-state.x̄ .= x
-hess = HessianAutodiff(obj, x)
 update!(state, grad, x)
+params = (x = state.x,)
+hess = HessianAutodiff(obj, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]
 update!(cache, state, grad, hess, x₂)
@@ -39,7 +38,7 @@ ls_obj = linesearch_problem(obj, grad, cache)
 
 # output
 
-(0.5597213541666667, -1.014609375)
+(0.5683038684544637, -0.9375328383328476)
 ```
 
 In the example above we have to apply [`update!`](@ref) twice on the instance of [`NewtonOptimizerCache`](@ref) because it needs to store the current *and* the previous iterate.
