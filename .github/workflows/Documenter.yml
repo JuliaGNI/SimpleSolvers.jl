@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-    tags: '*'
+    tags: "*"
   pull_request:
 
 jobs:
@@ -12,10 +12,18 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+      - name: Install packages for generating tikz images
+        run: |
+          sudo apt-get install imagemagick
+          sudo apt-get install poppler-utils
+          sudo apt-get install texlive-xetex
+          sudo apt-get install texlive-science
       - uses: julia-actions/setup-julia@v1
         with:
-          version: '1'
+          version: "1"
+      - name: Make tikz images
+        run: make all -C docs/src/trust_region
       - name: Set environment variables
         run: echo "PYTHON=''" >> $GITHUB_ENV
       - name: Install dependencies

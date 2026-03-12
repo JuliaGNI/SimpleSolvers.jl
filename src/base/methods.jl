@@ -3,7 +3,6 @@ abstract type NonlinearMethod <: SolverMethod end
 
 abstract type NonlinearSolverMethod <: SolverMethod end
 
-
 """
     NewtonMethod(refactorize)
 
@@ -30,3 +29,10 @@ const QuasiNewtonMethod = NewtonMethod{false}
 Make an instance of a *Picard solver* (fixed point iterator).
 """
 struct PicardMethod <: NonlinearSolverMethod end
+
+"""
+    DogLeg()
+
+*Powell's dogleg method* [powell1970new](@cite).
+"""
+struct DogLeg <: NonlinearSolverMethod end

@@ -2,7 +2,7 @@ using SimpleSolvers
 using SimpleSolvers: value!, jacobian!
 using Test
 
-function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T} 
+function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
     f .= (params.A * x + params.b) .^ 2
 end
 
@@ -15,17 +15,17 @@ function DF!(jacobian_matrix::AbstractMatrix{T}, x::AbstractVector{T}, params) w
     jacobian_matrix
 end
 
-const A₁ = [3. 6. 7.; 9. 18. 19.; 11. 22. 23.]
-const b₁ = [1., 1., 2.]
+const A₁ = [3.0 6.0 7.0; 9.0 18.0 19.0; 11.0 22.0 23.0]
+const b₁ = [1.0, 1.0, 2.0]
 
-const A₂ = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]
-const b₂ = [1., 1., 1.]
+const A₂ = [1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0]
+const b₂ = [1.0, 1.0, 1.0]
 
 const sys₁ = NonlinearProblem(F, A₁[:, 1], A₁[1, :])
 const sys₂ = NonlinearProblem(F, DF!, A₁[:, 1], A₁[1, :]) # the analytic Jacobian is stored in the problem
 
 function test_various_nonlinearproblems(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
-    params = (A = A, b = b)
+    params = (A=A, b=b)
     x = rand(T, length(A[1, :]))
 
     @test value!(zero(x), sys₁, x, params) ≈ value!(zero(x), sys₂, x, params) ≈ F(zero(x), x, params)

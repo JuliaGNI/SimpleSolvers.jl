@@ -57,6 +57,9 @@ function update!(state::NewtonOptimizerState{T}, x::AbstractVector{T}, g::Abstra
     state.f = f
 end
 
+solution(cache::NewtonOptimizerState) = cache.x̄
+gradient(cache::NewtonOptimizerState) = cache.ḡ
+
 """
     update!(state::NewtonOptimizerState, gradient, x)
 

@@ -16,75 +16,72 @@ The bisection algorithm divides an interval into equal halves until a root is fo
 We first initialize:
 ```math
 \begin{aligned}
-x_0 \gets & x_\mathrm{min},
-x_1 \gets & x_\mathrm{max},
+\alpha_0 \gets & \alpha_\mathrm{min},
+\alpha_1 \gets & \alpha_\mathrm{max},
 \end{aligned}
 ```
 and then repeat:
 ```math
 \begin{aligned}
-& x \gets \frac{x_0 + x_1}{2}, \\
-& \text{if $f(x_0)f(x) > 0$} \\
-& \qquad x_0 \gets x, \\
+& \alpha \gets \frac{\alpha_0 + \alpha_1}{2}, \\
+& \text{if $f(\alpha_0)f(\alpha) > 0$} \\
+& \qquad \alpha_0 \gets \alpha, \\
 & \text{else} \\
-& \qquad x_1 \gets x, \\
+& \qquad \alpha_1 \gets \alpha, \\
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``x_0`` or ``x_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default""" * """$(MAX_ITERATIONS) and the [`Options`](@ref) struct).
+So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default""" * """$(MAX_ITERATIONS) and the [`Options`](@ref) struct).
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
 """
-function bisection(f::Callable, xmin::T, xmax::T; config::Options) where {T<:Number}
-    x₀ = xmin
-    x₁ = xmax
-    x = zero(T)
+function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number}
+    α₀ = αmin
+    α₁ = αmax
+    α = zero(T)
 
-    # flip x₀ and x₁ if the former is bigger than the latter
-    x₀ < x₁ || begin
-        x₀, x₁ = x₁, x₀
+    # flip α₀ and α₁ if the former is bigger than the latter
+    α₀ < α₁ || begin
+        α₀, α₁ = α₁, α₀
     end
 
-    y₀ = f(x₀)
-    y₁ = f(x₁)
+    y₀ = f(α₀, params)
+    y₁ = f(α₁, params)
     y = zero(y₀)
 
     # @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
 
     for j in 1:config.max_iterations
-        x = (x₀ + x₁) / 2
-        y = f(x)
+        α = (α₀ + α₁) / 2
+        y = f(α, params)
 
         # break if y is close to zero.
         !≈(y, zero(y); atol=config.f_abstol) || break
 
         if y₀ * y > 0
-            x₀ = x  # Root is in the right half of [x₀,x₁].
+            α₀ = α  # Root is in the right half of [α₀,α₁].
             y₀ = y
         else
-            x₁ = x  # Root is in the left half of [x₀,x₁].
+            α₁ = α  # Root is in the left half of [α₀,α₁].
             y₁ = y
         end
 
-        !isapprox(x₁ - x₀, zero(x), atol=config.x_suctol * max(abs(x₀), abs(x₁))) || break
+        !isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁))) || break
 
-        j != config.max_iterations || (println(x₀, " ", x₁, " ", x₁ - x₀);
+        j != config.max_iterations || (println(α₀, " ", α₁, " ", α₁ - α₀);
         error("Max iteration number exceeded"))
     end
 
-    x
+    α
 end
 
-bisection(problem::AbstractOptimizerProblem, xmin::T, xmax::T; config::Options) where {T<:Number} = bisection(problem.D, xmin, xmax; config=config)
-# bisection(problem::AbstractOptimizerProblem, x::T; kwargs...) = bisection(problem.D, x; kwargs...)
-
 """
-    bisection(f, x)
+    bisection(f, α)
 
 Use [`bracket_minimum`](@ref) to find a starting interval and then do bisections.
 """
-bisection(f, x::Number; kwargs...) = bisection(f, bracket_minimum(f, x)...; kwargs...)
+bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number} = bisection(f, bracket_minimum(f, α)..., params, config)
 
 """
     Bisection <: Linesearch
@@ -97,18 +94,20 @@ Bisection(T::DataType=Float64) = Bisection{T}()
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x₀::T, x₁::T) where {T,LST<:Bisection}
-    bisection(problem, x₀, x₁; config=ls.config)
+function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullParameters()) where {T}
+    bisection(problem(ls).D, α₀, α₁, params, config(ls))
 end
 
-function solve(problem::LinesearchProblem{T}, ls::Linesearch{T,LST}, x::T=zero(T)) where {T,LST<:Bisection}
-    solve(problem, ls, bracket_minimum(problem.F, x)...)
+function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
+    # TODO: The following line should use α instead of zero(T) but that requires a rework of the bracketing algorithm
+    # solve(problem, ls, bracket_minimum(problem.F, α)..., params)
+    solve(ls, bracket_minimum(problem(ls), params, zero(T))..., params)
 end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")
 
-function Base.convert(::Type{T}, algorithm::Bisection) where {T}
-    T ≠ eltype(algorithm) || return algorithm
+function Base.convert(::Type{T}, method::Bisection) where {T}
+    T ≠ eltype(method) || return method
     Bisection(T)
 end
 

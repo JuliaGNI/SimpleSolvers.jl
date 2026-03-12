@@ -20,12 +20,17 @@ opt = Optimizer(x, obj; algorithm = alg, linesearch = bt)
 Internally the constructor for [`Optimizer`](@ref) calls [`SimpleSolvers.OptimizerResult`](@ref) and [`SimpleSolvers.NewtonOptimizerState`](@ref) and [`Hessian`](@ref). We can also allocate these objects manually and then call a different constructor for [`Optimizer`](@ref):
 
 ```@example optimizer
-using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, initialize!
+using SimpleSolvers: NewtonOptimizerState, NewtonOptimizerCache, initialize!, linesearch_problem, Linesearch
 
 _cache = NewtonOptimizerCache(x)
 hes = Hessian(alg, obj, x)
-_linesearch = Linesearch(Static(.1))
-opt₂ = Optimizer(alg, obj, hes, _cache, _linesearch)
+grad = GradientAutodiff(obj.F, x)
+state = NewtonOptimizerState(x)
+update!(_cache, state, grad, x)
+ls_obj = linesearch_problem(obj, grad, _cache)
+ls_method = Static(.1)
+ls = Linesearch(ls_obj, ls_method)
+opt₂ = Optimizer(alg, obj, hes, _cache, ls_method)
 ```
 
 If we want to solve the problem, we can call [`solve!`](@ref) on the [`Optimizer`](@ref) instance:
@@ -80,14 +85,11 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 `sdc` is first allocated as:
 
 ```@example optimizer
-using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, cache # hide
+using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, method, cache, NullParameters # hide
 ls = linesearch(opt)
-α = ls.algorithm.α₀
+α = method(ls).α₀
 x₀ = zero(α)
 grad = GradientAutodiff{Float64}(problem(opt).F, length(x))
-lso = linesearch_problem(problem(opt), grad, cache(opt), state)
-y₀ = value(lso, x₀)
-d₀ = derivative(lso, x₀)
-
-sdc = SufficientDecreaseCondition(ls.algorithm.c₁, x₀, y₀, d₀, d₀, obj)
+params = (x = state.x̄, parameters = NullParameters())
+sdc = SufficientDecreaseCondition(method(ls).c₁, ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_obj.F(alpha, params))
 ```
