@@ -66,7 +66,7 @@ struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
 
-function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
+function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
     ya = f(a)
 
