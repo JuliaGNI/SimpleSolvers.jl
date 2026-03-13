@@ -14,22 +14,6 @@ const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
 
 Abstract type. `struct`s that are derived from this need an associated functor that computes the gradient of a function (in-place).
 
-# Implementation
-
-When a custom `Gradient` is implemented, a functor is needed:
-
-```julia
-(grad::Gradient)(g::AbstractVector, x::AbstractVector)
-```
-
-There is also an out-of place version for convenience:
-
-```julia
-(grad::Gradient)(x::AbstractVector)
-```
-
-This is using [`alloc_g`](@ref) to allocate the array `g` for the gradient.
-
 # Examples
 
 Examples include:
