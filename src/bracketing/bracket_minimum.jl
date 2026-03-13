@@ -25,12 +25,43 @@ Compare this with [`BracketRootCriterion`](@ref).
 
 # Functor
 
-```julia
+```jldoctest; setup = :(using SimpleSolvers: BracketMinimumCriterion)
+bc = BracketMinimumCriterion()
+
+yc = .1
+yb = .2
+
 bc(yb, yc)
+
+# output
+
+false
 ```
 This checks whether `yc` is bigger than `yb`, i.e. whether `c` is *past the minimum*.
 """
 struct BracketMinimumCriterion <: BracketingCriterion end
+
+"""
+    BracketRootCriterion <: BracketingCriterion
+
+The criterion used for [`bracket_root`](@ref). It checks whether there is a sign change between ``b`` and ``c`` (i.e. checks whether there is a root between those two points).
+Compare this with [`BracketMinimumCriterion`](@ref).
+
+# Functor
+
+```jldoctest; setup = :(using SimpleSolvers: BracketRootCriterion)
+bc = BracketRootCriterion()
+
+yc = .1
+yb = -.2
+
+bc(yb, yc)
+
+# output
+
+true
+```
+"""
 struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
