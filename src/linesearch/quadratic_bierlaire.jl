@@ -63,8 +63,6 @@ end
     BierlaireQuadratic <: Linesearch
 
 Algorithm taken from [bierlaire2015optimization](@cite).
-
-
 """
 struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ε::T
