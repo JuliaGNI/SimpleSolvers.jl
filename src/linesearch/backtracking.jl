@@ -48,59 +48,25 @@ const DEFAULT_WOLFE_c₂ = 0.9
 # Keys
 
 The keys are:
-- `α₀=$(DEFAULT_ARMIJO_α₀)`: the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the Wolfe conditions (the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref)) are satisfied.
-- `c₁=$(DEFAULT_WOLFE_c₁)`: a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
-- `c₂=$(DEFAULT_WOLFE_c₂)`: the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
-- `p=$(DEFAULT_ARMIJO_p)`: a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
-
-# Functor
-
-The functor is used the following way:
-
-```julia
-ls(obj, α = ls.α₀)
-```
+- `α₀`=""" * string(DEFAULT_ARMIJO_α₀) * raw""": the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the Wolfe conditions (the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref)) are satisfied.
+- `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
+- `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
+- `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
 # Implementation
 
 The algorithm starts by setting:
-
 ```math
-x_0 \gets 0,
-y_0 \gets f(x_0),
-d_0 \gets f'(x_0),
-\alpha \gets \alpha_0,
+\begin{aligned}
+x_0 &\gets 0,\\
+y_0 &\gets f(x_0),\\
+d_0 &\gets f'(x_0),\\
+\alpha &\gets \alpha_0,
+\end{aligned}
 ```
-where ``f`` is the *univariate optimizer problem* (of type [`LinesearchProblem`](@ref)) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the following holds:
-```math
-    f(\alpha) < y_0 + c_1 \cdot \alpha \cdot d_0,
-```
-where ``c_1`` is stored in `ls`.
-
-!!! info
-    The algorithm allocates an instance of `SufficientDecreaseCondition` by calling `SufficientDecreaseCondition(ls.c₁, x₀, y₀, d₀, one(α), obj)`, here we take the *value one* for the search direction ``p``, this is because we already have the search direction encoded into the line search problem.
+where ``f`` is of type [`LinesearchProblem`](@ref) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref) are satisfied.
 
 # Extended help
-
-The backtracking algorithm starts by setting ``y_0 \gets f(0)`` and ``d_0 \gets \nabla_0f``.
-
-The algorithm is executed by calling the functor of [`Backtracking`](@ref).
-
-The following is then repeated until the stopping criterion is satisfied or `config.max_iterations` """ * """($(MAX_ITERATIONS) by default) is reached:
-
-```julia
-if value(obj, α) ≥ y₀ + ls.c₁ * α * d₀
-    α *= ls.p
-else
-    break
-end
-```
-The stopping criterion as an equation can be written as:
-
-```math
-f(\alpha) < y_0 + \epsilon \alpha \nabla_0f = y_0 + \epsilon (\alpha - 0)\nabla_0f.
-```
-Note that if the stopping criterion is not reached, ``\alpha`` is multiplied with ``p`` and the process continues.
 
 [Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``\epsilon`` have different names such as ``\tau`` and ``c``.
 """
