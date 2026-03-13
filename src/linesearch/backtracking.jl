@@ -25,10 +25,6 @@ A constant ``c_1`` that is used in the [`SufficientDecreaseCondition`](@ref):
 ```math
 \frac{f(\alpha) - f(\alpha_0)}{c_1} < \alpha\cdot{}f'(\alpha_0).
 ```
-
-# Extended help
-
-
 """
 const DEFAULT_WOLFE_c₁ = 1E-4
 
