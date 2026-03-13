@@ -210,17 +210,19 @@ And we see that we already very close to the root.
 We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
 ```@example quadratic
-using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient
+using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction
 
 x₀, x₁ = [0.], x
 obj = OptimizerProblem(sum∘f, x₀)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
-params = (x = state.x̄,)
+update!(state, grad, x₀)
+params = (x = state.x, parameters = NullParameters())
 hess = HessianAutodiff(obj, x₀)
 H = SimpleSolvers.alloc_h(x)
 hess(H, x₀)
+update!(state, grad, x₀)
 update!(_cache, state, grad, hess, x₀)
 hess(H, x₁)
 update!(_cache, state, grad, hess, x₁)
@@ -257,7 +259,7 @@ p₁ = ∂fˡˢ∂α(0.)
 ```
 
 ```@example quadratic
-params = (x = state.x̄, parameters = NullParameters())
+params = (x = state.x, parameters = NullParameters())
 α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
@@ -314,7 +316,7 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 ∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
-params = (x = state.x̄, parameters = NullParameters())
+params = (x = state.x, parameters = NullParameters())
 α₀⁽²⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
@@ -365,7 +367,7 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 ∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
-params = (x = state.x̄, parameters = NullParameters())
+params = (x = state.x, parameters = NullParameters())
 α₀⁽³⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2

@@ -5,15 +5,15 @@ Create [`LinesearchProblem`](@ref) for linesearch algorithm. The variable on whi
 
 # Example
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerCache, linesearch_problem, update!)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerCache, linesearch_problem, update!, compute_direction)
 x = [1, 0., 0.]
 f = x -> sum(x .^ 3 / 6 + x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
-params = (x = state.x̄,)
-state.x̄ .= x
+update!(state, grad, x)
+params = (x = state.x,)
 hess = HessianAutodiff(obj, x)
 update!(cache, state, grad, hess, x)
 x₂ = [.9, 0., 0.]

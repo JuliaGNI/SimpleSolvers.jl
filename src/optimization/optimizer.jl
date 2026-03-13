@@ -104,6 +104,7 @@ f(x) = sum(x .^ 2 + x .^ 3 / 3)
 x = [1f0, 2f0]
 opt = Optimizer(x, f; algorithm = Newton())
 state = NewtonOptimizerState(x)
+update!(state, gradient(opt), x)
 
 solver_step!(x, state, opt)
 
@@ -117,6 +118,7 @@ solver_step!(x, state, opt)
 function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where {T,VT<:AbstractVector{T}}
     # update problem, hessian, state and status
     update!(opt, state, x)
+    typeof(algorithm(opt)) <: Newton && update!(state, gradient(opt), x) # this will have to be removed later
 
     # solve H δx = - ∇f
     # rhs is -g
@@ -134,7 +136,7 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     end
 
     # apply line search
-    α = solve(linesearch(opt), one(T), (x = state.x̄,))
+    α = solve(linesearch(opt), one(T), (x=x,))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
@@ -145,9 +147,18 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     x
 end
 
-function compute_direction(opt::Optimizer{T}, ::OptimizerState) where {T}
-    direction(opt) .= solve(LU(), hessian(cache(opt)), rhs(opt))
+function compute_direction(direction::AbstractVector{T}, cache::OptimizerCache{T}) where {T}
+    direction .= solve(LU(), hessian(cache), rhs(cache))
 end
+
+function compute_direction(cache::OptimizerCache{T}) where {T}
+    compute_direction(direction(cache), cache)
+end
+
+function compute_direction(opt::Optimizer)
+    compute_direction(cache(opt))
+end
+compute_direction(opt::Optimizer, ::OptimizerState) = compute_direction(opt)
 
 function compute_direction(opt::Optimizer{T,IOM}, state::Union{BFGSState,DFPState}) where {T,IOM<:QuasiNewtonOptimizerMethod}
     direction(opt) .= inverse_hessian(state) * rhs(opt)
@@ -173,8 +184,8 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
 
     |x - x'|               = 7.82e-03
     |x - x'|/|x'|          = 2.56e+02
-    |f(x) - f(x')|         = 9.31e-10
-    |f(x) - f(x')|/|f(x')| = 1.00e+00
+    |f(x) - f(x')|         = 6.18e-05
+    |f(x) - f(x')|/|f(x')| = 6.63e+04
     |g(x) - g(x')|         = 1.57e-02
     |g(x)|                 = 6.10e-05
 
@@ -203,9 +214,8 @@ function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
         update!(state, gradient(opt), x)
     end
 
-    warn_iteration_number(state, config(opt))
-
     status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config=config(opt))
+    warn_iteration_number(state, config(opt))
     OptimizerResult(status, x, value(problem(opt), x))
 end
 

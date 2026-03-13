@@ -54,7 +54,8 @@ cache = NewtonOptimizerCache(x)
 direction(cache) .= p
 problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
-params = (x = state.x̄,)
+update!(state, grad, x)
+params = (x = state.x,)
 cc = CurvatureCondition(problem.F(0., params), problem.D(0., params), alpha -> problem.D(alpha, params))
 
 # check different values

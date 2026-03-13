@@ -28,7 +28,9 @@ cache = NewtonOptimizerCache(x)
 direction(cache) .= p
 problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
-params = (x = state.x̄,)
+update!(state, grad, x)
+
+params = (x = state.x,)
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
