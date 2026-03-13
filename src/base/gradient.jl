@@ -1,7 +1,11 @@
 """
     DEFAULT_GRADIENT_ϵ
 
-A constant on whose basis finite differences are computed.
+A constant on whose basis finite differences are computed. See [`GradientFiniteDifferences`](@ref).
+
+# Extended help
+
+For the [`JacobianFiniteDifferences`](@ref) this is called [`DEFAULT_JACOBIAN_ϵ`](@ref).
 """
 const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
 

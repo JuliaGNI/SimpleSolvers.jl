@@ -1,7 +1,11 @@
 """
     DEFAULT_JACOBIAN_ϵ
 
-A constant used for computing the finite difference Jacobian.
+A constant used for computing the finite difference Jacobian. See [`JacobianFiniteDifferences`](@ref).
+
+# Extended help
+
+For the [`GradientFiniteDifferences`](@ref) this is called [`DEFAULT_GRADIENT_ϵ`](@ref).
 """
 const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
 
