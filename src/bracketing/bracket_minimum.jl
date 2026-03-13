@@ -37,7 +37,6 @@ bc(yb, yc)
 
 false
 ```
-This checks whether `yc` is bigger than `yb`, i.e. whether `c` is *past the minimum*.
 """
 struct BracketMinimumCriterion <: BracketingCriterion end
 
