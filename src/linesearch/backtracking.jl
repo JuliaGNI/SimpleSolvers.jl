@@ -2,35 +2,18 @@ using Printf
 @doc raw"""
     const DEFAULT_ARMIJO_α₀
 
-The default starting value for ``\alpha`` used in [`SufficientDecreaseCondition`](@ref) (also see [`Backtracking`](@ref) and [`Quadratic`](@ref)).
-Its value is """ * """$(DEFAULT_ARMIJO_α₀)
+The default starting value for ``\alpha`` used in [`Backtracking`](@ref).
+Its value is """ * """$(DEFAULT_ARMIJO_α₀).
 """
 const DEFAULT_ARMIJO_α₀ = 1.0
-
-"""
-    const DEFAULT_ARMIJO_σ₀
-
-Constant used in [`Quadratic`](@ref). Also see [`DEFAULT_ARMIJO_σ₁`](@ref).
-
-It is meant to *safeguard against stagnation* when performing line searches (see [kelley1995iterative](@cite)).
-
-Its value is $(DEFAULT_ARMIJO_σ₀)
-"""
-const DEFAULT_ARMIJO_σ₀ = 0.1
-
-"""
-    const DEFAULT_ARMIJO_σ₁
-
-Constant used in [`Quadratic`](@ref). Also see [`DEFAULT_ARMIJO_σ₀`](@ref).
-Its value is $(DEFAULT_ARMIJO_σ₁)
-"""
-const DEFAULT_ARMIJO_σ₁ = 0.5
 
 """
     const DEFAULT_ARMIJO_p
 
 Constant used in [`Backtracking`](@ref).
 Its value is $(DEFAULT_ARMIJO_p)
+
+This is the default for the constant ``p`` by which `α` is decreased if the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref) are not satisfied.
 """
 const DEFAULT_ARMIJO_p = 0.5
 
