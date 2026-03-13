@@ -136,7 +136,7 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     end
 
     # apply line search
-    α = solve(linesearch(opt), one(T), (x=state.x̄,))
+    α = solve(linesearch(opt), one(T), (x=x,))
 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
@@ -206,7 +206,6 @@ Too see the value of `x` after one iteration confer the docstring of [`solver_st
 function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     initialize_state!(state)
 
-    update!(state, gradient(opt), x)
     while true
         increase_iteration_number!(state)
         solver_step!(x, state, opt)
@@ -215,9 +214,8 @@ function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
         update!(state, gradient(opt), x)
     end
 
-    warn_iteration_number(state, config(opt))
-
     status = OptimizerStatus(state, cache(opt), value(problem(opt), x); config=config(opt))
+    warn_iteration_number(state, config(opt))
     OptimizerResult(status, x, value(problem(opt), x))
 end
 
