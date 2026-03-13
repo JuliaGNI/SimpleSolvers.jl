@@ -12,14 +12,16 @@ Gives the default ratio by which the bracket is increased if bracketing was not 
 """
 const DEFAULT_BRACKETING_k = 2.0
 
-"Default constant"
+"Default constant. Number of maximum iterations for [`bracket_minimum`](@ref), [`bracket_minimum_with_fixed_point`](@ref) and [`bracket_root`](@ref)."
 const DEFAULT_BRACKETING_nmax = 100
 
 abstract type BracketingCriterion end
+
 """
     BracketMinimumCriterion <: BracketingCriterion
 
-The criterion used for [`bracket_minimum`](@ref).
+The criterion used for [`bracket_minimum`](@ref). It checks whether ``y(c)`` is bigger than ``y(b)`` (i.e. checks whether we are passed the minimum).
+Compare this with [`BracketRootCriterion`](@ref).
 
 # Functor
 

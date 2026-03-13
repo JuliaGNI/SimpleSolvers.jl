@@ -57,7 +57,7 @@ struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
 end
 
 """
-Threshold for the maximum size a static matrix should have.
+Threshold for the maximum size a static matrix should have. See [`_static`](@ref).
 """
 const N_STATIC_THRESHOLD = 10
 
