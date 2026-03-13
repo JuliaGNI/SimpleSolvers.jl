@@ -1,7 +1,7 @@
 """
     const DEFAULT_BRACKETING_s
 
-Gives the default width of the interval (the bracket). See [`bracket_minimum`](@ref).
+Gives the default initial width of the interval (the bracket). Used for [`bracket_minimum`](@ref), [`bracket_minimum_with_fixed_point`](@ref) and [`bracket_root`](@ref).
 """
 const DEFAULT_BRACKETING_s = 1E-2
 
@@ -68,7 +68,7 @@ Move a bracket successively in the search direction (starting at `x`) and increa
 This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval).
 This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Also compare it to [`bracket_minimum_with_fixed_point`](@ref).
 
-# Keyword arguments
+# Arguments
 
 - `s::`[`DEFAULT_BRACKETING_s`](@ref)
 - `k::`[`DEFAULT_BRACKETING_k`](@ref)

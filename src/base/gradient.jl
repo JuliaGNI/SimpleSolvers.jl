@@ -100,7 +100,7 @@ The functor does:
 grad(g, x) = grad.∇F!(g, x)
 ```
 """
-struct GradientFunction{T, FT<:Callable, GT<:Callable} <: Gradient{T} 
+struct GradientFunction{T, FT<:Callable, GT<:Callable} <: Gradient{T}
     F::FT
     ∇F!::GT
 end
@@ -169,7 +169,7 @@ end
 A `struct` that realizes [`Gradient`](@ref) by using finite differences.
 
 # Keys
-    
+
 The `struct` stores:
 - `F`: a function that has to be differentiated.
 - `ϵ`: small constant on whose basis the finite differences are computed.
@@ -177,7 +177,7 @@ The `struct` stores:
 - `tx`: auxiliary vector used for computing finite differences. It stores the offset in the `x` vector.
 
 # Constructor(s)
-    
+
 ```julia
 GradientFiniteDifferences{T}(F, nx::Integer; ϵ)
 ```
@@ -185,9 +185,9 @@ GradientFiniteDifferences{T}(F, nx::Integer; ϵ)
 By default for `ϵ` is [`DEFAULT_GRADIENT_ϵ`](@ref).
 
 # Functor
-    
+
 The functor does:
-    
+
 ```julia
 for j in eachindex(x,g)
     ϵⱼ = grad.ϵ * x[j] + grad.ϵ

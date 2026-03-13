@@ -20,10 +20,10 @@ const DEFAULT_ARMIJO_p = 0.5
 @doc raw"""
     const DEFAULT_WOLFE_c₁
 
-A constant ``\epsilon`` on which a finite difference approximation of the derivative of the problem is computed. This is then used in the following stopping criterion:
+A constant ``c_1`` that is used in the [`SufficientDecreaseCondition`](@ref):
 
 ```math
-\frac{f(\alpha) - f(\alpha_0)}{\epsilon} < \alpha\cdot{}f'(\alpha_0).
+\frac{f(\alpha) - f(\alpha_0)}{c_1} < \alpha\cdot{}f'(\alpha_0).
 ```
 
 # Extended help
@@ -37,9 +37,11 @@ const DEFAULT_WOLFE_c₁ = 1E-4
 
 The constant used in the second Wolfe condition (the [`CurvatureCondition`](@ref)). According to [nocedal2006numerical,kochenderfer2019algorithms](@cite) we should have
 ```math
-c_2 \in (c_1, 1).
+c_2 \in (c_1, 1),
 ```
-Furthermore [nocedal2006numerical](@cite) recommend ``c_2 = 0.9`` and [kochenderfer2019algorithms](@cite) write that "it is common to set [``c_2=0.1``] when approximate line search is used with the conjugate gradient method and to 0.9 when used with Newton's method."
+where ``c_1`` is the constant specified by [`DEFAULT_WOLFE_c₁`](@ref).
+
+Furthermore [nocedal2006numerical](@cite) recommend ``c_2 = 0.9``; in [kochenderfer2019algorithms](@cite) the authors write: "it is common to set ``c_2=0.1`` when approximate line search is used with the conjugate gradient method and to 0.9 when used with Newton's method."
 We use ``c_2 = 0.9`` as default.
 """
 const DEFAULT_WOLFE_c₂ = 0.9
