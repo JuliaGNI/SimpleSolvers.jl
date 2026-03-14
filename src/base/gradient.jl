@@ -158,7 +158,7 @@ A `struct` that realizes [`Gradient`](@ref) by using finite differences.
 The `struct` stores:
 - `F`: a function that has to be differentiated.
 - `ϵ`: small constant on whose basis the finite differences are computed.
-- `e`: auxiliary vector used for computing finite differences. It's of the form ``e_1 = \begin{bmatrix} 1 & 0 & \cdots & 0 \end{bmatrix}``.
+- `e`: auxiliary vector used for computing finite differences. It's of the form ``e_1 = \begin{bmatrix} 1 & 0 & \cdots & 0 \end{bmatrix}^T``.
 - `tx`: auxiliary vector used for computing finite differences. It stores the offset in the `x` vector.
 
 # Constructor(s)
@@ -171,7 +171,7 @@ By default for `ϵ` is [`DEFAULT_GRADIENT_ϵ`](@ref).
 
 # Functor
 
-The functor does:
+The functor does (for `grad(g, x)`):
 
 ```julia
 for j in eachindex(x,g)
