@@ -42,7 +42,7 @@ minimum(|Hessian|):          1.0
 maximum(|Hessian|):          3.0
 ```
 """
-function check_hessian(H::AbstractMatrix; digits::Integer = 5)
+function check_hessian(H::AbstractMatrix; digits::Integer=5)
     println("Condition Number of Hessian: ", round(cond(H); digits=digits))
     println("Determinant of Hessian:      ", round(det(H); digits=digits))
     println("minimum(|Hessian|):          ", round(minimum(abs.(H)); digits=digits))
@@ -55,7 +55,7 @@ end
 
 Update the [`Hessian`](@ref) based on the vector `x`. For an explicit example see e.g. [`update!(::HessianAutodiff)`](@ref).
 """
-update!(::HT, ::AbstractVector) where {HT <: Hessian} = error("update! not defined for $(HT).")
+update!(::HT, ::AbstractVector) where {HT<:Hessian} = error("update! not defined for $(HT).")
 
 """
     HessianFunction <: Hessian
@@ -75,7 +75,7 @@ The functor does:
 hes(H, x) = hes.H!(H, x)
 ```
 """
-struct HessianFunction{T, HT <: Callable} <: Hessian{T}
+struct HessianFunction{T,HT<:Callable} <: Hessian{T}
     H!::HT
 end
 
@@ -114,12 +114,12 @@ The functor does:
 hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
 ```
 """
-struct HessianAutodiff{T, FT <: Callable, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
+struct HessianAutodiff{T,FT<:Callable,CT<:ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
     Hconfig::CT
 
-    function HessianAutodiff{T}(F::FT, Hconfig::CT) where {T, FT, CT}
-        new{T, FT, CT}(F, Hconfig)
+    function HessianAutodiff{T}(F::FT, Hconfig::CT) where {T,FT,CT}
+        new{T,FT,CT}(F, Hconfig)
     end
 end
 
@@ -130,7 +130,7 @@ end
 
 HessianAutodiff(F::OptimizerProblem, x) = HessianAutodiff(F.F, x)
 
-Hessian(::Newton, ForOBJ::Union{Callable, OptimizerProblem}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
+Hessian(::Newton, ForOBJ::Union{Callable,OptimizerProblem}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
 
 HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff(F, zeros(T, nx))
 
