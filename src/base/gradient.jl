@@ -140,7 +140,7 @@ struct GradientAutodiff{T,FT,∇T<:ForwardDiff.GradientConfig} <: Gradient{T}
     end
 end
 
-function GradientAutodiff{T}(F::Callable, nx::Integer) where {T <: Number}
+function GradientAutodiff{T}(F::Callable, nx::Integer) where {T<:Number}
     GradientAutodiff(F, zeros(T, nx))
 end
 
