@@ -99,7 +99,6 @@ A `struct` that realizes [`Hessian`](@ref) by using `ForwardDiff`.
 
 The `struct` stores:
 - `F`: a function that has to be differentiated.
-- `H`: a matrix in which the (updated) [`Hessian`](@ref) is stored. 
 - `Hconfig`: result of applying `ForwardDiff.HessianConfig`.
 
 # Constructors
