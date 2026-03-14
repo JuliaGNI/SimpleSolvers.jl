@@ -74,6 +74,7 @@ A `struct` that realizes a [`Gradient`](@ref) by explicitly supplying a function
 # Keys
 
 The `struct` stores:
+- `F`: a function that has to be differentiated.
 - `∇F!`: a function that can be applied in place.
 
 # Functor
