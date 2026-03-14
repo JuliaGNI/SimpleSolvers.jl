@@ -65,7 +65,23 @@ A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function
 
 # Functor
 
-There is no functor associated to `JacobianFunction`.
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NullParameters)
+
+f(y, x, params) = y .= [1. √2.; √2. 3.] * x
+∇f(j, x, params) = j .= [1. √2.; √2. 3.]
+
+jac = JacobianFunction(f, ∇f, Float64)
+j = zeros(Float64, 2, 2)
+x = ones(Float64, 2)
+
+jac(j, x, NullParameters())
+
+# output
+
+2×2 Matrix{Float64}:
+ 1.0      1.41421
+ 1.41421  3.0
+```
 """
 struct JacobianFunction{T,FT<:Callable,JT<:Callable} <: Jacobian{T}
     F::FT
