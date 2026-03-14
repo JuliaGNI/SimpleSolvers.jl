@@ -20,6 +20,9 @@ Examples include:
 - [`HessianAutodiff`](@ref)
 - [`HessianBFGS`](@ref)
 - [`HessianDFP`](@ref)
+
+!!! info
+    This also includes approximate Hessians such as [`HessianBFGS`](@ref) and [`HessianDFP`](@ref).
 """
 abstract type Hessian{T} end
 
@@ -102,8 +105,9 @@ The `struct` stores:
 # Constructors
 
 ```julia
+HessianAutodiff{T}(F, Hconfig)
 HessianAutodiff(F, x::AbstractVector)
-HessianAutodiff(F, nx::Integer)
+HessianAutodiff{T}(F, nx::Integer)
 ```
 
 # Functor
