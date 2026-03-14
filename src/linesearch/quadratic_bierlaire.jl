@@ -1,27 +1,4 @@
 """
-    DEFAULT_BIERLAIRE_ε
-
-A constant that determines the *precision* in [`BierlaireQuadratic`](@ref). The constant recommended in [bierlaire2015optimization](@cite) is `1E-3`.
-
-Note that this constant may also depend on whether we deal with optimizers or solvers.
-
-!!! warning
-    We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
-"""
-const DEFAULT_BIERLAIRE_ε::Float64 = 2eps(Float32)
-
-"""
-    DEFAULT_BIERLAIRE_ξ
-
-A constant on basis of which the `b` in [`BierlaireQuadratic`](@ref) is perturbed in order "to avoid stalling" (see [bierlaire2015optimization; Chapter 11.2.1](@cite); in this reference the author recommends ``10^{-7}`` as a value).
-Its value is $(DEFAULT_BIERLAIRE_ξ).
-
-!!! warning
-    We have deactivated the use of this constant for the moment and are only using `eps(T)` in `BierlaireQuadratic`. This is because solvers and optimizers should rely on different choices of this constant.
-"""
-const DEFAULT_BIERLAIRE_ξ::Float64 = 2eps(Float32)
-
-"""
     default_precision(T)
 
 Compute the default precision used for [`BierlaireQuadratic`](@ref).
@@ -86,10 +63,6 @@ end
     BierlaireQuadratic <: Linesearch
 
 Algorithm taken from [bierlaire2015optimization](@cite).
-
-# Extended help
-
-Note that the performance of [`BierlaireQuadratic`](@ref) may heavily depend on the choice of [`DEFAULT_BIERLAIRE_ε`](@ref) (i.e. the precision) and [`DEFAULT_BIERLAIRE_ξ`](@ref).
 """
 struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ε::T
@@ -101,8 +74,8 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
 end
 
 function BierlaireQuadratic(::Type{T}=Float64;
-    ε=default_precision(T), # DEFAULT_BIERLAIRE_ε,
-    ξ=default_precision(T)  # DEFAULT_BIERLAIRE_ξ
+    ε=default_precision(T), # previously DEFAULT_BIERLAIRE_ε,
+    ξ=default_precision(T)  # previously DEFAULT_BIERLAIRE_ξ
 ) where {T}
     BierlaireQuadratic{T}(ε, ξ)
 end

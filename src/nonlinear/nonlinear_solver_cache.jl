@@ -1,7 +1,7 @@
 """
     AbstractNonlinearSolverCache
 
-An abstract type that comprises e.g. the [`NonlinearSolverCache`](@ref).
+An abstract type that comprises e.g. the [`NonlinearSolverCache`](@ref) and the [`DogLegCache`](@ref).
 """
 abstract type AbstractNonlinearSolverCache{T} end
 

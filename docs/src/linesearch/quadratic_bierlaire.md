@@ -218,4 +218,3 @@ save("f_ls_bierlaire6.png", fig)
 
 !!! info
     After having computed ``\chi`` we further either shift it to the left or right depending on whether ``(c - b)`` or ``(b - a)`` is bigger respectively. The shift is made by either adding or subtracting the constant ``\varepsilon``.
-Also see [`SimpleSolvers.DEFAULT_BIERLAIRE_ε`](@ref).

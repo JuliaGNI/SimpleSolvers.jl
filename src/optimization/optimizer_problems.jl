@@ -1,8 +1,6 @@
 """
     AbstractOptimizerProblem
 
-An *optimizer problem* is a quantity to has to be made zero by a solver or minimized by an optimizer.
-
 See [`LinesearchProblem`](@ref) and [`OptimizerProblem`](@ref).
 """
 abstract type AbstractOptimizerProblem{T<:Number} <: AbstractProblem end

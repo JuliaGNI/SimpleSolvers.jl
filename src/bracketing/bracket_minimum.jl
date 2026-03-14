@@ -1,7 +1,7 @@
 """
     const DEFAULT_BRACKETING_s
 
-Gives the default width of the interval (the bracket). See [`bracket_minimum`](@ref).
+Gives the default initial width of the interval (the bracket). Used for [`bracket_minimum`](@ref), [`bracket_minimum_with_fixed_point`](@ref) and [`bracket_root`](@ref).
 """
 const DEFAULT_BRACKETING_s = 1E-2
 
@@ -12,28 +12,60 @@ Gives the default ratio by which the bracket is increased if bracketing was not 
 """
 const DEFAULT_BRACKETING_k = 2.0
 
-"Default constant"
+"Default constant. Number of maximum iterations for [`bracket_minimum`](@ref), [`bracket_minimum_with_fixed_point`](@ref) and [`bracket_root`](@ref)."
 const DEFAULT_BRACKETING_nmax = 100
 
 abstract type BracketingCriterion end
+
 """
     BracketMinimumCriterion <: BracketingCriterion
 
-The criterion used for [`bracket_minimum`](@ref).
+The criterion used for [`bracket_minimum`](@ref). It checks whether ``y(c)`` is bigger than ``y(b)`` (i.e. checks whether we are passed the minimum).
+Compare this with [`BracketRootCriterion`](@ref).
 
 # Functor
 
-```julia
+```jldoctest; setup = :(using SimpleSolvers: BracketMinimumCriterion)
+bc = BracketMinimumCriterion()
+
+yc = .1
+yb = .2
+
 bc(yb, yc)
+
+# output
+
+false
 ```
-This checks whether `yc` is bigger than `yb`, i.e. whether `c` is *past the minimum*.
 """
 struct BracketMinimumCriterion <: BracketingCriterion end
+
+"""
+    BracketRootCriterion <: BracketingCriterion
+
+The criterion used for [`bracket_root`](@ref). It checks whether there is a sign change between ``b`` and ``c`` (i.e. checks whether there is a root between those two points).
+Compare this with [`BracketMinimumCriterion`](@ref).
+
+# Functor
+
+```jldoctest; setup = :(using SimpleSolvers: BracketRootCriterion)
+bc = BracketRootCriterion()
+
+yc = .1
+yb = -.2
+
+bc(yb, yc)
+
+# output
+
+true
+```
+"""
 struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
 
-function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
+function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
     ya = f(a)
 
@@ -68,8 +100,10 @@ Move a bracket successively in the search direction (starting at `x`) and increa
 This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval).
 This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Also compare it to [`bracket_minimum_with_fixed_point`](@ref).
 
-# Keyword arguments
+# Arguments
 
+- `f`: the function to be bracketed
+- `x`: the starting point
 - `s::`[`DEFAULT_BRACKETING_s`](@ref)
 - `k::`[`DEFAULT_BRACKETING_k`](@ref)
 - `nmax::`[`DEFAULT_BRACKETING_nmax`](@ref)

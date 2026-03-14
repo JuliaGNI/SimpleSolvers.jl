@@ -16,10 +16,12 @@ function determine_initial_α(problem::LinesearchProblem, params, α₀::T, x₀
 end
 
 """
-This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref).
+This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) in double precision.
+In single precision we use [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION`](@ref).
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
 
+"See [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)."
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION = 5
 
 max_number_of_quadratic_linesearch_iterations(::Type{Float32}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION

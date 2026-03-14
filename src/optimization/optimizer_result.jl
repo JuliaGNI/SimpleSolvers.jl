@@ -4,7 +4,7 @@
 
 Stores `x`, `f` and `g` (as keys).
 """
-mutable struct OptimizerResult{T, YT, VT <: AbstractArray{T}, OST <: OptimizerStatus{T,YT}}
+mutable struct OptimizerResult{T,YT,VT<:AbstractArray{T},OST<:OptimizerStatus{T,YT}}
     status::OST
 
     x::VT    # current solution
@@ -23,11 +23,11 @@ Clear all the information contained in `result::`[`OptimizerResult`](@ref).
 This also calls [`clear!(::OptimizerStatus)`](@ref).
 
 !!! info
-   Calling `initialize!` on an `OptimizerResult` calls `clear!` internally.
+    Calling `initialize!` on an `OptimizerResult` calls `clear!` internally.
 """
 function clear!(result::OptimizerResult{XT,YT}) where {XT,YT}
     result.x .= XT(NaN)
-    result.f  = YT(NaN)
+    result.f = YT(NaN)
 
     result
 end
