@@ -5,7 +5,7 @@ struct NoLinearSolver <: AbstractLinearSolver end
 """
     LinearSolver <: AbstractSolver
 
-A struct that stores [`LinearSolverMethod`](@ref)s and [`LinearSolverCache`](@ref)s. [`LinearSolver`](@ref)s are used to solve [`LinearProblem`](@ref)s.
+A struct that stores [`LinearSolverMethod`](@ref)s (for example [`LU`](@ref)) and [`LinearSolverCache`](@ref)s (for example [`LUSolverCache`](@ref)). [`LinearSolver`](@ref)s are used to solve [`LinearProblem`](@ref)s.
 
 # Constructors
 
