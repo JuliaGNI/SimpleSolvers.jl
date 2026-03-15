@@ -4,7 +4,6 @@
 A custom implementation of an LU solver, meant to solve a [`LinearProblem`](@ref).
 
 Routines that use the LU solver include [`factorize!`](@ref), [`ldiv!`](@ref) and [`solve!`](@ref).
-In practice the `LU` solver is used by calling the [`LinearSolver`](@ref) constructor and [`ldiv!`](@ref) or [`solve!`](@ref), or with an instance of `LU` as an argument directly, as shown in the *Example section* of this docstring.
 
 # Constructor
 
@@ -48,6 +47,8 @@ solve(lu, ls) ≈ inv(A) * v
 
 true
 ```
+
+Note that role of [`LinearProblem`](@ref) here.
 """
 struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
     static::ST
@@ -73,11 +74,13 @@ _static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD ? t
 """
     LUSolverCache <: LinearSolverCache
 
+The cache for the [`LU`](@ref) solver.
+
 # Keys
 - `A`: the factorized matrix `A`,
-- `pivots`:
-- `perms`:
-- `info`
+- `pivots`: a vector of pivots used during factorization,
+- `perms`: a vector of permutations used during factorization,
+- `info`: stores an index regarding pivoting.
 """
 mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
