@@ -1,4 +1,4 @@
-"A supertype collecting all nonlinear methods, including `NewtonMethod`s."
+"A supertype collecting all nonlinear methods, including [`NewtonMethod`](@ref)s, [`PicardMethod`](@ref) and [`DogLeg`](@ref)."
 abstract type NonlinearMethod <: SolverMethod end
 
 abstract type NonlinearSolverMethod <: SolverMethod end
