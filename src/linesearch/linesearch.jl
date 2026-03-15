@@ -6,7 +6,7 @@ See these examples for specific information on linesearch algorithms.
 
 # Extended help
 
-A `LinesearchMethod` always has to be used together in [`Linesearch`](@ref) (or with [`solve`](@ref)).
+A `LinesearchMethod` is usually used in [`Linesearch`](@ref) (or with [`solve`](@ref)).
 """
 abstract type LinesearchMethod{T} <: NonlinearMethod end
 

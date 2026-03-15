@@ -6,7 +6,7 @@ A custom implementation of an LU solver, meant to solve a [`LinearProblem`](@ref
 Routines that use the LU solver include [`factorize!`](@ref), [`ldiv!`](@ref) and [`solve!`](@ref).
 In practice the `LU` solver is used by calling the [`LinearSolver`](@ref) constructor and [`ldiv!`](@ref) or [`solve!`](@ref), or with an instance of `LU` as an argument directly, as shown in the *Example section* of this docstring.
 
-# constructor
+# Constructor
 
 The constructor is called with either no argument:
 

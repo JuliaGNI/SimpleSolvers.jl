@@ -5,7 +5,7 @@ A `const` derived from [`NonlinearSolver`](@ref)
 
 # Constructors
 
-The `NewtonSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
+The `NewtonSolver` can be called with a [`NonlinearProblem`](@ref) or with a `Callable`.
 
 What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
 

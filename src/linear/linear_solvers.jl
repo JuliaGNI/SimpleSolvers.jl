@@ -21,11 +21,11 @@ LinearSolver(method, x)
 
 You can manually factorize by either calling [`factorize!`](@ref) or [`solve!`](@ref).
 """
-struct LinearSolver{T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache} <: AbstractLinearSolver 
+struct LinearSolver{T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache} <: AbstractLinearSolver
     method::LSMT
     cache::LSCT
 
-    LinearSolver(method::LSMT, cache::LSCT) where {T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache{T}} = new{T, LSMT, LSCT}(method, cache)
+    LinearSolver(method::LSMT, cache::LSCT) where {T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache{T}} = new{T,LSMT,LSCT}(method, cache)
 end
 
 """
