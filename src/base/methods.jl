@@ -6,7 +6,25 @@ abstract type NonlinearSolverMethod <: SolverMethod end
 """
     NewtonMethod(refactorize)
 
-Make an instance of a *quasi Newton solver* based on an integer *refactorize* that determines how often the rhs is refactored.
+# Constructors
+
+```jldoctest; setup = :(using SimpleSolvers)
+NewtonMethod()
+
+# output
+
+NewtonMethod{true}(1)
+```
+
+```jldoctest; setup = :(using SimpleSolvers)
+QuasiNewtonMethod()
+
+# output
+
+QuasiNewtonMethod(5)
+```
+!!! info
+    The *refactorize parameter determines how often the Jacobian is refactored. This is the difference between the [`NewtonSolver`](@ref) and [`QuasiNewtonSolver`](@ref).
 """
 struct NewtonMethod{QT} <: NonlinearSolverMethod
     refactorize::Int
