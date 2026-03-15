@@ -21,7 +21,7 @@ end
 """
     Linesearch
 
-A `struct` that stores the [`LinesearchMethod`](@ref) and [`Options`](@ref).
+A `struct` that stores a [`LinesearchProblem`](@ref), [`LinesearchMethod`](@ref) and [`Options`](@ref).
 
 # Keys
 
