@@ -4,7 +4,7 @@ abstract type NonlinearMethod <: SolverMethod end
 abstract type NonlinearSolverMethod <: SolverMethod end
 
 """
-    NewtonMethod(refactorize)
+    NewtonMethod <: NonlinearSolverMethod
 
 # Constructors
 
