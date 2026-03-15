@@ -16,7 +16,6 @@ A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Pi
 - `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`NewtonMethod`](@ref)),
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
-- `status::`[`NonlinearSolverStatus`](@ref):
 """
 struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
