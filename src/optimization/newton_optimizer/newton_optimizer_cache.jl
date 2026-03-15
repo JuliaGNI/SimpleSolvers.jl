@@ -1,14 +1,14 @@
 """
-    NewtonOptimizerCache
+    NewtonOptimizerCache <: OptimizerCache
 
 # Keys
 
 - `x`: current iterate (this stores the guess called by the functions generated with [`linesearch_problem`](@ref)),
-- `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
+- `Δx`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
 - `g`: gradient value (this stores the gradient associated with `x` called by the *derivative part* of [`linesearch_problem`](@ref)),
-- `rhs`: the right hand side used to compute the update.
-
-To understand how these are used in practice see e.g. [`linesearch_problem`](@ref).
+- `Δg`: gradient difference (difference between `g` and `ḡ`); this is used for computing the [`OptimizerStatus`](@ref),
+- `rhs`: the right hand side used to compute the update,
+- `H`: the Hessian matrix evaluated at `x`,
 
 Also compare this to [`NonlinearSolverCache`](@ref).
 """

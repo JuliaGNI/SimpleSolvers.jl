@@ -59,7 +59,8 @@ end
 - `linear_solver_method`
 - `DF!`
 - `linesearch`
-- `mode`
+- `jacobian`
+- `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 """
 function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T}

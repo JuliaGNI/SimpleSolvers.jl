@@ -7,8 +7,11 @@ We note that this is also used for the [`BFGS`](@ref) and the [`DFP`](@ref) opti
 
 # Keys
 
+- `x`
 - `x̄`
+- `g`
 - `ḡ`
+- `f̄`
 - `f̄`
 """
 mutable struct NewtonOptimizerState{T,AT<:AbstractArray{T},GT<:AbstractArray{T}} <: OptimizerState{T}
