@@ -6,7 +6,7 @@
 
 The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 
-!!! warn
+!!! warning
     Note the difference to the [`NonlinearSolverCache`](@ref) and the [`NonlinearSolverStatus`](@ref).
 """
 mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T}} <: AbstractSolverState
