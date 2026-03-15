@@ -1,13 +1,26 @@
 """
     NewtonSolver
 
-A `const` derived from [`NonlinearSolver`](@ref)
+A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}`.
 
 # Constructors
 
 The `NewtonSolver` can be called with a [`NonlinearProblem`](@ref) or with a `Callable`.
 
-What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
+See [`NewtonSolver(::AbstractVector{T}, ::Callable, ::AbstractVector{T}) where {T}`](@ref).
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(y, x, params) = y .= sin.(x) ^ 2
+x = ones(5)
+y = zeros(5)
+
+ns = NewtonSolver(x, F, y)
+typeof(ns) <: NewtonSolver
+
+# output
+
+true
+```
 
 # Keywords
 - `nonlinearproblem::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
