@@ -108,36 +108,46 @@ const REGULARIZATION_FACTOR = 0
 """
     Options
 
-# Keys
+# Examples
 
-Configurable options with defaults (values 0 and NaN indicate unlimited):
-- `x_abstol = 2eps(T)`: absolute tolerance for `x` (the function argument). Used in e.g. [`assess_convergence`](@ref) and [`bisection`](@ref),
-- `x_reltol = 2eps(T)`: relative tolerance for `x` (the function argument). Used in e.g. [`assess_convergence`](@ref),
-- `x_suctol = 2eps(T)`: succesive tolerance for `x`. Used in e.g. [`assess_convergence`](@ref),
-- `f_abstol = zero(T)`: absolute tolerance for how close the function value should be to zero. See [`absolute_tolerance`](@ref). Used in e.g. [`bisection`](@ref) and [`assess_convergence`](@ref),
-- `f_reltol = 2eps(T)`: relative tolerance for the function value. Used in e.g. [`assess_convergence`](@ref),
-- `f_suctol = 2eps(T)`: succesive tolerance for the function value. Used in e.g. [`assess_convergence`](@ref),
-- `f_mindec = T(10)^-4`: minimum value by which the function has to decrease (also see [`minimum_decrease_threshold`](@ref)),
-- `g_restol = 2eps(T)`: tolerance for the residual (?) of the gradient,
-- `x_abstol_break = -Inf`: see [`meets_stopping_criteria`](@ref),
-- `x_reltol_break = Inf`: see [`meets_stopping_criteria`](@ref),
-- `f_abstol_break = Inf`: see [`meets_stopping_criteria`](@ref),
-- `f_reltol_break = Inf`: see [`meets_stopping_criteria`](@ref).,
-- `g_restol_break = Inf`,
-- `allow_f_increases = $(ALLOW_F_INCREASES)`,
-- `min_iterations = $(MIN_ITERATIONS)`,
-- `max_iterations = $(MAX_ITERATIONS)`: the maximum number of iterations used in an alorithm, e.g. [`bisection`](@ref) and the functor for [`Backtracking`](@ref),
-- `warn_iterations = $(WARN_ITERATIONS)`,
-- `show_trace = $(SHOW_TRACE)`,
-- `store_trace = $(STORE_TRACE)`,
-- `extended_trace = $(EXTENDED_TRACE)`,
-- `show_every = $(SHOW_EVERY)`,
-- `verbosity = $(VERBOSITY)`
-- `nan_max_iterations = $(NAN_MAX_ITERATIONS)`
-- `nan_factor = $(NAN_FACTOR)`
-- `regularization_factor = $(REGULARIZATION_FACTOR)`
+```jldoctest; setup = :(using SimpleSolvers)
+Options()
 
-Some of the constants are defined by the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
+# output
+
+                x_abstol = 4.440892098500626e-16
+                x_reltol = 4.440892098500626e-16
+                x_suctol = 4.440892098500626e-16
+                f_abstol = 0.0
+                f_reltol = 4.440892098500626e-16
+                f_suctol = 4.440892098500626e-16
+                f_mindec = 0.0001
+                g_restol = 1.4901161193847656e-8
+          x_abstol_break = Inf
+          x_reltol_break = Inf
+          f_abstol_break = Inf
+          f_reltol_break = Inf
+          g_restol_break = Inf
+       allow_f_increases = true
+          min_iterations = 0
+          max_iterations = 1000
+         warn_iterations = 1000
+              show_trace = false
+             store_trace = false
+          extended_trace = false
+              show_every = 1
+               verbosity = 1
+      nan_max_iterations = 10
+              nan_factor = 0.5
+   regularization_factor = 0.0
+
+```
+
+!!! info
+    For the first few constants (`x_abstol` to `g_restol`) the default constructor uses the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
+
+!!! info
+    Also see [`meets_stopping_criteria`](@ref).
 """
 struct Options{T}
     x_abstol::T
