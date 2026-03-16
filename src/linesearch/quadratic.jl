@@ -32,12 +32,15 @@ A factor by which `s` is reduced in each bracketing iteration (see [`bracket_min
 """
 const DEFAULT_s_REDUCTION = 0.5
 
-"""
+@doc raw"""
     Quadratic <: LinesearchMethod
 
-Quadratic Polynomial line search based on the polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)².
+Quadratic Polynomial line search based on the polynomial
+```math
+p(α) = p_0 + p_1(\alpha - \alpha_0) + p_2(\alpha - \alpha_0)^2.
+```
 Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
-We do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *sufficiently small*.
+We do not check the [`SufficientDecreaseCondition`](@ref) here. We instead repeatedly build new quadratic polynomials until a minimum is found (to sufficient accuracy).
 
 This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy).
 The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
