@@ -3,6 +3,9 @@
 
 Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
+!!! info
+    Compare this to the [`NonlinearSolverState`](@ref) and the [`NonlinearSolverCache`](@ref).
+
 # Keys
 - `iteration`: number of iterations
 - `rxₛ`: successive residual in `x`,
