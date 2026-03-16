@@ -19,13 +19,20 @@ end
 """
     OptimizerProblem <: AbstractOptimizerProblem
 
-Stores *gradients*. Also compare this to [`NonlinearProblem`](@ref).
+Used in [`Optimizer`](@ref). Also compare this to [`NonlinearProblem`](@ref).
 
-The type of the *stored gradient* has to be a subtype of [`Gradient`](@ref).
+# Examples
 
-# Functor
+```jldoctest; setup = :(using SimpleSolvers)
+julia> x = ones(3); F(x) = sum(sin.(x) .^ 2)
+F (generic function with 1 method)
 
-If `OptimizerProblem` is called on a single function, the gradient is generated with [`GradientAutodiff`](@ref).
+julia> OptimizerProblem(F, x)
+OptimizerProblem{Float64, typeof(F), Missing, Missing}(F, missing, missing)
+```
+
+!!! info
+    If `OptimizerProblem` is called on a single function, the fields for [`Gradient`](@ref) and [`Hessian`](@ref) are `missing`.
 """
 mutable struct OptimizerProblem{T,TF<:Callable,TG<:Union{Callable,Missing},TH<:Union{Callable,Missing}} <: AbstractOptimizerProblem{T}
     F::TF
