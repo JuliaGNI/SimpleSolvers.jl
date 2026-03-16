@@ -6,9 +6,9 @@ An abstract type that comprises e.g. the [`NonlinearSolverCache`](@ref) and the 
 abstract type AbstractNonlinearSolverCache{T} end
 
 """
-    NonlinearSolverCache
+    NonlinearSolverCache <: AbstractNonlinearSolverCache
 
-Stores `x`, `Δx`, `rhs`, `y`, and `J`.
+Derived from [`AbstractNonlinearSolverCache`](@ref). Used in [`NonlinearSolver`](@ref).
 
 Compare this to [`NewtonOptimizerCache`](@ref).
 
@@ -20,11 +20,6 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 - `y`: the problem evaluated at `x`. This is used in [`linesearch_problem`](@ref),
 - `j::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_problem`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
-# Constructor
-
-```julia
-NonlinearSolverCache(x, y)
-```
 """
 struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNonlinearSolverCache{T}
     x::AT
