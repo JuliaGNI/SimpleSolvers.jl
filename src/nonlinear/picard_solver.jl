@@ -1,4 +1,3 @@
-
 const PicardSolver{T} = NonlinearSolver{T,PicardMethod}
 
 function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
@@ -9,8 +8,16 @@ end
 """
     PicardSolver(x, F)
 
+# Arguments
+- `x`: the initial guess for the solution.
+- `F`: the nonlinear function to solve.
+- `y`
+
 # Keywords
-- `options_kwargs`: see [`Options`](@ref)
+- `DF!`: the Jacobian of `F`,
+- `linesearch`: the linesearch algorithm to use, defaults to [`Backtracking`](@ref),
+- `jacobian`: the Jacobian of `F`, defaults to [`JacobianAutodiff`](@ref),
+- `options_kwargs`: see [`Options`](@ref).
 """
 function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, DF!, x, y)

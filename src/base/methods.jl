@@ -42,9 +42,9 @@ const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
 const QuasiNewtonMethod = NewtonMethod{false}
 
 """
-    PicardMethod()
+    PicardMethod <: NonlinearSolverMethod
 
-Make an instance of a *Picard solver* (fixed point iterator).
+See [`PicardSolver`](@ref).
 """
 struct PicardMethod <: NonlinearSolverMethod end
 
