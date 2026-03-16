@@ -47,7 +47,6 @@ The iteration may also stop after we reaches the maximum number of iterations (s
 
 # Keywords
 
-- `config::`[`Options`](@ref)
 - `ε`: A constant that checks the *precision*/*tolerance*.
 - `s`: A constant that determines the initial interval for bracketing. By default this is [`DEFAULT_BRACKETING_s`](@ref).
 - `s_reduction:` A constant that determines the factor by which `s` is decreased in each new *bracketing iteration*.
