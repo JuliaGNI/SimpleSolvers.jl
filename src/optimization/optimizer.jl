@@ -141,9 +141,6 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
 
-    # cache has to be updated to compute the correct status (this should only be necessary for the Static linesearch)
-    cache(opt).x .= x
-    gradient(opt)(cache(opt).g, x)
     x
 end
 
