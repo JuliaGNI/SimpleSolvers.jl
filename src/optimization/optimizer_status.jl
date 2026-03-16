@@ -3,7 +3,30 @@
 
 Contains residuals (relative and absolute) and various convergence properties.
 
-See [`OptimizerResult`](@ref).
+This is also used in [`OptimizerResult`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerCache, OptimizerStatus)
+x = ones(3)
+state = NewtonOptimizerState(x)
+cache = NewtonOptimizerCache(x)
+f = 1.
+config = Options()
+OptimizerStatus(state, cache, f; config = config)
+
+# output
+
+ * Convergence measures
+
+    |x - x'|               = NaN
+    |x - x'|/|x'|          = NaN
+    |f(x) - f(x')|         = NaN
+    |f(x) - f(x')|/|f(x')| = NaN
+    |g(x) - g(x')|         = NaN
+    |g(x)|                 = NaN
+
+```
 """
 struct OptimizerStatus{XT,YT}
     rxₐ::XT  # absolute change in x
@@ -80,8 +103,7 @@ function Base.show(io::IO, s::OptimizerStatus)
     @printf io "    |f(x) - f(x')|         = %.2e\n"  f_abschange(s)
     @printf io "    |f(x) - f(x')|/|f(x')| = %.2e\n"  f_relchange(s)
     @printf io "    |g(x) - g(x')|         = %.2e\n"  g_abschange(s)
-    @printf io "    |g(x)|                 = %.2e\n"  g_residual(s) 
-    @printf io "\n"
+    @printf io "    |g(x)|                 = %.2e\n"  g_residual(s)
 
 end
 

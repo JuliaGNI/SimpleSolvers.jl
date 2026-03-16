@@ -220,8 +220,7 @@ solve!(x, state, opt)
 
 # output
 
-SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.OptimizerStatus{Float32, Float32}}(
- * Convergence measures
+SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.OptimizerStatus{Float32, Float32}}( * Convergence measures
 
     |x - x'|               = 7.82e-03
     |x - x'|/|x'|          = 2.56e+02
@@ -229,7 +228,6 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
     |f(x) - f(x')|/|f(x')| = 6.63e+04
     |g(x) - g(x')|         = 1.57e-02
     |g(x)|                 = 6.10e-05
-
 , Float32[4.6478817f-8, 3.0517578f-5], 9.313341f-10)
 ```
 
