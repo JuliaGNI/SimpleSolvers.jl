@@ -1,13 +1,17 @@
 """
-    NonlinearSolverState(x, y)
-    NonlinearSolverState(x)
-    NonlinearSolverState{T}(n, m)
-    NonlinearSolverState{T}(n)
+    NonlinearSolverState <: AbstractSolverState
 
 The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 
-!!! warning
+!!! info
     Note the difference to the [`NonlinearSolverCache`](@ref) and the [`NonlinearSolverStatus`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> state = NonlinearSolverState(zeros(3))
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN])
+```
 """
 mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T}} <: AbstractSolverState
     iterations::Int
