@@ -58,13 +58,6 @@ f_change_approx(status::OptimizerStatus) = status.Δf̃
 g_abschange(status::OptimizerStatus) = status.rgₐ
 g_residual(status::OptimizerStatus) = status.rg
 
-"""
-    residual!(status, state, cache, f)
-
-Compute the residual based on previous iterates (`x̄`, `f̄`, `ḡ`) (stored in e.g. [`NewtonOptimizerState`](@ref)) and current iterates (`x`, `f`, `g`) (partly stored in e.g. [`NewtonOptimizerCache`](@ref)).
-
-Also [`meets_stopping_criteria`](@ref).
-"""
 function OptimizerStatus(state::OST, cache::OCT, f::T; config::Options) where {T, OST <: OptimizerState{T}, OCT <: OptimizerCache{T}}
     rxₐ = norm(direction(cache))
     rxᵣ = rxₐ / norm(cache.x)
@@ -79,7 +72,7 @@ function OptimizerStatus(state::OST, cache::OCT, f::T; config::Options) where {T
 
     rgₐ = norm(cache.Δg)
     rg  = norm(cache.g)
-    
+
     f_increased = abs(f) > abs(state.f̄)
 
     x_isnan = any(isnan, cache.x)
@@ -95,7 +88,6 @@ end
 
 function Base.show(io::IO, s::OptimizerStatus)
 
-    @printf io "\n"
     @printf io " * Convergence measures\n"
     @printf io "\n"
     @printf io "    |x - x'|               = %.2e\n"  x_abschange(s)
@@ -117,14 +109,14 @@ Checks if the optimizer converged.
 function convergence_measures(status::OptimizerStatus, config::Options)
     x_converged = x_abschange(status) ≤ x_abstol(config) ||
                   x_relchange(status) ≤ x_reltol(config)
-    
+
     f_converged = f_abschange(status) ≤ f_abstol(config) ||
                   f_relchange(status) ≤ f_reltol(config)
-    
+
     f_converged_strong = f_change(status) ≤ f_mindec(config) * f_change_approx(status)
 
     g_converged = g_residual(status) ≤ g_restol(config)
-    
+
     (x_converged, f_converged, f_converged_strong, g_converged)
 end
 
