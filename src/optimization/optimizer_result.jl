@@ -2,7 +2,14 @@
 """
     OptimizerResult
 
-Stores `x`, `f` and `g` (as keys).
+Serves as a diagnostic tool for the [`Optimizer`](@ref) and is the return argument of [`solve!`](@ref).
+
+# Keys
+
+- `status::`[`OptimizerStatus`](@ref): current status of the optimization,
+- `x`: solution,
+- `f`: function value at solution.
+
 """
 mutable struct OptimizerResult{T,YT,VT<:AbstractArray{T},OST<:OptimizerStatus{T,YT}}
     status::OST
