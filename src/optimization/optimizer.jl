@@ -4,13 +4,57 @@ const SOLUTION_MAX_PRINT_LENGTH = 10
 """
     Optimizer
 
-The optimizer that stores all the information needed for an optimization problem. This problem can be solved by calling [`solve!(::AbstractVector, ::Optimizer)`](@ref).
+The optimizer that stores all the information needed for an optimization problem.
+
+This problem can be solved by calling [`solve!(::AbstractVector, ::Optimizer)`](@ref).
 
 # Keys
 - `algorithm::`[`OptimizerState`](@ref),
 - `problem::`[`OptimizerProblem`](@ref),
+- `gradient::`[`Gradient`](@ref),
+- `hessian::`[`Hessian`](@ref),
 - `config::`[`Options`](@ref),
-- `state::`[`OptimizerState`](@ref).
+- `cache::`[`OptimizerCache`](@ref),
+- `linesearch::`[`Linesearch`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(x) = sum(sin.(x) .^ 2)
+x = ones(3)
+algorithm = Newton()
+state = OptimizerState(algorithm, x)
+optimizer = Optimizer(x, F; algorithm = algorithm, linesearch = Bisection())
+
+solve!(x, state, optimizer)
+x
+
+# output
+
+3-element Vector{Float64}:
+ 1.1102230246251565e-16
+ 1.1102230246251565e-16
+ 1.1102230246251565e-16
+```
+We note that this same problem may have trouble converging with other line searches:
+
+```jldoctest; setup = :(using SimpleSolvers; F(x) = sum(sin.(x) .^ 2))
+x = ones(3)
+algorithm = Newton()
+state = OptimizerState(algorithm, x)
+optimizer = Optimizer(x, F; algorithm = algorithm, linesearch = Backtracking())
+
+solve!(x, state, optimizer)
+x
+
+# output
+
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+```
+
 """
 struct Optimizer{T,
     ALG<:OptimizerMethod,
