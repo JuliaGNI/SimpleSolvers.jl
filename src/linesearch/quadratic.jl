@@ -103,7 +103,7 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_
 
     αₜ = a - d₀ * (b - a)^2 / 2(y₁ - y₀ - d₀ * (b - a))
 
-    !(l2norm(αₜ - α₀) < method(ls).ε) || return αₜ
+    (l2norm(αₜ - α₀) < method(ls).ε) && return αₜ
 
     solve(ls, αₜ, params, s * method(ls).s_reduction, number_of_iterations + 1)
 end
