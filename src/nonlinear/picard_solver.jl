@@ -18,6 +18,25 @@ end
 - `linesearch`: the linesearch algorithm to use, defaults to [`Backtracking`](@ref),
 - `jacobian`: the Jacobian of `F`, defaults to [`JacobianAutodiff`](@ref),
 - `options_kwargs`: see [`Options`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(y, x, params) = y .= sin.(x) .^ 2
+x = zeros(2)
+y = similar(x)
+
+s = PicardSolver(x, F, y)
+state = SolverState(s)
+
+solve!(x, s, state)
+
+# output
+
+2-element Vector{Float64}:
+ 0.0
+ 0.0
+```
 """
 function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, DF!, x, y)
