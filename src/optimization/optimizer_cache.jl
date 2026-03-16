@@ -1,6 +1,6 @@
 """
     OptimizerCache
 
-See [`NewtonOptimizerCache`](@ref) and [`BFGSCache`](@ref).
+See e.g. [`NewtonOptimizerCache`](@ref) and [`BFGSCache`](@ref).
 """
 abstract type OptimizerCache{T} end
