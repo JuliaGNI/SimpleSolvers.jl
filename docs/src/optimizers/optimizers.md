@@ -86,7 +86,7 @@ fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
 
 `sdc` is first allocated as:
 
-```@example optimizer
+```julia
 using SimpleSolvers: SufficientDecreaseCondition, linesearch, linesearch_problem, problem, method, cache, NullParameters # hide
 ls = linesearch(opt)
 α = method(ls).α₀
