@@ -123,10 +123,7 @@ end
 """
     update!(opt, x)
 
-Compute problem and gradient at new solution.
-
-This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref) and then [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
-We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
+Update the `cache` contained in the optimizer `opt`.See e.g. [`update!(::NewtonOptimizerCache, ::OptimizerState, ::Gradient, ::Hessian, ::AbstractVector)`](@ref).
 """
 function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     update!(cache(opt), state, gradient(opt), hessian(opt), x)
