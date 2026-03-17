@@ -129,21 +129,5 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobian(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobian(s))
 
-
-"""
-    update!(solver, x, params)
-
-Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
-This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
-
-!!! info
-    At the moment this is neither used in `solver_step!` nor `solve!`.
-"""
-function update!(s::Union{NewtonSolver,QuasiNewtonSolver}, state::NonlinearSolverState, x₀::AbstractArray, params)
-    update!(cache(s), state, x₀, nonlinearproblem(s), params)
-
-    s
-end
-
 NonlinearSolver(method::NewtonMethod, args...; kwargs...) = NewtonSolver(args...; kwargs...)
 NonlinearSolver(method::QuasiNewtonMethod, args...; kwargs...) = QuasiNewtonSolver(args...; kwargs...)
