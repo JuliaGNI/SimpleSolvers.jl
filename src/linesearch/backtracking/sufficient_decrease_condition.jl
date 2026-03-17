@@ -19,7 +19,6 @@ sdc(1.9), sdc(2.)
 
 (true, false)
 ```
-The second functor is shorthand for `sdc(compute_new_iterate(sdc.αₖ, αₖ, sdc.pₖ), T(αₖ))`, also see [`compute_new_iterate!`](@ref).
 
 # Extended help
 
