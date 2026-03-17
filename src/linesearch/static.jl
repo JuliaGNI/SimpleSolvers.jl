@@ -3,18 +3,20 @@
 
 The *static* method.
 
-# Constructors
-
-```julia
-Static(α)
-```
-
 # Keys
 
 Keys include:
--`α`: equivalent to a step size. The default is `1`.
+- `α`: equivalent to a step size. The default is `1`.
 
-# Extended help
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+Static()
+
+# output
+
+Static with α = 1.0.
+```
 """
 struct Static{T<:Number} <: LinesearchMethod{T}
     α::T
