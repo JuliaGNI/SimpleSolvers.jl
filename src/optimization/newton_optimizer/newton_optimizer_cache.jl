@@ -69,7 +69,7 @@ function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::Abstract
 end
 
 """
-    update!(cache, x, g)
+    update!(cache, state, x, g)
 
 Update the [`NewtonOptimizerCache`](@ref) based on `x` and `g`.
 """
@@ -91,11 +91,13 @@ This is used in [`update!(::OptimizerState, ::AbstractVector)`](@ref).
 
 This sets:
 ```math
-\bar{x}^\mathtt{cache} \gets x,
-x^\mathtt{cache} \gets x,
-g^\mathtt{cache} \gets g,
-\mathrm{rhs}^\mathtt{cache} \gets -g,
-\delta^\mathtt{cache} \gets H^{-1}\mathrm{rhs}^\mathtt{cache},
+\begin{aligned}
+\bar{x}^\mathtt{cache} & \gets x, \\
+x^\mathtt{cache} & \gets x, \\
+g^\mathtt{cache} & \gets g, \\
+\mathrm{rhs}^\mathtt{cache} & \gets -g, \\
+\delta^\mathtt{cache} & \gets H^{-1}\mathrm{rhs}^\mathtt{cache},
+\end{aligned}
 ```
 where we wrote ``H`` for the Hessian (i.e. the input argument `hes`).
 

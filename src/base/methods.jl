@@ -24,7 +24,7 @@ QuasiNewtonMethod()
 QuasiNewtonMethod(5)
 ```
 !!! info
-    The *refactorize parameter determines how often the Jacobian is refactored. This is the difference between the [`NewtonSolver`](@ref) and [`QuasiNewtonSolver`](@ref).
+    The *refactorize* parameter determines how often the Jacobian is refactored. This is the difference between the [`NewtonSolver`](@ref) and [`QuasiNewtonSolver`](@ref).
 """
 struct NewtonMethod{QT} <: NonlinearSolverMethod
     refactorize::Int
