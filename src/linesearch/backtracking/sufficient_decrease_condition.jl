@@ -1,7 +1,7 @@
 @doc raw"""
-    SufficientDecreaseCondition <: LinesearchCondition
+    SufficientDecreaseCondition <: BacktrackingCondition
 
-The condition that determines if ``\alpha_k`` is *big enough*.
+The condition that determines if the change induced by ``\alpha_k`` is *big enough*. This is used in [`Backtracking`](@ref).
 
 # Constructor
 
