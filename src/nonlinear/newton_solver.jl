@@ -119,6 +119,9 @@ It does:
 ```julia
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 ```
+
+!!! warning
+    This will be deprecated in the future in the favour of using `NewtonSolver` directly and specifying the `refactorize` integer.
 """
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
