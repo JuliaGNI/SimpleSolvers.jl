@@ -63,20 +63,3 @@ function direction!(it::PicardSolver, x::AbstractVector, params)
 end
 
 direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(it, x, params)
-
-"""
-    update!(iterator, x, params)
-
-Update the `solver::`[`PicardSolver`](@ref) based on `x`.
-This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `iterator` (and `status(iterator)`).
-
-!!! info
-    At the moment this is neither used in `solver_step!` nor `solve!`.
-"""
-function update!(it::PicardSolver, x₀::AbstractArray, params)
-    update!(status(it), x₀, nonlinearproblem(it), params)
-    update!(nonlinearproblem(it), x₀, params)
-    update!(cache(it), x₀)
-
-    it
-end
