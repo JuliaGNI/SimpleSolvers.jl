@@ -54,13 +54,6 @@ function check_hessian(H::AbstractMatrix; digits::Integer=5)
 end
 
 """
-    update!(hessian, x)
-
-Update the [`Hessian`](@ref) based on the vector `x`. For an explicit example see e.g. [`update!(::HessianAutodiff)`](@ref).
-"""
-update!(::HT, ::AbstractVector) where {HT<:Hessian} = error("update! not defined for $(HT).")
-
-"""
     HessianFunction <: Hessian
 
 A `struct` that realizes a [`Hessian`](@ref) by explicitly supplying a function.
