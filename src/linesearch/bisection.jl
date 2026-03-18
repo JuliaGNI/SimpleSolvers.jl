@@ -16,7 +16,7 @@ The bisection algorithm divides an interval into equal halves until a root is fo
 We first initialize:
 ```math
 \begin{aligned}
-\alpha_0 \gets & \alpha_\mathrm{min},
+\alpha_0 \gets & \alpha_\mathrm{min}, \\
 \alpha_1 \gets & \alpha_\mathrm{max},
 \end{aligned}
 ```
@@ -31,7 +31,7 @@ and then repeat:
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default""" * """$(MAX_ITERATIONS) and the [`Options`](@ref) struct).
+So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default """ * """$(MAX_ITERATIONS) in [`Options`](@ref) struct).
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.

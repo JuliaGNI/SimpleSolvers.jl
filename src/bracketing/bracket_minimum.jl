@@ -97,7 +97,9 @@ end
     bracket_minimum(f, x)
 
 Move a bracket successively in the search direction (starting at `x`) and increase its size until a local minimum of `f` is found.
-This is used for performing [`Bisection`](@ref)s when only one `x` is given (and not an entire interval).
+
+This is used in [`bisection`](@ref)s when only one `x` is given (and not an entire interval).
+
 This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Also compare it to [`bracket_minimum_with_fixed_point`](@ref).
 
 # Arguments
@@ -137,7 +139,7 @@ b \gets & c, \\
 s \gets & sk,
 \end{aligned}
 ```
-and the algorithm is continued. If we have not found a sign chance after ``n_\mathrm{max}`` iterations (see [`DEFAULT_BRACKETING_nmax`](@ref)) the algorithm is terminated and returns an error.
+and the algorithm is continued. If we have not found a sign change after ``n_\mathrm{max}`` iterations (see [`DEFAULT_BRACKETING_nmax`](@ref)) the algorithm is terminated and returns an error.
 The interval that is returned by `bracket_minimum` is then typically used as a starting point for [`bisection`](@ref).
 
 !!! info
