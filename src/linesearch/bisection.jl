@@ -9,7 +9,7 @@ The algorithm is repeated until a root is found (up to tolerance `config.f_absto
     When calling `bisection` it first checks if ``x_\mathrm{min} < x_\mathrm{max}`` and else flips the two entries.
 
 !!! info
-    You can also call `bisection` with only one `x` as input argument. I then uses [`bracket_minimum`](@ref) to find a suitable interval.
+    You can also call `bisection` with only one `x` as input argument. It then uses [`bracket_minimum`](@ref) to find a suitable interval.
 
 # Extended help
 
