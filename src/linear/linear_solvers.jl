@@ -110,7 +110,7 @@ Solve the linear system described by:
 ```
 and store it in `x`. Here ``A`` and ``b`` are provided as an input arguments.
 
-# implementation
+# Implementation
 
 Note that, compared to [`solve(::LinearSolver, ::AbstractVector)`](@ref) this method involves an additional *factorization* of `A`.
 """
