@@ -102,11 +102,11 @@ This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Als
 
 # Arguments
 
-- `f`: the function to be bracketed
-- `x`: the starting point
-- `s::`[`DEFAULT_BRACKETING_s`](@ref)
-- `k::`[`DEFAULT_BRACKETING_k`](@ref)
-- `nmax::`[`DEFAULT_BRACKETING_nmax`](@ref)
+- `f`: the function to be bracketed,
+- `x`: the starting point,
+- `s`: by default [`DEFAULT_BRACKETING_s`](@ref),
+- `k`: by default [`DEFAULT_BRACKETING_k`](@ref),
+- `nmax`: by default [`DEFAULT_BRACKETING_nmax`](@ref).
 
 # Extended help
 
