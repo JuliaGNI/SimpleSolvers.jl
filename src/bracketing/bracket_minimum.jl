@@ -183,6 +183,7 @@ end
     bracket_minimum_with_fixed_point(f, d, x, s, k, nmax)
 
 Find a bracket while keeping the left side (i.e. `x`) fixed.
+
 The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
 
 The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)), as the coefficient ``p_2`` of the fitted polynomial is:
