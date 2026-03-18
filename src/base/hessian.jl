@@ -29,16 +29,15 @@ abstract type Hessian{T} end
 """
     check_hessian(H)
 
-Check the condition number, determinant, max and min value of the [`Hessian`](@ref) `H`.
+Check the condition number, determinant, max and min value of the Hessian `H`.
 
-```jldoctest
-using SimpleSolvers
+!!! info
+    Here the Hessian `H` is a matrix and not of type [`Hessian`](@ref).
 
-H = [1. √2.; √2. 3.]
-SimpleSolvers.check_hessian(H)
+```jldoctest; setup = :(using SimpleSolvers)
+julia> H = [1. √2.; √2. 3.];
 
-# output
-
+julia> SimpleSolvers.check_hessian(H)
 Condition Number of Hessian: 13.9282
 Determinant of Hessian:      1.0
 minimum(|Hessian|):          1.0

@@ -34,16 +34,15 @@ abstract type Jacobian{T} end
 """
     check_jacobian(J)
 
-Check the condition number, determinant, max and min value of the [`Jacobian`](@ref) `J`.
+Check the condition number, determinant, max and min value of the Jacobian `J`.
 
-```jldoctest
-using SimpleSolvers
+!!! info
+    Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
 
-J = [1. √2.; √2. 3.]
-SimpleSolvers.check_jacobian(J)
+```jldoctest; setup = :(using SimpleSolvers)
+julia> J = [1. √2.; √2. 3.];
 
-# output
-
+julia> SimpleSolvers.check_jacobian(J)
 Condition Number of Jacobian: 13.9282
 Determinant of Jacobian:      1.0
 minimum(|Jacobian|):          1.0

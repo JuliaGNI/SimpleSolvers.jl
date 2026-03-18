@@ -40,14 +40,10 @@ Check norm, maximum value and minimum value of a vector.
 
 # Examples
 
-```jldoctest
-using SimpleSolvers
+```jldoctest; setup = :(using SimpleSolvers)
+julia> g = [1., 1., 1., 2., 0.9, 3.];
 
-g = [1., 1., 1., 2., 0.9, 3.]
-SimpleSolvers.check_gradient(g; digits=3)
-
-# output
-
+julia> SimpleSolvers.check_gradient(g; digits=3)
 norm(Gradient):               4.1
 minimum(|Gradient|):          0.9
 maximum(|Gradient|):          3.0
