@@ -5,9 +5,11 @@ Perform bisection of `f` in the interval [`xmin`, `xmax`] with [`Options`](@ref)
 
 The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is determined by [`default_tolerance`](@ref) by default).
 
-# Implementation
+!!! info
+    When calling `bisection` it first checks if ``x_\mathrm{min} < x_\mathrm{max}`` and else flips the two entries.
 
-When calling `bisection` it first checks if ``x_\mathrm{min} < x_\mathrm{max}`` and else flips the two entries.
+!!! info
+    You can also call `bisection` with only one `x` as input argument. I then uses [`bracket_minimum`](@ref) to find a suitable interval.
 
 # Extended help
 
