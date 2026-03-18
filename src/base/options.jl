@@ -3,29 +3,22 @@
 
 Determine the default tolerance for a specific data type. This is used in the constructor of [`Options`](@ref).
 
+Compare this to [`default_precision`](@ref).
+
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers: default_tolerance)
-default_tolerance(Float64)
-
-# output
-
+julia> default_tolerance(Float64)
 4.440892098500626e-16
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: default_tolerance)
-default_tolerance(Float32)
-
-# output
-
+julia> default_tolerance(Float32)
 2.3841858f-7
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: default_tolerance)
-default_tolerance(Float16)
-
-# output
-
+julia> default_tolerance(Float16)
 Float16(0.001953)
 ```
 """
