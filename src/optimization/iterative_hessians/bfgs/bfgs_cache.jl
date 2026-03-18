@@ -45,7 +45,7 @@ gradient(cache::BFGSCache) = cache.g
 """
     direction(cache)
 
-Return the direction of the gradient step (i.e. `δ`) of an instance of [`BFGSCache`](@ref).
+Return the direction of the gradient step (i.e. `Δx`) of an instance of [`BFGSCache`](@ref).
 """
 direction(cache::BFGSCache) = cache.Δx
 

@@ -52,7 +52,7 @@ Return the stored gradient (array) of an instance of [`NewtonOptimizerCache`](@r
 gradient(cache::NewtonOptimizerCache) = cache.g
 
 """
-    direction(::NewtonOptimizerCache)
+    direction(cache)
 
 Return the direction of the gradient step (i.e. `Δx`) of an instance of [`NewtonOptimizerCache`](@ref).
 """
