@@ -43,18 +43,12 @@ In comparison to [`default_tolerance`](@ref), this should return a very small nu
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers: absolute_tolerance)
-absolute_tolerance(Float64)
-
-# output
-
+julia> absolute_tolerance(Float64)
 0.0
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: absolute_tolerance)
-absolute_tolerance(Float32)
-
-# output
-
+julia> absolute_tolerance(Float32)
 0.0f0
 ```
 """
