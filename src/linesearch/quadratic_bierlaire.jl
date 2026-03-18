@@ -1,32 +1,24 @@
 """
     default_precision(T)
 
-Compute the default precision used for [`BierlaireQuadratic`](@ref).
+Compute the default precision used for e.g. [`BierlaireQuadratic`](@ref).
+
 Compare this to the [`default_tolerance`](@ref) used in [`Options`](@ref).
 
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
-default_precision(Float64)
-
-# output
-
+julia> default_precision(Float64)
 1.7763568394002505e-15
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
-default_precision(Float32)
-
-# output
-
+julia> default_precision(Float32)
 9.536743f-7
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
-default_precision(Float16)
-
-# output
-
+julia> default_precision(Float16)
 ERROR: No default precision defined for Float16.
 [...]
 ```
