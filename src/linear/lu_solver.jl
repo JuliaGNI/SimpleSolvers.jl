@@ -259,6 +259,38 @@ end
     ldiv!(x, lu, b)
 
 Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using LinearAlgebra:ldiv!)
+julia> A = [1.; 0.; 0.;; 0.; 2.; 0.;; 0.; 0.; 4.]
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  2.0  0.0
+ 0.0  0.0  4.0
+
+julia> b = [1., 1., 1.]
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+
+julia> s = LinearSolver(LU(), A); factorize!(s); x = zeros(3)
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+
+julia> ldiv!(x, s, b)
+3-element Vector{Float64}:
+ 1.0
+ 0.5
+ 0.25
+
+```
+
+!!! info
+    Note that we need to call [`factorize!`](@ref) here after having allocated the [`LinearSolver`](@ref).
 """
 function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
     @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
