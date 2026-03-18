@@ -105,6 +105,8 @@ isconverged(status::OptimizerStatus) = status.x_converged || status.f_converged 
     convergence_measures(status, config)
 
 Checks if the optimizer converged.
+
+Here `status` is an [`OptimizerStatus`](@ref) object and `config` is an [`Options`](@ref) object.
 """
 function convergence_measures(status::OptimizerStatus, config::Options)
     x_converged = x_abschange(status) ≤ x_abstol(config) ||
