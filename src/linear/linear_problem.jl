@@ -97,7 +97,9 @@ matrix(ls::LinearProblem)::AbstractMatrix = ls.A
 """
     clear!(ls)
 
-Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
+Write `NaN`s into `matrix(ls)` and `rhs(ls)`.
+
+Here ls is a [`LinearProblem`](@ref).
 """
 function clear!(ls::LinearProblem{T}) where {T}
     matrix(ls) .= T(NaN)
