@@ -78,11 +78,6 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     α
 end
 
-"""
-    bisection(f, α)
-
-Use [`bracket_minimum`](@ref) to find a starting interval and then do bisections.
-"""
 bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number} = bisection(f, bracket_minimum(f, α)..., params, config)
 
 """
