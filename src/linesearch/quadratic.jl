@@ -1,21 +1,4 @@
 """
-    determine_initial_α(y₀, obj, α₀)
-
-Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
-This is used as a starting point for using the functor of [`Quadratic`](@ref) and makes sure that `α` describes *a point past the minimum*.
-
-!!! warning
-    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
-"""
-function determine_initial_α(problem::LinesearchProblem, params, α₀::T, x₀::T=zero(T), y₀::T=value(problem, x₀, params)) where {T}
-    if derivative(problem, x₀, params) < zero(T)
-        BracketMinimumCriterion()(y₀, value(problem, x₀ + α₀, params)) ? α₀ : bracket_minimum_with_fixed_point(problem, params, x₀)[2]
-    else
-        bracket_minimum_with_fixed_point(problem, params, x₀)[1]
-    end
-end
-
-"""
 This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) in double precision.
 In single precision we use [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION`](@ref).
 """

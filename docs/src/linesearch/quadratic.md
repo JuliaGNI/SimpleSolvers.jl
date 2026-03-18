@@ -11,7 +11,7 @@ p(\alpha) = f^\mathrm{ls}(0) + (f^\mathrm{ls})'(0)\alpha + p_2\alpha^2,
 ```
 
 and we also call ``p_0:=f^\mathrm{ls}(0)`` and ``p_1:=(f^\mathrm{ls})'(0)``. The coefficient ``p_2`` is then determined the following way:
-- take a value ``\alpha`` (typically initialized as [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
+- take a value ``\alpha`` (typically found with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
 - set ``p_2 \gets \frac{(y - p_0 - p_1\alpha)}{\alpha^2}.``
 
 After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alpha`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
@@ -48,38 +48,28 @@ nothing # hide
 
 ![](f.png)
 
-We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We compute the Jacobian of ``f`` and initialize a [line search problem](@ref "Line Search Problem"):
+We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We initialize a [line search problem](@ref "Line Search Problem"):
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState, jacobianmatrix # hide
+using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix, nonlinearproblem, direction!, iteration_number # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
 
-function J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
-    SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
-end
-
 # allocate solver
-solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
-# initialize solver
-params = NullParameters()
-state = NonlinearSolverState(x)
-jacobian!(solver, x, params)
+solver = NewtonSolver(x, f(x); F = F!)
 
-# compute rhs
-F!(cache(solver).rhs, x, params)
-rmul!(cache(solver).rhs, -1)
-
-# multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobianmatrix(solver))
-ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-nlp = NonlinearProblem(F!, J!, x, f(x))
+# allocate and update state
 state = NonlinearSolverState(x)
-params = (x = state.x, parameters = NullParameters())
 update!(state, x, f(x))
-ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver))
+params = (x = state.x, parameters = NullParameters())
+direction!(solver, x, params, iteration_number(state))
+
+# allocate linesearch problem
+ls_obj = linesearch_problem(nonlinearproblem(solver), jacobian(solver), cache(solver))
+
+# get fˡˢ & ∂fˡˢ∂α (stored in the linesearch problem)
 fˡˢ(alpha) = ls_obj.F(alpha, params)
 ∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 nothing # hide
@@ -117,6 +107,7 @@ In order to compute ``p_2`` we first have to initialize ``\alpha``. We start by 
 Looking at [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref), we see that the [`SimpleSolvers.BracketMinimumCriterion`](@ref) is not satisfied:
 
 ```@setup quadratic
+using SimpleSolvers: bracket_minimum_with_fixed_point # hide
 fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha")
 alpha = -2.:.01:2.
@@ -128,13 +119,12 @@ nothing # hide
 ```
 ![](f_ls_daa.png)
 
-We therefore see that calling [`SimpleSolvers.determine_initial_α`](@ref) returns a different ``\alpha`` (the result of calling [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)):
+We therefore see that calling [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) returns a different ``\alpha``:
 
 ```@example quadratic
-state = NonlinearSolverState(x)
 update!(state, x, f(x))
 params = (x = state.x, parameters = NullParameters())
-α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀ = bracket_minimum_with_fixed_point(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)[2]
 ```
 
 ```@setup quadratic
@@ -260,7 +250,7 @@ p₁ = ∂fˡˢ∂α(0.)
 
 ```@example quadratic
 params = (x = state.x, parameters = NullParameters())
-α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀ = bracket_minimum_with_fixed_point(ls_obj, params, 0.)[2]
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -317,7 +307,7 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
 params = (x = state.x, parameters = NullParameters())
-α₀⁽²⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀⁽²⁾ = bracket_minimum_with_fixed_point(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)[2]
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -368,7 +358,7 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
 params = (x = state.x, parameters = NullParameters())
-α₀⁽³⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀⁽³⁾ = bracket_minimum_with_fixed_point(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)[2]
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -436,9 +426,7 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 nothing # hide
 ```
 
-We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. For this we first need to find a bracket; we again do this with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)[^2]:
-
-[^2]: Here we use [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) directly instead of using [`SimpleSolvers.determine_initial_α`](@ref).
+We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. For this we first need to find a bracket; we again do this with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref):
 
 ```@example II
 (a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, 0.)
@@ -446,7 +434,7 @@ We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. Fo
 
 We plot the bracket:
 
-```@example II
+```@setup II
 using CairoMakie
 mred = RGBf(214 / 256, 39 / 256, 40 / 256)
 mpurple = RGBf(148 / 256, 103 / 256, 189 / 256)
@@ -485,7 +473,7 @@ and compute its minimum:
 αₜ = -p₁ / (2p₂)
 ```
 
-```@example II
+```@setup II
 lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
 # ylims!(ax, (-1., 6.)) # hide
