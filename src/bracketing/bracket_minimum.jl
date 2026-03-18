@@ -244,6 +244,9 @@ end
 Make a bracket for the function based on `x` (for root finding).
 
 This is largely equivalent to [`bracket_minimum`](@ref). See the end of that docstring for more information.
+
+!!! info
+    Here we use [`BracketRootCriterion`](@ref) instead of [`BracketMinimumCriterion`](@ref).
 """
 function bracket_root(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax)::Tuple{T,T} where {T<:Number}
     bracket(f, x, BracketRootCriterion(), s, k, nmax)
