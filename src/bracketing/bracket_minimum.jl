@@ -130,7 +130,7 @@ The algorithm then successively computes:
 c \gets b + s,
 ```
 
-and then checks whether ``f(c) > f(b)``. If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
+and then checks whether ``f(c) > f(b)`` (also see [`BracketMinimumCriterion`](@ref)). If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
 If this is not satisfied ``a,`` ``b`` and ``s`` are updated:
 ```math
 \begin{aligned}
@@ -143,13 +143,12 @@ and the algorithm is continued. If we have not found a sign change after ``n_\ma
 The interval that is returned by `bracket_minimum` is then typically used as a starting point for [`bisection`](@ref).
 
 !!! info
-    The function `bracket_root` is equivalent to `bracket_minimum` with the only difference that the criterion we check for is:
+    The function [`bracket_root`](@ref) is equivalent to `bracket_minimum` with the only difference that the criterion we check for is:
     ```math
     f(c)f(b) < 0,
     ```
-    i.e. that a sign change in the function occurs.
+    i.e. that a sign change in the function occurs. Also see [`BracketRootCriterion`](@ref).
 
-See [`bracket_root`](@ref).
 """
 function bracket_minimum(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
@@ -186,7 +185,7 @@ end
 Find a bracket while keeping the left side (i.e. `x`) fixed.
 The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
 
-The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (taken from [kelley1995iterative](@cite)), as the minimum of the polynomial approximation is:
+The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)), as the coefficient ``p_2`` of the fitted polynomial is:
 ```math
 p_2 = \frac{f(b) - f(a) - f'(0)b}{b^2},
 ```
