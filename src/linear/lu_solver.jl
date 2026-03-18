@@ -68,6 +68,8 @@ const N_STATIC_THRESHOLD = 10
 Determine whether to allocate a `StaticArray` or simply copy the input array.
 This is used when calling [`LinearSolverCache`](@ref) on [`LU`](@ref).
 Every matrix that is smaller or equal to [`N_STATIC_THRESHOLD`](@ref) is turned into a `StaticArray` as a consequence.
+
+See the examples in [`factorize!`](@ref).
 """
 _static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD ? true : false
 
