@@ -180,7 +180,7 @@ function bracket_minimum(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAUL
 end
 
 @doc raw"""
-    bracket_minimum_with_fixed_point(f, d, x, s, k, nmax)
+    bracket_minimum_with_fixed_point(f, x, s, k, nmax)
 
 Find a bracket while keeping the left side (i.e. `x`) fixed.
 
@@ -192,7 +192,7 @@ p_2 = \frac{f(b) - f(a) - f'(a)b}{b^2},
 ```
 where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
 """
-function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
     b = a + s
 
@@ -206,18 +206,17 @@ function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, 
         s = -s
     end
 
-    da = d(a)
-    bc = BracketRootCriterion()
+    bc = BracketMinimumCriterion()
 
     # check if condition is already satisfied
-    if bc(da, d(b))
+    if bc(ya, yb)
         return (a, b)
     end
 
     for _ in 1:nmax
         b = b + s
         yb = f(b)
-        if bc(da, d(b))
+        if bc(ya, f(b))
             interval = a < b ? (a, b) : (b, a)
             return interval
         end
@@ -227,12 +226,12 @@ function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T, s::T, 
     error("Unable to bracket f starting at x = $x.")
 end
 
-function bracket_minimum_with_fixed_point(f::Callable, d::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum_with_fixed_point(f, d, x, s, k, nmax)
+function bracket_minimum_with_fixed_point(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+    bracket_minimum_with_fixed_point(f, x, s, k, nmax)
 end
 
 function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum_with_fixed_point(x -> value(prob, x, params), x -> derivative(prob, x, params), x, s, k, nmax)
+    bracket_minimum_with_fixed_point(x -> value(prob, x, params), x, s, k, nmax)
 end
 
 function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}

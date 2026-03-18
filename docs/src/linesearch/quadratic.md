@@ -441,7 +441,7 @@ We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. Fo
 [^2]: Here we use [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) directly instead of using [`SimpleSolvers.determine_initial_α`](@ref).
 
 ```@example II
-(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, ∂fˡˢ∂α, 0.)
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, 0.)
 ```
 
 We plot the bracket:
@@ -499,7 +499,7 @@ nothing # hide
 We now set ``a \gets \alpha_t`` and perform another iteration:
 
 ```@example II
-(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, ∂fˡˢ∂α, αₜ)
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, αₜ)
 ```
 
 We again build the polynomial:
