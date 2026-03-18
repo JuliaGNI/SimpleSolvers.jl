@@ -42,7 +42,16 @@ end
 """
     cache(ls)
 
-Return the cache (of type [`LinearSolverCache`](@ref)) of the [`LinearSolver`](@ref).
+Return the cache of the [`LinearSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
+julia> ls = LinearSolver(LU(), [1 2; 3 4]);
+
+julia> cache(ls)
+SimpleSolvers.LUSolverCache{Int64, StaticArraysCore.MMatrix{2, 2, Int64, 4}}([1 2; 3 4], [0, 0], [0, 0], 0)
+```
 """
 cache(ls::LinearSolver) = ls.cache
 
