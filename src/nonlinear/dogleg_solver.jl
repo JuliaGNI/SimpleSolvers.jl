@@ -12,7 +12,30 @@ const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
     directions!(s, x, params)
 
 Compute [`direction₁`](@ref) and [`direction₂`](@ref) for the [`DogLegSolver`](@ref).
+
 This is equivalent to [`direction!`](@ref) for the [`NewtonSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NullParameters, directions!, direction₁, direction₂, cache, l2norm)
+julia> J = [0 1; -1 0];
+
+julia> f(y, x, params) = y .= cos.(J * x .- 2.) .^ 2 / l2norm(sin.(x) .- 1.);
+
+julia> x = zeros(2); y = similar(x); s = DogLegSolver(x, y; F = f);
+
+julia> directions!(s, x, NullParameters());
+
+julia> direction₁(cache(s))
+2-element Vector{Float64}:
+ -0.25513686072399455
+  0.1601152321012896
+
+julia> direction₂(cache(s))
+2-element Vector{Float64}:
+ -0.22882877718014286
+  0.22882877718014288
+```
 
 # Extended help
 
