@@ -62,12 +62,12 @@ function residuals(state::NonlinearSolverState)
 end
 
 """
-    assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
+    assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
 
 Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
-- `rxₛ ≤ config.x_suctol`,
-- `rfₐ ≤ config.f_abstol`,
-- `rfₛ ≤ config.f_suctol`.
+- `rxₛ ≤ norm(solution(state)) * config.x_suctol`
+- `rfₛ ≤ norm(value(state)) * config.f_suctol || rfₐ ≤ config.f_abstol`
+- `norm(value(state)) > norm(previousvalue(state))`
 
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
