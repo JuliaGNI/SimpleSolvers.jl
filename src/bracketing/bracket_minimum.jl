@@ -180,14 +180,14 @@ function bracket_minimum(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAUL
 end
 
 @doc raw"""
-    bracket_minimum_with_fixed_point(f, x)
+    bracket_minimum_with_fixed_point(f, d, x, s, k, nmax)
 
 Find a bracket while keeping the left side (i.e. `x`) fixed.
 The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
 
 The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)), as the coefficient ``p_2`` of the fitted polynomial is:
 ```math
-p_2 = \frac{f(b) - f(a) - f'(0)b}{b^2},
+p_2 = \frac{f(b) - f(a) - f'(a)b}{b^2},
 ```
 where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
 """
