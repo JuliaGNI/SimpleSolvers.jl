@@ -6,13 +6,6 @@ Allocate `NaN`s of the size of `x`.
 alloc_x
 
 """
-    alloc_f(x)
-
-Allocate `NaN`s of the size the size of `f` (evaluated at `x`).
-"""
-alloc_f
-
-"""
     alloc_g(x)
 
 Allocate `NaN`s of the size of the gradient of `f` (with respect to `x`).
@@ -31,10 +24,8 @@ This is used in combination with a [`OptimizerProblem`](@ref).
 alloc_h
 
 alloc_x(x::Number) = typeof(x)(NaN)
-alloc_f(x::Number) = real(typeof(x))(NaN)
 
 alloc_x(x::AbstractArray{T}) where {T<:Number} = T(NaN) .* x
-alloc_f(::AbstractArray{T}) where {T<:Number} = real(T)(NaN)
 
 alloc_g(x::AbstractArray{T}) where {T<:Number} = T(NaN) .* x
 alloc_h(x::AbstractArray{T}) where {T<:Number} = T(NaN) .* x * x'
