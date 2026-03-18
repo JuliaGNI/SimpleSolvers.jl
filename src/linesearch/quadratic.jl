@@ -1,5 +1,6 @@
 """
 This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) in double precision.
+
 In single precision we use [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION`](@ref).
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
