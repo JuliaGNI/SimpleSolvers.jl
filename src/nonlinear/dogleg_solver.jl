@@ -45,7 +45,7 @@ The Gauss-Newton direction (i.e. [`direction₂`](@ref)) is computed the usual w
 \mathbf{d}_2 = -\mathbf{J}^{-1} \mathbf{r}
 ```
 
-where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector. The steepest descent direction (*Cauchy point*) is different:
+where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector. The steepest descent direction (taken from [nocedal2006numerical; Equation (11.46)](@cite)) is different:
 ```math
 \mathbf{d}_1 = -\frac{||\mathbf{J}^T\mathbf{r}||^2}{\mathbf{r}^T(\mathbf{J}\mathbf{J}^T)(\mathbf{J}\mathbf{J}^T)\mathbf{r}}\mathbf{J}^T\mathbf{r}.
 ```
