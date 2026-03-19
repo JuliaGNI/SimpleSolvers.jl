@@ -110,6 +110,13 @@ function print_status(status::NonlinearSolverStatus, config::Options)
     end
 end
 
+"""
+    isconverged(status)
+
+Check if either `x` or `f` has converged.
+
+The `status` is a [`NonlinearSolverStatus`](@ref).
+"""
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
 havenan(status::NonlinearSolverStatus) = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
 
