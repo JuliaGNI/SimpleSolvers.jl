@@ -187,8 +187,5 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
     (havenan(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
 
-    # status.x_converged && (@warn "x supposedly converged!")
-    # status.f_converged && (@warn "f supposedly converged!")
-
     nothing
 end
