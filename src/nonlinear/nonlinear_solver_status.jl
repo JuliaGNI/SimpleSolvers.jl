@@ -142,16 +142,31 @@ So convergence is only one possible criterion for which [`meets_stopping_criteri
 
 In the following example we show that `meets_stopping_criteria` evaluates to true when used on a freshly allocated [`NonlinearSolverStatus`](@ref):
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, meets_stopping_criteria, NonlinearSolverCache, NonlinearSolverState)
-config = Options(verbosity=0)
-x = [NaN, 2., 3.]
-cache = NonlinearSolverCache(x, copy(x))
-state = NonlinearSolverState(x)
-status = NonlinearSolverStatus(state, config)
-meets_stopping_criteria(state, config)
+julia> config = Options(verbosity=0);
 
-# output
+julia> x = [NaN, 2., 3.]
+3-element Vector{Float64}:
+ NaN
+   2.0
+   3.0
 
-false
+julia> f = [NaN, 10., 20.]
+3-element Vector{Float64}:
+ NaN
+  10.0
+  20.0
+
+julia> cache = NonlinearSolverCache(x, copy(x));
+
+julia> state = NonlinearSolverState(x);
+
+julia> update!(state, x, f); state.iterations += 1
+1
+
+julia> status = NonlinearSolverStatus(state, config);
+
+julia> meets_stopping_criteria(state, config)
+true
 ```
 This obviously has not converged. To check convergence we can use [`assess_convergence`](@ref).
 ```
