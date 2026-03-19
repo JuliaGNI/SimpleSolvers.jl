@@ -147,38 +147,40 @@ end
     factorize!(lsolver::LinearSolver, A)
 
 Factorize the matrix `A` and store the result in `cache(lsolver).A`.
-Note that calling `cache` on `lsolver` returns the instance of [`LUSolverCache`](@ref) stored in `lsolver`.
+
+Note that calling [`cache`](@ref) on `lsolver` returns the instance of [`LUSolverCache`](@ref) stored in `lsolver`.
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
-y = [1., 0., 0.]
-x = similar(y)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache, ldiv!)
+julia> A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
+3×3 Matrix{Float64}:
+  1.0   2.0   3.0
+  5.0   7.0  11.0
+ 13.0  17.0  19.0
 
-lsolver = LinearSolver(LU(; static=false), x)
-factorize!(lsolver, A)
-cache(lsolver).A
+julia> x = zeros(3);
 
-# output
+julia> lsolver = LinearSolver(LU(; static=false), x);
 
+julia> factorize!(lsolver, A).cache.A
 3×3 Matrix{Float64}:
  13.0        17.0       19.0
   0.0769231   0.692308   1.53846
   0.384615    0.666667   2.66667
+
+julia> A * ldiv!(x, lsolver, ones(3))
+3-element Vector{Float64}:
+ 1.0000000000000002
+ 1.0000000000000027
+ 1.000000000000001
 ```
 Here `cache(lsolver).A` stores the factorized matrix. If we call `factorize!` with two input arguments as above, the method first copies the matrix `A` into the [`LUSolverCache`](@ref). We can equivalently also do:
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
-y = [1., 0., 0.]
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache; A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.])
+julia> lsolver = LinearSolver(LU(), A);
 
-lsolver = LinearSolver(LU(), A)
-factorize!(lsolver)
-cache(lsolver).A
-
-# output
-
+julia> factorize!(lsolver).cache.A
 3×3 StaticArraysCore.MMatrix{3, 3, Float64, 9} with indices SOneTo(3)×SOneTo(3):
  13.0        17.0       19.0
   0.0769231   0.692308   1.53846
@@ -186,6 +188,8 @@ cache(lsolver).A
 ```
 
 Also note the difference between the output types of the two refactorized matrices. This is because we set the keyword `static` to false when calling [`LU`](@ref). Also see [`_static`](@ref).
+
+Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
 function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     @inbounds for i in eachindex(cache(lsolver).perms)
