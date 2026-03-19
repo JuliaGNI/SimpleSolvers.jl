@@ -169,11 +169,13 @@ julia> factorize!(lsolver, A).cache.A
   0.0769231   0.692308   1.53846
   0.384615    0.666667   2.66667
 
-julia> A * ldiv!(x, lsolver, ones(3))
+julia> y = A * ldiv!(x, lsolver, ones(3));
+
+julia> round.(y; digits = 10)
 3-element Vector{Float64}:
- 1.0000000000000002
- 1.0000000000000027
- 1.000000000000001
+ 1.0
+ 1.0
+ 1.0
 ```
 Here `cache(lsolver).A` stores the factorized matrix. If we call `factorize!` with two input arguments as above, the method first copies the matrix `A` into the [`LUSolverCache`](@ref). We can equivalently also do:
 
