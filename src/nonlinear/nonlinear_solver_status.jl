@@ -97,11 +97,15 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
     print_status(status, config)
 
 Print the solver status if:
-1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `iteration_number(status) > config.max_iterations`
-2. `config.verbosity > 1`.
+- `config.verbosity` ``\geq1`` and one of the following two
+1. the solver is converged,
+2. `status.iterations > config.max_iterations`
+- `config.verbosity` ``>1.``
 """
 function print_status(status::NonlinearSolverStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(isconverged(status) && status.iterations ≤ config.max_iterations)) || config.verbosity > 1
+    if (config.verbosity ≥ 1 &&
+        (isconverged(status) || status.iterations > config.max_iterations)) ||
+        config.verbosity > 1
         println(status)
     end
 end
