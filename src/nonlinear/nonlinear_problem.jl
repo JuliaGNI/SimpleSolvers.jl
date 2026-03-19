@@ -51,9 +51,9 @@ end
 
 
 """
-    jacobian(nlp::NonlinearProblem)
+    jacobian(nlp)
 
-Return the *Jacobian function* stored in `nlp`.
+Return the *Jacobian function* stored in the [`NonlinearProblem`](@ref) `nlp`.
 """
 jacobian(nlp::NonlinearProblem) = nlp.J
 
