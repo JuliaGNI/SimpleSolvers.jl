@@ -39,16 +39,15 @@ julia> direction₂(cache(s))
 
 # Extended help
 
-The Gauss-Newton direction (i.e. [`direction₂`](@ref)) is computed using the following formula:
+The Gauss-Newton direction (i.e. [`direction₂`](@ref)) is computed the usual way:
 
 ```math
-\mathbf{d}_2 = (\mathbf{J}^T \mathbf{J})^{-1} \mathbf{r}
+\mathbf{d}_2 = -\mathbf{J}^{-1} \mathbf{r}
 ```
 
-where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector:
-
+where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector. The steepest descent direction (*Cauchy point*) is different:
 ```math
-\mathbf{r} = -\mathbf{J}(\mathbf{x})^T\mathbf{f}(\mathbf{x})
+\mathbf{d}_1 = -\frac{||\mathbf{J}^T\mathbf{r}||^2}{\mathbf{r}^T(\mathbf{J}\mathbf{J}^T)(\mathbf{J}\mathbf{J}^T)\mathbf{r}}\mathbf{J}^T\mathbf{r}.
 ```
 """
 function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
@@ -63,7 +62,6 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
     # the steepest descent direction
-
     mul!(direction₁(cache(s)), transpose(jacobianmatrix(s)), rhs(linearproblem(s)))
     fac₁ = L2norm(direction₁(cache(s)))
     mul!(cache(s).y₂, jacobianmatrix(s), direction₁(cache(s)))
