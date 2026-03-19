@@ -244,6 +244,7 @@ factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearProblem{T}) where {T,LUT<:LU}
     find_maximum_value(v, k)
 
 Find the maximum value of vector `v` starting from the index `k`.
+
 This is used for *pivoting* in [`factorize!`](@ref).
 """
 function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T<:Number}

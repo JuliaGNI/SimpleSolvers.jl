@@ -110,7 +110,9 @@ end
 """
     initialize!(ls, x)
 
-Initialize the [`LinearProblem`](@ref) `ls`. See [`clear!(::LinearProblem)`](@ref).
+Initialize the [`LinearProblem`](@ref) `ls`.
+
+This uses [`clear!(::LinearProblem)`](@ref).
 """
 function initialize!(ls::LinearProblem, ::AbstractVector)
     clear!(ls)
