@@ -59,18 +59,12 @@ The default value of ``10^{-4}`` is often used in the literature [bierlaire2015o
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers: minimum_decrease_threshold)
-minimum_decrease_threshold(Float64)
-
-# output
-
+julia> minimum_decrease_threshold(Float64)
 0.0001
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers: minimum_decrease_threshold)
-minimum_decrease_threshold(Float32)
-
-# output
-
+julia> minimum_decrease_threshold(Float32)
 0.0001f0
 ```
 """
