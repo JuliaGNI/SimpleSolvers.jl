@@ -45,13 +45,13 @@ struct NonlinearSolverStatus{T}
 end
 
 @doc raw"""
-    residuals(cache, state)
+    residuals(state)
 
 Compute the residuals for `cache::`[`NonlinearSolverCache`](@ref).
 The computed residuals are the following:
-- `rxₛ` : successive residual (the norm of ``\delta``),
+- `rxₛ` : successive residual (the norm of ``x - \bar{x}``),
 - `rfₐ`: absolute residual in ``f``,
-- `rfₛ` : successive residual (the norm of ``\Delta{}y``).
+- `rfₛ` : successive residual (the norm of ``y - \bar{y}``).
 """
 function residuals(state::NonlinearSolverState)
     rxₛ = l2norm(solution(state), previoussolution(state))
