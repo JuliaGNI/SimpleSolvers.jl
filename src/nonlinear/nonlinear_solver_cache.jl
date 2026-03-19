@@ -53,11 +53,7 @@ rhs(cache::NonlinearSolverCache) = cache.rhs
 """
     initialize!(cache, x)
 
-Initialize the [`NonlinearSolverCache`](@ref) based on `x`.
-
-# Implementation
-
-This calls [`alloc_x`](@ref) to do all the initialization.
+Initialize the [`NonlinearSolverCache`](@ref) with `NaN`s.
 """
 function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where {T}
     solution(cache) .= T(NaN)
