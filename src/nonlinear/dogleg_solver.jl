@@ -49,6 +49,8 @@ where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual v
 ```math
 \mathbf{d}_1 = -\frac{||\mathbf{J}^T\mathbf{r}||^2}{\mathbf{r}^T(\mathbf{J}\mathbf{J}^T)(\mathbf{J}\mathbf{J}^T)\mathbf{r}}\mathbf{J}^T\mathbf{r}.
 ```
+
+The [`DogLegSolver`](@ref) then interpolates between these two directions (this interpolation is piecewise linear).
 """
 function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     # the Newton direction
