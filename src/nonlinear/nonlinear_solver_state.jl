@@ -44,9 +44,9 @@ previoussolution(state::NonlinearSolverState) = state.x̄
 previousvalue(state::NonlinearSolverState) = state.ȳ
 
 """
-    increase_iteration_number!(s)
+    increase_iteration_number!(state)
 
-To be used together with [`NonlinearSolver`](@ref).
+To be used together with [`NonlinearSolverState`](@ref).
 """
 function increase_iteration_number!(state::NonlinearSolverState)
     state.iterations += 1
