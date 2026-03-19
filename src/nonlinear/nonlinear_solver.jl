@@ -63,7 +63,7 @@ jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = jacob
 
 Return the evaluated Jacobian (a matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
 
-Also see [`jacobian(::NonlinearProblem)`](@ref) and [`Jacobian(::NonlinearProblem)`](@ref).
+Also see [`jacobian(::NonlinearProblem)`](@ref).
 """
 jacobianmatrix(solver::NonlinearSolver) = jacobianmatrix(cache(solver))
 
