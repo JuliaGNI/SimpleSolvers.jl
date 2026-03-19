@@ -129,7 +129,7 @@ Determines whether the iteration stops based on the current [`NonlinearSolverSta
     The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call [`assess_convergence`](@ref) (with the same input arguments).
 
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
-- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
+- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`isconverged`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
 - `iteration_number(status) ≥ config.max_iterations`,
 - if any component in `solution(status)` is `NaN`,
