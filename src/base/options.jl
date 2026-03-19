@@ -54,7 +54,7 @@ end
 
 The minimum value by which a function ``f`` should decrease during an iteration.
 
-The default value of ``10^-4`` is often used in the literature [bierlaire2015optimization], nocedal2006numerical(@cite).
+The default value of ``10^{-4}`` is often used in the literature [bierlaire2015optimization](@cite), [nocedal2006numerical](@cite).
 
 # Examples
 
