@@ -28,13 +28,6 @@ struct LinearSolver{T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache} <: Abstr
     LinearSolver(method::LSMT, cache::LSCT) where {T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache{T}} = new{T,LSMT,LSCT}(method, cache)
 end
 
-"""
-    factorize!(lsolver)
-
-Factorize the matrix stored in the [`LinearSolverCache`](@ref) in `lsolver`.
-
-See [`factorize!(::LinearSolver{T, LUT}) where {T, LUT <: LU}`](@ref) for a concrete example.
-"""
 function factorize!(lsolver::LinearSolver)
     error("No method `factorize!` implemented for method $(typeof(method(lsolver))).")
 end
