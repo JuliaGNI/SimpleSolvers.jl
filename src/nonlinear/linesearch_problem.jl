@@ -1,5 +1,5 @@
 """
-    linesearch_problem(nlp, cache, params)
+    linesearch_problem(nlp, jacobian, cache)
 
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
 
