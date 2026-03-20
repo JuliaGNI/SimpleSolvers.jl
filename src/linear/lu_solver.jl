@@ -132,6 +132,36 @@ function solve(lu::LU, ls::LinearProblem)
     solve!(lsolver, ls)
 end
 
+"""
+    solve(lu, A, b)
+
+Solve the *linear problem* determined by `A` and `b`.
+
+This is the most straightforward way to solve this system.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> A = [1.; 0.; 0.;; 0.; 2.; 0.;; 0.; 0.; 4.]
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  2.0  0.0
+ 0.0  0.0  4.0
+
+julia> b = ones(3)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+
+julia> solve(LU(), A, b)
+3-element Vector{Float64}:
+ 1.0
+ 0.5
+ 0.25
+```
+Compare this to [`solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)`](@ref).
+"""
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
     ls = LinearProblem(A, b)
     update!(ls, A, b)

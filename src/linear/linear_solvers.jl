@@ -75,7 +75,41 @@ end
     solve!(x, ls::LinearSolver, lsys::LinearProblem)
 
 Solve the [`LinearProblem`](@ref) `lsys` with the [`LinearSolver`](@ref) `ls` and store the result in `x`.
-Also see [`solve!(::LinearSolver, ::LinearProblem)`](@ref).
+
+Also see [`solve(::LU, ::AbstractMatrix, ::AbstractVector)`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> x = zeros(3)
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+
+julia> A = [1.; 0.; 0.;; 0.; 2.; 0.;; 0.; 0.; 4.]
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  2.0  0.0
+ 0.0  0.0  4.0
+
+julia> b = ones(3)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+
+julia> ls = LinearSolver(LU(), x);
+
+julia> problem = LinearProblem(x); update!(problem, A, b);
+
+julia> solve!(x, ls, problem)
+3-element Vector{Float64}:
+ 1.0
+ 0.5
+ 0.25
+
+```
 """
 function solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)
     error("No method for solve! implemented for this combination of input arguments.")
@@ -112,9 +146,7 @@ Solve the linear system described by:
 ```
 and store it in `x`. Here ``A`` and ``b`` are provided as an input arguments.
 
-# Implementation
-
-Note that, compared to [`solve(::LinearSolver, ::AbstractVector)`](@ref) this method involves an additional *factorization* of `A`.
+Comapre this to [`solve(::LinearSolver, ::AbstractVector)`](@ref).
 """
 function solve!(::AbstractVector, ::LinearSolver, ::AbstractMatrix, ::AbstractVector)
     error("No method for solve! implemented for this combination of input arguments.")
