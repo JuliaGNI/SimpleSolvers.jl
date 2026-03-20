@@ -25,7 +25,6 @@ After having (i) found the search direction ``p_k``, (ii) defined the linesearch
 ```math
     x_{k+1} \gets \mathcal{R}_{x_k}(\alpha_k{}p_k).
 ```
-where ``\mathcal{R}_{x_k}:T_{x_k}\mathcal{M}\to\mathcal{M}`` is a retraction at ``x_k.``
 
 In practice we will not be able to find the ideal ``\alpha`` at every step, but only an approximation thereof. Examples of line search algorithms that aim at finding this ``\alpha`` are the [static line search](@ref "Static Line Search") and the [backtracking line search](@ref "Backtracking Line Search").
 
