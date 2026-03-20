@@ -40,7 +40,7 @@ function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray=x)
 end
 
 """
-    value!(y, x, params)
+    value!(y, nlp, x, params)
 
 Evaluate the [`NonlinearProblem`](@ref) at `x`.
 """
