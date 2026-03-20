@@ -29,9 +29,7 @@ nothing # hide
 
 ![](f.png)
 
-If we now allocate a [`OptimizerProblem`](@ref) based on this, we can use [`value`](@ref)[^1] with it:
-
-[^1]: See the [section on optimizer problems](@ref "Optimizer Problems") for an explanation of how to use [`value`](@ref).
+If we now allocate a [`OptimizerProblem`](@ref) based on this, we can use [`value`](@ref) with it:
 
 ```@example in_place
 x = [0.]
