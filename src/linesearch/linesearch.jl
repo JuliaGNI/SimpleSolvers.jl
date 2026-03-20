@@ -58,6 +58,8 @@ method(s::Linesearch) = s.method
 Solve the [`LinesearchProblem`](@ref) (contained in [`Linesearch`](@ref)) starting at `α`.
 
 The argument `params` needs to be of an appropriate form expected by the respective [`LinesearchProblem`](@ref).
+
+See [`linesearch_problem`](@ref).
 """
 function solve(::Linesearch{T,MET}, α::T, params=NullParameters()) where {T,MET<:LinesearchMethod{T}}
     error("Solve method missing for $(MET).")
