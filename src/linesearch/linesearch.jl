@@ -54,7 +54,6 @@ method(s::Linesearch) = s.method
 
 """
     solve(linesearch, α, params=NullParameters())
-    solve(problem, method, α, params=NullParameters())
 
 Minimize the [`LinesearchProblem`](@ref) with the [`LinesearchMethod`](@ref) `method`.
 
