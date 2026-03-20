@@ -59,3 +59,10 @@ For specific vector fields ``\xi, \eta \in \Gamma(T\mathcal{M})`` we can write t
 ```math
 \langle \mathrm{Hess}(f)[\xi], \eta  \rangle = \xi(\eta{}f) - (\nabla_\xi\eta)f.
 ```
+
+## Linesearches for Solvers
+
+For solvers the output of ``f:\mathbb{R}^n\to\mathbb{R}^m`` is vector-valued. We therefore have
+```math
+f^\mathrm{ls}(\alpha) = ||f(x_k + \alpha{}p_k)||^2.
+```
