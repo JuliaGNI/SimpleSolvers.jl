@@ -13,7 +13,7 @@ For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax` we take [
 
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
-function triple_point_finder(f::Callable, x₀::T, δ, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
     x₁ = x₀ + δ
 
     if f(x₁) ≥ f(x₀)
