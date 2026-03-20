@@ -207,16 +207,21 @@ end
 
 Solve the optimization problem described by `opt::`[`Optimizer`](@ref) and store the result in `x`.
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!; using Random: seed!; seed!(123))
-f(x) = sum(x .^ 2 + x .^ 3 / 3)
-x = [1f0, 2f0]
-opt = Optimizer(x, f; algorithm = Newton())
-state = NewtonOptimizerState(x)
+# Examples
 
-solve!(x, state, opt)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123))
+julia> f(x) = sum(x .^ 2 + x .^ 3 / 3);
 
-# output
+julia> x = [1f0, 2f0]
+2-element Vector{Float32}:
+ 1.0
+ 2.0
 
+julia> opt = Optimizer(x, f; algorithm = Newton());
+
+julia> state = NewtonOptimizerState(x);
+
+julia> solve!(x, state, opt)
 SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.OptimizerStatus{Float32, Float32}}( * Convergence measures
 
     |x - x'|               = 7.82e-03
@@ -226,18 +231,18 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
     |g(x) - g(x')|         = 1.57e-02
     |g(x)|                 = 6.10e-05
 , Float32[4.6478817f-8, 3.0517578f-5], 9.313341f-10)
-```
 
-We can also check how many iterations it took:
+julia> x
+2-element Vector{Float32}:
+ 4.6478817f-8
+ 3.0517578f-5
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); state = NewtonOptimizerState(x); solve!(x, state, opt))
-iteration_number(state)
-
-# output
-
+julia> iteration_number(state)
 4
 ```
-Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
+
+
+Also see [`solver_step!`](@ref).
 """
 function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     initialize_state!(state)
