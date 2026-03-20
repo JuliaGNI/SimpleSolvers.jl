@@ -116,14 +116,9 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::Abstr
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
-    cache(lsolver).A .= A
-    factorize!(lsolver)
-    ldiv!(solution, lsolver, b)
-    solution
-end
-
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix) where {T,LUT<:LU}
-    solve!(solution, lsolver, A, rhs(cache(lsolver)))
+    ls = LinearProblem(solution)
+    update!(ls, A, b)
+    solve!(solution, lsolver, ls)
 end
 
 function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
