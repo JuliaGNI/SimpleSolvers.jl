@@ -150,7 +150,7 @@ julia> b = ones(3)
  1.0
 
 julia> solve(LU(), A, b)
-3-element Vector{Float64}:
+3-element StaticArraysCore.SizedVector{3, Float64, Vector{Float64}} with indices SOneTo(3):
  1.0
  0.5
  0.25
