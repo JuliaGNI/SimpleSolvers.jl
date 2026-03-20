@@ -110,8 +110,10 @@ The [`NonlinearSolverState`](@ref) stores the previous solution, the previous va
 All of these are updated during one [`update!`](@ref) step (and initialized with `NaN`s).
 """
 function update!(state::NonlinearSolverState{T}, x::AbstractVector{T}, y::AbstractVector{T}) where {T}
-    state.x̄ .= state.x
-    state.ȳ .= state.y
-    state.x .= x
-    state.y .= y
+    previoussolution(state) .= solution(state)
+    previousvalue(state) .= value(state)
+    solution(state) .= x
+    value(state) .= y
+
+    state
 end
