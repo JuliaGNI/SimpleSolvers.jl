@@ -110,11 +110,6 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::Line
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
-    ldiv!(solution, lsolver, b)
-    solution
-end
-
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
     ls = LinearProblem(solution)
     update!(ls, A, b)
