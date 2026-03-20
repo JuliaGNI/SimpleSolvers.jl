@@ -31,7 +31,9 @@ In practice we will not be able to find the ideal ``\alpha`` at every step, but 
 
 ## Line Search Problem
 
-`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`LinesearchProblem`](@ref) that realizes the function ``f^\mathrm{ls}`` described above.
+See the following docstrings:
+- [`linesearch_problem`](@ref),
+- [`LinesearchProblem`](@ref).
 
 ## Search Directions for Optimizers
 
