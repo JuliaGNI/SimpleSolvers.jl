@@ -1,26 +1,11 @@
 # Hessians
 
-Hessians are a crucial ingredient in [`NewtonSolver`](@ref)s and [`SimpleSolvers.NewtonOptimizerState`](@ref)s.
+Hessians come in essentially two forms in `SimpleSolvers`: *exact* Hessians and *iterative* Hessians.
 
-```@example hessian
-using SimpleSolvers
-using LinearAlgebra: norm
+Exact [`Hessian`](@ref)s are used with the `Newton` method. They encompass
+- [`HessianFunction`](@ref) and
+- [`HessianAutodiff`](@ref).
 
-x = rand(3)
-obj = OptimizerProblem(x -> norm(x - vcat(0., 0., 1.))  ^ 2, x)
-hes = HessianAutodiff(obj, x)
-```
-
-The instance of [`HessianAutodiff`](@ref) can be called:
-
-```@example hessian
-hes(x)
-```
-
-Or alternative in-place:
-
-```@example hessian
-H = SimpleSolvers.alloc_h(x)
-hes(H, x)
-H
-```
+For optimizers like [`BFGS`](@ref) and [`DFP`](@ref) we use [`IterativeHessian`](@ref)s:
+- [`HessianBFGS`](@ref) and
+- [`HessianDFP`](@ref).
