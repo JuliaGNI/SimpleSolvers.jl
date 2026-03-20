@@ -99,7 +99,36 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 """
     solver_step!(x, s, state, params)
 
-Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
+Compute one step for solving the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solver_step!, NullParameters)
+julia> f(y, x, params) = y .= sin.(x .- .5) .^ 2
+f (generic function with 1 method)
+
+julia> x = ones(3) / 4
+3-element Vector{Float64}:
+ 0.25
+ 0.25
+ 0.25
+
+julia> y = zero(x)
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+
+julia> s = NewtonSolver(x, similar(x); F = f);
+
+julia> state = NonlinearSolverState(x); update!(state, x, f(y, x, NullParameters()));
+
+julia> solver_step!(x, s, state, NullParameters())
+3-element Vector{Float64}:
+ 0.37767096061051814
+ 0.37767096061051814
+ 0.37767096061051814
+```
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params, iteration_number(state))
