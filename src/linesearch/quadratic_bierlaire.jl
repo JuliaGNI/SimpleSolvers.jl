@@ -40,7 +40,9 @@ end
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
 
-Check whether `b` is closer to `a` or `c` and shift `χ` accordingly. This is taken from [bierlaire2015optimization](@cite).
+Check whether `b` is closer to `a` or `c` and shift `χ` accordingly.
+
+This is taken from [bierlaire2015optimization](@cite).
 """
 function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
     if (c - b) > (b - a)
