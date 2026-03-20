@@ -127,12 +127,11 @@ end
 mean(x::AbstractVector) = sum(x) / length(x)
 
 """
-    solve!(x, s)
+    solve!(x, s, state)
 
-# Extended help
+Solve the [`NonlinearProblem`](@ref) contained in the [`NonlinearSolver`](@ref) with the initial condition `x`.
 
-!!! info
-    The function `update!` calls [`increase_iteration_number!`](@ref).
+You also have to supply a [`NonlinearSolverState`](@ref).
 """
 function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
     initialize!(s, x)
