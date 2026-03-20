@@ -132,25 +132,30 @@ function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
 end
 
 """
-    solver_step!(x, state)
+    solver_step!(x, state, opt)
 
-Compute a full iterate for an instance of [`NewtonOptimizerState`](@ref) `state`.
+Compute a full iterate for an [`Optimizer`](@ref.
 
-This also performs a line search.
+!!! info
+    This also performs a line search.
 
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solver_step!, NewtonOptimizerState)
-f(x) = sum(x .^ 2 + x .^ 3 / 3)
-x = [1f0, 2f0]
-opt = Optimizer(x, f; algorithm = Newton())
-state = NewtonOptimizerState(x)
-update!(state, gradient(opt), x)
+julia> f(x) = sum(x .^ 2 + x .^ 3 / 3);
 
-solver_step!(x, state, opt)
+julia> x = [1f0, 2f0]
+2-element Vector{Float32}:
+ 1.0
+ 2.0
 
-# output
+julia> opt = Optimizer(x, f; algorithm = Newton());
 
+julia> state = NewtonOptimizerState(x);
+
+julia> update!(state, gradient(opt), x);
+
+julia> solver_step!(x, state, opt)
 2-element Vector{Float32}:
  0.25
  0.6666666
