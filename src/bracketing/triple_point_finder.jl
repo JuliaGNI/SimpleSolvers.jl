@@ -7,7 +7,7 @@ Find three points `a > b > c` s.t. `f(a) > f(b)` and `f(c) > f(b)`. This is used
 
 # Implementation
 
-For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax we take [`DEFAULT_BRACKETING_nmax`](@ref) as default.
+For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax` we take [`DEFAULT_BRACKETING_nmax`](@ref) as default.
 
 # Extended help
 
