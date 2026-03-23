@@ -52,7 +52,7 @@ update!(state, grad, x)
 update!(cache, state, grad, hes, x)
 ls_obj = linesearch_problem(obj, grad, cache)
 params = (x = state.x,)
-cc = CurvatureCondition(problem.F(0., params), problem.D(0., params), alpha -> problem.D(alpha, params))
+cc = CurvatureCondition(ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_prob.D(alpha, params))
 
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
