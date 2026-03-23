@@ -215,7 +215,7 @@ nothing # hide
 ```@setup quadratic
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -2.:.01:2.
+alpha = -3.:.01:3.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 axislegend(ax)
 save("f_ls_optimizer_light.png", fig)
@@ -241,7 +241,8 @@ p₁ = ∂fˡˢ∂α(0.)
 
 ```@example quadratic
 params = (x = state.x, parameters = NullParameters())
-α₀ = bracket_minimum_with_fixed_point(ls_obj, params, 0.)[2]
+α₀ = bracket_minimum_with_fixed_point(ls_obj, params, 0.)[1]
+@assert !(α₀ == 0. || α₀ == .1) # hide
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -258,7 +259,6 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -3.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
 scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
