@@ -211,7 +211,7 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
     for _ in 1:nmax
         b = b + s
         yb = f(b)
-        if bc(ya, f(b))
+        if bc(ya, yb)
             interval = a < b ? (a, b) : (b, a)
             return interval
         end
