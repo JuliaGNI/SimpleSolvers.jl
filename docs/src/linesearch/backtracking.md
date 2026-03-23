@@ -4,9 +4,6 @@ A *backtracking line search method* determines the amount to move in a given sea
 
 [^1]: If we use the [strong curvature condition](@ref "Strong Curvature Condition") instead of the [standard curvature condition](@ref "Standard Curvature Condition") we conversely also say that we use the *strong Wolfe conditions*.
 
-!!! info
-    We note that for the static line search we always just return ``\alpha``.
-
 ## Backtracking Line Search for a Line Search Problem
 
 We note that the Wolfe conditions can be written very concisely by using [line search problems](@ref "Line Search Problem"):
