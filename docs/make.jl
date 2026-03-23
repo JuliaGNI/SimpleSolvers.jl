@@ -37,7 +37,6 @@ makedocs(;
             "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md",
         ],
         "Trust Region" => ["Trust Region" => "trust_region/trust_region_summary.md",],
-        "Initialization" => "initialize.md",
         "Linear Solvers" => "linear/linear_solvers.md",
         "Solver Status" => "nonlinear_solver_status.md",
         "In-place vs out-of-place" => "in_place_out_of_place.md",
