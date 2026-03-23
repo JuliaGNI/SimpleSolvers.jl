@@ -277,68 +277,10 @@ We now again move the original ``x`` in the Newton direction with step length ``
 sum∘f(x)
 ```
 
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-x_array = -1.:.01:2.
-lines!(ax, x_array, f.(x_array); label = L"f(x)")
-scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax)
-save("f_with_iterate_opt.png", fig)
-nothing # hide
-```
-![](f_with_iterate_opt.png)
-
-We make another iteration:
-```@example quadratic
-hess(H, x)
-update!(_cache, state, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache)
-fˡˢ(alpha) = ls_obj.F(alpha, params)
-∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
-p₀ = fˡˢ(0.)
-p₁ = ∂fˡˢ∂α(0.)
-params = (x = state.x, parameters = NullParameters())
-α₀⁽²⁾ = bracket_minimum_with_fixed_point(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)[2]
-y = fˡˢ(α₀)
-p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
-p(α) = p₀ + p₁ * α + p₂ * α^2
-α₂ = -p₁ / (2p₂)
-```
-
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-alpha = -15.:.01:2.
-lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
-lines!(ax, alpha, p.(alpha); label = L"p^{(2)}(\alpha)")
-scatter!(ax, α₂, p(α₂); color = mred, label = L"\alpha_2")
-axislegend(ax)
-save("f_ls_opt2.png", fig)
-nothing # hide
-```
-
-![](f_ls_opt2.png)
-
-We now update ``x``:
-
 ```@example quadratic
 compute_new_iterate!(x, α₁, direction(_cache))
 ```
 
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-x_array = -1.:.01:2.
-lines!(ax, x_array, f.(x_array); label = L"f(x)")
-scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax)
-save("f_with_iterate_opt2.png", fig)
-nothing # hide
-```
-![](f_with_iterate_opt2.png)
-
-We finally compute a third iterate:
 ```@example quadratic
 sum∘f(x)
 ```
