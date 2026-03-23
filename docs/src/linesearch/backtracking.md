@@ -34,7 +34,6 @@ rhs = -g
 state = NewtonOptimizerState(x)
 cache = NewtonOptimizerCache(x)
 problem = linesearch_problem(obj, grad, cache)
-state = NewtonOptimizerState(x)
 update!(state, grad, x)
 update!(cache, state, grad, hes, x)
 params = (x = state.x,)
