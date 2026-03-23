@@ -38,7 +38,6 @@ makedocs(;
         ],
         "Trust Region" => ["Trust Region" => "trust_region/trust_region_summary.md",],
         "Linear Solvers" => "linear/linear_solvers.md",
-        "Solver Status" => "nonlinear_solver_status.md",
         "In-place vs out-of-place" => "in_place_out_of_place.md",
         "References" => "references.md",
     ],
