@@ -21,7 +21,7 @@ After the polynomial is found we then take its minimum (analogously to the [Bier
 Here we treat the following problem:
 
 ```@example quadratic
-f(x::Union{T, Vector{T}}) where {T<:Number} = exp.(x) .* (x .^ 3 - 5x + 2x) .+ 2one(T)
+f(x::Union{T, Vector{T}}) where {T<:Number} = exp.(x) .* (x .^ 3 .- 5x .+ 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 F!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = f!(y, x)
 nothing # hide
