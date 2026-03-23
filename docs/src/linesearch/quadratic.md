@@ -214,18 +214,13 @@ using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direct
 
 x₀, x₁ = [0.], x
 obj = OptimizerProblem(sum∘f, x₀)
-grad = GradientAutodiff{Float64}(obj.F, length(x))
+grad = GradientAutodiff{Float64}(obj.F, length(x₀))
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
-update!(state, grad, x₀)
-params = (x = state.x, parameters = NullParameters())
 hess = HessianAutodiff(obj, x₀)
-H = SimpleSolvers.alloc_h(x)
-hess(H, x₀)
 update!(state, grad, x₀)
 update!(_cache, state, grad, hess, x₀)
-hess(H, x₁)
-update!(_cache, state, grad, hess, x₁)
+params = (x = state.x, parameters = NullParameters())
 ls_obj = linesearch_problem(obj, grad, _cache)
 
 fˡˢ(alpha) = ls_obj.F(alpha, params)

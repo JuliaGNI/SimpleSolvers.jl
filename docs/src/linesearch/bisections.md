@@ -14,21 +14,15 @@ x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
-H = SimpleSolvers.alloc_h(x)
-hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(x)
-rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-p = similar(rhs)
-p .= H \ rhs
-cache = NewtonOptimizerCache(x)
-direction(cache) .= p
-problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
+cache = NewtonOptimizerCache(x)
+problem = linesearch_problem(obj, grad, cache)
 update!(state, grad, x)
+update!(cache, state, grad, hes, x)
 
 params = (x = state.x,)
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))

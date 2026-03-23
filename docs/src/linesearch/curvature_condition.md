@@ -48,13 +48,11 @@ g = similar(x)
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-p = similar(rhs)
-p .= H \ rhs
 cache = NewtonOptimizerCache(x)
-direction(cache) .= p
-problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
 update!(state, grad, x)
+update!(cache, state, grad, hes, x)
+ls_obj = linesearch_problem(obj, grad, cache)
 params = (x = state.x,)
 cc = CurvatureCondition(problem.F(0., params), problem.D(0., params), alpha -> problem.D(alpha, params))
 
