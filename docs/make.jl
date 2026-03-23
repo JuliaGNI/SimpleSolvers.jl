@@ -2,7 +2,7 @@ using SimpleSolvers
 using Documenter
 using DocumenterCitations
 import Bibliography
-using SimpleSolvers: update!, solver_step!, NonlinearSolverStatus, solution, assess_convergence, increase_iteration_number!, solve, IterativeHessian, LinesearchProblem, linesearch_problem
+using SimpleSolvers: update!, solver_step!, NonlinearSolverStatus, solution, assess_convergence, increase_iteration_number!, solve, IterativeHessian, LinesearchProblem, linesearch_problem, SufficientDecreaseCondition, CurvatureCondition, bracket_minimum_with_fixed_point, compute_new_iterate!, BracketMinimumCriterion
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "SimpleSolvers.bib"))
 Bibliography.sort_bibliography!(bib.entries, :nyt)  # name-year-title
