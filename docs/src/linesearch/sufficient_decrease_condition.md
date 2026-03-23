@@ -19,11 +19,11 @@ As we assume that ``f(R_{x_k}(\alpha_k{}p_k)) \leq f(x_k)`` and ``g_{x_k}(c_1p_k
     |\frac{f(R_{x_k}(\alpha_k{}p_k)) - f(x_k)}{\alpha_k}| \geq |g_{x_k}(c_1p_k, \mathrm{grad}^g_{x_k}f)|,
 ```
 
-making clear why this is called the *sufficient decrease condition*. The parameter ``c_1`` is typically chosen very small, around ``10^{-4}``. This is implemented as [`SimpleSolvers.SufficientDecreaseCondition`](@ref).
+making clear why this is called the *sufficient decrease condition*. The parameter ``c_1`` is typically chosen very small, around ``10^{-4}``. This is implemented as [`SufficientDecreaseCondition`](@ref).
 
 ## [Example](@id sdc_example_full)
 
-We can visualize the sufficient decrease condition with an example:
+We include an example:
 
 ```@example sdc
 using SimpleSolvers # hide
@@ -33,6 +33,7 @@ x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
+
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 g = grad(x)
@@ -52,7 +53,7 @@ sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., param
 (sdc(α₁), sdc(α₂), sdc(α₃), sdc(α₄), sdc(α₅))
 ```
 
-We can also illustrate this:
+We further illustrate this:
 
 ```@setup sdc
 using CairoMakie, LaTeXStrings

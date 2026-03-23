@@ -11,10 +11,10 @@ p(\alpha) = f^\mathrm{ls}(0) + (f^\mathrm{ls})'(0)\alpha + p_2\alpha^2,
 ```
 
 and we also call ``p_0:=f^\mathrm{ls}(0)`` and ``p_1:=(f^\mathrm{ls})'(0)``. The coefficient ``p_2`` is then determined the following way:
-- take a value ``\alpha`` (typically found with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
+- take a value ``\alpha`` (typically found with [`bracket_minimum_with_fixed_point`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
 - set ``p_2 \gets \frac{(y - p_0 - p_1\alpha)}{\alpha^2}.``
 
-After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alpha`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
+After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process.
 
 ## Example
 
@@ -186,7 +186,7 @@ sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, fˡˢ(0.), ∂fˡˢ∂α(0
 sdc(α₁)
 ```
 
-We now move the original ``x`` in the Newton direction with step length ``\alpha_1`` by using [`SimpleSolvers.compute_new_iterate!`](@ref):
+We now move the original ``x`` in the Newton direction with step length ``\alpha_1`` by using [`compute_new_iterate!`](@ref):
 
 ```@example quadratic
 using SimpleSolvers: compute_new_iterate! # hide
@@ -207,7 +207,7 @@ And we see that we already very close to the root.
 
 ## Example for Optimization
 
-We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
+We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
 ```@example quadratic
 using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction

@@ -1,6 +1,6 @@
 # Bisections
 
-[`Bisection`](@ref)s work by moving an interval until we observe one in which the sign of the derivative of the function changes. 
+[`Bisection`](@ref)s work by moving an interval until we observe a sign change (either in the function or its derivative). 
 
 ## Example
 
@@ -44,6 +44,7 @@ nothing # hide
 
 ## Bracketing
 
+Performing bisections requires providing an *initial interval*. If we are only given a single point instead of an interval we have to perform *bracketing*.
 For bracketing [kochenderfer2019algorithms](@cite) we move an interval successively and simultaneously increase it in the hope that we observe a local minimum (see [`bracket_minimum`](@ref)).
 
 ```@example bisection

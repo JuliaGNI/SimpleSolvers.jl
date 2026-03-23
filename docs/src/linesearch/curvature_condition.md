@@ -4,13 +4,13 @@ The *curvature condition* is used together with the [sufficient decrease conditi
 
 ## Standard Curvature Condition
 
-For the standard curvature condition (see [`SimpleSolvers.CurvatureCondition`](@ref)) we have:
+For the standard curvature condition (see [`CurvatureCondition`](@ref)) we have:
 
 ```math
     \frac{\partial}{\partial{}\alpha}\Bigg|_{\alpha=\alpha_k}f(R_{x_k}(\alpha{}p_k)) = g(\mathrm{grad}_{R_{x_k}(\alpha_k{}p_k)}f, p_k) \geq c_2g(\mathrm{grad}_{x_k}f, p_k) = c_2\frac{\partial}{\partial\alpha}\Bigg|_{\alpha=0}f(R_{x_k}(\alpha{}p_k)),
 ```
 
-for ``c_2\in{}(c_1, 1).`` In words this means that the derivative with respect to ``\alpha_k`` should be bigger at the new iterate ``x_{k+1}`` than at the old iterate ``x_k``. 
+for ``c_2\in{}(c_1, 1).`` In words this means that the derivative with respect to ``\alpha_k`` should not be significantly smaller and possibly even bigger at the new iterate ``x_{k+1}`` than at the old iterate ``x_k``. 
 
 ## Strong Curvature Condition
 
@@ -22,7 +22,7 @@ For the strong curvature condition[^1] we *replace the curvature condition* by:
     |g(\mathrm{grad}_{R_{x_k}(\alpha_k{}p_k)}f, p_k)| < c_2|g(\mathrm{grad}_{x_k}f, p_k)|.
 ```
 
-Note the sign change here. This is because the term ``g(\mathrm{grad}_{x_k}f, p_k)`` is negative if ``p_k`` is a [search direction](@ref "Line Search"). Both the standard *curvature condition* and the *strong curvature condition* are implemented under [`SimpleSolvers.CurvatureCondition`](@ref).
+Note the sign change here. This is because the term ``g(\mathrm{grad}_{x_k}f, p_k)`` is negative if ``p_k`` is a [search direction](@ref "Line Search"). Both the standard *curvature condition* and the *strong curvature condition* are implemented under [`CurvatureCondition`](@ref).
 
 !!! info
     In order to use the corresponding condition you have to either pass `mode = :Standard` or `mode = :Strong` to the constructor of `CurvatureCondition`.

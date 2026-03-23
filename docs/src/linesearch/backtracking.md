@@ -93,7 +93,7 @@ ls_method = Backtracking()
 nothing # hide
 ```
 
-`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
+`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
 We now use this to compute a *backtracking line search*:
 
@@ -103,13 +103,13 @@ ls = Linesearch(problem, ls_method)
 αₜ = solve(ls, α, params)
 ```
 
-And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:
+And we check whether the [`SufficientDecreaseCondition`](@ref) is satisfied:
 ```@example ls_obj
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 sdc(αₜ)
 ```
 
-Similarly for the [`SimpleSolvers.CurvatureCondition`](@ref):
+Similarly for the [`CurvatureCondition`](@ref):
 
 ```@example ls_obj
 using SimpleSolvers: CurvatureCondition # hide

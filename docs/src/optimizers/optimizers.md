@@ -78,7 +78,7 @@ Calling [`solve`](@ref) together with [`Linesearch`](@ref) (in this case [`Simpl
 α *= ls.p
 ```
 
-as long as the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) isn't satisfied. This condition checks the following:
+as long as the [`SufficientDecreaseCondition`](@ref) isn't satisfied. This condition checks the following:
 
 ```julia
 fₖ₊₁ ≤ sdc.fₖ + sdc.c₁ * αₖ * sdc.pₖ' * sdc.gradₖ
