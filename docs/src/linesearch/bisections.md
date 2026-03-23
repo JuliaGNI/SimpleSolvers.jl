@@ -80,16 +80,16 @@ We then use this interval to start the bisection algorithm.
 We here illustrate a potential issue with backtracking. For this consider the following function:
 
 ```@example bisection
-using SimpleSolvers: bracket_root
+using SimpleSolvers: bracket_root # hide
 f2(α::T) where {T <: Number} = α^2 - one(T)
-α₀ = -3.0
+α₀ = -10.0
 (a, c) = bracket_root(f2, α₀)
 ```
 
 And when we plot this we find:
 
 ```@setup bisection
-alpha = -3.5:.01:2.5
+alpha = -(-α₀ + .5):.01:2.5
 
 y = f2.(alpha)
 fig = Figure()
