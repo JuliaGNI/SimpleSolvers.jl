@@ -13,7 +13,7 @@ A line search method has the goal of minimizing a [`LinesearchProblem`](@ref) ap
     ```
     where ``g_{x_k}:T_{x_k}\mathcal{M}\times{}T_{x_k}\mathcal{M}\to\mathbb{R}`` is a Riemannian metric.
 
-A line search is therefore a *sub-optimization problem* in a nonlinear [optimizer](@ref "Optimizers") (or solver) in which we want to find an ``\alpha`` that minimizes:
+A line search is therefore a *sub-optimization problem* in an optimizer (or solver) in which we want to find an ``\alpha`` that minimizes:
 
 ```math
     \min_\alpha{}f^\mathrm{ls}(\alpha) = \min_\alpha{}f(\mathcal{R}_{x_k}(\alpha{}p_k)),

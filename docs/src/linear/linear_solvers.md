@@ -10,7 +10,7 @@ is satisfied.
 
 A linear system can be called with[^1]:
 
-[^1]: Here we also have to *update* the [`LinearProblem`](@ref) by calling [`update!`](@ref). For more information see the [page on the `initialize!` function](@ref "Initialization").
+[^1]: Note that we also have to *update* the [`LinearProblem`](@ref).
 
 ```@example linear_system
 using SimpleSolvers
