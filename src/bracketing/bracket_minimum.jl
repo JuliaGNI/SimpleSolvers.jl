@@ -208,11 +208,6 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
 
     bc = BracketMinimumCriterion()
 
-    # check if condition is already satisfied
-    if bc(ya, yb)
-        return (a, b)
-    end
-
     for _ in 1:nmax
         b = b + s
         yb = f(b)
