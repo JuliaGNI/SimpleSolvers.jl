@@ -70,11 +70,13 @@ vlines!(ax, [a]; label = L"a", color=mpurple)
 vlines!(ax, [c]; label = L"c", color=mgreen)
 
 axislegend(ax)
-save("2d_plot.png", fig)
+save("2d_plot_dark.png", fig)
+save("2d_plot_light.png", fig)
 nothing
 ```
 
-![](2d_plot.png)
+![](2d_plot_dark.png)
+![](2d_plot_light.png)
 
 We then use this interval to start the bisection algorithm.
 
@@ -106,11 +108,15 @@ vlines!(ax, [a]; label = L"a", color=mpurple)
 vlines!(ax, [c]; label = L"c", color=mgreen)
 
 axislegend(ax)
-save("2d_plot_issue.png", fig)
+save("2d_plot_issue_light.png", fig)
+save("2d_plot_issue_dark.png", fig)
 nothing
 ```
 
-![](2d_plot_issue.png)
+![](2d_plot_issue_light.png)
+![](2d_plot_issue_dark.png)
+
+If the interval would contain ``r_1`` and ``r_2`` then we get an error:
 
 ```@example bisection
 struct UnexpectedSuccess <: Exception end #hide

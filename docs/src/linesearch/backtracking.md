@@ -78,11 +78,13 @@ scatter!(ax, [α₅], [problem.F(α₅, params)]; color=mred, label=L"\alpha_5")
 
 axislegend(ax)
 
-save("ls_backtracking_2d_plot.png", fig)
+save("ls_backtracking_2d_plot_light.png", fig)
+save("ls_backtracking_2d_plot_dark.png", fig)
 nothing
 ```
 
-![](ls_backtracking_2d_plot.png)
+![](ls_backtracking_2d_plot_light.png)
+![](ls_backtracking_2d_plot_dark.png)
 
 ## [Example](@id sdc_example)
 

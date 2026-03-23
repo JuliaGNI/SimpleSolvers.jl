@@ -64,11 +64,13 @@ scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
 scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
 axislegend(ax)
-save("f_ls_bierlaire1.png", fig)
+save("f_ls_bierlaire1_light.png", fig)
+save("f_ls_bierlaire1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_bierlaire1.png)
+![](f_ls_bierlaire1_light.png)
+![](f_ls_bierlaire1_dark.png)
 
 In the figure above we already plotted three points ``a``, ``b`` and ``c`` on whose basis a second-order polynomial will be built that should approximate ``f^\mathrm{ls}``.[^1] The polynomial is built with the ansatz:
 
@@ -107,11 +109,13 @@ We can plot this polynomial:
 p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
 lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 axislegend(ax; position = :rt)
-save("f_ls_bierlaire2.png", fig)
+save("f_ls_bierlaire2_light.png", fig)
+save("f_ls_bierlaire2_dark.png", fig)
 nothing
 ```
 
-![](f_ls_bierlaire2.png)
+![](f_ls_bierlaire2_light.png)
+![](f_ls_bierlaire2_dark.png)
 
 We can now easily determine the minimum of the polynomial ``p``. It is:
 
@@ -123,10 +127,12 @@ We can now easily determine the minimum of the polynomial ``p``. It is:
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rt)
-save("f_ls_bierlaire3.png", fig)
+save("f_ls_bierlaire3_light.png", fig)
+save("f_ls_bierlaire3_dark.png", fig)
 ```
 
-![](f_ls_bierlaire3.png)
+![](f_ls_bierlaire3_light.png)
+![](f_ls_bierlaire3_dark.png)
 
 We now use this ``\chi`` to either replace ``a``, ``b`` or ``c`` and distinguish between the following four scenarios:
 1. ``\chi > b`` and ``f^\mathrm{ls}(\chi) > f^\mathrm{ls}(b)`` ``\implies`` we replace ``c \gets \chi``,
@@ -156,10 +162,12 @@ lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rb)
-save("f_ls_bierlaire4.png", fig)
+save("f_ls_bierlaire4_light.png", fig)
+save("f_ls_bierlaire4_dark.png", fig)
 ```
 
-![](f_ls_bierlaire4.png)
+![](f_ls_bierlaire4_light.png)
+![](f_ls_bierlaire4_dark.png)
 
 We again observe the second case. By replacing ``a, b \gets b, \chi`` we get:
 
@@ -183,10 +191,12 @@ lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rb)
-save("f_ls_bierlaire5.png", fig)
+save("f_ls_bierlaire5_light.png", fig)
+save("f_ls_bierlaire5_dark.png", fig)
 ```
 
-![](f_ls_bierlaire5.png)
+![](f_ls_bierlaire5_light.png)
+![](f_ls_bierlaire5_dark.png)
 
 We now observe the first case: ``\chi`` is to the left of ``b`` and ``f^\mathrm{ls}(\chi)`` is above ``f(b)``. Hence we replace ``b, c \gets \chi, b.`` A successive iteration yields:
 
@@ -211,10 +221,12 @@ lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 # scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rt)
-save("f_ls_bierlaire6.png", fig)
+save("f_ls_bierlaire6_light.png", fig)
+save("f_ls_bierlaire6_dark.png", fig)
 ```
 
-![](f_ls_bierlaire6.png)
+![](f_ls_bierlaire6_light.png)
+![](f_ls_bierlaire6_dark.png)
 
 !!! info
     After having computed ``\chi`` we further either shift it to the left or right depending on whether ``(c - b)`` or ``(b - a)`` is bigger respectively. The shift is made by either adding or subtracting the constant ``\varepsilon``.

@@ -42,11 +42,13 @@ lines!(ax_initial, x, f.(x); label = L"f(x)")
 x = [0.]
 scatter!(ax_initial, x, f.(x); label = L"x_0", color = :red)
 axislegend(ax_initial; merge = true, unique = true)
-save("f.png", fig_initial)
+save("f_light.png", fig_initial)
+save("f_dark.png", fig_initial)
 nothing # hide
 ```
 
-![](f.png)
+![](f_light.png)
+![](f_dark.png)
 
 We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We initialize a [line search problem](@ref "Line Search Problem"):
 
@@ -81,11 +83,13 @@ ax = Axis(fig[1, 1])
 alpha = -2.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 axislegend(ax)
-save("f_ls.png", fig)
+save("f_ls_light.png", fig)
+save("f_ls_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls.png)
+![](f_ls_light.png)
+![](f_ls_dark.png)
 
 !!! info
     The second plot shows the optimization problem for the ideal step length, where we start from ``x_0`` and proceed in the Newton direction. In the following we want to determine its minimum by fitting a quadratic polynomial, i.e. fitting ``p``.
@@ -134,10 +138,12 @@ alpha = -2.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 scatter!(ax, α₀, fˡˢ(α₀); label = L"\alpha_0", color = mred)
 axislegend(ax)
-save("f_ls_a0.png", fig)
+save("f_ls_a0_light.png", fig)
+save("f_ls_a0_dark.png", fig)
 nothing # hide
 ```
-![](f_ls_a0.png)
+![](f_ls_a0_light.png)
+![](f_ls_a0_dark.png)
 
 We can now finally compute ``p_2`` and determine the minimum of the polynomial:
 
@@ -163,11 +169,13 @@ lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
 scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
 axislegend(ax)
-save("f_ls1.png", fig)
+save("f_ls1_light.png", fig)
+save("f_ls1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls1.png)
+![](f_ls1_light.png)
+![](f_ls1_dark.png)
 
 We now check wether ``\alpha_1`` satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"):
 
@@ -188,10 +196,12 @@ compute_new_iterate!(x, α₁, direction(cache(solver)))
 ```@setup quadratic
 scatter!(ax_initial, x, f(x); color = mpurple, label = L"x^\mathrm{update}")
 axislegend(ax_initial; merge = true, unique = true)
-save("f_with_iterate.png", fig_initial)
+save("f_with_iterate_light.png", fig_initial)
+save("f_with_iterate_dark.png", fig_initial)
 nothing # hide
 ```
-![](f_with_iterate.png)
+![](f_with_iterate_light.png)
+![](f_with_iterate_dark.png)
 
 And we see that we already very close to the root.
 
@@ -229,11 +239,13 @@ ax = Axis(fig[1, 1])
 alpha = -2.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 axislegend(ax)
-save("f_ls_optimizer.png", fig)
+save("f_ls_optimizer_light.png", fig)
+save("f_ls_optimizer_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_optimizer.png)
+![](f_ls_optimizer_light.png)
+![](f_ls_optimizer_dark.png)
 
 !!! info
     Note the different shape of the line search problem in the case of the optimizer, especially that the line search problem can take negative values in this case!
@@ -272,12 +284,13 @@ lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
 scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
 axislegend(ax)
-save("f_ls_opt1.png", fig)
+save("f_ls_opt1_light.png", fig)
+save("f_ls_opt1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_opt1.png)
-
+![](f_ls_opt1_light.png)
+![](f_ls_opt1_dark.png)
 
 We now again move the original ``x`` in the Newton direction with step length ``\alpha_1``:
 
@@ -450,11 +463,13 @@ scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
 # ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
-save("f_ls_1.png", fig)
+save("f_ls_1_light.png", fig)
+save("f_ls_1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_1.png)
+![](f_ls_1_light.png)
+![](f_ls_1_dark.png)
 
 We now build the polynomial:
 
@@ -478,11 +493,13 @@ lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
 # ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
-save("f_ls_2.png", fig)
+save("f_ls_2_light.png", fig)
+save("f_ls_2_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_2.png)
+![](f_ls_2_light.png)
+![](f_ls_2_dark.png)
 
 We now set ``a \gets \alpha_t`` and perform another iteration:
 
@@ -519,8 +536,10 @@ lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
 # ylims!(ax, (-1., 6.))
 axislegend(ax)
-save("f_ls_3.png", fig)
+save("f_ls_3_light.png", fig)
+save("f_ls_3_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_3.png)
+![](f_ls_3_light.png)
+![](f_ls_3_dark.png)

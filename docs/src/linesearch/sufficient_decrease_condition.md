@@ -83,8 +83,10 @@ scatter!(ax, [x4[1]], [x4[2]], [f(x4)]; color=mgreen, label=L"x_4")
 scatter!(ax, [x5[1]], [x5[2]], [f(x5)]; color=mred, label=L"x_5")
 
 axislegend(ax)
-save("sufficient_decrease.png", fig)
+save("sufficient_decrease_light.png", fig)
+save("sufficient_decrease_dark.png", fig)
 nothing
 ```
 
-![](sufficient_decrease.png)
+![Example of points that largely satisfy the *sufficient decrease condition*.](sufficient_decrease_dark.png)
+![Example of points that largely satisfy the *sufficient decrease condition*.](sufficient_decrease_light.png)
