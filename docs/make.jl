@@ -10,7 +10,7 @@ Bibliography.sort_bibliography!(bib.entries, :nyt)  # name-year-title
 const buildpath = haskey(ENV, "CI") ? ".." : ""
 
 makedocs(;
-    plugins = [bib],
+    plugins=[bib],
     modules=[SimpleSolvers],
     authors="Michael Kraus",
     repo="https://github.com/JuliaGNI/SimpleSolvers.jl/blob/{commit}{path}#L{line}",
@@ -18,9 +18,9 @@ makedocs(;
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
         canonical="https://JuliaGNI.github.io/SimpleSolvers.jl",
-        size_threshold = 1_048_576,
-        size_threshold_warn = 1_048_576,
-        assets = ["assets/extra_styles.css"],
+        size_threshold=1_048_576,
+        size_threshold_warn=1_048_576,
+        assets=["assets/extra_styles.css"],
     ),
     pages=[
         "Home" => "index.md",
@@ -43,7 +43,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo   = "github.com/JuliaGNI/SimpleSolvers.jl",
-    devurl = "latest",
-    devbranch = "main",
+    repo="github.com/JuliaGNI/SimpleSolvers.jl",
+    devurl="latest",
+    devbranch="main",
 )
