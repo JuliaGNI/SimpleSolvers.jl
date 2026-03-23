@@ -4,7 +4,7 @@ In [bierlaire2015optimization](@cite) quadratic line search is defined as an int
 
 ```@example bierlaire
 using SimpleSolvers
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix, update! # hide
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix, update!, direction! # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(1234) # hide
@@ -12,9 +12,7 @@ Random.seed!(1234) # hide
 f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (T(.5) * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
-j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
 F!(y, x, params) = f!(y, x)
-J!(j, x, params) = j!(j, x)
 x = -10 * rand(1)
 solver = NewtonSolver(x, f.(x); F = F!)
 params = NullParameters()

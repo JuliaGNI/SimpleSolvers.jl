@@ -43,7 +43,7 @@ cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 update!(state, grad, x)
 update!(cache, state, grad, hes, x)
-p = copy(direction(cache))
+p = copy(direction(cache)) # hide
 ls_obj = linesearch_problem(obj, grad, cache)
 params = (x = state.x, parameters = NullParameters())
 sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_obj.F(alpha, params))
