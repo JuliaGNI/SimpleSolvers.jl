@@ -194,9 +194,9 @@ And we see that we already very close to the root.
 We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
 ```@example quadratic
-using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction
-
-x₀, x₁ = [0.], x
+using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction # hide
+x₀ = [0., .1, .2]
+x = copy(x₀)
 obj = OptimizerProblem(sum∘f, x₀)
 grad = GradientAutodiff{Float64}(obj.F, length(x₀))
 _cache = NewtonOptimizerCache(x₀)
