@@ -112,4 +112,10 @@ nothing
 
 ![](2d_plot_issue.png)
 
-And we see that the interval now contains two roots, ``r_1`` and ``r_2``.
+```@example bisection
+struct UnexpectedSuccess <: Exception end #hide
+try  #hide
+bracket_root(f2, 30.)
+throw(UnexpectedSuccess()) #hide
+catch e; e isa UnexpectedSuccess ? rethrow(e) : showerror(stderr, e); end  #hide
+```
