@@ -9,12 +9,12 @@ A *backtracking line search method* determines the amount to move in a given sea
 
 ## Backtracking Line Search for a Line Search Problem
 
-We note that when performing backtracking on a [line search problem](@ref "Line Search Problem") care needs to be taken. This is because we need to find equivalent quantities for ``\mathrm{grad}_{x_k}f`` and ``p``. We first look at the derivative of the line search problem:
+We note that the Wolfe conditions can be written very concisely by using [line search problems](@ref "Line Search Problem"):
 
 ```math
 \frac{d}{d\alpha}f^\mathrm{ls}(\alpha) = \frac{d}{d\alpha}f(\mathcal{R}_{x_k}(\alpha{}p)) = \langle d|_{\mathcal{R}_{x_k}(\alpha{}p)}f, \alpha{}p \rangle,
 ```
-because the tangent map of a retraction is the identity at zero [absil2008optimization](@cite), i.e. ``T_{0_x}\mathcal{R} = \mathrm{id}_{T_x\mathcal{M}}``. In the equation above ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f\in{}T^*\mathcal{M}`` indicates the exterior derivative of ``f`` evaluated at ``\mathcal{R}_{x_k}(\alpha{}p)`` and ``\langle \cdot, \cdot \rangle: T^*\mathcal{M}\times{}T\mathcal{M}\to\mathbb{R}`` is the natural pairing between tangent and cotangent space[^2] [bishop1980tensor](@cite).
+where the tangent map of a retraction is the identity at zero [absil2008optimization](@cite), i.e. ``T_{0_x}\mathcal{R} = \mathrm{id}_{T_x\mathcal{M}}``. In the equation above ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f\in{}T^*\mathcal{M}`` indicates the exterior derivative of ``f`` evaluated at ``\mathcal{R}_{x_k}(\alpha{}p)`` and ``\langle \cdot, \cdot \rangle: T^*\mathcal{M}\times{}T\mathcal{M}\to\mathbb{R}`` is the natural pairing between tangent and cotangent space[^2] [bishop1980tensor](@cite).
 
 [^2]: If we are not dealing with general Riemannian manifolds but only vector spaces then ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f`` simply becomes ``\nabla_{\mathcal{R}_{x_k}(\alpha{}p)}f`` and we further have ``\langle A, B\rangle = A^T B``.
 
