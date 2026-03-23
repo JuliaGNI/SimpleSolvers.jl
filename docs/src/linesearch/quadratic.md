@@ -104,31 +104,15 @@ p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
 ```
 
-### Initializing ``\alpha``
+### Finding ``p_2``
 
-In order to compute ``p_2`` we first have to initialize ``\alpha``. We start by *guessing* an initial ``\alpha`` as [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref). If this initial alpha does not satisfy the [`SimpleSolvers.BracketMinimumCriterion`](@ref), i.e. it holds that ``f^\mathrm{ls}(\alpha_0) > f^\mathrm{ls}(0)``, we call [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) (similarly to calling [`SimpleSolvers.bracket_minimum`](@ref) for [standard bracketing](@ref "Bracketing")). 
-
-Looking at [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref), we see that the [`SimpleSolvers.BracketMinimumCriterion`](@ref) is not satisfied:
-
-```@setup quadratic
-using SimpleSolvers: bracket_minimum_with_fixed_point # hide
-fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = L"\alpha")
-alpha = -2.:.01:2.
-lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, SimpleSolvers.DEFAULT_ARMIJO_α₀, fˡˢ(SimpleSolvers.DEFAULT_ARMIJO_α₀); label = L"f^\mathrm{ls}(\alpha_{0, \mathrm{DEFAULT}})", color = mred)
-axislegend(ax)
-save("f_ls_daa.png", fig)
-nothing # hide
-```
-![](f_ls_daa.png)
-
-We therefore see that calling [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) returns a different ``\alpha``:
+We call [`bracket_minimum_with_fixed_point`](@ref) to find ``\alpha_0.`` For this point we should have ``f^\mathrm{ls}(\alpha_0) > f^\mathrm{ls}(0).``
 
 ```@example quadratic
+using SimpleSolvers: bracket_minimum_with_fixed_point
 update!(state, x, f(x))
 params = (x = state.x, parameters = NullParameters())
-α₀ = bracket_minimum_with_fixed_point(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)[2]
+α₀ = bracket_minimum_with_fixed_point(ls_obj, params, 0.)[2]
 ```
 
 ```@setup quadratic
@@ -136,7 +120,7 @@ fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha")
 alpha = -2.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, α₀, fˡˢ(α₀); label = L"\alpha_0", color = mred)
+scatter!(ax, α₀, fˡˢ(α₀); label = L"f^\mathrm{ls}(\alpha_0)", color = mred)
 axislegend(ax)
 save("f_ls_a0_light.png", fig)
 save("f_ls_a0_dark.png", fig)
@@ -290,7 +274,7 @@ nothing # hide
 We now again move the original ``x`` in the Newton direction with step length ``\alpha_1``:
 
 ```@example quadratic
-compute_new_iterate!(x, α₁, direction(_cache))
+sum∘f(x)
 ```
 
 ```@setup quadratic
@@ -339,8 +323,7 @@ nothing # hide
 We now update ``x``:
 
 ```@example quadratic
-using SimpleSolvers: compute_new_iterate
-x .= compute_new_iterate(x, α₂, direction(_cache))
+compute_new_iterate!(x, α₁, direction(_cache))
 ```
 
 ```@setup quadratic
@@ -357,37 +340,8 @@ nothing # hide
 
 We finally compute a third iterate:
 ```@example quadratic
-hess(H, x)
-update!(_cache, state, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache)
-
-fˡˢ(alpha) = ls_obj.F(alpha, params)
-∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
-p₀ = fˡˢ(0.)
-p₁ = ∂fˡˢ∂α(0.)
-params = (x = state.x, parameters = NullParameters())
-α₀⁽³⁾ = bracket_minimum_with_fixed_point(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)[2]
-y = fˡˢ(α₀)
-p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
-p(α) = p₀ + p₁ * α + p₂ * α^2
-α₃ = -p₁ / (2p₂)
+sum∘f(x)
 ```
-
-```@example quadratic
-x .= compute_new_iterate(x, α₃, direction(_cache))
-```
-
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-x_array = -1.:.01:4.
-lines!(ax, x_array, f.(x_array); label = L"f(x)")
-scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax)
-save("f_with_iterate_opt3.png", fig)
-nothing # hide
-```
-![](f_with_iterate_opt3.png)
 
 ## Example II
 
