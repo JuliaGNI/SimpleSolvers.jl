@@ -1,25 +1,11 @@
 """
-    determine_initial_α(y₀, obj, α₀)
+This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) in double precision.
 
-Check whether `α₀` satisfies the [`BracketMinimumCriterion`](@ref) for `obj`. If the criterion is not satisfied we call [`bracket_minimum_with_fixed_point`](@ref).
-This is used as a starting point for using the functor of [`Quadratic`](@ref) and makes sure that `α` describes *a point past the minimum*.
-
-!!! warning
-    This was used for the old `Quadratic` line search and seems to be not used anymore for `Quadratic` and other line searches.
-"""
-function determine_initial_α(problem::LinesearchProblem, params, α₀::T, x₀::T=zero(T), y₀::T=value(problem, x₀, params)) where {T}
-    if derivative(problem, x₀, params) < zero(T)
-        BracketMinimumCriterion()(y₀, value(problem, x₀ + α₀, params)) ? α₀ : bracket_minimum_with_fixed_point(problem, params, x₀)[2]
-    else
-        bracket_minimum_with_fixed_point(problem, params, x₀)[1]
-    end
-end
-
-"""
-This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref).
+In single precision we use [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION`](@ref).
 """
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
 
+"See [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)."
 const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION = 5
 
 max_number_of_quadratic_linesearch_iterations(::Type{Float32}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION
@@ -30,19 +16,21 @@ A factor by which `s` is reduced in each bracketing iteration (see [`bracket_min
 """
 const DEFAULT_s_REDUCTION = 0.5
 
-"""
+@doc raw"""
     Quadratic <: LinesearchMethod
 
-Quadratic Polynomial line search based on the polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)².
+Quadratic Polynomial line search based on the polynomial
+```math
+p(α) = p_0 + p_1(\alpha - \alpha_0) + p_2(\alpha - \alpha_0)^2.
+```
 Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
-We do not check the [`SufficientDecreaseCondition`](@ref) but rather whether the derivative is *sufficiently small*.
+We do not check the [`SufficientDecreaseCondition`](@ref) here. We instead repeatedly build new quadratic polynomials until a minimum is found (to sufficient accuracy).
 
 This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy).
 The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
 
 # Keywords
 
-- `config::`[`Options`](@ref)
 - `ε`: A constant that checks the *precision*/*tolerance*.
 - `s`: A constant that determines the initial interval for bracketing. By default this is [`DEFAULT_BRACKETING_s`](@ref).
 - `s_reduction:` A constant that determines the factor by which `s` is decreased in each new *bracketing iteration*.
@@ -101,7 +89,7 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_
 
     αₜ = a - d₀ * (b - a)^2 / 2(y₁ - y₀ - d₀ * (b - a))
 
-    !(l2norm(αₜ - α₀) < method(ls).ε) || return αₜ
+    (l2norm(αₜ - α₀) < method(ls).ε) && return αₜ
 
     solve(ls, αₜ, params, s * method(ls).s_reduction, number_of_iterations + 1)
 end

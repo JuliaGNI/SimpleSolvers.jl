@@ -7,13 +7,29 @@ Find three points `a > b > c` s.t. `f(a) > f(b)` and `f(c) > f(b)`. This is used
 
 # Implementation
 
-For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax we take [`DEFAULT_BRACKETING_nmax`](@ref) as default.
+For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax` we take [`DEFAULT_BRACKETING_nmax`](@ref) as default.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: triple_point_finder; round10(x) = round(x; digits=10))
+julia> f(x) = x ^ 2
+f (generic function with 1 method)
+
+julia> x = -1.
+-1.0
+
+julia> a, b, c = round10.(triple_point_finder(f, x))
+(-0.37, 0.27, 1.55)
+
+julia> round10.((f(a), f(b), f(c)))
+(0.1369, 0.0729, 2.4025)
+```
 
 # Extended help
 
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
-function triple_point_finder(f::Callable, x₀::T, δ, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
     x₁ = x₀ + δ
 
     if f(x₁) ≥ f(x₀)

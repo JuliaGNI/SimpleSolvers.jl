@@ -1,12 +1,12 @@
 """
     LinesearchMethod
 
-Examples include [`Static`](@ref), [`Backtracking`](@ref), [`Bisection`](@ref) and [`Quadratic`](@ref).
+Examples include [`Static`](@ref), [`Backtracking`](@ref), [`Bisection`](@ref) , [`BierlaireQuadratic`](@ref) and [`Quadratic`](@ref).
 See these examples for specific information on linesearch algorithms.
 
 # Extended help
 
-A `LinesearchMethod` always has to be used together in [`Linesearch`](@ref) (or with [`solve`](@ref)).
+A `LinesearchMethod` is usually used in [`Linesearch`](@ref) (or with [`solve`](@ref)).
 """
 abstract type LinesearchMethod{T} <: NonlinearMethod end
 
@@ -21,7 +21,7 @@ end
 """
     Linesearch
 
-A `struct` that stores the [`LinesearchMethod`](@ref) and [`Options`](@ref).
+A `struct` that stores a [`LinesearchProblem`](@ref), [`LinesearchMethod`](@ref) and [`Options`](@ref).
 
 # Keys
 
@@ -54,11 +54,12 @@ method(s::Linesearch) = s.method
 
 """
     solve(linesearch, α, params=NullParameters())
-    solve(problem, method, α, params=NullParameters())
 
-Minimize the [`LinesearchProblem`](@ref) with the [`LinesearchMethod`](@ref) `method`.
+Solve the [`LinesearchProblem`](@ref) (contained in [`Linesearch`](@ref)) starting at `α`.
 
 The argument `params` needs to be of an appropriate form expected by the respective [`LinesearchProblem`](@ref).
+
+See [`linesearch_problem`](@ref).
 """
 function solve(::Linesearch{T,MET}, α::T, params=NullParameters()) where {T,MET<:LinesearchMethod{T}}
     error("Solve method missing for $(MET).")

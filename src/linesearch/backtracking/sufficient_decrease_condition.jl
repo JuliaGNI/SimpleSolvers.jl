@@ -1,21 +1,24 @@
 @doc raw"""
-    SufficientDecreaseCondition <: LinesearchCondition
+    SufficientDecreaseCondition <: BacktrackingCondition
 
-The condition that determines if ``\alpha_k`` is *big enough*.
+The condition that determines if the change induced by ``\alpha_k`` is *big enough*. This is used in [`Backtracking`](@ref).
 
-# Constructor
+# Example
 
-```julia
-SufficientDecreaseCondition(c, xₖ, fₖ, dₖ, pₖ, f)
+```julia; setup = :(using SimpleSolvers; using SimpleSolvers: SufficientDecreaseCondition)
+c = SimpleSolvers.DEFAULT_WOLFE_c₁
+f(x) = (x - 1.) ^ 2
+xₖ = 0.
+fₖ = f(xₖ)
+dₖ = 2xₖ - 2.
+
+sdc = SufficientDecreaseCondition(c, fₖ, dₖ, f)
+sdc(1.9), sdc(2.)
+
+# output
+
+(true, false)
 ```
-
-# Functors
-
-```julia
-sdc(αₖ₊₁, αₖ)
-sdc(αₖ)
-```
-The second functor is shorthand for `sdc(compute_new_iterate(sdc.αₖ, αₖ, sdc.pₖ), T(αₖ))`, also see [`compute_new_iterate!`](@ref).
 
 # Extended help
 

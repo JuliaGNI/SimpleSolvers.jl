@@ -1,4 +1,3 @@
-
 const PicardSolver{T} = NonlinearSolver{T,PicardMethod}
 
 function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
@@ -9,8 +8,35 @@ end
 """
     PicardSolver(x, F)
 
+# Arguments
+- `x`: the initial guess for the solution.
+- `F`: the nonlinear function to solve.
+- `y`
+
 # Keywords
-- `options_kwargs`: see [`Options`](@ref)
+- `DF!`: the Jacobian of `F`,
+- `linesearch`: the linesearch algorithm to use, defaults to [`Backtracking`](@ref),
+- `jacobian`: the Jacobian of `F`, defaults to [`JacobianAutodiff`](@ref),
+- `options_kwargs`: see [`Options`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(y, x, params) = y .= sin.(x) .^ 2
+x = zeros(2)
+y = similar(x)
+
+s = PicardSolver(x, F, y)
+state = SolverState(s)
+
+solve!(x, s, state)
+
+# output
+
+2-element Vector{Float64}:
+ 0.0
+ 0.0
+```
 """
 function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, DF!, x, y)
@@ -37,20 +63,3 @@ function direction!(it::PicardSolver, x::AbstractVector, params)
 end
 
 direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(it, x, params)
-
-"""
-    update!(iterator, x, params)
-
-Update the `solver::`[`PicardSolver`](@ref) based on `x`.
-This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `iterator` (and `status(iterator)`).
-
-!!! info
-    At the moment this is neither used in `solver_step!` nor `solve!`.
-"""
-function update!(it::PicardSolver, x₀::AbstractArray, params)
-    update!(status(it), x₀, nonlinearproblem(it), params)
-    update!(nonlinearproblem(it), x₀, params)
-    update!(cache(it), x₀)
-
-    it
-end

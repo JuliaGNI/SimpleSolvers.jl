@@ -45,7 +45,7 @@ gradient(cache::BFGSCache) = cache.g
 """
     direction(cache)
 
-Return the direction of the gradient step (i.e. `δ`) of an instance of [`BFGSCache`](@ref).
+Return the direction of the gradient step (i.e. `Δx`) of an instance of [`BFGSCache`](@ref).
 """
 direction(cache::BFGSCache) = cache.Δx
 
@@ -70,7 +70,7 @@ Update the [`BFGSCache`](@ref) based on `x` and `g`.
 
 The update rule used here can be found in [kochenderfer2019algorithms](@cite) and [nocedal2006numerical](@cite):
 
-What this is doing is:
+It does:
 
 ```math
 \begin{aligned}
@@ -78,7 +78,7 @@ What this is doing is:
 \gamma & \gets \nabla{}f^{(k)} - \nabla{}f^{(k-1)}, \\
 T_1 & \gets \delta\gamma^TQ, \\
 T_2 & \gets Q\gamma\delta^T, \\
-T_3 & \gets (1 + \frac{gamma^TQ\gamma}{\delta^\gamma})\delta\delta^T,
+T_3 & \gets (1 + \frac{\gamma^TQ\gamma}{\delta^\gamma})\delta\delta^T,\\
 Q & \gets Q - (T_1 + T_2 - T_3)/{\delta^T\gamma}
 \end{aligned}
 ```

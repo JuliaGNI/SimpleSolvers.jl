@@ -4,17 +4,14 @@ A *backtracking line search method* determines the amount to move in a given sea
 
 [^1]: If we use the [strong curvature condition](@ref "Strong Curvature Condition") instead of the [standard curvature condition](@ref "Standard Curvature Condition") we conversely also say that we use the *strong Wolfe conditions*.
 
-!!! info
-    We note that for the static line search we always just return ``\alpha``.
-
 ## Backtracking Line Search for a Line Search Problem
 
-We note that when performing backtracking on a [line search problem](@ref "Line Search Problem") care needs to be taken. This is because we need to find equivalent quantities for ``\mathrm{grad}_{x_k}f`` and ``p``. We first look at the derivative of the line search problem:
+We note that the Wolfe conditions can be written very concisely by using [line search problems](@ref "Line Search Problem"):
 
 ```math
 \frac{d}{d\alpha}f^\mathrm{ls}(\alpha) = \frac{d}{d\alpha}f(\mathcal{R}_{x_k}(\alpha{}p)) = \langle d|_{\mathcal{R}_{x_k}(\alpha{}p)}f, \alpha{}p \rangle,
 ```
-because the tangent map of a retraction is the identity at zero [absil2008optimization](@cite), i.e. ``T_{0_x}\mathcal{R} = \mathrm{id}_{T_x\mathcal{M}}``. In the equation above ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f\in{}T^*\mathcal{M}`` indicates the exterior derivative of ``f`` evaluated at ``\mathcal{R}_{x_k}(\alpha{}p)`` and ``\langle \cdot, \cdot \rangle: T^*\mathcal{M}\times{}T\mathcal{M}\to\mathbb{R}`` is the natural pairing between tangent and cotangent space[^2] [bishop1980tensor](@cite).
+where the tangent map of a retraction is the identity at zero [absil2008optimization](@cite), i.e. ``T_{0_x}\mathcal{R} = \mathrm{id}_{T_x\mathcal{M}}``. In the equation above ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f\in{}T^*\mathcal{M}`` indicates the exterior derivative of ``f`` evaluated at ``\mathcal{R}_{x_k}(\alpha{}p)`` and ``\langle \cdot, \cdot \rangle: T^*\mathcal{M}\times{}T\mathcal{M}\to\mathbb{R}`` is the natural pairing between tangent and cotangent space[^2] [bishop1980tensor](@cite).
 
 [^2]: If we are not dealing with general Riemannian manifolds but only vector spaces then ``d|_{\mathcal{R}_{x_k}(\alpha{}p)}f`` simply becomes ``\nabla_{\mathcal{R}_{x_k}(\alpha{}p)}f`` and we further have ``\langle A, B\rangle = A^T B``.
 
@@ -28,21 +25,17 @@ x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
-H = SimpleSolvers.alloc_h(x)
-hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 g = grad(x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-p = similar(rhs)
-p .= H \ rhs
-cache = NewtonOptimizerCache(x)
-direction(cache) .= p
-problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
+cache = NewtonOptimizerCache(x)
+problem = linesearch_problem(obj, grad, cache)
 update!(state, grad, x)
+update!(cache, state, grad, hes, x)
 params = (x = state.x,)
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 
@@ -78,11 +71,13 @@ scatter!(ax, [α₅], [problem.F(α₅, params)]; color=mred, label=L"\alpha_5")
 
 axislegend(ax)
 
-save("ls_backtracking_2d_plot.png", fig)
+save("ls_backtracking_2d_plot_light.png", fig)
+save("ls_backtracking_2d_plot_dark.png", fig)
 nothing
 ```
 
-![](ls_backtracking_2d_plot.png)
+![](ls_backtracking_2d_plot_light.png)
+![](ls_backtracking_2d_plot_dark.png)
 
 ## [Example](@id sdc_example)
 
@@ -97,10 +92,9 @@ ls_method = Backtracking()
 nothing # hide
 ```
 
-`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`SimpleSolvers.LinesearchProblem`](@ref) that only depends on ``\alpha``:
+`SimpleSolvers` contains a function [`SimpleSolvers.linesearch_problem`](@ref) that allocates a [`LinesearchProblem`](@ref) that only depends on ``\alpha``:
 
 We now use this to compute a *backtracking line search*:
-
 
 ```@example ls_obj
 ls = Linesearch(problem, ls_method)
@@ -108,13 +102,13 @@ ls = Linesearch(problem, ls_method)
 αₜ = solve(ls, α, params)
 ```
 
-And we check whether the [`SimpleSolvers.SufficientDecreaseCondition`](@ref) is satisfied:
+And we check whether the [`SufficientDecreaseCondition`](@ref) is satisfied:
 ```@example ls_obj
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 sdc(αₜ)
 ```
 
-Similarly for the [`SimpleSolvers.CurvatureCondition`](@ref):
+Similarly for the [`CurvatureCondition`](@ref):
 
 ```@example ls_obj
 using SimpleSolvers: CurvatureCondition # hide

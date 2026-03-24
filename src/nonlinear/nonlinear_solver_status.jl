@@ -3,6 +3,9 @@
 
 Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
+!!! info
+    Compare this to the [`NonlinearSolverState`](@ref) and the [`NonlinearSolverCache`](@ref).
+
 # Keys
 - `iteration`: number of iterations
 - `rxₛ`: successive residual in `x`,
@@ -42,13 +45,13 @@ struct NonlinearSolverStatus{T}
 end
 
 @doc raw"""
-    residuals(cache, state)
+    residuals(state)
 
 Compute the residuals for `cache::`[`NonlinearSolverCache`](@ref).
 The computed residuals are the following:
-- `rxₛ` : successive residual (the norm of ``\delta``),
+- `rxₛ` : successive residual (the norm of ``x - \bar{x}``),
 - `rfₐ`: absolute residual in ``f``,
-- `rfₛ` : successive residual (the norm of ``\Delta{}y``).
+- `rfₛ` : successive residual (the norm of ``y - \bar{y}``).
 """
 function residuals(state::NonlinearSolverState)
     rxₛ = l2norm(solution(state), previoussolution(state))
@@ -59,12 +62,12 @@ function residuals(state::NonlinearSolverState)
 end
 
 """
-    assess_convergence(rxₛ, rfₐ, rfₛ, config, cache, state)
+    assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
 
 Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
-- `rxₛ ≤ config.x_suctol`,
-- `rfₐ ≤ config.f_abstol`,
-- `rfₛ ≤ config.f_suctol`.
+- `rxₛ ≤ norm(solution(state)) * config.x_suctol`
+- `rfₛ ≤ norm(value(state)) * config.f_suctol || rfₐ ≤ config.f_abstol`
+- `norm(value(state)) > norm(previousvalue(state))`
 
 Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
 """
@@ -94,15 +97,26 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
     print_status(status, config)
 
 Print the solver status if:
-1. The following three are satisfied: (i) `config.verbosity` ``\geq1`` (ii) `assess_convergence!(status, config)` is `false` (iii) `iteration_number(status) > config.max_iterations`
-2. `config.verbosity > 1`.
+- `config.verbosity` ``\geq1`` and one of the following two
+1. the solver is converged,
+2. `status.iterations > config.max_iterations`
+- `config.verbosity` ``>1.``
 """
 function print_status(status::NonlinearSolverStatus, config::Options)
-    if (config.verbosity ≥ 1 && !(isconverged(status) && status.iterations ≤ config.max_iterations)) || config.verbosity > 1
+    if (config.verbosity ≥ 1 &&
+        (isconverged(status) || status.iterations > config.max_iterations)) ||
+        config.verbosity > 1
         println(status)
     end
 end
 
+"""
+    isconverged(status)
+
+Check if either `x` or `f` has converged.
+
+The `status` is a [`NonlinearSolverStatus`](@ref).
+"""
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
 havenan(status::NonlinearSolverStatus) = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
 
@@ -115,7 +129,7 @@ Determines whether the iteration stops based on the current [`NonlinearSolverSta
     The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call [`assess_convergence`](@ref) (with the same input arguments).
 
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
-- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`assess_convergence`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
+- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`isconverged`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
 - `iteration_number(status) ≥ config.max_iterations`,
 - if any component in `solution(status)` is `NaN`,
@@ -128,16 +142,31 @@ So convergence is only one possible criterion for which [`meets_stopping_criteri
 
 In the following example we show that `meets_stopping_criteria` evaluates to true when used on a freshly allocated [`NonlinearSolverStatus`](@ref):
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NonlinearSolverStatus, meets_stopping_criteria, NonlinearSolverCache, NonlinearSolverState)
-config = Options(verbosity=0)
-x = [NaN, 2., 3.]
-cache = NonlinearSolverCache(x, copy(x))
-state = NonlinearSolverState(x)
-status = NonlinearSolverStatus(state, config)
-meets_stopping_criteria(state, config)
+julia> config = Options(verbosity=0);
 
-# output
+julia> x = [NaN, 2., 3.]
+3-element Vector{Float64}:
+ NaN
+   2.0
+   3.0
 
-false
+julia> f = [NaN, 10., 20.]
+3-element Vector{Float64}:
+ NaN
+  10.0
+  20.0
+
+julia> cache = NonlinearSolverCache(x, copy(x));
+
+julia> state = NonlinearSolverState(x);
+
+julia> update!(state, x, f); state.iterations += 1
+1
+
+julia> status = NonlinearSolverStatus(state, config);
+
+julia> meets_stopping_criteria(state, config)
+true
 ```
 This obviously has not converged. To check convergence we can use [`assess_convergence`](@ref).
 ```
@@ -157,9 +186,6 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
     (havenan(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
-
-    # status.x_converged && (@warn "x supposedly converged!")
-    # status.f_converged && (@warn "f supposedly converged!")
 
     nothing
 end

@@ -3,22 +3,19 @@
 
 A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
 
-# Constructors
+!!! info
+    The associated solvers are `const`s derived from `NonlinearSolver`. See [`NewtonSolver`](@ref), [`PicardSolver`](@ref) and [`DogLegSolver`](@ref). In practice we usually call those associated constructors directly rather than creating a `NonlinearSolver` instance manually.
 
-```julia
-NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache; method)
-```
+# Keys
 
-The `NonlinearSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future. See [`NewtonSolver`](@ref) for examples (as well as [`NonlinearSolverStatus`](@ref)).
-
-It's arguments are:
-- `nlp::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
-- `ls::`[`LinearProblem`](@ref),
+- `nonlinearproblem::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
+- `linearproblem::`[`LinearProblem`](@ref),
+- `jacobian::`[`Jacobian`](@ref): the Jacobian is used to compute the [`direction`](@ref) in the solver step,
 - `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`Linesearch`](@ref)
+- `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`NewtonMethod`](@ref)),
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
-- `status::`[`NonlinearSolverStatus`](@ref):
 """
 struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
@@ -66,7 +63,7 @@ jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = jacob
 
 Return the evaluated Jacobian (a matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
 
-Also see [`jacobian(::NonlinearProblem)`](@ref) and [`Jacobian(::NonlinearProblem)`](@ref).
+Also see [`jacobian(::NonlinearProblem)`](@ref).
 """
 jacobianmatrix(solver::NonlinearSolver) = jacobianmatrix(cache(solver))
 
@@ -102,7 +99,36 @@ Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solve
 """
     solver_step!(x, s, state, params)
 
-Solve the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
+Compute one step for solving the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solver_step!, NullParameters)
+julia> f(y, x, params) = y .= sin.(x .- .5) .^ 2
+f (generic function with 1 method)
+
+julia> x = ones(3) / 4
+3-element Vector{Float64}:
+ 0.25
+ 0.25
+ 0.25
+
+julia> y = zero(x)
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+
+julia> s = NewtonSolver(x, similar(x); F = f);
+
+julia> state = NonlinearSolverState(x); update!(state, x, f(y, x, NullParameters()));
+
+julia> solver_step!(x, s, state, NullParameters())
+3-element Vector{Float64}:
+ 0.37767096061051814
+ 0.37767096061051814
+ 0.37767096061051814
+```
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params, iteration_number(state))
@@ -130,12 +156,11 @@ end
 mean(x::AbstractVector) = sum(x) / length(x)
 
 """
-    solve!(x, s)
+    solve!(x, s, state)
 
-# Extended help
+Solve the [`NonlinearProblem`](@ref) contained in the [`NonlinearSolver`](@ref) with the initial condition `x`.
 
-!!! info
-    The function `update!` calls [`increase_iteration_number!`](@ref).
+You also have to supply a [`NonlinearSolverState`](@ref).
 """
 function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
     initialize!(s, x)

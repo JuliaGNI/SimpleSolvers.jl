@@ -5,7 +5,7 @@ struct NoLinearSolver <: AbstractLinearSolver end
 """
     LinearSolver <: AbstractSolver
 
-A struct that stores [`LinearSolverMethod`](@ref)s and [`LinearSolverCache`](@ref)s. [`LinearSolver`](@ref)s are used to solve [`LinearProblem`](@ref)s.
+A struct that stores [`LinearSolverMethod`](@ref)s (for example [`LU`](@ref)) and [`LinearSolverCache`](@ref)s (for example [`LUSolverCache`](@ref)). [`LinearSolver`](@ref)s are used to solve [`LinearProblem`](@ref)s.
 
 # Constructors
 
@@ -21,20 +21,13 @@ LinearSolver(method, x)
 
 You can manually factorize by either calling [`factorize!`](@ref) or [`solve!`](@ref).
 """
-struct LinearSolver{T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache} <: AbstractLinearSolver 
+struct LinearSolver{T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache} <: AbstractLinearSolver
     method::LSMT
     cache::LSCT
 
-    LinearSolver(method::LSMT, cache::LSCT) where {T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache{T}} = new{T, LSMT, LSCT}(method, cache)
+    LinearSolver(method::LSMT, cache::LSCT) where {T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache{T}} = new{T,LSMT,LSCT}(method, cache)
 end
 
-"""
-    factorize!(lsolver)
-
-Factorize the matrix stored in the [`LinearSolverCache`](@ref) in `lsolver`.
-
-See [`factorize!(::LinearSolver{T, LUT}) where {T, LUT <: LU}`](@ref) for a concrete example.
-"""
 function factorize!(lsolver::LinearSolver)
     error("No method `factorize!` implemented for method $(typeof(method(lsolver))).")
 end
@@ -42,7 +35,16 @@ end
 """
     cache(ls)
 
-Return the cache (of type [`LinearSolverCache`](@ref)) of the [`LinearSolver`](@ref).
+Return the cache of the [`LinearSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
+julia> ls = LinearSolver(LU(), [1 2; 3 4]);
+
+julia> cache(ls)
+SimpleSolvers.LUSolverCache{Int64, StaticArraysCore.MMatrix{2, 2, Int64, 4}}([1 2; 3 4], [0, 0], [0, 0], 0)
+```
 """
 cache(ls::LinearSolver) = ls.cache
 
@@ -73,7 +75,41 @@ end
     solve!(x, ls::LinearSolver, lsys::LinearProblem)
 
 Solve the [`LinearProblem`](@ref) `lsys` with the [`LinearSolver`](@ref) `ls` and store the result in `x`.
-Also see [`solve!(::LinearSolver, ::LinearProblem)`](@ref).
+
+Also see [`solve(::LU, ::AbstractMatrix, ::AbstractVector)`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> x = zeros(3)
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+
+julia> A = [1.; 0.; 0.;; 0.; 2.; 0.;; 0.; 0.; 4.]
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  2.0  0.0
+ 0.0  0.0  4.0
+
+julia> b = ones(3)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+
+julia> ls = LinearSolver(LU(), x);
+
+julia> problem = LinearProblem(x); update!(problem, A, b);
+
+julia> solve!(x, ls, problem)
+3-element Vector{Float64}:
+ 1.0
+ 0.5
+ 0.25
+
+```
 """
 function solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)
     error("No method for solve! implemented for this combination of input arguments.")
@@ -110,9 +146,7 @@ Solve the linear system described by:
 ```
 and store it in `x`. Here ``A`` and ``b`` are provided as an input arguments.
 
-# implementation
-
-Note that, compared to [`solve(::LinearSolver, ::AbstractVector)`](@ref) this method involves an additional *factorization* of `A`.
+Comapre this to [`solve(::LinearSolver, ::AbstractVector)`](@ref).
 """
 function solve!(::AbstractVector, ::LinearSolver, ::AbstractMatrix, ::AbstractVector)
     error("No method for solve! implemented for this combination of input arguments.")

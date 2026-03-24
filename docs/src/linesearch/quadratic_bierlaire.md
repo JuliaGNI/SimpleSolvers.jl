@@ -4,7 +4,7 @@ In [bierlaire2015optimization](@cite) quadratic line search is defined as an int
 
 ```@example bierlaire
 using SimpleSolvers
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix, update! # hide
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix, update!, direction! # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(1234) # hide
@@ -12,28 +12,15 @@ Random.seed!(1234) # hide
 f(x::T) where {T<:Number} = exp(x) * (T(.5) * x ^ 3 - 5x ^ 2 + 2x) + 2one(T)
 f(x::AbstractArray{T}) where {T<:Number} = exp.(x) .* (T(.5) * (x .^ 3) - 5 * (x .^ 2) + 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
-j!(j::AbstractMatrix{T}, x::AbstractVector{T}) where {T} = SimpleSolvers.ForwardDiff.jacobian!(j, f!, similar(x), x)
 F!(y, x, params) = f!(y, x)
-J!(j, x, params) = j!(j, x)
 x = -10 * rand(1)
-solver = NewtonSolver(x, f.(x); F = F!, DF! = J!)
+solver = NewtonSolver(x, f.(x); F = F!)
 params = NullParameters()
 state = NonlinearSolverState(x)
 update!(state, x, f(x))
-jacobian!(solver, x, params)
+direction!(solver, x, params, 0)
 
-# compute rhs
-f!(cache(solver).rhs, x)
-rmul!(cache(solver).rhs, -1)
-
-# multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobianmatrix(solver))
-ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-
-nlp = NonlinearProblem(F!, x, f(x))
-ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver))
-state = NonlinearSolverState(x)
-update!(state, x, f(x))
+ls_obj = linesearch_problem(solver)
 params = (x = state.x, parameters = NullParameters())
 fˡˢ(alpha) = ls_obj.F(alpha, params)
 ∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
@@ -64,11 +51,13 @@ scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
 scatter!(ax, c, fˡˢ(c); color = morange, label = L"c")
 axislegend(ax)
-save("f_ls_bierlaire1.png", fig)
+save("f_ls_bierlaire1_light.png", fig)
+save("f_ls_bierlaire1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_bierlaire1.png)
+![](f_ls_bierlaire1_light.png)
+![](f_ls_bierlaire1_dark.png)
 
 In the figure above we already plotted three points ``a``, ``b`` and ``c`` on whose basis a second-order polynomial will be built that should approximate ``f^\mathrm{ls}``.[^1] The polynomial is built with the ansatz:
 
@@ -107,11 +96,13 @@ We can plot this polynomial:
 p(α) = β₁ * (α - a) * (α - b) + β₂ * (α - a) + β₃ * (α - b)
 lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 axislegend(ax; position = :rt)
-save("f_ls_bierlaire2.png", fig)
+save("f_ls_bierlaire2_light.png", fig)
+save("f_ls_bierlaire2_dark.png", fig)
 nothing
 ```
 
-![](f_ls_bierlaire2.png)
+![](f_ls_bierlaire2_light.png)
+![](f_ls_bierlaire2_dark.png)
 
 We can now easily determine the minimum of the polynomial ``p``. It is:
 
@@ -123,10 +114,12 @@ We can now easily determine the minimum of the polynomial ``p``. It is:
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rt)
-save("f_ls_bierlaire3.png", fig)
+save("f_ls_bierlaire3_light.png", fig)
+save("f_ls_bierlaire3_dark.png", fig)
 ```
 
-![](f_ls_bierlaire3.png)
+![](f_ls_bierlaire3_light.png)
+![](f_ls_bierlaire3_dark.png)
 
 We now use this ``\chi`` to either replace ``a``, ``b`` or ``c`` and distinguish between the following four scenarios:
 1. ``\chi > b`` and ``f^\mathrm{ls}(\chi) > f^\mathrm{ls}(b)`` ``\implies`` we replace ``c \gets \chi``,
@@ -156,10 +149,12 @@ lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rb)
-save("f_ls_bierlaire4.png", fig)
+save("f_ls_bierlaire4_light.png", fig)
+save("f_ls_bierlaire4_dark.png", fig)
 ```
 
-![](f_ls_bierlaire4.png)
+![](f_ls_bierlaire4_light.png)
+![](f_ls_bierlaire4_dark.png)
 
 We again observe the second case. By replacing ``a, b \gets b, \chi`` we get:
 
@@ -183,10 +178,12 @@ lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rb)
-save("f_ls_bierlaire5.png", fig)
+save("f_ls_bierlaire5_light.png", fig)
+save("f_ls_bierlaire5_dark.png", fig)
 ```
 
-![](f_ls_bierlaire5.png)
+![](f_ls_bierlaire5_light.png)
+![](f_ls_bierlaire5_dark.png)
 
 We now observe the first case: ``\chi`` is to the left of ``b`` and ``f^\mathrm{ls}(\chi)`` is above ``f(b)``. Hence we replace ``b, c \gets \chi, b.`` A successive iteration yields:
 
@@ -211,11 +208,12 @@ lines!(ax, alpha, p.(alpha); color = mgreen, label = L"p(\alpha)")
 χ = .5 * ( fˡˢ(a) * (b^2 - c^2) + fˡˢ(b) * (c^2 - a^2) + fˡˢ(c) * (a^2 - b^2) ) / (fˡˢ(a) * (b - c) + fˡˢ(b) * (c - a) + fˡˢ(c) * (a - b))
 # scatter!(ax, χ, p(χ); color = mblue, label=L"\chi")
 axislegend(ax; position = :rt)
-save("f_ls_bierlaire6.png", fig)
+save("f_ls_bierlaire6_light.png", fig)
+save("f_ls_bierlaire6_dark.png", fig)
 ```
 
-![](f_ls_bierlaire6.png)
+![](f_ls_bierlaire6_light.png)
+![](f_ls_bierlaire6_dark.png)
 
 !!! info
     After having computed ``\chi`` we further either shift it to the left or right depending on whether ``(c - b)`` or ``(b - a)`` is bigger respectively. The shift is made by either adding or subtracting the constant ``\varepsilon``.
-Also see [`SimpleSolvers.DEFAULT_BIERLAIRE_ε`](@ref).

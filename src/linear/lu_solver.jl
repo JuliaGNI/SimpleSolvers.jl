@@ -4,9 +4,8 @@
 A custom implementation of an LU solver, meant to solve a [`LinearProblem`](@ref).
 
 Routines that use the LU solver include [`factorize!`](@ref), [`ldiv!`](@ref) and [`solve!`](@ref).
-In practice the `LU` solver is used by calling the [`LinearSolver`](@ref) constructor and [`ldiv!`](@ref) or [`solve!`](@ref), or with an instance of `LU` as an argument directly, as shown in the *Example section* of this docstring.
 
-# constructor
+# Constructor
 
 The constructor is called with either no argument:
 
@@ -48,6 +47,8 @@ solve(lu, ls) ≈ inv(A) * v
 
 true
 ```
+
+Note that role of [`LinearProblem`](@ref) here.
 """
 struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
     static::ST
@@ -57,7 +58,7 @@ struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
 end
 
 """
-Threshold for the maximum size a static matrix should have.
+Threshold for the maximum size a static matrix should have. See [`_static`](@ref).
 """
 const N_STATIC_THRESHOLD = 10
 
@@ -67,17 +68,21 @@ const N_STATIC_THRESHOLD = 10
 Determine whether to allocate a `StaticArray` or simply copy the input array.
 This is used when calling [`LinearSolverCache`](@ref) on [`LU`](@ref).
 Every matrix that is smaller or equal to [`N_STATIC_THRESHOLD`](@ref) is turned into a `StaticArray` as a consequence.
+
+See the examples in [`factorize!`](@ref).
 """
 _static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD ? true : false
 
 """
     LUSolverCache <: LinearSolverCache
 
+The cache for the [`LU`](@ref) solver.
+
 # Keys
 - `A`: the factorized matrix `A`,
-- `pivots`:
-- `perms`:
-- `info`
+- `pivots`: a vector of pivots used during factorization,
+- `perms`: a vector of permutations used during factorization,
+- `info`: stores an index regarding pivoting.
 """
 mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
@@ -105,20 +110,10 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::Line
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
-    ldiv!(solution, lsolver, b)
-    solution
-end
-
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
-    cache(lsolver).A .= A
-    factorize!(lsolver)
-    ldiv!(solution, lsolver, b)
-    solution
-end
-
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix) where {T,LUT<:LU}
-    solve!(solution, lsolver, A, rhs(cache(lsolver)))
+    ls = LinearProblem(solution)
+    update!(ls, A, b)
+    solve!(solution, lsolver, ls)
 end
 
 function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
@@ -132,6 +127,36 @@ function solve(lu::LU, ls::LinearProblem)
     solve!(lsolver, ls)
 end
 
+"""
+    solve(lu, A, b)
+
+Solve the *linear problem* determined by `A` and `b`.
+
+This is the most straightforward way to solve this system.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> A = [1.; 0.; 0.;; 0.; 2.; 0.;; 0.; 0.; 4.]
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  2.0  0.0
+ 0.0  0.0  4.0
+
+julia> b = ones(3)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+
+julia> solve(LU(), A, b)
+3-element StaticArraysCore.SizedVector{3, Float64, Vector{Float64}} with indices SOneTo(3):
+ 1.0
+ 0.5
+ 0.25
+```
+Compare this to [`solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)`](@ref).
+"""
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
     ls = LinearProblem(A, b)
     update!(ls, A, b)
@@ -142,38 +167,42 @@ end
     factorize!(lsolver::LinearSolver, A)
 
 Factorize the matrix `A` and store the result in `cache(lsolver).A`.
-Note that calling `cache` on `lsolver` returns the instance of [`LUSolverCache`](@ref) stored in `lsolver`.
+
+Note that calling [`cache`](@ref) on `lsolver` returns the instance of [`LUSolverCache`](@ref) stored in `lsolver`.
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
-y = [1., 0., 0.]
-x = similar(y)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache, ldiv!)
+julia> A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
+3×3 Matrix{Float64}:
+  1.0   2.0   3.0
+  5.0   7.0  11.0
+ 13.0  17.0  19.0
 
-lsolver = LinearSolver(LU(; static=false), x)
-factorize!(lsolver, A)
-cache(lsolver).A
+julia> x = zeros(3);
 
-# output
+julia> lsolver = LinearSolver(LU(; static=false), x);
 
+julia> factorize!(lsolver, A).cache.A
 3×3 Matrix{Float64}:
  13.0        17.0       19.0
   0.0769231   0.692308   1.53846
   0.384615    0.666667   2.66667
+
+julia> y = A * ldiv!(x, lsolver, ones(3));
+
+julia> round.(y; digits = 10)
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
 ```
 Here `cache(lsolver).A` stores the factorized matrix. If we call `factorize!` with two input arguments as above, the method first copies the matrix `A` into the [`LUSolverCache`](@ref). We can equivalently also do:
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
-y = [1., 0., 0.]
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache; A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.])
+julia> lsolver = LinearSolver(LU(), A);
 
-lsolver = LinearSolver(LU(), A)
-factorize!(lsolver)
-cache(lsolver).A
-
-# output
-
+julia> factorize!(lsolver).cache.A
 3×3 StaticArraysCore.MMatrix{3, 3, Float64, 9} with indices SOneTo(3)×SOneTo(3):
  13.0        17.0       19.0
   0.0769231   0.692308   1.53846
@@ -181,6 +210,8 @@ cache(lsolver).A
 ```
 
 Also note the difference between the output types of the two refactorized matrices. This is because we set the keyword `static` to false when calling [`LU`](@ref). Also see [`_static`](@ref).
+
+Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
 function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     @inbounds for i in eachindex(cache(lsolver).perms)
@@ -235,6 +266,7 @@ factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearProblem{T}) where {T,LUT<:LU}
     find_maximum_value(v, k)
 
 Find the maximum value of vector `v` starting from the index `k`.
+
 This is used for *pivoting* in [`factorize!`](@ref).
 """
 function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T<:Number}
@@ -254,6 +286,38 @@ end
     ldiv!(x, lu, b)
 
 Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using LinearAlgebra:ldiv!)
+julia> A = [1.; 0.; 0.;; 0.; 2.; 0.;; 0.; 0.; 4.]
+3×3 Matrix{Float64}:
+ 1.0  0.0  0.0
+ 0.0  2.0  0.0
+ 0.0  0.0  4.0
+
+julia> b = [1., 1., 1.]
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+
+julia> s = LinearSolver(LU(), A); factorize!(s); x = zeros(3)
+3-element Vector{Float64}:
+ 0.0
+ 0.0
+ 0.0
+
+julia> ldiv!(x, s, b)
+3-element Vector{Float64}:
+ 1.0
+ 0.5
+ 0.25
+
+```
+
+!!! info
+    Note that we need to call [`factorize!`](@ref) here after having allocated the [`LinearSolver`](@ref).
 """
 function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
     @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)

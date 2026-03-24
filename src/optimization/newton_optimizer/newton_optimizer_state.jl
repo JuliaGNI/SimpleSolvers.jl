@@ -1,14 +1,17 @@
 """
     NewtonOptimizerState <: OptimizerState
 
-The optimizer state is needed to update the [`Optimizer`](@ref). This is different to [`OptimizerStatus`](@ref) and [`OptimizerResult`](@ref) which serve as diagnostic tools.
+The optimizer state is needed to update the [`Optimizer`](@ref). This is different from [`OptimizerStatus`](@ref) and [`OptimizerResult`](@ref) which serve as diagnostic tools.
 
-Note that this is also used for the [`BFGS`](@ref) and the [`DFP`](@ref) optimizer.
+We note that this is also used for the [`BFGS`](@ref) and the [`DFP`](@ref) optimizer.
 
 # Keys
 
+- `x`
 - `x̄`
+- `g`
 - `ḡ`
+- `f̄`
 - `f̄`
 """
 mutable struct NewtonOptimizerState{T,AT<:AbstractArray{T},GT<:AbstractArray{T}} <: OptimizerState{T}
@@ -63,14 +66,11 @@ gradient(cache::NewtonOptimizerState) = cache.ḡ
 """
     update!(state::NewtonOptimizerState, gradient, x)
 
-Update an instance of [`NewtonOptimizerState`](@ref) based on `x`, `g` and `hes`, where `g` can either be an `AbstractVector` or a [`Gradient`](@ref) and `hes` is a [`Hessian`](@ref).
-This updates the [`NewtonOptimizerCache`](@ref) contained in the [`NewtonOptimizerState`](@ref) by calling [`update!(::NewtonOptimizerCache, ::AbstractVector, ::Union{AbstractVector, Gradient}, ::Hessian)`](@ref).
+Update an instance of [`NewtonOptimizerState`](@ref) based on `x` and `gradient`, where `g` is of type [`Gradient`](@ref).
 
 # Examples
 
-We show that after initializing, update has to be called together with a [`Gradient`](@ref) and a [`Hessian`](@ref):
-
-If we only call `update!` once there are still `NaN`s in the ...
+If we only call `update!` once there are still `NaN`s for x̄, ḡ and f̄.
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NewtonOptimizerState)
 f(x) = sum(x.^2)
 x = [1., 2.]

@@ -1,7 +1,11 @@
 """
     DEFAULT_JACOBIAN_ϵ
 
-A constant used for computing the finite difference Jacobian.
+A constant used for computing the finite difference Jacobian. See [`JacobianFiniteDifferences`](@ref).
+
+# Extended help
+
+For the [`GradientFiniteDifferences`](@ref) this is called [`DEFAULT_GRADIENT_ϵ`](@ref).
 """
 const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
 
@@ -30,16 +34,15 @@ abstract type Jacobian{T} end
 """
     check_jacobian(J)
 
-Check the condition number, determinant, max and min value of the [`Jacobian`](@ref) `J`.
+Check the condition number, determinant, max and min value of the Jacobian `J`.
 
-```jldoctest
-using SimpleSolvers
+!!! info
+    Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
 
-J = [1. √2.; √2. 3.]
-SimpleSolvers.check_jacobian(J)
+```jldoctest; setup = :(using SimpleSolvers)
+julia> J = [1. √2.; √2. 3.];
 
-# output
-
+julia> SimpleSolvers.check_jacobian(J)
 Condition Number of Jacobian: 13.9282
 Determinant of Jacobian:      1.0
 minimum(|Jacobian|):          1.0
@@ -61,7 +64,23 @@ A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function
 
 # Functor
 
-There is no functor associated to `JacobianFunction`.
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NullParameters)
+
+f(y, x, params) = y .= [1. √2.; √2. 3.] * x
+∇f(j, x, params) = j .= [1. √2.; √2. 3.]
+
+jac = JacobianFunction(f, ∇f, Float64)
+j = zeros(Float64, 2, 2)
+x = ones(Float64, 2)
+
+jac(j, x, NullParameters())
+
+# output
+
+2×2 Matrix{Float64}:
+ 1.0      1.41421
+ 1.41421  3.0
+```
 """
 struct JacobianFunction{T,FT<:Callable,JT<:Callable} <: Jacobian{T}
     F::FT
@@ -154,10 +173,9 @@ A `struct` that realizes [`Jacobian`](@ref) by using finite differences.
 The `struct` stores:
 - `F`: a function that has to be differentiated.
 - `ϵ`: small constant on whose basis the finite differences are computed.
-- `f1`:
-- `f2`:
-- `e1`: auxiliary vector used for computing finite differences. It's of the form ``e_1 = \begin{bmatrix} 1 & 0 & \cdots & 0 \end{bmatrix}``.
-- `e2`:
+- `f1`: ``f`` evaluated at ``x - (1 + x_j)\epsilon\cdot{}x_j`` for all ``j``.
+- `f2`: ``f`` evaluated at ``x + (1 + x_j)\epsilon\cdot{}x_j`` for all ``j``.
+- `e`: auxiliary vector used for computing finite differences. It's of the form ``e_1 = \begin{bmatrix} 1 & 0 & \cdots & 0 \end{bmatrix}^T``.
 - `tx`: auxiliary vector used for computing finite differences. It stores the offset in the `x` vector.
 
 # Constructor(s)

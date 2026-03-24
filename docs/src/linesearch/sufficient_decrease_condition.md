@@ -19,35 +19,31 @@ As we assume that ``f(R_{x_k}(\alpha_k{}p_k)) \leq f(x_k)`` and ``g_{x_k}(c_1p_k
     |\frac{f(R_{x_k}(\alpha_k{}p_k)) - f(x_k)}{\alpha_k}| \geq |g_{x_k}(c_1p_k, \mathrm{grad}^g_{x_k}f)|,
 ```
 
-making clear why this is called the *sufficient decrease condition*. The parameter ``c_1`` is typically chosen very small, around ``10^{-4}``. This is implemented as [`SimpleSolvers.SufficientDecreaseCondition`](@ref).
+making clear why this is called the *sufficient decrease condition*. The parameter ``c_1`` is typically chosen very small, around ``10^{-4}``. This is implemented as [`SufficientDecreaseCondition`](@ref).
 
 ## [Example](@id sdc_example_full)
 
-We can visualize the sufficient decrease condition with an example:
+We include an example:
 
 ```@example sdc
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, NullParameters# hide
+using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, NullParameters, direction # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
-H = SimpleSolvers.alloc_h(x)
-hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
 g = grad(x)
 rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-p = similar(rhs)
-p .= H \ rhs
 cache = NewtonOptimizerCache(x)
 state = NewtonOptimizerState(x)
 update!(state, grad, x)
-update!(state, grad, x)
-update!(cache, state, grad, x)
+update!(cache, state, grad, hes, x)
+p = copy(direction(cache)) # hide
 ls_obj = linesearch_problem(obj, grad, cache)
 params = (x = state.x, parameters = NullParameters())
 sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_obj.F(alpha, params))
@@ -57,7 +53,7 @@ sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., param
 (sdc(α₁), sdc(α₂), sdc(α₃), sdc(α₄), sdc(α₅))
 ```
 
-We can also illustrate this:
+We further illustrate this:
 
 ```@setup sdc
 using CairoMakie, LaTeXStrings
@@ -88,8 +84,10 @@ scatter!(ax, [x4[1]], [x4[2]], [f(x4)]; color=mgreen, label=L"x_4")
 scatter!(ax, [x5[1]], [x5[2]], [f(x5)]; color=mred, label=L"x_5")
 
 axislegend(ax)
-save("sufficient_decrease.png", fig)
+save("sufficient_decrease_light.png", fig)
+save("sufficient_decrease_dark.png", fig)
 nothing
 ```
 
-![](sufficient_decrease.png)
+![Example of points that largely satisfy the *sufficient decrease condition*.](sufficient_decrease_dark.png)
+![Example of points that largely satisfy the *sufficient decrease condition*.](sufficient_decrease_light.png)

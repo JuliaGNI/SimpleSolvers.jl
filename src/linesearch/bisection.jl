@@ -5,9 +5,11 @@ Perform bisection of `f` in the interval [`xmin`, `xmax`] with [`Options`](@ref)
 
 The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is determined by [`default_tolerance`](@ref) by default).
 
-# implementation
+!!! info
+    When calling `bisection` it first checks if ``x_\mathrm{min} < x_\mathrm{max}`` and else flips the two entries.
 
-When calling `bisection` it first checks if ``x_\mathrm{min} < x_\mathrm{max}`` and else flips the two entries.
+!!! info
+    You can also call `bisection` with only one `x` as input argument. It then uses [`bracket_minimum`](@ref) to find a suitable interval.
 
 # Extended help
 
@@ -16,7 +18,7 @@ The bisection algorithm divides an interval into equal halves until a root is fo
 We first initialize:
 ```math
 \begin{aligned}
-\alpha_0 \gets & \alpha_\mathrm{min},
+\alpha_0 \gets & \alpha_\mathrm{min}, \\
 \alpha_1 \gets & \alpha_\mathrm{max},
 \end{aligned}
 ```
@@ -31,7 +33,7 @@ and then repeat:
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default""" * """$(MAX_ITERATIONS) and the [`Options`](@ref) struct).
+So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default """ * """$(MAX_ITERATIONS) in [`Options`](@ref) struct).
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
@@ -76,11 +78,6 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     α
 end
 
-"""
-    bisection(f, α)
-
-Use [`bracket_minimum`](@ref) to find a starting interval and then do bisections.
-"""
 bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number} = bisection(f, bracket_minimum(f, α)..., params, config)
 
 """

@@ -11,17 +11,17 @@ p(\alpha) = f^\mathrm{ls}(0) + (f^\mathrm{ls})'(0)\alpha + p_2\alpha^2,
 ```
 
 and we also call ``p_0:=f^\mathrm{ls}(0)`` and ``p_1:=(f^\mathrm{ls})'(0)``. The coefficient ``p_2`` is then determined the following way:
-- take a value ``\alpha`` (typically initialized as [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
+- take a value ``\alpha`` (typically found with [`bracket_minimum_with_fixed_point`](@ref)) and compute ``y = f^\mathrm{ls}(\alpha)``,
 - set ``p_2 \gets \frac{(y - p_0 - p_1\alpha)}{\alpha^2}.``
 
-After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process, but with the current ``\alpha`` as the starting point for the line search (instead of the initial [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref)).
+After the polynomial is found we then take its minimum (analogously to the [Bierlaire quadratic line search](@ref "Bierlaire Quadratic Line Search")) and check if it satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"). If it does not satisfy this condition we repeat the process.
 
 ## Example
 
 Here we treat the following problem:
 
 ```@example quadratic
-f(x::Union{T, Vector{T}}) where {T<:Number} = exp.(x) .* (x .^ 3 - 5x + 2x) .+ 2one(T)
+f(x::Union{T, Vector{T}}) where {T<:Number} = exp.(x) .* (x .^ 3 .- 5x .+ 2x) .+ 2one(T)
 f!(y::AbstractVector{T}, x::AbstractVector{T}) where {T} = y .= f.(x)
 F!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = f!(y, x)
 nothing # hide
@@ -42,44 +42,36 @@ lines!(ax_initial, x, f.(x); label = L"f(x)")
 x = [0.]
 scatter!(ax_initial, x, f.(x); label = L"x_0", color = :red)
 axislegend(ax_initial; merge = true, unique = true)
-save("f.png", fig_initial)
+save("f_light.png", fig_initial)
+save("f_dark.png", fig_initial)
 nothing # hide
 ```
 
-![](f.png)
+![](f_light.png)
+![](f_dark.png)
 
-We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We compute the Jacobian of ``f`` and initialize a [line search problem](@ref "Line Search Problem"):
+We now want to use quadratic line search to find the root of this function starting at ``x = 0``. We initialize a [line search problem](@ref "Line Search Problem"):
 
 ```@example quadratic
 using SimpleSolvers
-using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, determine_initial_α, NullParameters, NonlinearSolverState, jacobianmatrix # hide
+using SimpleSolvers: factorize!, update!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, NullParameters, NonlinearSolverState, jacobianmatrix, nonlinearproblem, direction!, iteration_number # hide
 using LinearAlgebra: rmul!, ldiv! # hide
 using Random # hide
 Random.seed!(123) # hide
 
-function J!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
-    SimpleSolvers.ForwardDiff.jacobian!(j, f, x)
-end
-
 # allocate solver
-solver = NewtonSolver(x, f(x); F = F!, DF! = J!)
-# initialize solver
-params = NullParameters()
-state = NonlinearSolverState(x)
-jacobian!(solver, x, params)
+solver = NewtonSolver(x, f(x); F = F!)
 
-# compute rhs
-F!(cache(solver).rhs, x, params)
-rmul!(cache(solver).rhs, -1)
-
-# multiply rhs with jacobian
-factorize!(linearsolver(solver), jacobianmatrix(solver))
-ldiv!(direction(cache(solver)), linearsolver(solver), cache(solver).rhs)
-nlp = NonlinearProblem(F!, J!, x, f(x))
+# allocate and update state
 state = NonlinearSolverState(x)
-params = (x = state.x, parameters = NullParameters())
 update!(state, x, f(x))
-ls_obj = linesearch_problem(nlp, jacobian(solver), cache(solver))
+params = (x = state.x, parameters = NullParameters())
+direction!(solver, x, params, iteration_number(state))
+
+# allocate linesearch problem
+ls_obj = linesearch_problem(nonlinearproblem(solver), jacobian(solver), cache(solver))
+
+# get fˡˢ & ∂fˡˢ∂α (stored in the linesearch problem)
 fˡˢ(alpha) = ls_obj.F(alpha, params)
 ∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
 nothing # hide
@@ -91,11 +83,13 @@ ax = Axis(fig[1, 1])
 alpha = -2.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 axislegend(ax)
-save("f_ls.png", fig)
+save("f_ls_light.png", fig)
+save("f_ls_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls.png)
+![](f_ls_light.png)
+![](f_ls_dark.png)
 
 !!! info
     The second plot shows the optimization problem for the ideal step length, where we start from ``x_0`` and proceed in the Newton direction. In the following we want to determine its minimum by fitting a quadratic polynomial, i.e. fitting ``p``.
@@ -110,31 +104,15 @@ p₀ = fˡˢ(0.)
 p₁ = ∂fˡˢ∂α(0.)
 ```
 
-### Initializing ``\alpha``
+### Finding ``p_2``
 
-In order to compute ``p_2`` we first have to initialize ``\alpha``. We start by *guessing* an initial ``\alpha`` as [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref). If this initial alpha does not satisfy the [`SimpleSolvers.BracketMinimumCriterion`](@ref), i.e. it holds that ``f^\mathrm{ls}(\alpha_0) > f^\mathrm{ls}(0)``, we call [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) (similarly to calling [`SimpleSolvers.bracket_minimum`](@ref) for [standard bracketing](@ref "Bracketing")). 
-
-Looking at [`SimpleSolvers.DEFAULT_ARMIJO_α₀`](@ref), we see that the [`SimpleSolvers.BracketMinimumCriterion`](@ref) is not satisfied:
-
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1]; xlabel = L"\alpha")
-alpha = -2.:.01:2.
-lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, SimpleSolvers.DEFAULT_ARMIJO_α₀, fˡˢ(SimpleSolvers.DEFAULT_ARMIJO_α₀); label = L"f^\mathrm{ls}(\alpha_{0, \mathrm{DEFAULT}})", color = mred)
-axislegend(ax)
-save("f_ls_daa.png", fig)
-nothing # hide
-```
-![](f_ls_daa.png)
-
-We therefore see that calling [`SimpleSolvers.determine_initial_α`](@ref) returns a different ``\alpha`` (the result of calling [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)):
+We call [`bracket_minimum_with_fixed_point`](@ref) to find ``\alpha_0.`` For this point we should have ``f^\mathrm{ls}(\alpha_0) > f^\mathrm{ls}(0).``
 
 ```@example quadratic
-state = NonlinearSolverState(x)
+using SimpleSolvers: bracket_minimum_with_fixed_point
 update!(state, x, f(x))
 params = (x = state.x, parameters = NullParameters())
-α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀ = bracket_minimum_with_fixed_point(ls_obj, params, 0.)[2]
 ```
 
 ```@setup quadratic
@@ -142,12 +120,14 @@ fig = Figure()
 ax = Axis(fig[1, 1]; xlabel = L"\alpha")
 alpha = -2.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
-scatter!(ax, α₀, fˡˢ(α₀); label = L"\alpha_0", color = mred)
+scatter!(ax, α₀, fˡˢ(α₀); label = L"f^\mathrm{ls}(\alpha_0)", color = mred)
 axislegend(ax)
-save("f_ls_a0.png", fig)
+save("f_ls_a0_light.png", fig)
+save("f_ls_a0_dark.png", fig)
 nothing # hide
 ```
-![](f_ls_a0.png)
+![](f_ls_a0_light.png)
+![](f_ls_a0_dark.png)
 
 We can now finally compute ``p_2`` and determine the minimum of the polynomial:
 
@@ -173,11 +153,13 @@ lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}(\alpha)")
 lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
 scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
 axislegend(ax)
-save("f_ls1.png", fig)
+save("f_ls1_light.png", fig)
+save("f_ls1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls1.png)
+![](f_ls1_light.png)
+![](f_ls1_dark.png)
 
 We now check wether ``\alpha_1`` satisfies the [sufficient decrease condition](@ref "The Sufficient Decrease Condition"):
 
@@ -188,7 +170,7 @@ sdc = SufficientDecreaseCondition(DEFAULT_WOLFE_c₁, fˡˢ(0.), ∂fˡˢ∂α(0
 sdc(α₁)
 ```
 
-We now move the original ``x`` in the Newton direction with step length ``\alpha_1`` by using [`SimpleSolvers.compute_new_iterate!`](@ref):
+We now move the original ``x`` in the Newton direction with step length ``\alpha_1`` by using [`compute_new_iterate!`](@ref):
 
 ```@example quadratic
 using SimpleSolvers: compute_new_iterate! # hide
@@ -198,34 +180,31 @@ compute_new_iterate!(x, α₁, direction(cache(solver)))
 ```@setup quadratic
 scatter!(ax_initial, x, f(x); color = mpurple, label = L"x^\mathrm{update}")
 axislegend(ax_initial; merge = true, unique = true)
-save("f_with_iterate.png", fig_initial)
+save("f_with_iterate_light.png", fig_initial)
+save("f_with_iterate_dark.png", fig_initial)
 nothing # hide
 ```
-![](f_with_iterate.png)
+![](f_with_iterate_light.png)
+![](f_with_iterate_dark.png)
 
 And we see that we already very close to the root.
 
 ## Example for Optimization
 
-We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`SimpleSolvers.linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
+We look again at the same example as before, but this time we want to find a minimum and not a root. We hence use [`linesearch_problem`](@ref) not for a [`NewtonSolver`](@ref), but for an [`Optimizer`](@ref):
 
 ```@example quadratic
-using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction
-
-x₀, x₁ = [0.], x
+using SimpleSolvers: NewtonOptimizerCache, initialize!, gradient, compute_direction # hide
+x₀ = [0., .1, .2]
+x = copy(x₀)
 obj = OptimizerProblem(sum∘f, x₀)
-grad = GradientAutodiff{Float64}(obj.F, length(x))
+grad = GradientAutodiff{Float64}(obj.F, length(x₀))
 _cache = NewtonOptimizerCache(x₀)
 state = NewtonOptimizerState(x₀)
-update!(state, grad, x₀)
-params = (x = state.x, parameters = NullParameters())
 hess = HessianAutodiff(obj, x₀)
-H = SimpleSolvers.alloc_h(x)
-hess(H, x₀)
 update!(state, grad, x₀)
 update!(_cache, state, grad, hess, x₀)
-hess(H, x₁)
-update!(_cache, state, grad, hess, x₁)
+params = (x = state.x, parameters = NullParameters())
 ls_obj = linesearch_problem(obj, grad, _cache)
 
 fˡˢ(alpha) = ls_obj.F(alpha, params)
@@ -236,14 +215,16 @@ nothing # hide
 ```@setup quadratic
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -2.:.01:2.
+alpha = -3.:.01:3.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 axislegend(ax)
-save("f_ls_optimizer.png", fig)
+save("f_ls_optimizer_light.png", fig)
+save("f_ls_optimizer_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_optimizer.png)
+![](f_ls_optimizer_light.png)
+![](f_ls_optimizer_dark.png)
 
 !!! info
     Note the different shape of the line search problem in the case of the optimizer, especially that the line search problem can take negative values in this case!
@@ -260,7 +241,8 @@ p₁ = ∂fˡˢ∂α(0.)
 
 ```@example quadratic
 params = (x = state.x, parameters = NullParameters())
-α₀ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
+α₀ = bracket_minimum_with_fixed_point(ls_obj, params, 0.)[1]
+@assert !(α₀ == 0. || α₀ == .1) # hide
 y = fˡˢ(α₀)
 p₂ = (y - p₀ - p₁*α₀) / α₀^2
 p(α) = p₀ + p₁ * α + p₂ * α^2
@@ -277,119 +259,31 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
 fig = Figure()
 ax = Axis(fig[1, 1])
-alpha = -3.:.01:2.
 lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
 lines!(ax, alpha, p.(alpha); label = L"p^{(1)}(\alpha)")
 scatter!(ax, α₁, p(α₁); color = mred, label = L"\alpha_1")
 axislegend(ax)
-save("f_ls_opt1.png", fig)
+save("f_ls_opt1_light.png", fig)
+save("f_ls_opt1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_opt1.png)
-
+![](f_ls_opt1_light.png)
+![](f_ls_opt1_dark.png)
 
 We now again move the original ``x`` in the Newton direction with step length ``\alpha_1``:
+
+```@example quadratic
+sum∘f(x)
+```
 
 ```@example quadratic
 compute_new_iterate!(x, α₁, direction(_cache))
 ```
 
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-x_array = -1.:.01:2.
-lines!(ax, x_array, f.(x_array); label = L"f(x)")
-scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax)
-save("f_with_iterate_opt.png", fig)
-nothing # hide
-```
-![](f_with_iterate_opt.png)
-
-We make another iteration:
 ```@example quadratic
-hess(H, x)
-update!(_cache, state, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache)
-fˡˢ(alpha) = ls_obj.F(alpha, params)
-∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
-p₀ = fˡˢ(0.)
-p₁ = ∂fˡˢ∂α(0.)
-params = (x = state.x, parameters = NullParameters())
-α₀⁽²⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
-y = fˡˢ(α₀)
-p₂ = (y - p₀ - p₁*α₀⁽²⁾) / α₀⁽²⁾^2
-p(α) = p₀ + p₁ * α + p₂ * α^2
-α₂ = -p₁ / (2p₂)
+sum∘f(x)
 ```
-
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-alpha = -15.:.01:2.
-lines!(ax, alpha, fˡˢ.(alpha); label = L"f^\mathrm{ls}_\mathrm{opt}(\alpha)")
-lines!(ax, alpha, p.(alpha); label = L"p^{(2)}(\alpha)")
-scatter!(ax, α₂, p(α₂); color = mred, label = L"\alpha_2")
-axislegend(ax)
-save("f_ls_opt2.png", fig)
-nothing # hide
-```
-
-![](f_ls_opt2.png)
-
-We now update ``x``:
-
-```@example quadratic
-using SimpleSolvers: compute_new_iterate
-x .= compute_new_iterate(x, α₂, direction(_cache))
-```
-
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-x_array = -1.:.01:2.
-lines!(ax, x_array, f.(x_array); label = L"f(x)")
-scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax)
-save("f_with_iterate_opt2.png", fig)
-nothing # hide
-```
-![](f_with_iterate_opt2.png)
-
-We finally compute a third iterate:
-```@example quadratic
-hess(H, x)
-update!(_cache, state, grad, hess, x)
-ls_obj = linesearch_problem(obj, grad, _cache)
-
-fˡˢ(alpha) = ls_obj.F(alpha, params)
-∂fˡˢ∂α(alpha) = ls_obj.D(alpha, params)
-p₀ = fˡˢ(0.)
-p₁ = ∂fˡˢ∂α(0.)
-params = (x = state.x, parameters = NullParameters())
-α₀⁽³⁾ = determine_initial_α(ls_obj, params, SimpleSolvers.DEFAULT_ARMIJO_α₀)
-y = fˡˢ(α₀)
-p₂ = (y - p₀ - p₁*α₀⁽³⁾) / α₀^2
-p(α) = p₀ + p₁ * α + p₂ * α^2
-α₃ = -p₁ / (2p₂)
-```
-
-```@example quadratic
-x .= compute_new_iterate(x, α₃, direction(_cache))
-```
-
-```@setup quadratic
-fig = Figure()
-ax = Axis(fig[1, 1])
-x_array = -1.:.01:4.
-lines!(ax, x_array, f.(x_array); label = L"f(x)")
-scatter!(ax, x, f(x); color = mred, label = L"x^\mathrm{update}")
-axislegend(ax)
-save("f_with_iterate_opt3.png", fig)
-nothing # hide
-```
-![](f_with_iterate_opt3.png)
 
 ## Example II
 
@@ -436,17 +330,15 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 nothing # hide
 ```
 
-We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. For this we first need to find a bracket; we again do this with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref)[^2]:
-
-[^2]: Here we use [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref) directly instead of using [`SimpleSolvers.determine_initial_α`](@ref).
+We now try to find a minimum of ``f^\mathrm{ls}`` with quadratic line search. For this we first need to find a bracket; we again do this with [`SimpleSolvers.bracket_minimum_with_fixed_point`](@ref):
 
 ```@example II
-(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, ∂fˡˢ∂α, 0.)
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, 0.)
 ```
 
 We plot the bracket:
 
-```@example II
+```@setup II
 using CairoMakie
 mred = RGBf(214 / 256, 39 / 256, 40 / 256)
 mpurple = RGBf(148 / 256, 103 / 256, 189 / 256)
@@ -462,11 +354,13 @@ scatter!(ax, a, fˡˢ(a); color = mred, label = L"a")
 scatter!(ax, b, fˡˢ(b); color = mpurple, label = L"b")
 # ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
-save("f_ls_1.png", fig)
+save("f_ls_1_light.png", fig)
+save("f_ls_1_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_1.png)
+![](f_ls_1_light.png)
+![](f_ls_1_dark.png)
 
 We now build the polynomial:
 
@@ -485,21 +379,23 @@ and compute its minimum:
 αₜ = -p₁ / (2p₂)
 ```
 
-```@example II
+```@setup II
 lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
 # ylims!(ax, (-1., 6.)) # hide
 axislegend(ax)
-save("f_ls_2.png", fig)
+save("f_ls_2_light.png", fig)
+save("f_ls_2_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_2.png)
+![](f_ls_2_light.png)
+![](f_ls_2_dark.png)
 
 We now set ``a \gets \alpha_t`` and perform another iteration:
 
 ```@example II
-(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, ∂fˡˢ∂α, αₜ)
+(a, b) = SimpleSolvers.bracket_minimum_with_fixed_point(fˡˢ, αₜ)
 ```
 
 We again build the polynomial:
@@ -531,8 +427,10 @@ lines!(ax, alpha, p.(alpha); label = L"p(\alpha)")
 scatter!(ax, αₜ, p(αₜ); label = L"\alpha_t")
 # ylims!(ax, (-1., 6.))
 axislegend(ax)
-save("f_ls_3.png", fig)
+save("f_ls_3_light.png", fig)
+save("f_ls_3_dark.png", fig)
 nothing # hide
 ```
 
-![](f_ls_3.png)
+![](f_ls_3_light.png)
+![](f_ls_3_dark.png)

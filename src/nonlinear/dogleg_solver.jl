@@ -12,21 +12,45 @@ const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
     directions!(s, x, params)
 
 Compute [`direction₁`](@ref) and [`direction₂`](@ref) for the [`DogLegSolver`](@ref).
+
 This is equivalent to [`direction!`](@ref) for the [`NewtonSolver`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: NullParameters, directions!, direction₁, direction₂, cache, l2norm)
+julia> J = [0 1; -1 0];
+
+julia> f(y, x, params) = y .= cos.(J * x .- 2.) .^ 2 / l2norm(sin.(x) .- 1.);
+
+julia> x = zeros(2); y = similar(x); s = DogLegSolver(x, y; F = f);
+
+julia> directions!(s, x, NullParameters());
+
+julia> direction₁(cache(s))
+2-element Vector{Float64}:
+ -0.25513686072399455
+  0.1601152321012896
+
+julia> direction₂(cache(s))
+2-element Vector{Float64}:
+ -0.22882877718014286
+  0.22882877718014288
+```
 
 # Extended help
 
-The Gauss-Newton direction (i.e. [`direction₂`](@ref)) is computed using the following formula:
+The Gauss-Newton direction (i.e. [`direction₂`](@ref)) is computed the usual way:
 
 ```math
-\mathbf{d}_2 = (\mathbf{J}^T \mathbf{J})^{-1} \mathbf{r}
+\mathbf{d}_2 = -\mathbf{J}^{-1} \mathbf{r}
 ```
 
-where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector:
-
+where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual vector. The steepest descent direction (taken from [nocedal2006numerical; Equation (11.46)](@cite)) is different:
 ```math
-\mathbf{r} = -\mathbf{J}(\mathbf{x})^T\mathbf{f}(\mathbf{x})
+\mathbf{d}_1 = -\frac{||\mathbf{J}^T\mathbf{r}||^2}{\mathbf{r}^T(\mathbf{J}\mathbf{J}^T)(\mathbf{J}\mathbf{J}^T)\mathbf{r}}\mathbf{J}^T\mathbf{r}.
 ```
+
+The [`DogLegSolver`](@ref) then interpolates between these two directions (this interpolation is piecewise linear).
 """
 function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     # the Newton direction
@@ -40,7 +64,6 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
     # the steepest descent direction
-
     mul!(direction₁(cache(s)), transpose(jacobianmatrix(s)), rhs(linearproblem(s)))
     fac₁ = L2norm(direction₁(cache(s)))
     mul!(cache(s).y₂, jacobianmatrix(s), direction₁(cache(s)))

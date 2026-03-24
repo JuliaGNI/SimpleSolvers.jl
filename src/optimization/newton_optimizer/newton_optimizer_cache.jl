@@ -1,14 +1,14 @@
 """
-    NewtonOptimizerCache
+    NewtonOptimizerCache <: OptimizerCache
 
 # Keys
 
 - `x`: current iterate (this stores the guess called by the functions generated with [`linesearch_problem`](@ref)),
-- `δ`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
+- `Δx`: direction of optimization step (difference between `x` and `x̄`); this is obtained by multiplying `rhs` with the inverse of the Hessian,
 - `g`: gradient value (this stores the gradient associated with `x` called by the *derivative part* of [`linesearch_problem`](@ref)),
-- `rhs`: the right hand side used to compute the update.
-
-To understand how these are used in practice see e.g. [`linesearch_problem`](@ref).
+- `Δg`: gradient difference (difference between `g` and `ḡ`); this is used for computing the [`OptimizerStatus`](@ref),
+- `rhs`: the right hand side used to compute the update,
+- `H`: the Hessian matrix evaluated at `x`,
 
 Also compare this to [`NonlinearSolverCache`](@ref).
 """
@@ -52,7 +52,7 @@ Return the stored gradient (array) of an instance of [`NewtonOptimizerCache`](@r
 gradient(cache::NewtonOptimizerCache) = cache.g
 
 """
-    direction(::NewtonOptimizerCache)
+    direction(cache)
 
 Return the direction of the gradient step (i.e. `Δx`) of an instance of [`NewtonOptimizerCache`](@ref).
 """
@@ -62,19 +62,13 @@ hessian(cache::NewtonOptimizerCache) = cache.H
 
 solution(cache::NewtonOptimizerCache) = cache.x
 
-function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::AbstractVector)
-    cache.x .= x
-    direction(cache) .= cache.x - state.x̄
-    cache
-end
-
 """
-    update!(cache, x, g)
+    update!(cache, state, x, g)
 
 Update the [`NewtonOptimizerCache`](@ref) based on `x` and `g`.
 """
 function update!(cache::NewtonOptimizerCache, state::OptimizerState, x::AbstractVector, g::AbstractVector)
-    update!(cache, state, x)
+    solution(cache) .= x
     gradient(cache) .= g
     rhs(cache) .= -g
     cache
@@ -91,18 +85,18 @@ This is used in [`update!(::OptimizerState, ::AbstractVector)`](@ref).
 
 This sets:
 ```math
-\bar{x}^\mathtt{cache} \gets x,
-x^\mathtt{cache} \gets x,
-g^\mathtt{cache} \gets g,
-\mathrm{rhs}^\mathtt{cache} \gets -g,
-\delta^\mathtt{cache} \gets H^{-1}\mathrm{rhs}^\mathtt{cache},
+\begin{aligned}
+% \bar{x}^\mathtt{cache} & \gets x, \\
+x^\mathtt{cache} & \gets x, \\
+g^\mathtt{cache} & \gets g, \\
+\mathrm{rhs}^\mathtt{cache} & \gets -g, \\
+H^\mathtt{cache} & \gets H(x), \\
+\delta^\mathtt{cache} & \gets (H^\mathtt{cache})^{-1}\mathrm{rhs}^\mathtt{cache},
+\end{aligned}
 ```
 where we wrote ``H`` for the Hessian (i.e. the input argument `hes`).
 
 Also see [`update!(::NonlinearSolverCache, ::AbstractVector)`](@ref).
-
-!!! warning
-    Note that this is not updating the Hessian `hes`. For this call `update!` on the `Hessian`.
 """
 function update!(cache::NewtonOptimizerCache, state::OptimizerState, g::Gradient, ∇²f::Hessian, x::AbstractVector)
     update!(cache, state, g, x)

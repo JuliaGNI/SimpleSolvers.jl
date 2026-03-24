@@ -28,13 +28,17 @@ end
 """
     direction₁(cache::DogLegCache)
 
-Return the Newton direction.
+Return the steepest descent direction.
+
+See [`directions!`](@ref).
 """
 direction₁(cache::DogLegCache) = cache.Δx₁
 """
     direction₂(cache::DogLegCache)
 
-Return the Gauss-Newton direction.
+Return the Newton direction.
+
+See [`directions!`](@ref).
 """
 direction₂(cache::DogLegCache) = cache.Δx₂
 

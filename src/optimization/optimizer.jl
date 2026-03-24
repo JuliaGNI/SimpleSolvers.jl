@@ -4,13 +4,57 @@ const SOLUTION_MAX_PRINT_LENGTH = 10
 """
     Optimizer
 
-The optimizer that stores all the information needed for an optimization problem. This problem can be solved by calling [`solve!(::AbstractVector, ::Optimizer)`](@ref).
+The optimizer that stores all the information needed for an optimization problem.
+
+This problem can be solved by calling [`solve!(::AbstractVector, ::Optimizer)`](@ref).
 
 # Keys
 - `algorithm::`[`OptimizerState`](@ref),
 - `problem::`[`OptimizerProblem`](@ref),
+- `gradient::`[`Gradient`](@ref),
+- `hessian::`[`Hessian`](@ref),
 - `config::`[`Options`](@ref),
-- `state::`[`OptimizerState`](@ref).
+- `cache::`[`OptimizerCache`](@ref),
+- `linesearch::`[`Linesearch`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(x) = sum(sin.(x) .^ 2)
+x = ones(3)
+algorithm = Newton()
+state = OptimizerState(algorithm, x)
+optimizer = Optimizer(x, F; algorithm = algorithm, linesearch = Bisection())
+
+solve!(x, state, optimizer)
+x
+
+# output
+
+3-element Vector{Float64}:
+ 1.1102230246251565e-16
+ 1.1102230246251565e-16
+ 1.1102230246251565e-16
+```
+We note that this same problem may have trouble converging with other line searches:
+
+```jldoctest; setup = :(using SimpleSolvers; F(x) = sum(sin.(x) .^ 2))
+x = ones(3)
+algorithm = Newton()
+state = OptimizerState(algorithm, x)
+optimizer = Optimizer(x, F; algorithm = algorithm, linesearch = Backtracking())
+
+solve!(x, state, optimizer)
+x
+
+# output
+
+3-element Vector{Float64}:
+ 1.0
+ 1.0
+ 1.0
+```
+
 """
 struct Optimizer{T,
     ALG<:OptimizerMethod,
@@ -79,10 +123,7 @@ end
 """
     update!(opt, x)
 
-Compute problem and gradient at new solution.
-
-This first calls [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref) and then [`update!(::NewtonOptimizerState, ::AbstractVector)`](@ref).
-We note that the [`OptimizerStatus`](@ref) (unlike the [`NewtonOptimizerState`](@ref)) is updated when calling [`update!(::OptimizerResult, ::AbstractVector, ::AbstractVector, ::AbstractVector)`](@ref).
+Update the `cache` contained in the optimizer `opt`.See e.g. [`update!(::NewtonOptimizerCache, ::OptimizerState, ::Gradient, ::Hessian, ::AbstractVector)`](@ref).
 """
 function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
     update!(cache(opt), state, gradient(opt), hessian(opt), x)
@@ -91,25 +132,30 @@ function update!(opt::Optimizer, state::OptimizerState, x::AbstractVector)
 end
 
 """
-    solver_step!(x, state)
+    solver_step!(x, state, opt)
 
-Compute a full iterate for an instance of [`NewtonOptimizerState`](@ref) `state`.
+Compute a full iterate for an [`Optimizer`](@ref.
 
-This also performs a line search.
+!!! info
+    This also performs a line search.
 
 # Examples
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solver_step!, NewtonOptimizerState)
-f(x) = sum(x .^ 2 + x .^ 3 / 3)
-x = [1f0, 2f0]
-opt = Optimizer(x, f; algorithm = Newton())
-state = NewtonOptimizerState(x)
-update!(state, gradient(opt), x)
+julia> f(x) = sum(x .^ 2 + x .^ 3 / 3);
 
-solver_step!(x, state, opt)
+julia> x = [1f0, 2f0]
+2-element Vector{Float32}:
+ 1.0
+ 2.0
 
-# output
+julia> opt = Optimizer(x, f; algorithm = Newton());
 
+julia> state = NewtonOptimizerState(x);
+
+julia> update!(state, gradient(opt), x);
+
+julia> solver_step!(x, state, opt)
 2-element Vector{Float32}:
  0.25
  0.6666666
@@ -141,9 +187,6 @@ function solver_step!(x::VT, state::OptimizerState{T}, opt::Optimizer{T}) where 
     # compute new minimizer
     compute_new_iterate!(x, α, direction(opt))
 
-    # cache has to be updated to compute the correct status (this should only be necessary for the Static linesearch)
-    cache(opt).x .= x
-    gradient(opt)(cache(opt).g, x)
     x
 end
 
@@ -169,18 +212,22 @@ end
 
 Solve the optimization problem described by `opt::`[`Optimizer`](@ref) and store the result in `x`.
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!; using Random: seed!; seed!(123))
-f(x) = sum(x .^ 2 + x .^ 3 / 3)
-x = [1f0, 2f0]
-opt = Optimizer(x, f; algorithm = Newton())
-state = NewtonOptimizerState(x)
+# Examples
 
-solve!(x, state, opt)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123))
+julia> f(x) = sum(x .^ 2 + x .^ 3 / 3);
 
-# output
+julia> x = [1f0, 2f0]
+2-element Vector{Float32}:
+ 1.0
+ 2.0
 
-SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.OptimizerStatus{Float32, Float32}}(
- * Convergence measures
+julia> opt = Optimizer(x, f; algorithm = Newton());
+
+julia> state = NewtonOptimizerState(x);
+
+julia> solve!(x, state, opt)
+SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.OptimizerStatus{Float32, Float32}}( * Convergence measures
 
     |x - x'|               = 7.82e-03
     |x - x'|/|x'|          = 2.56e+02
@@ -188,20 +235,19 @@ SimpleSolvers.OptimizerResult{Float32, Float32, Vector{Float32}, SimpleSolvers.O
     |f(x) - f(x')|/|f(x')| = 6.63e+04
     |g(x) - g(x')|         = 1.57e-02
     |g(x)|                 = 6.10e-05
-
 , Float32[4.6478817f-8, 3.0517578f-5], 9.313341f-10)
-```
 
-We can also check how many iterations it took:
+julia> x
+2-element Vector{Float32}:
+ 4.6478817f-8
+ 3.0517578f-5
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: solve!, NewtonOptimizerState, update!, iteration_number; using Random: seed!; seed!(123); f(x) = sum(x .^ 2 + x .^ 3 / 3); x = [1f0, 2f0]; opt = Optimizer(x, f; algorithm = Newton()); state = NewtonOptimizerState(x); solve!(x, state, opt))
-iteration_number(state)
-
-# output
-
+julia> iteration_number(state)
 4
 ```
-Too see the value of `x` after one iteration confer the docstring of [`solver_step!`](@ref).
+
+
+Also see [`solver_step!`](@ref).
 """
 function solve!(x::AbstractVector, state::OptimizerState, opt::Optimizer)
     initialize_state!(state)

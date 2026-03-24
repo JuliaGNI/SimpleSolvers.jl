@@ -1,5 +1,5 @@
 """
-Encompasses the [`NoLinearProblem`](@ref) and the [`LinearProblem`](@ref).
+Encompasses the [`NoLinearProblem`](@ref) and the [`LinearProblem`](@ref). Sutyped from `AbstractProblem`, coming grom `GeometricBase`.
 """
 abstract type AbstractLinearProblem <: AbstractProblem end
 
@@ -78,12 +78,12 @@ LinearProblem{T}(n::Integer) where {T} = LinearProblem{T}(n, n)
 LinearProblem(y::AbstractVector{T}) where {T} = LinearProblem{T}(length(y))
 
 """
-    update!(ls, A, y)
+    update!(ls::LinearProblem, A, y)
 
-Set the [`rhs`](@ref) vector to `y` and the matrix stored in `ls` to `A`.
+Set the [`rhs`](@ref) vector to `y` and the matrix stored in the [`LinearProblem`](@ref) `ls` to `A`.
 
 !!! info
-    Calling `update!` doesn't solve the [`LinearProblem`](@ref), you still have to call `solve!` in combination with a [`LinearSolver`](@ref).
+    Calling `update!` doesn't solve the [`LinearProblem`](@ref), you still have to call [`solve!`](@ref) in combination with a [`LinearSolver`](@ref).
 """
 function update!(ls::LinearProblem{T}, A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
     copy!(matrix(ls), A)
@@ -97,7 +97,9 @@ matrix(ls::LinearProblem)::AbstractMatrix = ls.A
 """
     clear!(ls)
 
-Write `NaN`s into `Matrix(ls)` and `Vector(ls)`.
+Write `NaN`s into `matrix(ls)` and `rhs(ls)`.
+
+Here ls is a [`LinearProblem`](@ref).
 """
 function clear!(ls::LinearProblem{T}) where {T}
     matrix(ls) .= T(NaN)
@@ -108,7 +110,9 @@ end
 """
     initialize!(ls, x)
 
-Initialize the [`LinearProblem`](@ref) `ls`. See [`clear!(::LinearProblem)`](@ref).
+Initialize the [`LinearProblem`](@ref) `ls`.
+
+This uses [`clear!(::LinearProblem)`](@ref).
 """
 function initialize!(ls::LinearProblem, ::AbstractVector)
     clear!(ls)

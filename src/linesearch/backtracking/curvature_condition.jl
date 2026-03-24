@@ -3,7 +3,18 @@
 
 The second of the Wolfe conditions [nocedal2006numerical](@cite). The first one is the [`SufficientDecreaseCondition`](@ref).
 
-This encompasses the *standard curvature condition* and the *strong curvature condition*.
+This encompasses the *standard curvature condition* and the *strong curvature condition*. This can be specified via the `mode` keyword.
+
+With the standard curvature condition we check:
+```math
+f'(\alpha) ≥ c_2 d,
+```
+where ``c_2`` is the associated hyperparameter and ``d`` is the derivative at ``\alpha_0``. Further note that ``f'(\alpha_0)`` and ``d`` should both be negative.
+
+With the strong curvature condition we check:
+```math
+|f'(\alpha)| < c_2 |d|.
+```
 
 # Constructor
 

@@ -1,13 +1,26 @@
 """
     NewtonSolver
 
-A `const` derived from [`NonlinearSolver`](@ref)
+A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}`.
 
 # Constructors
 
-The `NewtonSolver` can be called with an [`NonlinearProblem`](@ref) or with a `Callable`. Note however that the latter will probably be deprecated in the future.
+The `NewtonSolver` can be called with a [`NonlinearProblem`](@ref) or with a `Callable`.
 
-What is shown here is the status of the `NewtonSolver`, i.e. an instance of [`NonlinearSolverStatus`](@ref).
+See [`NewtonSolver(::AbstractVector{T}, ::Callable, ::AbstractVector{T}) where {T}`](@ref).
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(y, x, params) = y .= sin.(x) ^ 2
+x = ones(5)
+y = zeros(5)
+
+ns = NewtonSolver(x, F, y)
+typeof(ns) <: NewtonSolver
+
+# output
+
+true
+```
 
 # Keywords
 - `nonlinearproblem::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
@@ -46,7 +59,8 @@ end
 - `linear_solver_method`
 - `DF!`
 - `linesearch`
-- `mode`
+- `jacobian`
+- `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 """
 function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T}
@@ -105,28 +119,15 @@ It does:
 ```julia
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 ```
+
+!!! warning
+    This will be deprecated in the future in the favour of using `NewtonSolver` directly and specifying the `refactorize` integer.
 """
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
 
 check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobian(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobian(s))
-
-
-"""
-    update!(solver, x, params)
-
-Update the `solver::`[`NewtonSolver`](@ref) based on `x`.
-This updates the cache (instance of type [`NonlinearSolverCache`](@ref)) and the status (instance of type [`NonlinearSolverStatus`](@ref)). In course of updating the latter, we also update the `nonlinear` stored in `solver` (and `status(solver)`).
-
-!!! info
-    At the moment this is neither used in `solver_step!` nor `solve!`.
-"""
-function update!(s::Union{NewtonSolver,QuasiNewtonSolver}, state::NonlinearSolverState, x₀::AbstractArray, params)
-    update!(cache(s), state, x₀, nonlinearproblem(s), params)
-
-    s
-end
 
 NonlinearSolver(method::NewtonMethod, args...; kwargs...) = NewtonSolver(args...; kwargs...)
 NonlinearSolver(method::QuasiNewtonMethod, args...; kwargs...) = QuasiNewtonSolver(args...; kwargs...)

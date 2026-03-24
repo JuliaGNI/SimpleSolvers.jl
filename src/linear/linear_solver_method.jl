@@ -11,12 +11,3 @@ abstract type LinearSolverMethod <: SolverMethod end
 
 abstract type DirectMethod <: LinearSolverMethod end
 # abstract type IterativeMethod <: LinearSolverMethod end
-
-"""
-    solve(ls, method)
-
-Solve the [`LinearProblem`](@ref) `ls` with the [`LinearSolverMethod`](@ref) `method`.
-"""
-function solve(::LinearProblem, method::LinearSolverMethod) 
-    error("Method solve not implemented for $(typeof(method)).")
-end

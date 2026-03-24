@@ -1,14 +1,14 @@
 """
     AbstractNonlinearSolverCache
 
-An abstract type that comprises e.g. the [`NonlinearSolverCache`](@ref).
+An abstract type that comprises e.g. the [`NonlinearSolverCache`](@ref) and the [`DogLegCache`](@ref).
 """
 abstract type AbstractNonlinearSolverCache{T} end
 
 """
-    NonlinearSolverCache
+    NonlinearSolverCache <: AbstractNonlinearSolverCache
 
-Stores `x`, `Δx`, `rhs`, `y`, and `J`.
+Derived from [`AbstractNonlinearSolverCache`](@ref). Used in [`NonlinearSolver`](@ref).
 
 Compare this to [`NewtonOptimizerCache`](@ref).
 
@@ -20,11 +20,6 @@ Compare this to [`NewtonOptimizerCache`](@ref).
 - `y`: the problem evaluated at `x`. This is used in [`linesearch_problem`](@ref),
 - `j::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_problem`](@ref). Note that this is not of type [`Jacobian`](@ref)!
 
-# Constructor
-
-```julia
-NonlinearSolverCache(x, y)
-```
 """
 struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNonlinearSolverCache{T}
     x::AT
@@ -58,11 +53,7 @@ rhs(cache::NonlinearSolverCache) = cache.rhs
 """
     initialize!(cache, x)
 
-Initialize the [`NonlinearSolverCache`](@ref) based on `x`.
-
-# Implementation
-
-This calls [`alloc_x`](@ref) to do all the initialization.
+Initialize the [`NonlinearSolverCache`](@ref) with `NaN`s.
 """
 function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where {T}
     solution(cache) .= T(NaN)

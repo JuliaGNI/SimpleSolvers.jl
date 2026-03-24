@@ -1,6 +1,6 @@
 # Bisections
 
-[`Bisection`](@ref)s work by moving an interval until we observe one in which the sign of the derivative of the function changes. 
+[`Bisection`](@ref)s work by moving an interval until we observe a sign change (either in the function or its derivative). 
 
 ## Example
 
@@ -14,21 +14,15 @@ x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
 obj = OptimizerProblem(f, x)
 hes = HessianAutodiff(obj, x)
-H = SimpleSolvers.alloc_h(x)
-hes(H, x)
 
 c₁ = 1e-4
 grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(x)
-rhs = -g
 # the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-p = similar(rhs)
-p .= H \ rhs
-cache = NewtonOptimizerCache(x)
-direction(cache) .= p
-problem = linesearch_problem(obj, grad, cache)
 state = NewtonOptimizerState(x)
+cache = NewtonOptimizerCache(x)
+problem = linesearch_problem(obj, grad, cache)
 update!(state, grad, x)
+update!(cache, state, grad, hes, x)
 
 params = (x = state.x,)
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
@@ -50,6 +44,7 @@ nothing # hide
 
 ## Bracketing
 
+Performing bisections requires providing an *initial interval*. If we are only given a single point instead of an interval we have to perform *bracketing*.
 For bracketing [kochenderfer2019algorithms](@cite) we move an interval successively and simultaneously increase it in the hope that we observe a local minimum (see [`bracket_minimum`](@ref)).
 
 ```@example bisection
@@ -70,11 +65,13 @@ vlines!(ax, [a]; label = L"a", color=mpurple)
 vlines!(ax, [c]; label = L"c", color=mgreen)
 
 axislegend(ax)
-save("2d_plot.png", fig)
+save("2d_plot_dark.png", fig)
+save("2d_plot_light.png", fig)
 nothing
 ```
 
-![](2d_plot.png)
+![](2d_plot_dark.png)
+![](2d_plot_light.png)
 
 We then use this interval to start the bisection algorithm.
 
@@ -83,16 +80,16 @@ We then use this interval to start the bisection algorithm.
 We here illustrate a potential issue with backtracking. For this consider the following function:
 
 ```@example bisection
-using SimpleSolvers: bracket_root
+using SimpleSolvers: bracket_root # hide
 f2(α::T) where {T <: Number} = α^2 - one(T)
-α₀ = -3.0
+α₀ = -10.0
 (a, c) = bracket_root(f2, α₀)
 ```
 
 And when we plot this we find:
 
 ```@setup bisection
-alpha = -3.5:.01:2.5
+alpha = -(-α₀ + .5):.01:2.5
 
 y = f2.(alpha)
 fig = Figure()
@@ -106,10 +103,20 @@ vlines!(ax, [a]; label = L"a", color=mpurple)
 vlines!(ax, [c]; label = L"c", color=mgreen)
 
 axislegend(ax)
-save("2d_plot_issue.png", fig)
+save("2d_plot_issue_light.png", fig)
+save("2d_plot_issue_dark.png", fig)
 nothing
 ```
 
-![](2d_plot_issue.png)
+![](2d_plot_issue_light.png)
+![](2d_plot_issue_dark.png)
 
-And we see that the interval now contains two roots, ``r_1`` and ``r_2``.
+If the interval would contain ``r_1`` and ``r_2`` then we get an error:
+
+```@example bisection
+struct UnexpectedSuccess <: Exception end #hide
+try  #hide
+bracket_root(f2, 30.)
+throw(UnexpectedSuccess()) #hide
+catch e; e isa UnexpectedSuccess ? rethrow(e) : showerror(stderr, e); end  #hide
+```
