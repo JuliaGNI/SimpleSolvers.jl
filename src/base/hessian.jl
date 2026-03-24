@@ -123,10 +123,6 @@ function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
     HessianAutodiff{T}(F, Hconfig)
 end
 
-HessianAutodiff(F::OptimizerProblem, x) = HessianAutodiff(F.F, x)
-
-Hessian(::Newton, ForOBJ::Union{Callable,OptimizerProblem}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
-
 HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff(F, zeros(T, nx))
 
 function (hes::HessianAutodiff{T})(H::AbstractMatrix{T}, x::AbstractVector{T}) where {T}

@@ -63,9 +63,6 @@ Quadratic(::Type{T}, ::NonlinearSolverMethod) where {T} = Quadratic{T}(
     T(DEFAULT_s_REDUCTION^2)
 )
 
-Quadratic(::Type{T}, ::OptimizerMethod) where {T} = Quadratic(T)
-
-
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_iterations::Integer) where {T}
     number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return α₀
 
