@@ -9,8 +9,6 @@ alloc_x
     alloc_g(x)
 
 Allocate `NaN`s of the size of the gradient of `f` (with respect to `x`).
-
-This is used in combination with a [`OptimizerProblem`](@ref).
 """
 alloc_g
 
@@ -18,8 +16,6 @@ alloc_g
     alloc_h(x)
 
 Allocate `NaN`s of the size of the Hessian of `f` (with respect to `x`).
-
-This is used in combination with a [`OptimizerProblem`](@ref).
 """
 alloc_h
 

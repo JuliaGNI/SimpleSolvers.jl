@@ -38,7 +38,7 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 ```
 
 ```@example bisection
-ls_obj = linesearch_problem(obj, grad, cache)
+ls_obj = linesearch_problem(s)
 nothing # hide
 ```
 

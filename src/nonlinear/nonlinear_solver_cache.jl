@@ -10,8 +10,6 @@ abstract type AbstractNonlinearSolverCache{T} end
 
 Derived from [`AbstractNonlinearSolverCache`](@ref). Used in [`NonlinearSolver`](@ref).
 
-Compare this to [`NewtonOptimizerCache`](@ref).
-
 # Keys
 
 - `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_problem`](@ref),
