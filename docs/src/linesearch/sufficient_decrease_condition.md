@@ -27,25 +27,22 @@ We include an example:
 
 ```@example sdc
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, NullParameters, direction # hide
+using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, NullParameters, direction # hide
+using SimpleSolvers: direction!, cache # hide
 
 x = [3., 1.3]
-f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = OptimizerProblem(f, x)
-hes = HessianAutodiff(obj, x)
-
+y = similar(x)
+f(y, x, params) = y .= 10 .* x .^ 3 ./ 6 .- x .^ 2 ./ 2
+_params = NullParameters()
+f(y, x, _params)
+s = NewtonSolver(x, y; F = f)
 c₁ = 1e-4
-grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(x)
-rhs = -g
-# the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-cache = NewtonOptimizerCache(x)
-state = NewtonOptimizerState(x)
-update!(state, grad, x)
-update!(cache, state, grad, hes, x)
-p = copy(direction(cache)) # hide
-ls_obj = linesearch_problem(obj, grad, cache)
-params = (x = state.x, parameters = NullParameters())
+state = NonlinearSolverState(x)
+update!(state, x, y)
+direction!(s, x, _params, 0)
+p = copy(direction(cache(s))) # hide
+ls_obj = linesearch_problem(s)
+params = (x = state.x, parameters = _params)
 sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_obj.F(alpha, params))
 
 # check different values
@@ -56,6 +53,7 @@ sdc = SufficientDecreaseCondition(c₁, ls_obj.F(0., params), ls_obj.D(0., param
 We further illustrate this:
 
 ```@setup sdc
+using SimpleSolvers: l2norm
 using CairoMakie, LaTeXStrings
 mred = RGBf(214 / 256, 39 / 256, 40 / 256)
 mpurple = RGBf(148 / 256, 103 / 256, 189 / 256)
@@ -66,22 +64,23 @@ morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 fig = Figure()
 ax = Axis3(fig[1,1])
 xs = LinRange(-.2, 3.2, 100)
-ys = LinRange(1., 4., 100)
-zs = [f(vcat(x, y)) for x in xs, y in ys]
+ys = LinRange(.5, 1.5, 100)
+_y = similar(x)
+zs = [l2norm(f(_y, vcat(x, y), _params)) for x in xs, y in ys]
 surface!(ax, xs, ys, zs; alpha = .5)
-scatter!(ax, [x[1]], [x[2]], [f(x)]; color=mred, label=L"x_0")
-arrows!(ax, [x[1]], [x[2]], [f(x)], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:tail)
+scatter!(ax, [x[1]], [x[2]], [l2norm(f(_y, x, _params))]; color=mred, label=L"x_0")
+arrows!(ax, [x[1]], [x[2]], [l2norm(f(_y, x, _params))], [.15 * p[1]], [.15 * p[2]], [0.]; color=mred, linewidth=.01, arrowsize = .1, align=:tail)
 
 x1 = x + α₁ * p
 x2 = x + α₂ * p
 x3 = x + α₃ * p
 x4 = x + α₄ * p
 x5 = x + α₅ * p
-scatter!(ax, [x1[1]], [x1[2]], [f(x1)]; color=mpurple, label=L"x_1")
-scatter!(ax, [x2[1]], [x2[2]], [f(x2)]; color=morange, label=L"x_2")
-scatter!(ax, [x3[1]], [x3[2]], [f(x3)]; color=mblue, label=L"x_3")
-scatter!(ax, [x4[1]], [x4[2]], [f(x4)]; color=mgreen, label=L"x_4")
-scatter!(ax, [x5[1]], [x5[2]], [f(x5)]; color=mred, label=L"x_5")
+scatter!(ax, [x1[1]], [x1[2]], [l2norm(f(y, x1, _params))]; color=mpurple, label=L"x_1")
+scatter!(ax, [x2[1]], [x2[2]], [l2norm(f(y, x2, _params))]; color=morange, label=L"x_2")
+scatter!(ax, [x3[1]], [x3[2]], [l2norm(f(y, x3, _params))]; color=mblue, label=L"x_3")
+scatter!(ax, [x4[1]], [x4[2]], [l2norm(f(y, x4, _params))]; color=mgreen, label=L"x_4")
+scatter!(ax, [x5[1]], [x5[2]], [l2norm(f(y, x5, _params))]; color=mred, label=L"x_5")
 
 axislegend(ax)
 save("sufficient_decrease_light.png", fig)

@@ -36,22 +36,23 @@ We use the [same example that we had when we explained the sufficient decrease c
 using SimpleSolvers # hide
 using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
 
-x = [3., 1.3]
-f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = OptimizerProblem(f, x)
-hes = HessianAutodiff(obj, x)
+using SimpleSolvers # hide
+using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, NullParameters, direction # hide
+using SimpleSolvers: direction!, cache # hide
 
-c₂ = .9
-g = similar(x)
-grad = GradientAutodiff{Float64}(obj.F, length(x))
-rhs = -g
-# the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-cache = NewtonOptimizerCache(x)
-state = NewtonOptimizerState(x)
-update!(state, grad, x)
-update!(cache, state, grad, hes, x)
-ls_obj = linesearch_problem(obj, grad, cache)
-params = (x = state.x,)
+x = [3., 1.3]
+y = similar(x)
+f(y, x, params) = y .= 10 .* x .^ 3 ./ 6 .- x .^ 2 ./ 2
+_params = NullParameters()
+f(y, x, _params)
+s = NewtonSolver(x, y; F = f)
+c₁ = 1e-4
+state = NonlinearSolverState(x)
+update!(state, x, y)
+direction!(s, x, _params, 0)
+p = copy(direction(cache(s))) # hide
+ls_obj = linesearch_problem(s)
+params = (x = state.x, parameters = _params)
 cc = CurvatureCondition(ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_prob.D(alpha, params))
 
 # check different values

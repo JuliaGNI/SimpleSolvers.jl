@@ -12,23 +12,17 @@ using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, N
 using SimpleSolvers: direction!, cache # hide
 
 x = [3., 1.3]
-f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = OptimizerProblem(f, x)
-hes = HessianAutodiff(obj, x)
-
+y = similar(x)
+f(y, x, params) = y .= 10 .* x .^ 3 ./ 6 .- x .^ 2 ./ 2
+_params = NullParameters()
+f(y, x, _params)
+s = NewtonSolver(x, y; F = f)
 c₁ = 1e-4
-grad = GradientAutodiff{Float64}(obj.F, length(x))
-# the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-state = NewtonOptimizerState(x)
-cache = NewtonOptimizerCache(x)
-problem = linesearch_problem(obj, grad, cache)
-update!(state, grad, x)
-update!(cache, state, grad, hes, x)
-
-params = (x = state.x,)
-sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
-# check different values
-α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
+state = NonlinearSolverState(x)
+update!(state, x, y)
+direction!(s, x, _params, 0)
+p = copy(direction(cache(s))) # hide
+params = (x = state.x, parameters = _params)
 
 using CairoMakie, LaTeXStrings
 mred = RGBf(214 / 256, 39 / 256, 40 / 256)
