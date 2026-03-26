@@ -1,5 +1,4 @@
 using SimpleSolvers
-using SimpleSolvers: inverse_hessian, OptimizerCache
 using Test
 using Random: seed!
 
