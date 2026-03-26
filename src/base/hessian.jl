@@ -18,11 +18,6 @@ function (hessian::Hessian)(h::AbstractMatrix, x::AbstractVector) end
 Examples include:
 - [`HessianFunction`](@ref)
 - [`HessianAutodiff`](@ref)
-- [`HessianBFGS`](@ref)
-- [`HessianDFP`](@ref)
-
-!!! info
-    This also includes approximate Hessians such as [`HessianBFGS`](@ref) and [`HessianDFP`](@ref).
 """
 abstract type Hessian{T} end
 
