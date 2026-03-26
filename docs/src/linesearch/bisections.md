@@ -8,7 +8,8 @@ We consider the same example as we had when demonstrating [backtracking line sea
 
 ```@setup bisection
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
+using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, NullParameters, direction # hide
+using SimpleSolvers: direction!, cache # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)

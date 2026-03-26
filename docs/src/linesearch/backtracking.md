@@ -19,7 +19,8 @@ We again look at [the example introduced when talking about the sufficient decre
 
 ```@setup ls_obj
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
+using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, NullParameters, direction # hide
+using SimpleSolvers: direction!, cache # hide
 
 x = [3., 1.3]
 f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)

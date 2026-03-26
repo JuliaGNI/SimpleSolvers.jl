@@ -28,7 +28,7 @@ export BracketingMethod
 export DirectMethod, IterativeMethod
 export NonlinearMethod, PicardMethod, LinesearchMethod
 
-export NewtonMethod, Newton, DFP, BFGS
+export NewtonMethod, Newton
 
 include("base/methods.jl")
 
