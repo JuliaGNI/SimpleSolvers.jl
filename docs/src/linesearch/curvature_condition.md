@@ -34,7 +34,7 @@ We use the [same example that we had when we explained the sufficient decrease c
 
 ```@example cc
 using SimpleSolvers # hide
-using SimpleSolvers: CurvatureCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
+using SimpleSolvers: CurvatureCondition, update!, linesearch_problem, ldiv!, direction # hide
 
 using SimpleSolvers # hide
 using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, NullParameters, direction # hide
