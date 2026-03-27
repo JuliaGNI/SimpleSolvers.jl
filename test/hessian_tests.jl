@@ -1,5 +1,4 @@
 using SimpleSolvers
-using SimpleSolvers: inverse_hessian, OptimizerCache
 using Test
 using Random: seed!
 
@@ -7,30 +6,29 @@ seed!(123)
 
 n = 2
 x = rand(n)
-h = zeros(n,n)
+h = zeros(n, n)
 T = eltype(x)
 
 function F(x::Vector)
-    1 + sum(x.^2)
+    1 + sum(x .^ 2)
 end
 
 function H!(h::Matrix, x::Vector)
     h .= 0
     for i in eachindex(x)
-        h[i,i] = 2
+        h[i, i] = 2
     end
 end
 
-H!(h,x)
+H!(h, x)
 
 HPAD = HessianAutodiff{T}(F, n)
 HPUS = HessianFunction{T}(H!, n)
-H_BFGS = HessianBFGS{T}(F, n)
-H_DFP = HessianDFP{T}(F, n)
+
 
 function test_hessian(h1, h2, atol)
-    for i in eachindex(h1,h2)
-        @test h1[i] ≈ h2[i] atol=atol
+    for i in eachindex(h1, h2)
+        @test h1[i] ≈ h2[i] atol = atol
     end
 end
 
@@ -42,20 +40,3 @@ HPUS(hus, x)
 
 test_hessian(had, h, eps())
 test_hessian(hus, h, zero(eltype(hus)))
-
-BFGS_cache = OptimizerCache(BFGS(), x)
-BFGS_state = OptimizerState(BFGS(), x)
-BFGS_state.x̄ .= x
-BFGS_state.ḡ .= GradientAutodiff(F, x)(x)
-
-DFP_cache = OptimizerCache(DFP(), x)
-DFP_state = OptimizerState(DFP(), x)
-DFP_state.x̄ .= x
-DFP_state.ḡ .= GradientAutodiff(F, x)(x)
-
-for α ∈ .9:-.01:1.0
-    update!(BFGS_cache, BFGS_state, GradientAutodiff(F, x), α * x)
-    update!(DFP_cache, DFP_state, GradientAutodiff(F, x), α * x)
-end
-
-@test inverse_hessian(BFGS_state) ≈ inverse_hessian(DFP_state)

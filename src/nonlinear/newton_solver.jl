@@ -25,7 +25,7 @@ true
 # Keywords
 - `nonlinearproblem::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
 - `jacobian::`[`Jacobian`](@ref)
-- `linear::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
+- `linear::`[`LinearSolver`](@ref): the linear solver is used to compute the *direction* of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`Linesearch`](@ref)
 - `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
 - `cache::`[`NonlinearSolverCache`](@ref)

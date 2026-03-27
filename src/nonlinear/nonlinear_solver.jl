@@ -10,8 +10,8 @@ A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Pi
 
 - `nonlinearproblem::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
 - `linearproblem::`[`LinearProblem`](@ref),
-- `jacobian::`[`Jacobian`](@ref): the Jacobian is used to compute the [`direction`](@ref) in the solver step,
-- `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the [`direction`](@ref) of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
+- `jacobian::`[`Jacobian`](@ref): the Jacobian is used to compute the *direction* in the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`jacobian`](@ref),
+- `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the *direction* of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`Linesearch`](@ref)
 - `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`NewtonMethod`](@ref)),
 - `cache::`[`NonlinearSolverCache`](@ref)

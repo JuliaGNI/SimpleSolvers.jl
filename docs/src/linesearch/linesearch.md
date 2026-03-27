@@ -34,32 +34,6 @@ See the following docstrings:
 - [`linesearch_problem`](@ref),
 - [`LinesearchProblem`](@ref).
 
-## Linesearches for Optimizers
-
-In `SimpleSolvers` we typically build the search direction by multiplying the gradient with a [Hessian](@ref "Hessians"). When starting at ``x_k`` we take:
-
-```math
-    p_k = H_{x_k}^{-1}(\nabla_{x_k}f),
-```
-where ``[H_{x_k}]_{ij} = \partial^2{}f\partial{}x_i\partial{}x_j|_{x_k}`` is the [Hessian](@ref "Hessians"). Note that we often use approximations of this Hessian in practice (such as the [`HessianBFGS`](@ref)).
-
-The linesearch objective is then built as
-```math
-f^\mathrm{ls}(\alpha) = f(x_k + \alpha{}p_k).
-```
-
-For manifolds [absil2008optimization](@cite) defining a Hessian, equivalently to defining a [gradient](@ref "Gradients"), requires a Riemannian metric and the associated Levi-Civita connection ``\nabla``:
-
-```math
-\mathrm{Hess}(f) := \nabla\nabla{}f = \nabla{}df \in \Gamma(T^*\mathcal{M}\otimes{}T^*\mathcal{M}).
-```
-
-For specific vector fields ``\xi, \eta \in \Gamma(T\mathcal{M})`` we can write this as:
-
-```math
-\langle \mathrm{Hess}(f)[\xi], \eta  \rangle = \xi(\eta{}f) - (\nabla_\xi\eta)f.
-```
-
 ## Linesearches for Solvers
 
 For solvers the output of ``f:\mathbb{R}^n\to\mathbb{R}^m`` is vector-valued. We therefore have

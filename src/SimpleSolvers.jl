@@ -28,10 +28,9 @@ export BracketingMethod
 export DirectMethod, IterativeMethod
 export NonlinearMethod, PicardMethod, LinesearchMethod
 
-export NewtonMethod, Newton, DFP, BFGS
+export NewtonMethod, Newton
 
 include("base/methods.jl")
-include("base/optimizer_methods.jl")
 
 export Gradient,
     GradientAutodiff,
@@ -42,15 +41,13 @@ export check_gradient
 
 include("base/gradient.jl")
 
-export LinesearchProblem,
-    OptimizerProblem
+export LinesearchProblem
 
 export value,
     gradient,
     derivative,
     hessian
 
-include("optimization/optimizer_problems.jl")
 include("linesearch/linesearch_problem.jl")
 
 export Options
@@ -128,35 +125,5 @@ include("nonlinear/dogleg_solver.jl")
 include("nonlinear/linesearch_problem.jl")
 
 SolverState(s::NonlinearSolver) = NonlinearSolverState(solution(cache(s)), value(cache(s)))
-
-
-export Optimizer,
-    OptimizerState, isaOptimizerState,
-    NewtonOptimizerState,
-    NewtonOptimizer,
-    BFGSOptimizer,
-    DFPOptimizer,
-    HessianAutodiff,
-    HessianBFGS,
-    HessianDFP
-
-include("optimization/optimizer_state.jl")
-include("optimization/optimizer_cache.jl")
-include("optimization/optimizer_status.jl")
-include("optimization/optimizer_result.jl")
-include("optimization/iterative_hessians/iterative_hessians.jl")
-include("optimization/iterative_hessians/bfgs/hessian_bfgs.jl")
-include("optimization/iterative_hessians/dfp/hessian_dfp.jl")
-include("optimization/newton_optimizer/newton_optimizer_cache.jl")
-include("optimization/newton_optimizer/newton_optimizer_state.jl")
-include("optimization/linesearch_problem.jl")
-
-include("optimization/iterative_hessians/bfgs/bfgs_state.jl")
-include("optimization/iterative_hessians/dfp/dfp_state.jl")
-
-include("optimization/iterative_hessians/bfgs/bfgs_cache.jl")
-include("optimization/iterative_hessians/dfp/dfp_cache.jl")
-
-include("optimization/optimizer.jl")
 
 end

@@ -9,19 +9,16 @@ const g = 2x
 const T = eltype(x)
 
 function F(x::Vector)
-    1 + sum(x.^2)
+    1 + sum(x .^ 2)
 end
 
 function ∇F!(g::Vector, x::Vector)
     g .= 0
-    for i in eachindex(x,g)
+    for i in eachindex(x, g)
         g[i] = 2x[i]
     end
     g
 end
-
-# this is needed for the analytic gradient (called with `GradientFunction`)
-const obj = OptimizerProblem(F, x; gradient = ∇F!)
 
 const ∇PAD = GradientAutodiff{T}(F, n)
 const ∇PFD = GradientFiniteDifferences{T}(F, n)
@@ -33,8 +30,8 @@ const ∇PUS = GradientFunction{T}(F, ∇F!, n)
 
 
 function test_grad(g1, g2, atol)
-    for i in eachindex(g1,g2)
-        @test g1[i] ≈ g2[i] atol=atol
+    for i in eachindex(g1, g2)
+        @test g1[i] ≈ g2[i] atol = atol
     end
 end
 

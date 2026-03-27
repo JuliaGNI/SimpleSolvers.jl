@@ -19,24 +19,22 @@ We again look at [the example introduced when talking about the sufficient decre
 
 ```@setup ls_obj
 using SimpleSolvers # hide
-using SimpleSolvers: SufficientDecreaseCondition, NewtonOptimizerCache, update!, linesearch_problem, ldiv!, direction # hide
+using SimpleSolvers: SufficientDecreaseCondition, update!, linesearch_problem, NullParameters, direction # hide
+using SimpleSolvers: direction!, cache # hide
 
 x = [3., 1.3]
-f = x -> 10 * sum(x .^ 3 / 6 - x .^ 2 / 2)
-obj = OptimizerProblem(f, x)
-hes = HessianAutodiff(obj, x)
-
+y = similar(x)
+f(y, x, params) = y .= 10 .* x .^ 3 ./ 6 .- x .^ 2 ./ 2
+_params = NullParameters()
+f(y, x, _params)
+s = NewtonSolver(x, y; F = f)
 c₁ = 1e-4
-grad = GradientAutodiff{Float64}(obj.F, length(x))
-g = grad(x)
-rhs = -g
-# the search direction is determined by multiplying the right hand side with the inverse of the Hessian from the left.
-state = NewtonOptimizerState(x)
-cache = NewtonOptimizerCache(x)
-problem = linesearch_problem(obj, grad, cache)
-update!(state, grad, x)
-update!(cache, state, grad, hes, x)
-params = (x = state.x,)
+state = NonlinearSolverState(x)
+update!(state, x, y)
+direction!(s, x, _params, 0)
+p = copy(direction(cache(s))) # hide
+problem = linesearch_problem(s)
+params = (x = state.x, parameters = _params)
 sdc = SufficientDecreaseCondition(c₁, problem.F(0., params), problem.D(0., params), alpha -> problem.F(alpha, params))
 
 # check different values
@@ -49,7 +47,6 @@ mgreen = RGBf(44 / 256, 160 / 256, 44 / 256)
 mblue = RGBf(31 / 256, 119 / 256, 180 / 256)
 morange = RGBf(255 / 256, 127 / 256, 14 / 256)
 
-update!(cache, state, grad, hes, x)
 nothing # hide
 ```
 

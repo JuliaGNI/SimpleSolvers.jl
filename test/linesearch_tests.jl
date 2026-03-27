@@ -3,7 +3,7 @@ using SimpleSolvers
 using Test
 
 using LinearAlgebra: rmul!, ldiv!
-using SimpleSolvers: AbstractOptimizerProblem, BierlaireQuadratic, Quadratic, NullParameters
+using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters
 using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, direction!, nonlinearproblem, iteration_number
 
 f(x) = x^2 - 1

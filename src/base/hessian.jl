@@ -18,11 +18,6 @@ function (hessian::Hessian)(h::AbstractMatrix, x::AbstractVector) end
 Examples include:
 - [`HessianFunction`](@ref)
 - [`HessianAutodiff`](@ref)
-- [`HessianBFGS`](@ref)
-- [`HessianDFP`](@ref)
-
-!!! info
-    This also includes approximate Hessians such as [`HessianBFGS`](@ref) and [`HessianDFP`](@ref).
 """
 abstract type Hessian{T} end
 
@@ -122,10 +117,6 @@ function HessianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
     Hconfig = ForwardDiff.HessianConfig(F, x)
     HessianAutodiff{T}(F, Hconfig)
 end
-
-HessianAutodiff(F::OptimizerProblem, x) = HessianAutodiff(F.F, x)
-
-Hessian(::Newton, ForOBJ::Union{Callable,OptimizerProblem}, x::AbstractVector) = HessianAutodiff(ForOBJ, x)
 
 HessianAutodiff{T}(F, nx::Int) where {T} = HessianAutodiff(F, zeros(T, nx))
 

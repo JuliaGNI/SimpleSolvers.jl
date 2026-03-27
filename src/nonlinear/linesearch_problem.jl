@@ -2,8 +2,6 @@
     linesearch_problem(nlp, jacobian, cache)
 
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
-
-Also see [`linesearch_problem(::OptimizerProblem{T}, ::Gradient, ::OptimizerCache{T}) where {T}`](@ref).
 """
 function linesearch_problem(nlp::NonlinearProblem{T}, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
     function f(α::Number, params)
