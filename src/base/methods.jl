@@ -40,6 +40,7 @@ The default number of iterations before the [`Jacobian`](@ref) is refactored in 
 const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
 
 const QuasiNewtonMethod = NewtonMethod{false}
+const Newton = NewtonMethod
 
 """
     PicardMethod <: NonlinearSolverMethod
