@@ -104,8 +104,8 @@ Print the solver status if:
 """
 function print_status(status::NonlinearSolverStatus, config::Options)
     if (config.verbosity ≥ 1 &&
-        (isconverged(status) || status.iterations > config.max_iterations)) ||
-        config.verbosity > 1
+        (isconverged(status) || status.iterations ≥ config.max_iterations)) ||
+       config.verbosity > 1
         println(status)
     end
 end
