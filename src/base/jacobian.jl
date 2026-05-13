@@ -134,7 +134,7 @@ struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:Abstra
     ty::YT
 
     function JacobianAutodiff(F::CT, x::YT, y::YT) where {T,YT<:AbstractArray{T},CT<:Callable}
-        applicable(F, y, x, nothing) || error("The function needs to have the following signature: F(y, x, params).")
+        applicable(F, y, x, ()) || error("The function needs to have the following signature: F(y, x, params).")
 
         Jconfig = ForwardDiff.JacobianConfig(nothing, y, x)
         new{T,typeof(F),typeof(Jconfig),YT}(F, Jconfig, y)
