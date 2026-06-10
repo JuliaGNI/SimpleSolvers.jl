@@ -5,7 +5,7 @@ Abstract type comprising the conditions that are used for checking step sizes fo
 """
 abstract type BacktrackingCondition{T} end
 
-(bc::BCT, xₖ, αₖ, gradₖ) where {BCT<:BacktrackingCondition} = error("Condition $(BCT) not defined for this combination of input arguments.")
+(bc::BacktrackingCondition)(xₖ, αₖ, gradₖ) = error("Condition $(BCT) not defined for this combination of input arguments.")
 
 """
     compute_new_iterate!(xₖ₊₁, xₖ, αₖ, pₖ)
