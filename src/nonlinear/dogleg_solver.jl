@@ -1,5 +1,17 @@
+"Initial trust-region radius for the [`DogLegSolver`](@ref)."
 const INITIAL_Δ = 1.0
-const DEFAULT_Δ_REDUCTION = 0.5
+"Maximum trust-region radius (``\\hat\\Delta`` in [nocedal2006numerical; Alg. 4.1](@cite)) for the [`DogLegSolver`](@ref); the radius is never expanded beyond this."
+const DOGLEG_Δ_MAX = 1E2
+"Factor by which the trust-region radius is shrunk on a poor step (``\\rho < 1/4``)."
+const DOGLEG_Δ_SHRINK = 0.25
+"Factor by which the trust-region radius is expanded on a very good step (``\\rho > 3/4`` at the boundary)."
+const DOGLEG_Δ_EXPAND = 2.0
+"Lower ρ threshold below which the trust-region radius is shrunk."
+const DOGLEG_ρ_LOW = 0.25
+"Upper ρ threshold above which the trust-region radius may be expanded."
+const DOGLEG_ρ_HIGH = 0.75
+"Minimum ρ (actual/predicted reduction) for a step to be accepted (``\\eta`` in [nocedal2006numerical; Alg. 4.1](@cite))."
+const DOGLEG_η = 1E-4
 
 """
     DogLegSolver
@@ -118,7 +130,7 @@ function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
     direction(cache)
 end
 
-function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params; Δ::T=T(INITIAL_Δ)) where {T}
+function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     directions!(s, x, params)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
@@ -146,30 +158,70 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         end
     end
 
-    # Shrink the trust-region radius Δ until the dogleg step satisfies the
-    # sufficient-decrease condition.  This is an in-place loop (not recursion), so
-    # `directions!` — and hence the Jacobian evaluation and factorization — runs
-    # exactly once per solver step, regardless of how many times Δ is shrunk.
-    # The termination on the Δ floor is independent of `verbosity`.
+    # Trust-region step with a ρ-based radius update (Nocedal & Wright, Alg. 4.1).
+    # The radius Δ is *carried across outer solver steps* in the cache (rather than
+    # reset to a fixed value every step): a good step expands it, a poor step
+    # shrinks it.  Because d₁ and d₂ do not depend on Δ, shrinking Δ on a rejected
+    # step only recomputes the cheap dogleg interpolation via `dogleg_direction!` —
+    # the Jacobian evaluation and factorization (`directions!`) run exactly once
+    # per solver step.  Termination on the Δ floor is independent of `verbosity`.
+    φ₀ = L2norm(value(state))          # current merit φ(x) = ‖F(x)‖²
+    Δ = trust_radius(cache(s))
+    accepted = false
     while Δ > eps(T)
         dogleg_direction!(cache(s), Δ)
-        compute_new_iterate!(solution(cache(s)), solution(state), one(T), direction(cache(s)))
+        d = direction(cache(s))
+        pₙ = l2norm(d)
+
+        # trial iterate x + d and its merit φ(x + d)
+        compute_new_iterate!(solution(cache(s)), solution(state), one(T), d)
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        # sufficient-decrease for the merit φ(x) = ‖F(x)‖² = L2norm(F): the model
-        # decrease is c₁·∇φ(x)ᵀd with ∇φ = 2·JᵀF, i.e. c₁·2·Fᵀ·J·d, which is
-        # negative for a descent direction.
-        if L2norm(value(cache(s))) ≤ L2norm(value(state)) + DEFAULT_WOLFE_c₁ * 2 * dot(value(state), jacobianmatrix(s), direction(cache(s)))
+        φ = L2norm(value(cache(s)))
+
+        # A (numerically) zero step means the model predicts no further progress:
+        # accept it and let the convergence check decide.  This is the exact-root /
+        # stationary-point case where d₁ = d₂ = 0 (see [`directions!`](@ref)).
+        if pₙ ≤ eps(T)
             x .= solution(cache(s))
-            return x
+            accepted = true
+            break
         end
-        Δ *= T(DEFAULT_Δ_REDUCTION)
+
+        # Predicted reduction from the Gauss-Newton model m(d) = ‖F + J·d‖²:
+        #   pred = ‖F‖² − ‖F + J·d‖²   (cache.y₂ = J·d is reused as scratch).
+        mul!(cache(s).y₂, jacobianmatrix(s), d)
+        cache(s).y₂ .+= value(state)
+        pred = φ₀ - L2norm(cache(s).y₂)
+        ared = φ₀ - φ
+        # ρ = actual / predicted reduction.  Guard the degenerate pred ≤ 0 case
+        # (model predicts no decrease): accept only if the merit actually dropped.
+        ρ = pred > eps(T) ? ared / pred : (ared > zero(T) ? one(T) : zero(T))
+
+        # Radius update (before the accept test, so a shrink applies to the retry).
+        if ρ < T(DOGLEG_ρ_LOW)
+            Δ *= T(DOGLEG_Δ_SHRINK)
+        elseif ρ > T(DOGLEG_ρ_HIGH) && isapprox(pₙ, Δ; rtol=sqrt(eps(T)))
+            # very good step sitting on the trust-region boundary ⇒ grow the radius
+            Δ = min(T(DOGLEG_Δ_EXPAND) * Δ, T(DOGLEG_Δ_MAX))
+        end
+
+        if ρ > T(DOGLEG_η)
+            x .= solution(cache(s))
+            accepted = true
+            break
+        end
+        # rejected (ρ ≤ η < 1/4 ⇒ Δ was just shrunk): retry with the smaller radius.
     end
 
-    # The trust-region radius underflowed without achieving sufficient decrease.
-    # Take the last (smallest-Δ) step; the convergence check will decide whether
-    # this is an acceptable stationary point.
-    verbosity(config(s)) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without sufficient decrease (iterations: $(iteration_number(state)))."
-    x .= solution(cache(s))
+    trust_radius!(cache(s), Δ)      # carry the updated radius to the next step
+
+    if !accepted
+        # The trust-region radius underflowed without an acceptable step.  Take the
+        # last (smallest-Δ) trial; the convergence check decides whether this is an
+        # acceptable stationary point.
+        verbosity(config(s)) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without an acceptable step (iterations: $(iteration_number(state)))."
+        x .= solution(cache(s))
+    end
 
     x
 end

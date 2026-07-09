@@ -1,6 +1,8 @@
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!, BierlaireQuadratic
 using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update!, iteration_number
+using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value, direction, direction!, NullParameters
+using SimpleSolvers: trust_radius, INITIAL_Δ
 using Test
 using Random
 using ForwardDiff
@@ -83,12 +85,17 @@ for T ∈ (Float64, Float32)
         # (≈2.5 eps in Float64, ≈17 eps in Float32); hence the looser tolfac here.
         (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 32),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
+        # Phase 5: the strong-Wolfe (bracket + zoom) line search.
+        (NewtonSolver, (linesearch=StrongWolfe(T),), 2),
         (QuasiNewtonSolver, (linesearch=Static(T),), 2),
         (QuasiNewtonSolver, (linesearch=Backtracking(T),), 2),
         (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
         (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 32),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
-        (PicardSolver, (linesearch=Bisection(T),), 8),
+        # Phase 5: PicardSolver is now a (residual-safeguarded) fixed-point
+        # iteration and no longer runs a derivative-based line search, so it takes
+        # no `linesearch` keyword here.
+        (PicardSolver, (), 8),
         (DogLegSolver, (), 1),
     )
 
@@ -125,7 +132,7 @@ for T ∈ (Float64, Float32)
     for (solver_method, kwarguments, tolfac) in (
         (NewtonMethod(), (linesearch=Static(T),), 2),
         (QuasiNewtonMethod(), (linesearch=Static(T),), 2),
-        (PicardMethod(), (linesearch=Bisection(T),), 8),
+        (PicardMethod(), (), 8),
         (DogLeg(), (), 1)
     )
 
@@ -190,6 +197,53 @@ end
     end
 end
 
+@testset "Phase 5: PicardSolver is a residual-safeguarded fixed-point iteration (§3)" begin
+    # A genuine contraction: F(x) = x - cos(x) has the fixed point x = cos(x) (the
+    # Dottie number ≈ 0.7390851332151607); the fixed-point iteration x ← cos(x)
+    # converges.  Picard takes no derivative-based line search (the residual
+    # direction d = -F is not a descent direction for ‖F‖² in general).
+    Fcos(y, x, p) = (y .= x .- cos.(x))
+    dottie = 0.7390851332151607
+    for T in (Float64, Float32)
+        # both the direct constructor and the method-based constructor
+        x1 = T[0.5]
+        solve!(x1, PicardSolver(x1, Fcos, similar(x1)))
+        @test isapprox(x1[1], T(dottie); atol=sqrt(eps(T)))
+        @test abs(x1[1] - cos(x1[1])) ≤ sqrt(eps(T))
+
+        x2 = T[0.5]
+        solve!(x2, NonlinearSolver(PicardMethod(), x2, similar(x2); F=Fcos))
+        @test isapprox(x2[1], T(dottie); atol=sqrt(eps(T)))
+    end
+
+    # The residual-monotonicity safeguard never lets the accepted step increase
+    # the residual: a full (undamped) fixed-point step here would overshoot, but
+    # Picard still converges (it damps α as needed) rather than diverging.
+    Fover(y, x, p) = (y .= 3 .* (x .- 1.0))   # full step x ← x - 3(x-1) overshoots
+    x = [2.0]
+    solve!(x, PicardSolver(x, Fover, similar(x)))
+    @test isapprox(x[1], 1.0; atol=1e-6)
+end
+
+@testset "Phase 5: DogLeg ρ-based trust region grows on good steps and carries Δ (2.3d)" begin
+    # With the full ρ-based radius update (N&W Alg. 4.1) the trust radius is carried
+    # across outer steps and *expanded* on good steps that sit on the boundary —
+    # the old code reset Δ to INITIAL_Δ every step and could only shrink it.
+    # For a linear residual F(x) = x the Gauss-Newton model is exact (ρ ≈ 1), and
+    # starting far from the root (‖Newton step‖ = 5 > INITIAL_Δ = 1) forces several
+    # boundary steps that grow Δ before the full Newton step converges.
+    Flin(y, x, p) = (y .= x)
+    for T in (Float64, Float32)
+        x = T[5.0, 5.0]
+        s = DogLegSolver(x, Flin, similar(x))
+        ss = SolverState(s)
+        @test trust_radius(cache(s)) == T(INITIAL_Δ)   # reset before solving
+        solve!(x, s, ss)
+        @test all(v -> isapprox(v, zero(T); atol=10eps(T)), x)  # converged
+        @test trust_radius(cache(s)) > T(INITIAL_Δ)             # radius expanded & carried
+    end
+end
+
 @testset "Check whether direction NaN test works" begin
 
     function Fnan(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
@@ -218,6 +272,42 @@ end
     @test_throws SingularException solve!(x₁, nl₁)
     @test_throws NonlinearSolverException solve!(x₂, nl₂)
 
+end
+
+@testset "Phase 5: line search does not overwrite the shared solver cache (§3)" begin
+    # The line search closures must use private scratch buffers, so evaluating the
+    # line search problem at a trial α ≠ 0 leaves the solver's shared cache
+    # (`solution`/`value`/`jacobianmatrix`) untouched — these are read by the solver
+    # after the line search returns.
+    G(y, x, params) = y .= (x .- 1.0) .^ 2
+    x = ones(3) / 2
+    y = similar(x)
+    nl = NewtonSolver(x, y; F=G)
+    _params = NullParameters()
+
+    direction!(nl, x, _params, 1)
+    state = NonlinearSolverState(x)
+    update!(state, x, G(y, x, _params))
+
+    # Write recognizable sentinels into the shared cache buffers.  If the line
+    # search still wrote through them, these would be clobbered by the trial-α
+    # evaluations below.
+    fill!(value(cache(nl)), 7.0)
+    fill!(solution(cache(nl)), 3.0)
+    fill!(jacobianmatrix(cache(nl)), 5.0)
+    j_before = copy(jacobianmatrix(cache(nl)))
+    y_before = copy(value(cache(nl)))
+    x_before = copy(solution(cache(nl)))
+
+    lsp = linesearch_problem(nl)
+    params = (parameters=_params, x=state.x)
+    # Evaluate at a nonzero step so the trial iterate genuinely differs from x.
+    lsp.F(0.7, params)
+    lsp.D(0.7, params)
+
+    @test jacobianmatrix(cache(nl)) == j_before
+    @test value(cache(nl)) == y_before
+    @test solution(cache(nl)) == x_before
 end
 
 @testset "Phase 4.2 error-swallowing fallbacks removed" begin

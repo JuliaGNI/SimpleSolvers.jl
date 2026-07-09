@@ -1,5 +1,5 @@
 """
-    LinesearchMethod
+    LinesearchMethod{T} <: SolverMethod
 
 Examples include [`Static`](@ref), [`Backtracking`](@ref), [`Bisection`](@ref) , [`BierlaireQuadratic`](@ref) and [`Quadratic`](@ref).
 See these examples for specific information on linesearch algorithms.
@@ -7,8 +7,13 @@ See these examples for specific information on linesearch algorithms.
 # Extended help
 
 A `LinesearchMethod` is usually used in [`Linesearch`](@ref) (or with [`solve`](@ref)).
+
+It is a subtype of `SolverMethod` (imported from `GeometricBase`) — line searches
+are one-dimensional subproblems used *inside* both nonlinear solvers and
+optimizers, so (unlike a [`NonlinearSolverMethod`](@ref)) a `LinesearchMethod` is
+not itself a nonlinear-solver method.
 """
-abstract type LinesearchMethod{T} <: NonlinearMethod end
+abstract type LinesearchMethod{T} <: SolverMethod end
 
 Base.eltype(::LinesearchMethod{T}) where {T} = T
 

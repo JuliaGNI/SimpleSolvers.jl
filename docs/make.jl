@@ -32,6 +32,7 @@ makedocs(;
             "The Sufficient Decrease Condition" => "linesearch/sufficient_decrease_condition.md",
             "The Curvature Condition" => "linesearch/curvature_condition.md",
             "Backtracking" => "linesearch/backtracking.md",
+            "Strong Wolfe" => "linesearch/wolfe.md",
             "Bisections" => "linesearch/bisections.md",
             "Quadratic" => "linesearch/quadratic.md",
             "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md",

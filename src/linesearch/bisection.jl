@@ -119,8 +119,12 @@ function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullPar
 end
 
 function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
-    # TODO: The following line should use α instead of zero(T) but that requires a rework of the bracketing algorithm
-    # solve(problem, ls, bracket_minimum(problem.F, α)..., params)
+    # Design note (Phase 5, resolving the former "use α" TODO): the bracket is
+    # anchored at α = 0 rather than at the caller's α.  Starting `bracket_minimum`
+    # at α is unsafe — the merit need not be decreasing there and the search could
+    # wander to a negative (infeasible) step — and using α as the bracketing step
+    # size over-coarsens the search and destabilises stiff problems.  The step
+    # magnitude is governed by `bracket_minimum`'s tuned default, not by α.
     solve(ls, bracket_minimum(problem(ls), params, zero(T))..., params)
 end
 

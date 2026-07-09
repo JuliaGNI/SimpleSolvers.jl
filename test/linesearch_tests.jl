@@ -322,3 +322,66 @@ end
     @test (αbest = bisection(fslow, 0.0, 1.0, NullParameters(), cfg)) isa Float64
     @test 0.0 ≤ αbest ≤ 1.0
 end
+
+@testset "$(rpad("Phase 5: StrongWolfe line search (bracket + zoom)", 80))" begin
+    # For f(x) = x² − 1 with the Newton direction δx = −g/2 the line minimiser is
+    # at α = 1 (φ'(1) = 0), so the strong Wolfe conditions are met exactly there.
+    prob = make_linesearch_problem(-3.0)
+    c₁ = 1e-4
+    c₂ = 0.9
+    ls = Linesearch(prob, StrongWolfe(); x_abstol=0.0)
+    φ0 = value(prob, 0.0, NullParameters())
+    d0 = derivative(prob, 0.0, NullParameters())
+    # The returned step must satisfy *both* strong Wolfe conditions (that is the
+    # whole point of the method — Backtracking guarantees only sufficient decrease).
+    # Note the conditions do not pin α = 1: with c₂ = 0.9 the strong-curvature
+    # condition holds for a range of α, so a good α₀ may be accepted directly.
+    for α₀ in (0.1, 0.5, 1.0, 2.0)
+        α = solve(ls, α₀)
+        φα = value(prob, α, NullParameters())
+        dα = derivative(prob, α, NullParameters())
+        @test φα ≤ φ0 + c₁ * α * d0            # sufficient decrease (Armijo)
+        @test abs(dα) ≤ c₂ * abs(d0)           # strong curvature
+        @test α > zero(α)                      # a genuine positive step
+    end
+
+    # A tighter c₂ forces the search onto the exact minimiser α = 1 (φ'(1) = 0),
+    # exercising the bracket → zoom path from an overshooting α₀.
+    ls_tight = Linesearch(prob, StrongWolfe(; c₂=1e-2); x_abstol=0.0)
+    @test solve(ls_tight, 2.0) ≈ 1.0 atol = 1e-6
+    @test compute_new_iterate(-3.0, solve(ls_tight, 2.0), δx(-3.0)) ≈ 0.0 atol = 1e-6
+
+    # Constructor validation and helpers.
+    @test_throws AssertionError StrongWolfe(Float64; c₁=0.9, c₂=0.1)   # need c₁ < c₂
+    @test_throws AssertionError StrongWolfe(Float64; αmax=-1.0)
+    @test change_precision(Float32, StrongWolfe(Float64)) isa StrongWolfe{Float32}
+    @test StrongWolfe(Float64) ≈ StrongWolfe(Float64)
+
+    # Non-descent direction: φ'(0) = 2 ≥ 0 ⇒ the method returns the trial step and
+    # does not attempt a search it cannot complete.
+    ascent = LinesearchProblem{Float64}((a, _) -> (a + 1.0)^2, (a, _) -> 2(a + 1.0))
+    ls_asc = Linesearch(ascent, StrongWolfe(); verbosity=0)
+    @test solve(ls_asc, 0.7) == 0.7
+end
+
+@testset "$(rpad("Phase 5: bracketing line searches are α₀-robust (§5 TODO resolved)", 80))" begin
+    # The three former TODO sites asked whether the bracketing line searches
+    # (Bisection, Quadratic, BierlaireQuadratic) should start from the caller's α₀
+    # instead of α = 0.  Phase 5 resolves this as a *design decision*: they keep the
+    # α = 0 anchor (the only point where a descent direction is guaranteed
+    # decreasing, which one-sided rightward bracketing requires) with the method's
+    # tuned step scale.  The α₀ argument is accepted but does not change the anchor
+    # or scale, so the result is independent of α₀.  For f(x) = x² − 1 with the
+    # Newton direction δx = −g/2 the line minimiser is at α = 1 (x₀ + 1·δx = 0):
+    # every α₀ must converge there.
+    prob = make_linesearch_problem(-3.0)
+    for method in (Bisection(), Quadratic(), BierlaireQuadratic())
+        ls = Linesearch(prob, method; x_abstol=0.0)
+        results = [solve(ls, α₀) for α₀ in (0.25, 0.5, 1.0, 2.0, 4.0)]
+        for α in results
+            @test compute_new_iterate(-3.0, α, δx(-3.0)) ≈ 0.0 atol = ∛(2eps())
+        end
+        # α₀-independent by design
+        @test all(r -> r ≈ first(results), results)
+    end
+end

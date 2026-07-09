@@ -25,7 +25,7 @@ export solution, minimum
 
 export SolverMethod, SolverState
 export DirectMethod
-export NonlinearMethod, PicardMethod, LinesearchMethod
+export NonlinearSolverMethod, PicardMethod, LinesearchMethod
 
 export NewtonMethod, Newton
 
@@ -89,7 +89,8 @@ export Backtracking,
     Bisection,
     Quadratic,
     BierlaireQuadratic,
-    Static
+    Static,
+    StrongWolfe
 
 include("linesearch/linesearch.jl")
 include("linesearch/backtracking/backtracking_condition.jl")
@@ -100,6 +101,7 @@ include("linesearch/bisection.jl")
 include("linesearch/quadratic.jl")
 include("linesearch/quadratic_bierlaire.jl")
 include("linesearch/static.jl")
+include("linesearch/wolfe.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, QuasiNewtonSolver, assess_convergence, QuasiNewtonMethod

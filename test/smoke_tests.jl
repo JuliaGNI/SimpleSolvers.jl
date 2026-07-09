@@ -29,8 +29,14 @@ const yvec = T[1.0, 2.0, 3.0]
 @testset "$(rpad("Abstract solver-method / state hierarchy", 80))" begin
     @test isabstracttype(SolverMethod)
     @test SolverState isa Function   # GeometricBase state constructor, not a type
-    @test isabstracttype(NonlinearMethod)
+    @test isabstracttype(NonlinearSolverMethod)
     @test isabstracttype(LinesearchMethod)
+    # Phase 5: LinesearchMethod is now a direct subtype of SolverMethod (the former
+    # `NonlinearMethod` supertype was removed — a line search is not itself a
+    # nonlinear-solver method).
+    @test LinesearchMethod <: SolverMethod
+    @test NonlinearSolverMethod <: SolverMethod
+    @test !(LinesearchMethod <: NonlinearSolverMethod)
     @test isabstracttype(DirectMethod)
     @test isabstracttype(Gradient)
     @test isabstracttype(Hessian)
@@ -100,6 +106,7 @@ end
     @test Bisection() isa Bisection
     @test Quadratic() isa Quadratic
     @test BierlaireQuadratic() isa BierlaireQuadratic
+    @test StrongWolfe() isa StrongWolfe
 
     ls_prob = LinesearchProblem{T}((α, params) -> α^2, (α, params) -> 2α)
     @test ls_prob isa LinesearchProblem

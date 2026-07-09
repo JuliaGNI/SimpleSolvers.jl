@@ -17,13 +17,33 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
 
     j::JT
 
+    # Trust-region radius, carried across outer solver steps (see [`solver_step!`]
+    # for the [`DogLegSolver`](@ref)).  A `Ref` so it can be mutated in place while
+    # the surrounding cache stays immutable.
+    Δ::Base.RefValue{T}
+
     function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
         j = alloc_j(x, y)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j)
+        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(INITIAL_Δ)))
         initialize!(c, fill!(similar(x), NaN))
         c
     end
 end
+
+"""
+    trust_radius(cache::DogLegCache)
+
+Return the current trust-region radius ``\\Delta`` carried by the [`DogLegCache`](@ref).
+"""
+trust_radius(cache::DogLegCache) = cache.Δ[]
+
+"""
+    trust_radius!(cache::DogLegCache, Δ)
+
+Store the trust-region radius ``\\Delta`` in the [`DogLegCache`](@ref) so it carries
+over to the next outer solver step.
+"""
+trust_radius!(cache::DogLegCache{T}, Δ::T) where {T} = (cache.Δ[] = Δ)
 
 """
     direction₁(cache::DogLegCache)

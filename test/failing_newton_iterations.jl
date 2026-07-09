@@ -28,9 +28,12 @@ function try_different_solvers(T::DataType)
     solve!(x0, solver)
     @test ≈(x0, _root; atol=tol(T))
 
-    # PicardSolver still fails: the Picard direction d = -F(x) is not generally a
-    # descent direction for the ‖F‖² merit used by the default line search, so it
-    # cannot solve this problem (a separate issue, deferred to Phase 5).
+    # PicardSolver cannot solve this problem, but for a principled reason: since
+    # Phase 5 it is a proper (residual-safeguarded) fixed-point iteration
+    # x ← x + α(-F(x)), and the Powell map is not a contraction here, so it stalls
+    # at a non-root instead of converging.  Crucially it does *not* diverge to NaN
+    # or falsely report convergence (Phase 2 residual gate) — it simply runs out of
+    # iterations, so the equality assertion below fails as expected.
     x0 = ics(T)
     solver = PicardSolver(x0, F, copy(x0))
 

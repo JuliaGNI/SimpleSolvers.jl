@@ -1,6 +1,14 @@
-abstract type NonlinearMethod <: SolverMethod end
+"""
+    NonlinearSolverMethod <: SolverMethod
 
-"A supertype collecting all nonlinear methods, including [`NewtonMethod`](@ref)s, [`PicardMethod`](@ref) and [`DogLeg`](@ref)."
+A supertype collecting all nonlinear *solver* methods, i.e. [`NewtonMethod`](@ref),
+[`PicardMethod`](@ref) and [`DogLeg`](@ref).
+
+Compare this with [`LinesearchMethod`](@ref): both are subtypes of `SolverMethod`,
+but a `LinesearchMethod` describes a one-dimensional line search (used *inside* a
+solver step) whereas a `NonlinearSolverMethod` describes the outer nonlinear
+iteration itself.
+"""
 abstract type NonlinearSolverMethod <: SolverMethod end
 
 """

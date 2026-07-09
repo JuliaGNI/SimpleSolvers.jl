@@ -4,17 +4,29 @@
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
 """
 function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
+    # Private scratch buffers for the line search.  Previously the closures wrote
+    # the trial iterate, its residual and its Jacobian straight into the solver's
+    # *shared* cache (`solution`/`value`/`jacobianmatrix`).  Those buffers are read
+    # by the solver *after* the line search returns (e.g. the next `direction!`
+    # step and the convergence check), so overwriting them at every trial `α` was
+    # an aliasing hazard (bugs.md §3).  The line search now only *reads* the
+    # current direction from the shared cache and the current iterate from
+    # `params.x`; every write goes to a buffer owned by the closures.
+    xₜ = zero(solution(cache))
+    yₜ = zero(value(cache))
+    jₜ = zero(jacobianmatrix(cache))
+
     function f(α::Number, params)
-        compute_new_iterate!(solution(cache), params.x, α, direction(cache))
-        value!(value(cache), nlp, solution(cache), params.parameters)
-        L2norm(value(cache))
+        compute_new_iterate!(xₜ, params.x, α, direction(cache))
+        value!(yₜ, nlp, xₜ, params.parameters)
+        L2norm(yₜ)
     end
 
     function d(α::Number, params)
-        compute_new_iterate!(solution(cache), params.x, α, direction(cache))
-        value!(value(cache), nlp, solution(cache), params.parameters)
-        jacobian(jacobianmatrix(cache), solution(cache), params.parameters)
-        2dot(value(cache), jacobianmatrix(cache), direction(cache))
+        compute_new_iterate!(xₜ, params.x, α, direction(cache))
+        value!(yₜ, nlp, xₜ, params.parameters)
+        jacobian(jₜ, xₜ, params.parameters)
+        2dot(yₜ, jₜ, direction(cache))
     end
 
     LinesearchProblem{T}(f, d)

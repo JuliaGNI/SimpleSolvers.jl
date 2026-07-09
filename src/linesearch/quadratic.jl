@@ -97,8 +97,14 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_
 end
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
-    # TODO: The following line should use α₀ instead of zero(T) but that requires a rework of the bracketing algorithm
-    # solve(ls, α₀, params, method(ls).s, 0)
+    # Design note (Phase 5, resolving the former "use α₀" TODO): the caller's α₀ is
+    # deliberately *not* used as the bracket start.  `bracket_minimum_with_fixed_point`
+    # holds its left endpoint fixed and only expands to the right, so it must start
+    # where the merit is guaranteed to be decreasing — α = 0 (φ'(0) < 0 for a
+    # descent direction).  Anchoring at α₀ > 0 would fail whenever the optimal step
+    # is smaller than α₀, and using α₀ as the initial step *size* over-coarsens the
+    # bracket and destabilises stiff problems (the tuned `method(ls).s` is required).
+    # The step magnitude is therefore governed by the method's `s`, not by α₀.
     solve(ls, zero(T), params, method(ls).s, 0)
 end
 

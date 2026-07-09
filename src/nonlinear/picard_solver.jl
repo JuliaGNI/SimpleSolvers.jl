@@ -63,3 +63,58 @@ function direction!(it::PicardSolver, x::AbstractVector, params)
 end
 
 direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(it, x, params)
+
+"Backtracking shrink factor used by the [`PicardSolver`](@ref) residual safeguard."
+const DEFAULT_PICARD_BACKTRACKING_p = 0.5
+
+@doc raw"""
+    solver_step!(x, s::PicardSolver, state, params)
+
+Take one *fixed-point* (Picard) step ``x \gets x + \alpha d`` with the residual
+direction ``d = -F(x)`` (see [`direction!`](@ref)).
+
+Unlike a Newton/Gauss-Newton step, the Picard direction ``d = -F(x)`` is **not**
+in general a descent direction for the merit ``\varphi = \|F\|^2``, so applying the
+derivative-based (Wolfe) line search used by the other [`NonlinearSolver`](@ref)s is
+inappropriate (a directional derivative that is not negative makes the sufficient-
+decrease/curvature tests meaningless; bugs.md §3).
+
+Instead the step is *damped* by a **residual-monotonicity backtracking**: starting
+from the full fixed-point step ``\alpha = 1`` the step is halved until the residual
+norm does not increase, ``\|F(x + \alpha d)\| \le \|F(x)\|``.  This safeguard uses
+only function values and makes no descent assumption.  If no positive ``\alpha``
+reduces the residual (the fixed-point map is locally expanding), the smallest trial
+step is taken and the convergence test — which since Phase 2 requires a small
+*residual*, not merely a small step — correctly reports non-convergence instead of
+a false positive.
+"""
+function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::NonlinearSolverState{T}, params) where {T}
+    direction!(s, x, params, iteration_number(state))
+    any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
+
+    # NaN recovery on the residual direction (mirrors the generic solver step).
+    for _ in 1:config(s).nan_max_iterations
+        solution(cache(s)) .= x .+ direction(cache(s))
+        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+        if any(isnan, value(cache(s)))
+            (config(s).verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
+            direction(cache(s)) .*= T(config(s).nan_factor)
+        else
+            break
+        end
+    end
+
+    # Damped fixed-point step with a residual-monotonicity safeguard.
+    r₀ = l2norm(value(state))                       # ‖F(x)‖ at the current iterate
+    p = T(DEFAULT_PICARD_BACKTRACKING_p)
+    α = one(T)
+    for _ in 1:config(s).max_iterations
+        compute_new_iterate!(solution(cache(s)), x, α, direction(cache(s)))
+        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+        (l2norm(value(cache(s))) ≤ r₀ || α ≤ eps(T)) && break
+        α *= p
+    end
+    compute_new_iterate!(x, α, direction(cache(s)))
+
+    x
+end
