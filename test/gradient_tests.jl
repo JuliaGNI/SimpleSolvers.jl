@@ -59,3 +59,22 @@ gus1 = zero(g)
 test_grad(gad, gad1, 0)
 test_grad(gfd, gfd1, 0)
 test_grad(gus, gus1, 0)
+
+# §2.2 regression: the default finite-difference step used to bake in the
+# Float64 machine epsilon (`8sqrt(eps())`) regardless of the working precision,
+# so a Float32 finite-difference gradient used a ~1 ulp step and produced
+# garbage.  `default_ϵ(T) = 8sqrt(eps(T))` is now precision-aware.
+@testset "Float32 finite-difference gradient accuracy (§2.2)" begin
+    F32(x) = 1 + sum(x .^ 2)
+    x32 = Float32[0.3, 0.7]
+    g32 = 2x32
+    ∇fd32 = GradientFiniteDifferences{Float32}(F32, 2)
+    gfd32 = zero(g32)
+    ∇fd32(gfd32, x32)
+    @test eltype(gfd32) == Float32
+    # with a precision-aware step this is accurate to ~sqrt(eps(Float32)); a
+    # Float64-epsilon step would be off by orders of magnitude.
+    for i in eachindex(gfd32, g32)
+        @test gfd32[i] ≈ g32[i] atol = 1e-3
+    end
+end

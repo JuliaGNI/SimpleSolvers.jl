@@ -1,13 +1,27 @@
+@doc raw"""
+    default_ϵ(::Type{T})
+
+The default step size on whose basis finite differences are computed, for the
+working precision `T`.  Used by [`GradientFiniteDifferences`](@ref) and
+[`JacobianFiniteDifferences`](@ref).
+
+Its value is ``8\sqrt{\varepsilon_T}``, where ``\varepsilon_T`` is the machine
+epsilon of `T`.  Being precision-aware (`eps(T)`, not a baked-in `Float64`
+epsilon) is essential for `Float32` finite differences to be accurate.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: default_ϵ)
+julia> default_ϵ(Float64)
+1.1920928955078125e-7
+```
+
+```jldoctest; setup = :(using SimpleSolvers: default_ϵ)
+julia> default_ϵ(Float32)
+0.0027446747f0
+```
 """
-    DEFAULT_GRADIENT_ϵ
-
-A constant on whose basis finite differences are computed. See [`GradientFiniteDifferences`](@ref).
-
-# Extended help
-
-For the [`JacobianFiniteDifferences`](@ref) this is called [`DEFAULT_JACOBIAN_ϵ`](@ref).
-"""
-const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
+default_ϵ(::Type{T}) where {T<:Number} = 8sqrt(eps(T))
 
 """
     Gradient
@@ -163,7 +177,7 @@ The `struct` stores:
 GradientFiniteDifferences{T}(F, nx::Integer; ϵ)
 ```
 
-By default for `ϵ` is [`DEFAULT_GRADIENT_ϵ`](@ref).
+By default for `ϵ` is [`default_ϵ`](@ref)`(T)`.
 
 # Functor
 
@@ -171,7 +185,7 @@ The functor does (for `grad(g, x)`):
 
 ```julia
 for j in eachindex(x,g)
-    ϵⱼ = grad.ϵ * x[j] + grad.ϵ
+    ϵⱼ = grad.ϵ * abs(x[j]) + grad.ϵ
     fill!(grad.e, 0)
     grad.e[j] = 1
     grad.tx .= x .- ϵⱼ .* grad.e
@@ -189,7 +203,7 @@ struct GradientFiniteDifferences{T,FT<:Callable} <: Gradient{T}
     tx::Vector{T}
 end
 
-function GradientFiniteDifferences{T}(F::FT, nx::Int; ϵ=DEFAULT_GRADIENT_ϵ) where {T,FT}
+function GradientFiniteDifferences{T}(F::FT, nx::Int; ϵ=default_ϵ(T)) where {T,FT}
     e = zeros(T, nx)
     tx = zeros(T, nx)
     GradientFiniteDifferences{T,FT}(F, ϵ, e, tx)
@@ -199,7 +213,7 @@ function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractV
     local ϵⱼ::T
 
     for j in eachindex(x, g)
-        ϵⱼ = grad.ϵ * x[j] + grad.ϵ
+        ϵⱼ = grad.ϵ * abs(x[j]) + grad.ϵ
         fill!(grad.e, zero(T))
         grad.e[j] = one(T)
         grad.tx .= x .- ϵⱼ .* grad.e

@@ -80,9 +80,19 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params,
     f = x -> problem(ls).F(x, params)
     (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
         ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
-    χ = T(0.5) * (f(a) * (b^2 - c^2) + f(b) * (c^2 - a^2) + f(c) * (a^2 - b^2)) / (f(a) * (b - c) + f(b) * (c - a) + f(c) * (a - b))
-    # perform a perturbation if χ ≈ b (in order "to avoid stalling")
-    χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, method(ls).ε) : χ
+    # The denominator vanishes when the three points are (nearly) collinear, i.e.
+    # the quadratic fit is degenerate and χ becomes Inf/NaN or falls outside the
+    # bracket.  Guard on the *result* (finite and inside [a, c]) rather than a
+    # magnitude threshold on the denominator, since the denominator is legitimately
+    # small near convergence while still yielding a valid interior minimum; on a
+    # degenerate fit fall back to a bisection step of the bracket [a, c].
+    denom = f(a) * (b - c) + f(b) * (c - a) + f(c) * (a - b)
+    χ = T(0.5) * (f(a) * (b^2 - c^2) + f(b) * (c^2 - a^2) + f(c) * (a^2 - b^2)) / denom
+    (isfinite(χ) && a ≤ χ ≤ c) || (χ = (a + c) / 2)
+    # perform a perturbation if χ ≈ b (in order "to avoid stalling"); use a tight
+    # absolute tolerance so the perturbation only fires when χ is essentially at b
+    # (the former `b == χ` only caught exact equality, missing floating-point ties)
+    χ = isapprox(b, χ; atol=method(ls).ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, method(ls).ε) : χ
     if χ > b
         if f(χ) > f(b)
             c = χ

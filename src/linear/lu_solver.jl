@@ -91,16 +91,28 @@ mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     info::Int
 end
 
+"""
+    lucache_eltype(T)
+
+The element type used by the [`LUSolverCache`](@ref) for an input matrix of
+element type `T`.  Integer (and other non-fractional) inputs are promoted to a
+type that supports division (mirroring `LinearAlgebra.lutype`), so that e.g.
+`LinearSolver(LU(), [1 2; 3 4])` works instead of failing in `factorize!`.
+"""
+lucache_eltype(::Type{T}) where {T} = typeof(oneunit(T) / oneunit(T))
+
 function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
-    Ā = _static(A) ? MMatrix{size(A)...}(copy(A)) : copy(A)
-    LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    Tf = lucache_eltype(T)
+    Ā = _static(A) ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
-    Ā = lu.static ? MMatrix{size(A)...}(copy(A)) : copy(A)
-    LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    Tf = lucache_eltype(T)
+    Ā = lu.static ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearProblem) where {T,LUT<:LU}
@@ -214,6 +226,10 @@ Also note the difference between the output types of the two refactorized matric
 Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
 function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
+    # Reset the singularity marker before (re)factorizing so that a stale nonzero
+    # `info` from a previous factorization does not persist.
+    cache(lsolver).info = 0
+
     @inbounds for i in eachindex(cache(lsolver).perms)
         cache(lsolver).perms[i] = i
     end
@@ -322,7 +338,17 @@ julia> ldiv!(x, s, b)
 function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
     @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
 
+    # A zero pivot was encountered during factorization: the matrix is singular
+    # and back-/forward-substitution below would silently produce NaN/Inf.
+    cache(lsolver).info == 0 || throw(SingularException(cache(lsolver).info))
+
     n = size(cache(lsolver).A, 1)
+
+    # The permutation gather below reads `b` out of order while writing `x`, which
+    # corrupts the result if `x` and `b` alias.  Work from a copy in that case.
+    if x === b
+        b = copy(b)
+    end
 
     @inbounds for i in 1:n
         x[i] = b[cache(lsolver).perms[i]]

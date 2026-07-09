@@ -150,3 +150,38 @@ end
     @test mad ≈ jref atol = eps()
     @test mfd ≈ jref atol = 1e-7
 end
+
+
+# §2.2 regression: the finite-difference Jacobian functor used to iterate its row
+# loop over `eachindex(x)` (input indices) instead of the output indices. For a
+# non-square Jacobian this silently left rows unwritten (`ny > nx`) or threw a
+# `BoundsError` (`ny < nx`).  Now it loops over `eachindex(jac.f1)` (outputs).
+@testset "Finite-difference non-square Jacobians (§2.2)" begin
+    T = Float64
+
+    # 2×3 Jacobian (ny = 2 < nx = 3)
+    F23(f, x, params) = (f[1] = x[1] + 2x[2] + 3x[3]; f[2] = 4x[1] + 5x[2] + 6x[3]; f)
+    J23 = T[1 2 3; 4 5 6]
+    x3 = T[1.0, 2.0, 3.0]
+    jfd23 = JacobianFiniteDifferences{T}(F23, 3, 2)
+    jad23 = JacobianAutodiff{T}(F23, 3, 2)
+    mfd23 = zeros(T, 2, 3)
+    mad23 = zeros(T, 2, 3)
+    jfd23(mfd23, x3, nothing)
+    jad23(mad23, x3, nothing)
+    @test mfd23 ≈ J23 atol = 1e-6
+    @test mad23 ≈ J23 atol = eps()
+
+    # 3×2 Jacobian (ny = 3 > nx = 2)
+    F32(f, x, params) = (f[1] = x[1]; f[2] = x[2]; f[3] = x[1] * x[2]; f)
+    x2 = T[3.0, 4.0]
+    J32 = T[1 0; 0 1; x2[2] x2[1]]
+    jfd32 = JacobianFiniteDifferences{T}(F32, 2, 3)
+    jad32 = JacobianAutodiff{T}(F32, 2, 3)
+    mfd32 = zeros(T, 3, 2)
+    mad32 = zeros(T, 3, 2)
+    jfd32(mfd32, x2, nothing)
+    jad32(mad32, x2, nothing)
+    @test mfd32 ≈ J32 atol = 1e-6
+    @test mad32 ≈ J32 atol = eps()
+end

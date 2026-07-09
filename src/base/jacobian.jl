@@ -1,15 +1,4 @@
 """
-    DEFAULT_JACOBIAN_ϵ
-
-A constant used for computing the finite difference Jacobian. See [`JacobianFiniteDifferences`](@ref).
-
-# Extended help
-
-For the [`GradientFiniteDifferences`](@ref) this is called [`DEFAULT_GRADIENT_ϵ`](@ref).
-"""
-const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
-
-"""
     Jacobian
 
 Abstract type. `struct`s that are derived from this need an associated functor that computes the Jacobian of a function (in-place).
@@ -134,7 +123,7 @@ struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:Abstra
     ty::YT
 
     function JacobianAutodiff(F::CT, x::YT, y::YT) where {T,YT<:AbstractArray{T},CT<:Callable}
-        applicable(F, y, x, ()) || error("The function needs to have the following signature: F(y, x, params).")
+        hasmethod(F, Tuple{typeof(y),typeof(x),Any}) || error("The function needs to have the following signature: F(y, x, params).")
 
         Jconfig = ForwardDiff.JacobianConfig(nothing, y, x)
         new{T,typeof(F),typeof(Jconfig),YT}(F, Jconfig, y)
@@ -184,7 +173,7 @@ The `struct` stores:
 JacobianFiniteDifferences{T}(F, nx::Integer, ny::Integer; ϵ)
 ```
 
-By default for `ϵ` is [`DEFAULT_JACOBIAN_ϵ`](@ref).
+By default for `ϵ` is [`default_ϵ`](@ref)`(T)`.
 
 # Functor
 
@@ -192,14 +181,14 @@ The functor does:
 
 ```julia
 for j in eachindex(x)
-    ϵⱼ = jac.ϵ * x[j] + jac.ϵ
+    ϵⱼ = jac.ϵ * abs(x[j]) + jac.ϵ
     fill!(jac.e, 0)
     jac.e[j] = 1
     jac.tx .= x .- ϵⱼ .* jac.e
     f(jac.f1, jac.tx)
     jac.tx .= x .+ ϵⱼ .* jac.e
     f(jac.f2, jac.tx)
-    for i in eachindex(x)
+    for i in eachindex(jac.f1)
         J[i,j] = (jac.f2[i] - jac.f1[i]) / (2ϵⱼ)
     end
 end
@@ -214,7 +203,7 @@ struct JacobianFiniteDifferences{T,FT<:Callable} <: Jacobian{T}
     tx::Vector{T}
 end
 
-function JacobianFiniteDifferences{T}(F::Callable, nx::Integer, ny::Integer; ϵ=DEFAULT_JACOBIAN_ϵ) where {T}
+function JacobianFiniteDifferences{T}(F::Callable, nx::Integer, ny::Integer; ϵ=default_ϵ(T)) where {T}
     f1 = zeros(T, ny)
     f2 = zeros(T, ny)
     e = zeros(T, nx)
@@ -229,14 +218,14 @@ function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVe
     local ϵⱼ::T
 
     for j in eachindex(x)
-        ϵⱼ = jac.ϵ * x[j] + jac.ϵ
+        ϵⱼ = jac.ϵ * abs(x[j]) + jac.ϵ
         fill!(jac.e, 0)
         jac.e[j] = 1
         jac.tx .= x .- ϵⱼ .* jac.e
         jac.F(jac.f1, jac.tx, params)
         jac.tx .= x .+ ϵⱼ .* jac.e
         jac.F(jac.f2, jac.tx, params)
-        for i in eachindex(x)
+        for i in eachindex(jac.f1)
             J[i, j] = (jac.f2[i] - jac.f1[i]) / (2ϵⱼ)
         end
     end

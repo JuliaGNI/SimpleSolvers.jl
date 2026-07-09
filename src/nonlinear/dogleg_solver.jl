@@ -64,19 +64,58 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
     ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
     # the steepest descent direction
+    # direction₁ ← Jᵀ·rhs = -JᵀF; fac₁ = ‖JᵀF‖²
     mul!(direction₁(cache(s)), transpose(jacobianmatrix(s)), rhs(linearproblem(s)))
     fac₁ = L2norm(direction₁(cache(s)))
-    mul!(cache(s).y₂, jacobianmatrix(s), direction₁(cache(s)))
-    mul!(cache(s).y₃, transpose(jacobianmatrix(s)), cache(s).y₂)
-    fac₂ = direction₁(cache(s)) ⋅ cache(s).y₃
-    direction₁(cache(s)) .*= fac₁
-    direction₁(cache(s)) ./= fac₂
+    if fac₁ < eps(T)
+        # ‖JᵀF‖² ≈ 0: the iterate is stationary (e.g. the exact root). The Cauchy
+        # scaling below would divide by ‖J·JᵀF‖² = 0 and produce NaN, so we set
+        # the steepest-descent direction to zero and let the convergence check
+        # handle it.
+        direction₁(cache(s)) .= zero(T)
+    else
+        mul!(cache(s).y₂, jacobianmatrix(s), direction₁(cache(s)))
+        mul!(cache(s).y₃, transpose(jacobianmatrix(s)), cache(s).y₂)
+        fac₂ = direction₁(cache(s)) ⋅ cache(s).y₃
+        direction₁(cache(s)) .*= fac₁
+        direction₁(cache(s)) ./= fac₂
+    end
 
     direction₁(cache(s)), direction₂(cache(s))
 end
 
+"""
+    dogleg_direction!(cache, Δ)
+
+Compute the (piecewise-linear) dogleg step for trust-region radius `Δ` from the
+steepest-descent direction [`direction₁`](@ref) and the Newton direction
+[`direction₂`](@ref) (both already stored in `cache`), writing the result into
+[`direction`](@ref)`(cache)`.
+
+`direction₁` and `direction₂` do **not** depend on `Δ`, so this may be called
+repeatedly while shrinking `Δ` without recomputing (and refactorizing) the
+Jacobian.
+"""
+function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
+    direction(cache) .= if l2norm(direction₂(cache)) ≤ Δ
+        direction₂(cache)
+    elseif l2norm(direction₁(cache)) > Δ
+        direction₁(cache) / l2norm(direction₁(cache)) * Δ
+    else
+        direction_difference(cache) .= direction₂(cache) .- direction₁(cache)
+        d₁d₂d₁ = direction₁(cache) ⋅ direction_difference(cache)
+        # expression under the square root (nonnegative on this branch, where
+        # ‖direction₁‖ ≤ Δ, but clamped at zero to guard against rounding)
+        eusr = d₁d₂d₁^2 - L2norm(direction_difference(cache)) * (L2norm(direction₁(cache)) - Δ^2)
+        τ₂ = (-d₁d₂d₁ + √(max(eusr, zero(T)))) / L2norm(direction_difference(cache)) + 1
+        # τ₂ should lie in [1, 2]; clamp it (with the interval closed) rather than
+        # erroring out on a value that is slightly outside due to rounding.
+        τ = clamp(τ₂, one(T), T(2))
+        direction₁(cache) .+ (τ - 1) .* direction_difference(cache)
+    end
+end
+
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params; Δ::T=T(INITIAL_Δ)) where {T}
-    verbosity(config(s)) > 1 && (Δ > eps(T) || (@warn "Δ must be greater than zero. Iteration stops (iterations: $(iteration_number(state)))."; return x))
     directions!(s, x, params)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
@@ -104,33 +143,30 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         end
     end
 
-    direction(cache(s)) .= if l2norm(direction₂(cache(s))) ≤ Δ
-        direction₂(cache(s))
-    elseif l2norm(direction₁(cache(s))) > Δ
-        direction₁(cache(s)) / l2norm(direction₁(cache(s))) * Δ
-    else
-        direction_difference(cache(s)) .= direction₂(cache(s)) .- direction₁(cache(s))
-        d₁d₂d₁ = direction₁(cache(s)) ⋅ direction_difference(cache(s))
-        #expression under the square root
-        eusr = d₁d₂d₁^2 - L2norm(direction_difference(cache(s))) * (L2norm(direction₁(cache(s))) - Δ^2)
-        # τ₁ = (-d₁d₂d₁ - √eusr) / L2norm(d_diff) + 1
-        τ₂ = (-d₁d₂d₁ + √eusr) / L2norm(direction_difference(cache(s))) + 1
-        τ = if τ₂ ≥ 1 && τ₂ ≤ 2
-            τ₂
-        else
-            error("No valid solution found")
+    # Shrink the trust-region radius Δ until the dogleg step satisfies the
+    # sufficient-decrease condition.  This is an in-place loop (not recursion), so
+    # `directions!` — and hence the Jacobian evaluation and factorization — runs
+    # exactly once per solver step, regardless of how many times Δ is shrunk.
+    # The termination on the Δ floor is independent of `verbosity`.
+    while Δ > eps(T)
+        dogleg_direction!(cache(s), Δ)
+        compute_new_iterate!(solution(cache(s)), solution(state), one(T), direction(cache(s)))
+        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+        # sufficient-decrease for the merit φ(x) = ‖F(x)‖² = L2norm(F): the model
+        # decrease is c₁·∇φ(x)ᵀd with ∇φ = 2·JᵀF, i.e. c₁·2·Fᵀ·J·d, which is
+        # negative for a descent direction.
+        if L2norm(value(cache(s))) ≤ L2norm(value(state)) + DEFAULT_WOLFE_c₁ * 2 * dot(value(state), jacobianmatrix(s), direction(cache(s)))
+            x .= solution(cache(s))
+            return x
         end
-        direction₁(cache(s)) .+ (τ - 1) .* direction_difference(cache(s))
+        Δ *= T(DEFAULT_Δ_REDUCTION)
     end
 
-    compute_new_iterate!(solution(cache(s)), solution(state), one(T), direction(cache(s)))
-    value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-    # here we test if the sufficient decrease condition is satisfied; else we shrink Δ.
-    if L2norm(value(cache(s))) ≤ L2norm(value(state)) + DEFAULT_WOLFE_c₁ * dot(direction(cache(s)), jacobianmatrix(s), value(state))
-        x .= solution(cache(s))
-    else
-        solver_step!(x, s, state, params; Δ=Δ * T(DEFAULT_Δ_REDUCTION))
-    end
+    # The trust-region radius underflowed without achieving sufficient decrease.
+    # Take the last (smallest-Δ) step; the convergence check will decide whether
+    # this is an acceptable stationary point.
+    verbosity(config(s)) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without sufficient decrease (iterations: $(iteration_number(state)))."
+    x .= solution(cache(s))
 
     x
 end

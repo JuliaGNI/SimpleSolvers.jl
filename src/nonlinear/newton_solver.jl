@@ -91,8 +91,12 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonS
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
-    # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    if (mod(iteration - 1, method(s).refactorize) == 0 || iteration == 1)
+    # for a quasi-Newton method the Jacobian isn't updated in every iteration.
+    # Factorize on a fresh state (iteration = 0) and on the first step
+    # (iteration = 1), then every `refactorize` iterations.  The previous
+    # `mod(iteration - 1, refactorize)` skipped factorization on a fresh state
+    # (`mod(-1, r) = r - 1 ≠ 0`), running ldiv! against a NaN-initialized cache.
+    if (mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
         jacobian!(s, x, params)
         matrix(linearproblem(s)) .= jacobianmatrix(s)
         idxs = diagind(matrix(linearproblem(s)))

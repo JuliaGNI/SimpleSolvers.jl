@@ -1,9 +1,41 @@
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!, BierlaireQuadratic
+using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update!, iteration_number
 using Test
 using Random
 using ForwardDiff
+using LinearAlgebra: SingularException
 Random.seed!(1234)
+
+@testset "Stagnation is not reported as convergence (§3 / 2.2)" begin
+    config = Options()
+
+    # A stalled step: x and y do not change between iterations (rxₛ = rfₛ = 0)
+    # but the absolute residual rfₐ = ‖y‖ is large.  This used to be reported as
+    # converged because the default criteria were successive-change based and
+    # f_abstol defaulted to 0.
+    state = NonlinearSolverState([1.0, 1.0])
+    update!(state, [1.0, 1.0], [5.0, 5.0])
+    update!(state, [1.0, 1.0], [5.0, 5.0])
+    rxₛ, rfₐ, rfₛ = residuals(state)
+    @test rxₛ == 0 && rfₛ == 0            # the step has stalled
+    @test rfₐ > config.g_restol          # but the residual is large
+    x_converged, f_converged, _ = assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
+    @test !x_converged && !f_converged   # ⇒ NOT converged
+
+    # A genuinely converged iterate (settled AND small residual) is reported as
+    # converged.
+    state2 = NonlinearSolverState([1.0, 1.0])
+    update!(state2, [1.0, 1.0], [0.0, 0.0])
+    update!(state2, [1.0, 1.0], [0.0, 0.0])
+    rxₛ2, rfₐ2, rfₛ2 = residuals(state2)
+    xc2, fc2, _ = assess_convergence(rxₛ2, rfₐ2, rfₛ2, config, state2)
+    @test xc2 || fc2
+
+    # The successive-change criteria are gated by the (nonzero) residual tolerance
+    # g_restol, which is what rejects the stalled step above.
+    @test config.g_restol > 0
+end
 
 # struct NonlinearSolverTestMethod <: NonlinearSolverMethod end
 #
@@ -43,12 +75,18 @@ for T ∈ (Float64, Float32)
         (NewtonSolver, (linesearch=Static(T),), 2),
         (NewtonSolver, (linesearch=Backtracking(T),), 2),
         (NewtonSolver, (linesearch=Bisection(T),), 2),
-        (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 2),
+        # §2.4 / 2.6: `Quadratic(T, ::SolverMethod)` no longer squares its defaults.
+        # The former ε² was below machine epsilon, so the line search never met its
+        # internal convergence test and over-refined to artificial (≈0 eps)
+        # precision.  With the corrected ε = default_precision(T) the line search
+        # converges to its designed precision, which caps the attainable accuracy
+        # (≈2.5 eps in Float64, ≈17 eps in Float32); hence the looser tolfac here.
+        (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 32),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
         (QuasiNewtonSolver, (linesearch=Static(T),), 2),
         (QuasiNewtonSolver, (linesearch=Backtracking(T),), 2),
         (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
-        (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 2),
+        (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 32),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
         (PicardSolver, (linesearch=Bisection(T),), 8),
         (DogLegSolver, (), 1),
@@ -136,6 +174,22 @@ for T ∈ (Float64, Float32)
 end
 
 
+@testset "DogLeg at the exact root (§2.1)" begin
+    # Starting exactly at the root, the steepest-descent (Cauchy) scaling divides
+    # by ‖J·JᵀF‖² = 0, which used to produce NaN and throw.  The guard now sets
+    # the direction to zero so the convergence check reports convergence in 0–1
+    # steps instead.
+    Flin(y, x, p) = (y .= x)
+    for T in (Float64, Float32)
+        x = zeros(T, 2)
+        s = DogLegSolver(x, Flin, similar(x))
+        ss = SolverState(s)
+        solve!(x, s, ss)
+        @test all(iszero, x)
+        @test iteration_number(ss) ≤ 2
+    end
+end
+
 @testset "Check whether direction NaN test works" begin
 
     function Fnan(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
@@ -156,7 +210,12 @@ end
     x₁ = zeros(T, n)
     x₂ = zeros(T, n)
 
-    @test_throws NonlinearSolverException solve!(x₁, nl₁)
+    # The solver must refuse to proceed on this pathological problem.  The finite
+    # difference Jacobian at x = 0 is the zero matrix, which is singular: the LU
+    # solver now throws a `SingularException` (§2.5) instead of silently returning
+    # NaN.  The autodiff Jacobian produces NaN entries, which is caught as a
+    # `NonlinearSolverException` (NaN in the direction vector).
+    @test_throws SingularException solve!(x₁, nl₁)
     @test_throws NonlinearSolverException solve!(x₂, nl₂)
 
 end

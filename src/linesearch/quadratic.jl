@@ -57,11 +57,7 @@ function Quadratic(::Type{T}=Float64;
     Quadratic{T}(ε, s, s_reduction)
 end
 
-Quadratic(::Type{T}, ::NonlinearSolverMethod) where {T} = Quadratic{T}(
-    default_precision(T)^2,
-    T(DEFAULT_BRACKETING_s^2),
-    T(DEFAULT_s_REDUCTION^2)
-)
+Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_iterations::Integer) where {T}
     number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return α₀
@@ -84,7 +80,16 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_
     # compute minimum αₜ of p(α); i.e. p'(α) = 0.
     # αₜ = a - p₁ / (2p₂)
 
-    αₜ = a - d₀ * (b - a)^2 / 2(y₁ - y₀ - d₀ * (b - a))
+    # The denominator is 2·p₂·(b - a)², proportional to the fitted curvature p₂.
+    # If p₂ ≤ 0 (locally linear or non-convex fit) the quadratic model has no
+    # interior minimum; if the resulting αₜ is not finite the fit is degenerate.
+    # In either case fall back to a bisection step of the current bracket [a, b]
+    # instead of producing an Inf/NaN αₜ.  (Note: p₂ is small but positive near
+    # convergence, where the interpolation is still valid, so we guard on the sign
+    # and finiteness rather than on a magnitude threshold.)
+    denom = 2 * (y₁ - y₀ - d₀ * (b - a))
+    αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
+    isfinite(αₜ) || (αₜ = (a + b) / 2)
 
     (l2norm(αₜ - α₀) < method(ls).ε) && return αₜ
 

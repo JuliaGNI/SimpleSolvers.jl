@@ -64,17 +64,41 @@ end
 """
     assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
 
-Check if one of the following is true for `status::`[`NonlinearSolverStatus`](@ref):
-- `rxₛ ≤ norm(solution(state)) * config.x_suctol`
-- `rfₛ ≤ norm(value(state)) * config.f_suctol || rfₐ ≤ config.f_abstol`
-- `norm(value(state)) > norm(previousvalue(state))`
+Assess convergence for `status::`[`NonlinearSolverStatus`](@ref) and return the
+triple `(x_converged, f_converged, f_increased)`.
 
-Also see [`meets_stopping_criteria`](@ref). The tolerances are by default determined with [`default_tolerance`](@ref).
+The successive-change criteria (in `x` and `f`) alone are *not* sufficient to
+declare convergence: a stalled step (e.g. an artificially tiny line-search step)
+makes the successive residuals `rxₛ` and `rfₛ` vanish even when the absolute
+residual `rfₐ` is large.  We therefore require the absolute residual to be small
+(`rfₐ ≤ config.g_restol`) *in addition* to the successive-change criterion
+before reporting convergence (see `bugs.md` §3). Concretely:
+
+- `x_converged`: `rxₛ ≤ norm(solution(state)) * config.x_suctol` **and** `rfₐ ≤ config.g_restol`,
+- `f_converged`: (`rfₛ ≤ norm(value(state)) * config.f_suctol` **and** `rfₐ ≤ config.g_restol`) **or** `rfₐ ≤ config.f_abstol`,
+- `f_increased`: `norm(value(state)) > norm(previousvalue(state))`.
+
+Here `config.g_restol` (defaulting to `√eps(T)`, a small but nonzero value)
+guards the successive-change criteria against stagnation: it is loose enough that
+a genuinely converged iterate always satisfies it (the successive-change criteria
+still supply the tight, machine-precision accuracy) yet tight enough to reject a
+stalled step at a large residual.  `config.f_abstol` provides an independent
+absolute-residual convergence path (used e.g. when the relative successive-change
+criteria cannot fire because the solution sits at the origin).
+
+Also see [`meets_stopping_criteria`](@ref).
 """
 function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, state::NonlinearSolverState)
-    x_converged = rxₛ ≤ norm(solution(state)) * config.x_suctol
+    # The iterate/value has stopped changing (successive-change criteria).
+    x_settled = rxₛ ≤ norm(solution(state)) * config.x_suctol
+    f_settled = rfₛ ≤ norm(value(state)) * config.f_suctol
 
-    f_converged = rfₛ ≤ norm(value(state)) * config.f_suctol || rfₐ ≤ config.f_abstol
+    # A stalled step is only genuine convergence when the absolute residual is
+    # also small; otherwise we are stuck at a non-solution.
+    residual_small = rfₐ ≤ config.g_restol
+
+    x_converged = x_settled && residual_small
+    f_converged = (f_settled && residual_small) || rfₐ ≤ config.f_abstol
 
     f_increased = norm(value(state)) > norm(previousvalue(state))
 

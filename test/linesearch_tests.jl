@@ -5,7 +5,7 @@ using Test
 using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters
 using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, compute_new_iterate!, direction!, nonlinearproblem, iteration_number
-using SimpleSolvers: change_precision, bisection, bracket_root
+using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_finder
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -45,6 +45,28 @@ end
 @testset "$(rpad("Bracketing",80))" begin
     @test bracket_minimum(x -> x^2, 0.0) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
     @test bracket_minimum(x -> (x - 1)^2, 0.0) == (0.64, 2.56)
+
+    # §2.3 / 2.5: bracket_minimum must return an interval that actually contains
+    # the minimum (the early-exit path must not bracket a maximum).
+    lo, hi = bracket_minimum(x -> (x - 1)^2, 0.0)
+    @test lo < 1.0 < hi
+end
+
+@testset "$(rpad("triple_point_finder (§2.3 / 2.5)", 80))" begin
+    # An immediate return (f(x₁ + 2δ) > f(x₁) on the first iteration) must not
+    # produce a degenerate triple with two identical points, which would make the
+    # downstream quadratic fit singular.  Here f has its minimum exactly at
+    # x₁ = x₀ + δ.
+    x₀ = 0.0
+    δ = 0.01
+    a, b, c = triple_point_finder(x -> (x - (x₀ + δ))^2, x₀; δ=δ)
+    @test a < b < c
+    @test length(unique((a, b, c))) == 3
+
+    # sanity: the standard example still brackets the minimum of x²
+    a2, b2, c2 = triple_point_finder(x -> x^2, -1.0)
+    @test a2 < b2 < c2
+    @test a2^2 ≥ b2^2 && b2^2 ≤ c2^2   # middle point has the smallest value
 end
 
 @testset "$(rpad("Static",80))" begin
@@ -79,6 +101,26 @@ end
 
 end
 
+@testset "$(rpad("Backtracking stall (§1.3 / 2.1)", 80))" begin
+    # f(α) = (α - 100)² starting at α = 1: shrinking α makes the curvature
+    # condition impossible to satisfy, so the old shrink-only loop (which
+    # required both Wolfe conditions) ran all iterations and silently returned a
+    # denormal α ≈ 9.3e-302.  Now the loop terminates on sufficient decrease
+    # alone, so the step at α = 1 (which already decreases f) is accepted.
+    prob = LinesearchProblem{Float64}((α, _) -> (α - 100.0)^2, (α, _) -> 2.0 * (α - 100.0))
+    ls = Linesearch(prob, Backtracking(); verbosity=0)
+    α = solve(ls, 1.0)
+    @test α ≥ 1e-10
+    @test α ≈ 1.0
+
+    # constructor input validation: 0 < p < 1 and 0 < c₁ < c₂ < 1
+    @test_throws AssertionError Backtracking(; p=1.5)
+    @test_throws AssertionError Backtracking(; p=0.0)
+    @test_throws AssertionError Backtracking(; c₁=0.5, c₂=0.1)  # c₁ < c₂ violated
+    @test_throws AssertionError Backtracking(; c₁=-1e-4)        # c₁ > 0 violated
+    @test Backtracking() isa Backtracking                       # defaults are valid
+end
+
 @testset "$(rpad("Quadratic Linesearch (Bierlaire)", 80))" begin
 
     test_linesearch(BierlaireQuadratic(), 1)
@@ -91,6 +133,20 @@ end
 
 end
 
+
+@testset "$(rpad("Quadratic defaults (§2.4 / 2.6)", 80))" begin
+    # Quadratic(T, ::SolverMethod) used to square ε, s and s_reduction (an
+    # accidental `^2`), disagreeing with the keyword constructor and pushing ε
+    # below machine epsilon.  It now matches the keyword constructor defaults and
+    # dispatches on ::SolverMethod like its siblings.
+    for T in (Float32, Float64)
+        q = Quadratic(T, NewtonMethod())
+        @test q ≈ Quadratic(T)
+        @test q.ε == SimpleSolvers.default_precision(T)
+        @test q.s == T(SimpleSolvers.DEFAULT_BRACKETING_s)
+        @test q.s_reduction == T(SimpleSolvers.DEFAULT_s_REDUCTION)
+    end
+end
 
 @testset "$(rpad("Linesearch Integration Tests", 80))" begin
 

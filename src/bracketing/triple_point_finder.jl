@@ -36,12 +36,15 @@ function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_
         if adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS
             error("The function `f` must be decreasing at `$(x₀)`; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`.")
         end
-        triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
+        return triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end
 
+    # Initialize so that the first iteration sees xₖ₋₁ = x₀, xₖ = x₁ (rather than
+    # the degenerate xₖ₋₁ = xₖ = x₁, which would return two identical points and
+    # make the downstream quadratic fit singular).
     local xₖ₋₁ = x₀
-    local xₖ = x₁
-    local xₖ₊₁ = xₖ
+    local xₖ = x₀
+    local xₖ₊₁ = x₁
     local increment = δ
 
     for k in 1:nmax

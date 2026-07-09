@@ -72,8 +72,12 @@ function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRAC
     b = a + s
     yb = f(b)
 
-    # check if condition is already satisfied
-    if bc(f(a - s), yb)
+    # Check if the condition is already satisfied to the left of `a`.  This early
+    # exit is only valid for the *root* criterion (a sign change between `a - s`
+    # and `b`).  For the *minimum* criterion it would bracket a maximum: under the
+    # invariant f(b) ≤ f(a) the interior point `b` is the highest of the three, so
+    # `f(a - s) ≥ f(b)` does not indicate a minimum in `(a - s, b)`.
+    if bc isa BracketRootCriterion && bc(f(a - s), yb)
         return (a - s, b)
     end
 
