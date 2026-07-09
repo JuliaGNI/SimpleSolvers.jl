@@ -112,7 +112,7 @@ function GradientFunction(F::Callable, ∇F!::Callable, x::AbstractVector{T}) wh
     GradientFunction{T}(F, ∇F!, length(x))
 end
 
-(grad::GradientFunction{T})(g::VT, x::VT) where {T,VT<:AbstractVector{T}} = grad.∇F!(g, x)
+(grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T} = grad.∇F!(g, x)
 
 """
     GradientAutodiff <: Gradient
@@ -203,7 +203,7 @@ struct GradientFiniteDifferences{T,FT<:Callable} <: Gradient{T}
     tx::Vector{T}
 end
 
-function GradientFiniteDifferences{T}(F::FT, nx::Int; ϵ=default_ϵ(T)) where {T,FT}
+function GradientFiniteDifferences{T}(F::FT, nx::Integer; ϵ=default_ϵ(T)) where {T,FT}
     e = zeros(T, nx)
     tx = zeros(T, nx)
     GradientFiniteDifferences{T,FT}(F, ϵ, e, tx)

@@ -3,7 +3,7 @@
 
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
 """
-function linesearch_problem(nlp::NonlinearProblem{T}, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
+function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
     function f(α::Number, params)
         compute_new_iterate!(solution(cache), params.x, α, direction(cache))
         value!(value(cache), nlp, solution(cache), params.parameters)

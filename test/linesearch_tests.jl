@@ -6,6 +6,7 @@ using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters
 using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, compute_new_iterate!, direction!, nonlinearproblem, iteration_number
 using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_finder
+using SimpleSolvers: CurvatureCondition
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -262,4 +263,38 @@ end
     p = Float32[1.0, 1.0]
     compute_new_iterate!(x, 1.0, p)   # α is Float64 → mixed precision path
     @test x ≈ Float32[2.0, 3.0]
+end
+
+
+@testset "$(rpad("Phase 3 type-stability fixes", 80))" begin
+    # 3.3 — `Bisection(::Type{T}=Float64)` is now inferable (the old
+    # `Bisection(T::DataType=Float64)` returned `Bisection{<:Any}`).
+    @test (@inferred Bisection()) === Bisection{Float64}()
+    @test (@inferred Bisection(Float32)) === Bisection{Float32}()
+
+    # 3.3 — `bisection` promotes integer endpoints to floating point on entry
+    # (previously `α` switched type mid-loop and `Options(Int)` was undefined).
+    fint(α, _) = α - 2.0
+    r = bisection(fint, 0, 4)
+    @test r ≈ 2.0 atol = 1e-6
+    @test r isa AbstractFloat
+
+    # 3.3 — `CurvatureCondition` encodes the mode in the type (via `Val`) so it is
+    # inference-stable, validates `c ∈ (0, 1)`, and the strong condition uses `≤`.
+    @test CurvatureCondition(0.9, -1.0, sin, Val(:Strong)) isa CurvatureCondition{Float64,typeof(sin),:Strong}
+    @test CurvatureCondition(0.9, -1.0, sin) isa CurvatureCondition{Float64,typeof(sin),:Standard}
+    @test_throws AssertionError CurvatureCondition(1.5, -1.0, sin)   # c ∉ (0, 1)
+    @test_throws AssertionError CurvatureCondition(0.0, -1.0, sin)   # c ∉ (0, 1)
+    # strong-Wolfe boundary: |D(α)| == |c·d| must now pass (was strict `<`)
+    ccs = CurvatureCondition(0.9, -1.0, α -> 0.9, Val(:Strong))
+    @test ccs(0.0)                                                   # |0.9| ≤ |0.9·(-1)|
+    # standard curvature: D(α) ≥ c·d
+    ccn = CurvatureCondition(0.9, -1.0, α -> -0.5, Val(:Standard))
+    @test ccn(0.0)                                                   # -0.5 ≥ -0.9
+
+    # 3.4 — `Options` tolerance keywords accept any `::Real` (integers, rationals),
+    # not just `AbstractFloat`.
+    @test Options(Float64; x_abstol=0) isa Options
+    @test Options(Float64; f_abstol=1 // 100) isa Options
+    @test Options().f_abstol == 0.0
 end

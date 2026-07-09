@@ -92,7 +92,7 @@ function update!(ls::LinearProblem{T}, A::AbstractMatrix{T}, b::AbstractVector{T
 end
 
 rhs(ls::LinearProblem) = ls.y
-matrix(ls::LinearProblem)::AbstractMatrix = ls.A
+matrix(ls::LinearProblem) = ls.A
 
 """
     clear!(ls)

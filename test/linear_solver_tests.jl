@@ -1,6 +1,7 @@
 using LinearAlgebra: ldiv!, SingularException
 using SimpleSolvers
 using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache
+using StaticArrays: SMatrix, MMatrix
 using Test
 
 # §1.4 regression: `LinearProblem` must accept a non-square `A` (the RHS length
@@ -121,4 +122,30 @@ end
     x = zeros(2)
     ldiv!(x, ls, [1.0, 1.0])
     @test [1.0 2.0; 3.0 4.0] * x ≈ [1.0, 1.0] atol = 1e-12
+end
+
+# Phase 3.2 regression (§4): the cache matrix type used to be chosen by a runtime
+# `_static(A)` size threshold and a runtime `MMatrix{size(A)...}` build, so
+# `LinearSolverCache(LU(), A)` was not inferable.  The default path now dispatches
+# on whether the input is a `StaticArray`: a plain `AbstractMatrix` yields a plain
+# `Matrix` cache and a `StaticArray` yields a mutable static (`MMatrix`) cache —
+# both fully inferable.
+@testset "LU cache type is chosen by dispatch and inferable (§4)" begin
+    Adyn = [4.0 5.0 -2.0; 7.0 -1.0 2.0; 3.0 1.0 4.0]
+
+    cdyn = @inferred LinearSolverCache(LU(), Adyn)
+    @test cache(LinearSolver(LU(), Adyn)).A isa Matrix
+    @test cdyn.A isa Matrix
+
+    Astat = SMatrix{3,3}(Adyn)
+    cstat = @inferred LinearSolverCache(LU(), Astat)
+    @test cstat.A isa MMatrix
+
+    # `_static` and `N_STATIC_THRESHOLD` were removed.
+    @test !isdefined(SimpleSolvers, :_static)
+    @test !isdefined(SimpleSolvers, :N_STATIC_THRESHOLD)
+
+    # An explicit `static=true` still forces a static cache even for a plain matrix.
+    @test cache(LinearSolver(LU(; static=true), Adyn)).A isa MMatrix
+    @test cache(LinearSolver(LU(; static=false), Adyn)).A isa Matrix
 end

@@ -29,10 +29,11 @@ QuasiNewtonMethod(5)
 struct NewtonMethod{QT} <: NonlinearSolverMethod
     refactorize::Int
 
-    NewtonMethod() = new{true}(1)
-
-    NewtonMethod{false}(refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER) = new{false}(refactorize)
+    NewtonMethod{true}(refactorize::Integer=1) = new{true}(refactorize)
+    NewtonMethod{false}(refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER) = new{false}(refactorize)
 end
+
+NewtonMethod() = NewtonMethod{true}()
 
 """
 The default number of iterations before the [`Jacobian`](@ref) is refactored in the [`QuasiNewtonSolver`](@ref)

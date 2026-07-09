@@ -38,10 +38,14 @@ So the algorithm checks in each step where the sign change occurred and moves th
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
 """
-function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number}
-    α₀ = αmin
-    α₁ = αmax
-    α = zero(T)
+function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
+    # Promote to a floating point type on entry: with an integer `T` the midpoint
+    # `(α₀ + α₁) / 2` would silently switch `α`'s type mid-loop, and `Options(T)`
+    # is undefined for integer `T`.
+    R = float(T)
+    α₀ = R(αmin)
+    α₁ = R(αmax)
+    α = zero(R)
 
     # flip α₀ and α₁ if the former is bigger than the latter
     α₀ < α₁ || begin
@@ -78,7 +82,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     α
 end
 
-bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number} = bisection(f, bracket_root(β -> f(β, params), α)..., params, config)
+bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number} = bisection(f, bracket_root(β -> f(β, params), α)..., params, config)
 
 """
     Bisection <: Linesearch
@@ -87,7 +91,7 @@ See [`bisection`](@ref) for the implementation of the algorithm.
 """
 struct Bisection{T} <: LinesearchMethod{T} end
 
-Bisection(T::DataType=Float64) = Bisection{T}()
+Bisection(::Type{T}=Float64) where {T} = Bisection{T}()
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
 

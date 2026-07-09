@@ -36,3 +36,25 @@ end
 for (A, b) in ((A₁, b₁), (A₂, b₂))
     test_various_nonlinearproblems(A, b)
 end
+
+# Phase 3.1 regression: the phantom eltype parameter `T` was removed from
+# `NonlinearProblem`, so it now carries exactly two type parameters (the function
+# and Jacobian types).  No field depended on `T`.
+@testset "NonlinearProblem has no phantom eltype parameter (§4)" begin
+    # The two-parameter form (function type, Jacobian type) is now the full type;
+    # the old three-parameter `NonlinearProblem{Float64,...}` no longer exists.
+    @test sys₁ isa NonlinearProblem{typeof(F),Missing}
+    @test sys₂ isa NonlinearProblem{typeof(F),typeof(DF!)}
+end
+
+# Phase 3.3 regression: the inner constructor used to force `x` and `f` to the
+# *same* concrete array type (`x::Tx, f::Tx`), so mixed container types (e.g. a
+# `Vector` and a `SubArray` with the same eltype) failed deep in construction.
+@testset "NonlinearProblem accepts independent x/f container types (§4)" begin
+    M = [1.0 2.0; 3.0 4.0]
+    xv = M[:, 1]            # Vector{Float64}
+    fv = @view M[1, :]      # SubArray{Float64}
+    @test typeof(xv) != typeof(fv)
+    @test NonlinearProblem(F, xv, fv) isa NonlinearProblem
+    @test NonlinearProblem(F, DF!, xv, fv) isa NonlinearProblem
+end

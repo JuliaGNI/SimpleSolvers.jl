@@ -78,3 +78,31 @@ test_grad(gus, gus1, 0)
         @test gfd32[i] ≈ g32[i] atol = 1e-3
     end
 end
+
+# Phase 3.3 regression (§2.6): the `GradientFunction` functor used to require both
+# arguments to have the *identical* concrete type (`g::VT, x::VT`), so a
+# `Vector`/`SubArray` pair (same eltype, different container) hit the misleading
+# "Functor not implemented." fallback.  The arguments are now two independent
+# `AbstractVector{T}`.
+@testset "GradientFunction accepts independent container types (§2.6)" begin
+    # a derivative closure that accepts any AbstractVector (the fix is that the
+    # SimpleSolvers functor no longer forces g and x to the *same* concrete type)
+    ∇g!(g::AbstractVector, x::AbstractVector) = (g .= 2 .* x; g)
+    ∇lenient = GradientFunction{T}(F, ∇g!, n)
+    M = [0.3 0.0; 0.7 0.0]
+    xsub = @view M[:, 1]        # SubArray{Float64}
+    gv = zeros(2)              # Vector{Float64}
+    @test typeof(gv) != typeof(xsub)
+    ∇lenient(gv, xsub)          # would previously hit the "Functor not implemented" fallback
+    @test gv ≈ 2 .* collect(xsub)
+end
+
+# Phase 3.3 regression: `GradientFiniteDifferences{T}` used to restrict `nx::Int`,
+# while its siblings accept any `::Integer`.
+@testset "GradientFiniteDifferences{T} accepts any Integer nx (§5)" begin
+    ∇int = GradientFiniteDifferences{Float64}(F, Int32(2))
+    @test ∇int isa GradientFiniteDifferences
+    gg = zeros(2)
+    ∇int(gg, x)
+    @test gg ≈ 2x atol = 1e-6
+end

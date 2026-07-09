@@ -136,7 +136,7 @@ function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters())
     # fails it we warn rather than shrinking further (which would break the
     # sufficient decrease guarantee); enforcing curvature requires a proper
     # bracketing/zoom line search.
-    cc = CurvatureCondition(method(ls).c₂, d₀, d; mode=:Standard)
+    cc = CurvatureCondition(method(ls).c₂, d₀, d, Val(:Standard))
     (config(ls).verbosity ≥ 2 && !cc(α)) && @warn "Backtracking line search: accepted step α = $(α) satisfies the sufficient decrease but not the curvature condition."
 
     α

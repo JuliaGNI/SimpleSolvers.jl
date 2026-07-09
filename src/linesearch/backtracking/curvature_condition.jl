@@ -19,9 +19,13 @@ With the strong curvature condition we check:
 # Constructor
 
 ```julia
-CurvatureCondition(c, xₖ, dₖ, pₖ, grad; mode)
+CurvatureCondition(c, d, D, Val(:Standard))
+CurvatureCondition(c, d, D, Val(:Strong))
 ```
-Here `grad` has to be a function computing the derivative of the objective. The other inputs are numbers.
+Here `D` has to be a function computing the derivative of the objective. The mode
+is passed as a `Val` (defaulting to `Val(:Standard)`) so that it is encoded in the
+type and dispatch — and hence inference — is stable without relying on constant
+propagation of a `Symbol` keyword. The other inputs are numbers.
 """
 struct CurvatureCondition{T,DT<:Callable,COND} <: BacktrackingCondition{T}
     c::T
@@ -29,10 +33,11 @@ struct CurvatureCondition{T,DT<:Callable,COND} <: BacktrackingCondition{T}
 
     D::DT
 
-    function CurvatureCondition(c::T, d::T, D::DT; mode=:Standard) where {T<:Number,DT<:Callable}
-        @assert ((mode == :Standard) || (mode == :Strong)) "Mode has to be either :Strong or :Standard!"
+    function CurvatureCondition(c::T, d::T, D::DT, ::Val{COND}=Val(:Standard)) where {T<:Number,DT<:Callable,COND}
+        @assert ((COND == :Standard) || (COND == :Strong)) "Mode has to be either :Strong or :Standard!"
+        @assert zero(T) < c < one(T) "The curvature constant c must lie in (0, 1), it is $(c)."
         @assert !isnan(d) "d is NaN"
-        new{T,DT,mode}(c, d, D)
+        new{T,DT,COND}(c, d, D)
     end
 end
 
@@ -41,5 +46,5 @@ function (cc::CurvatureCondition{T,DT,:Standard})(α::T) where {T,DT}
 end
 
 function (cc::CurvatureCondition{T,DT,:Strong})(α::T) where {T,DT}
-    abs(cc.D(α)) < abs(cc.c * cc.d)
+    abs(cc.D(α)) ≤ abs(cc.c * cc.d)
 end

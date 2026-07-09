@@ -159,19 +159,19 @@ struct Options{T}
 end
 
 function Options(T=Float64;
-    x_abstol::AbstractFloat=default_tolerance(T),
-    x_reltol::AbstractFloat=default_tolerance(T),
-    x_suctol::AbstractFloat=default_tolerance(T),
-    f_abstol::AbstractFloat=4absolute_tolerance(T),
-    f_reltol::AbstractFloat=default_tolerance(T),
-    f_suctol::AbstractFloat=default_tolerance(T),
-    f_mindec::AbstractFloat=minimum_decrease_threshold(T),
-    g_restol::AbstractFloat=(√(default_tolerance(T) / 2)),
-    x_abstol_break::AbstractFloat=T(Inf),
-    x_reltol_break::AbstractFloat=T(Inf),
-    f_abstol_break::AbstractFloat=T(Inf),
-    f_reltol_break::AbstractFloat=T(Inf),
-    g_restol_break::AbstractFloat=T(Inf),
+    x_abstol::Real=default_tolerance(T),
+    x_reltol::Real=default_tolerance(T),
+    x_suctol::Real=default_tolerance(T),
+    f_abstol::Real=absolute_tolerance(T),
+    f_reltol::Real=default_tolerance(T),
+    f_suctol::Real=default_tolerance(T),
+    f_mindec::Real=minimum_decrease_threshold(T),
+    g_restol::Real=(√(default_tolerance(T) / 2)),
+    x_abstol_break::Real=T(Inf),
+    x_reltol_break::Real=T(Inf),
+    f_abstol_break::Real=T(Inf),
+    f_reltol_break::Real=T(Inf),
+    g_restol_break::Real=T(Inf),
     allow_f_increases::Bool=ALLOW_F_INCREASES,
     min_iterations::Integer=MIN_ITERATIONS,
     max_iterations::Integer=MAX_ITERATIONS,
@@ -182,8 +182,8 @@ function Options(T=Float64;
     show_every::Integer=SHOW_EVERY,
     verbosity::Integer=VERBOSITY,
     nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
-    nan_factor::AbstractFloat=NAN_FACTOR,
-    regularization_factor::AbstractFloat=T(REGULARIZATION_FACTOR),
+    nan_factor::Real=NAN_FACTOR,
+    regularization_factor::Real=T(REGULARIZATION_FACTOR),
 )
 
     show_every = show_every > 0 ? show_every : 1
