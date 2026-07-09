@@ -121,7 +121,7 @@ end
 Solve the [`LinearProblem`](@ref) with the [`LinearSolver`](@ref) `ls`.
 """
 function solve!(::LinearSolver, args...)
-    error("No method for solve! implemented for this combination of input arguments $(typeof(args...)).")
+    error("No method for solve! implemented for this combination of input arguments $(typeof.(args)).")
 end
 
 @doc raw"""

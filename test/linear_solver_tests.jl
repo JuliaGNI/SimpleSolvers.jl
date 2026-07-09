@@ -1,7 +1,22 @@
 using LinearAlgebra: ldiv!
 using SimpleSolvers
-using SimpleSolvers: LinearSolverMethod, LinearSolverCache
+using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix
 using Test
+
+# §1.4 regression: `LinearProblem` must accept a non-square `A` (the RHS length
+# matches the number of rows `size(A, 1)`, not the columns). Previously the inner
+# constructor asserted `length(y) == size(A, 2)`, so `LinearProblem(A)` threw for
+# every non-square `A`, contradicting `LinearProblem{T}(n, m)`.
+@testset "LinearProblem non-square dimensions" begin
+    Ans = Float64[1.0 2.0 3.0; 4.0 5.0 6.0]   # 2×3
+    lp = LinearProblem(Ans)
+    @test lp isa LinearProblem
+    @test size(matrix(lp)) == (2, 3)
+
+    lp2 = LinearProblem{Float64}(2, 3)
+    @test lp2 isa LinearProblem
+    @test size(matrix(lp2)) == (2, 3)
+end
 
 struct TestMethod <: LinearSolverMethod end
 struct TestCache{T} <: LinearSolverCache{T}

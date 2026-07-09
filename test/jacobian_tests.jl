@@ -118,3 +118,35 @@ end
     end
 
 end
+
+
+# §1.6 regression: the generic backend-selecting `Jacobian` constructors used to
+# forward to a nonexistent `Jacobian{T}(F, nx, ny)` method and always threw. They
+# now dispatch to `JacobianAutodiff` / `JacobianFiniteDifferences` via `mode`.
+@testset "Generic Jacobian backend selection" begin
+    T = Float64
+    F!(f::AbstractVector, x::AbstractVector, params) = (f .= x .^ 2; f)
+    x = T[1.0, 2.0]
+    jref = [2.0 0.0; 0.0 4.0]
+
+    # default backend is autodiff
+    @test Jacobian{T}(F!, 2, 2) isa JacobianAutodiff
+    @test Jacobian{T}(F!, 2) isa JacobianAutodiff
+    @test Jacobian(F!, x) isa JacobianAutodiff
+    @test Jacobian(F!, x, x) isa JacobianAutodiff
+
+    # explicit backend selection
+    @test Jacobian{T}(F!, 2, 2; mode=:autodiff) isa JacobianAutodiff
+    @test Jacobian{T}(F!, 2, 2; mode=:finitedifferences) isa JacobianFiniteDifferences
+    @test_throws ErrorException Jacobian{T}(F!, 2, 2; mode=:nonsense)
+
+    # both backends compute the correct Jacobian
+    jad = Jacobian{T}(F!, 2, 2; mode=:autodiff)
+    jfd = Jacobian{T}(F!, 2, 2; mode=:finitedifferences)
+    mad = zeros(T, 2, 2)
+    mfd = zeros(T, 2, 2)
+    jad(mad, x, nothing)
+    jfd(mfd, x, nothing)
+    @test mad ≈ jref atol = eps()
+    @test mfd ≈ jref atol = 1e-7
+end

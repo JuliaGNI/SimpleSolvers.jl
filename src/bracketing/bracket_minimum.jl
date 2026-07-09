@@ -248,5 +248,5 @@ function bracket_root(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DE
 end
 
 function bracket_root(prob::LinesearchProblem{T}, params, x::T; kwargs...) where {T<:Number}
-    bracket_root(x -> value(prob, x, params), x -> derivative(prob, x, params), x; kwargs...)
+    bracket_root(β -> value(prob, β, params), x; kwargs...)
 end

@@ -35,10 +35,6 @@ const yvec = T[1.0, 2.0, 3.0]
     @test isabstracttype(Gradient)
     @test isabstracttype(Hessian)
     @test isabstracttype(Jacobian)
-
-    # exported but undefined (§1.1) — Phase 1 removes these exports
-    @test_broken (BracketingMethod isa Type)
-    @test_broken (IterativeMethod isa Type)
 end
 
 
@@ -70,10 +66,10 @@ end
     @test JacobianFiniteDifferences{T}(F_vec!, n, n) isa JacobianFiniteDifferences
     @test JacobianFunction{T}(F_vec!, J_vec!) isa JacobianFunction
 
-    # generic backend-selecting constructors (§1.6) — dead until Phase 1
-    @test_broken (Jacobian{T}(F_vec!, n) isa Jacobian)
-    @test_broken (Jacobian(F_vec!, xvec) isa Jacobian)
-    @test_broken (Jacobian(F_vec!, xvec, xvec) isa Jacobian)
+    # generic backend-selecting constructors (§1.6)
+    @test Jacobian{T}(F_vec!, n) isa Jacobian
+    @test Jacobian(F_vec!, xvec) isa Jacobian
+    @test Jacobian(F_vec!, xvec, xvec) isa Jacobian
 end
 
 
@@ -87,9 +83,6 @@ end
     @test LU() isa LU
     @test LU(; static=false) isa LU
     @test LinearSolver(LU(), Amat) isa LinearSolver
-
-    # dead on arrival (§1.2) — Phase 1 deletes the type
-    @test_broken (LUSolverLAPACK(Amat) isa LUSolverLAPACK)
 end
 
 

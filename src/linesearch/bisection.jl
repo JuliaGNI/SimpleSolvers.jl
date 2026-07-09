@@ -78,7 +78,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     α
 end
 
-bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number} = bisection(f, bracket_minimum(f, α)..., params, config)
+bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(T)) where {T<:Number} = bisection(f, bracket_root(β -> f(β, params), α)..., params, config)
 
 """
     Bisection <: Linesearch
@@ -103,7 +103,7 @@ end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")
 
-function Base.convert(::Type{T}, method::Bisection) where {T}
+function change_precision(::Type{T}, method::Bisection) where {T}
     T ≠ eltype(method) || return method
     Bisection(T)
 end

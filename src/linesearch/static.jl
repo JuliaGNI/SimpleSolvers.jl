@@ -31,7 +31,7 @@ end
 
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 
-function Base.convert(::Type{T}, method::Static) where {T}
+function change_precision(::Type{T}, method::Static) where {T}
     T ≠ eltype(method) || return method
     Static{T}(T(method.α))
 end

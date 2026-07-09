@@ -11,11 +11,20 @@ A `LinesearchMethod` is usually used in [`Linesearch`](@ref) (or with [`solve`](
 abstract type LinesearchMethod{T} <: NonlinearMethod end
 
 Base.eltype(::LinesearchMethod{T}) where {T} = T
-Base.convert(::Type{T}, method::LinesearchMethod{T}) where {T} = method
 
-function Base.convert(::Type, method::LinesearchMethod)
-    error("Convert not implemented for $(typeof(method)).")
-end
+"""
+    change_precision(T, method::LinesearchMethod)
+
+Return a copy of the [`LinesearchMethod`](@ref) `method` with its numeric fields
+converted to the element type `T`.
+
+This is an internal helper used when constructing a [`Linesearch`](@ref): the
+method's precision is adapted to the working precision `T`.  It replaces a former
+misuse of `Base.convert` (which was ambiguous with `Base` and violated the
+`convert` contract by returning a differently-typed object).
+"""
+change_precision(::Type, method::LinesearchMethod) =
+    error("change_precision not implemented for $(typeof(method)).")
 
 
 """
@@ -36,6 +45,7 @@ The following constructors can be used:
 ```julia
 Linesearch{T}(problem, method, config)
 Linesearch(problem, method=Static(); kwargs...)
+Linesearch(problem, method, config::Options)
 ```
 """
 struct Linesearch{T,MET<:LinesearchMethod{T},PT<:LinesearchProblem{T},OPT<:Options{T}}
@@ -45,7 +55,9 @@ struct Linesearch{T,MET<:LinesearchMethod{T},PT<:LinesearchProblem{T},OPT<:Optio
     Linesearch{T}(problem, method, config) where {T} = new{T,typeof(method),typeof(problem),typeof(config)}(problem, method, config)
 end
 
-Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); options_kwargs...) where {T} = Linesearch{T}(problem, convert(T, method), Options(T; options_kwargs...))
+Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); options_kwargs...) where {T} = Linesearch{T}(problem, change_precision(T, method), Options(T; options_kwargs...))
+
+Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Options) where {T} = Linesearch{T}(problem, change_precision(T, method), config)
 
 problem(s::Linesearch) = s.problem
 config(s::Linesearch) = s.config

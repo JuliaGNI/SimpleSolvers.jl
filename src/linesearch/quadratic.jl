@@ -99,7 +99,7 @@ end
 
 Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
 
-function Base.convert(::Type{T}, method::Quadratic) where {T}
+function change_precision(::Type{T}, method::Quadratic) where {T}
     T ≠ eltype(method) || return method
     Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction))
 end

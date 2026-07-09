@@ -117,7 +117,7 @@ end
 
 Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
 
-function Base.convert(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
+function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
     T ≠ AT || return method
     if method.ε == default_precision(AT) && method.ξ == default_precision(AT)
         BierlaireQuadratic{T}(default_precision(T), default_precision(T))

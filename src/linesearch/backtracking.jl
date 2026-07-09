@@ -121,7 +121,7 @@ end
 
 Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = $(ls.α₀) c₁ = $(ls.c₁), c₂ = $(ls.c₂) and p = $(ls.p).")
 
-function Base.convert(::Type{T}, method::Backtracking) where {T}
+function change_precision(::Type{T}, method::Backtracking) where {T}
     T ≠ eltype(method) || return method
     Backtracking{T}(T(method.α₀), T(method.c₁), T(method.c₂), T(method.p))
 end

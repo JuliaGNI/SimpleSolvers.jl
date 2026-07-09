@@ -6,6 +6,8 @@ using StaticArrays
 using LinearAlgebra
 using Printf
 
+import LinearAlgebra: checksquare
+
 import Base.minimum
 import Base.Callable
 import GeometricBase: AbstractProblem, AbstractSolver, AbstractSolverState
@@ -19,13 +21,12 @@ include("base/initialize.jl")
 
 export update!
 export solve!, solve
-export config, result, state, status
-export algorithm, problem
-export solution, minimizer, minimum
+export config
+export problem
+export solution, minimum
 
 export SolverMethod, SolverState
-export BracketingMethod
-export DirectMethod, IterativeMethod
+export DirectMethod
 export NonlinearMethod, PicardMethod, LinesearchMethod
 
 export NewtonMethod, Newton
@@ -44,9 +45,7 @@ include("base/gradient.jl")
 export LinesearchProblem
 
 export value,
-    gradient,
-    derivative,
-    hessian
+    derivative
 
 include("linesearch/linesearch_problem.jl")
 
@@ -58,8 +57,7 @@ export Hessian,
     HessianAutodiff,
     HessianFunction
 
-export check_hessian,
-    print_hessian
+export check_hessian
 
 include("base/hessian.jl")
 
@@ -74,7 +72,7 @@ export check_jacobian,
 include("base/jacobian.jl")
 
 
-export LinearProblem, LinearSolver, LU, LUSolverLAPACK,
+export LinearProblem, LinearSolver, LU,
     factorize!, linearproblem
 
 include("linear/linear_problem.jl")
@@ -82,7 +80,6 @@ include("linear/linear_solver_method.jl")
 include("linear/linear_solver_cache.jl")
 include("linear/linear_solvers.jl")
 include("linear/lu_solver.jl")
-include("linear/lu_solver_lapack.jl")
 
 export bracket_minimum
 
@@ -107,7 +104,7 @@ include("linesearch/quadratic_bierlaire.jl")
 include("linesearch/static.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
-    NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!, NewtonMethod, QuasiNewtonMethod
+    NewtonSolver, QuasiNewtonSolver, assess_convergence, QuasiNewtonMethod
 
 export PicardSolver
 

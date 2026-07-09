@@ -254,6 +254,29 @@ Base.:(==)(j1::JacobianFiniteDifferences{T1}, j2::JacobianFiniteDifferences{T2})
 )
 
 
+@doc raw"""
+    Jacobian{T}(F, nx, ny; mode = :autodiff, kwargs...)
+
+Construct a [`Jacobian`](@ref) of element type `T` for a function `F` mapping `nx`
+inputs to `ny` outputs, selecting the backend via the `mode` keyword:
+
+- `mode = :autodiff` (default) builds a [`JacobianAutodiff`](@ref) (ForwardDiff).
+- `mode = :finitedifferences` builds a [`JacobianFiniteDifferences`](@ref); any
+  remaining keyword arguments (e.g. `ϵ`) are forwarded to it.
+
+The convenience forms `Jacobian{T}(F, n)`, `Jacobian(F, x)` and
+`Jacobian(F, x, y)` forward here.
+"""
+function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode::Symbol = :autodiff, kwargs...) where {T}
+    if mode == :autodiff
+        JacobianAutodiff{T}(F, nx, ny)
+    elseif mode == :finitedifferences
+        JacobianFiniteDifferences{T}(F, nx, ny; kwargs...)
+    else
+        error("Unknown Jacobian mode $(mode); use :autodiff or :finitedifferences.")
+    end
+end
+
 Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
 
 Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x); kwargs...)

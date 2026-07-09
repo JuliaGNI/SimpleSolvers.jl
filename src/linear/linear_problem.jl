@@ -55,7 +55,7 @@ mutable struct LinearProblem{T,VT<:AbstractVector{T},AT<:AbstractMatrix{T}} <: A
     A::AT
     y::VT
     function LinearProblem(A::AT, y::VT) where {T<:Number,VT<:AbstractVector{T},AT<:AbstractMatrix{T}}
-        @assert (length(y)) == size(A, 2)
+        @assert length(y) == size(A, 1)
         ls = new{T,VT,AT}(copy(A), copy(y))
         initialize!(ls, y)
         ls
