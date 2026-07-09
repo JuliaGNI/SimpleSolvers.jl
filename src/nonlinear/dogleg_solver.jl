@@ -97,10 +97,12 @@ repeatedly while shrinking `Δ` without recomputing (and refactorizing) the
 Jacobian.
 """
 function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
-    direction(cache) .= if l2norm(direction₂(cache)) ≤ Δ
-        direction₂(cache)
+    # Each branch broadcasts straight into `direction(cache)` rather than building
+    # a temporary and copying it in.
+    if l2norm(direction₂(cache)) ≤ Δ
+        direction(cache) .= direction₂(cache)
     elseif l2norm(direction₁(cache)) > Δ
-        direction₁(cache) / l2norm(direction₁(cache)) * Δ
+        direction(cache) .= direction₁(cache) .* (Δ / l2norm(direction₁(cache)))
     else
         direction_difference(cache) .= direction₂(cache) .- direction₁(cache)
         d₁d₂d₁ = direction₁(cache) ⋅ direction_difference(cache)
@@ -111,8 +113,9 @@ function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
         # τ₂ should lie in [1, 2]; clamp it (with the interval closed) rather than
         # erroring out on a value that is slightly outside due to rounding.
         τ = clamp(τ₂, one(T), T(2))
-        direction₁(cache) .+ (τ - 1) .* direction_difference(cache)
+        direction(cache) .= direction₁(cache) .+ (τ - 1) .* direction_difference(cache)
     end
+    direction(cache)
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params; Δ::T=T(INITIAL_Δ)) where {T}
@@ -177,9 +180,17 @@ function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=DogLeg(), jacobian=jacobian)
 end
 
-function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T}
+# Note: the `DogLeg` method has no `refactorize` option — it re-evaluates and
+# refactorizes the Jacobian on every step — so (unlike `NewtonSolver`) this
+# constructor does not accept a `refactorize` keyword; passing one is rejected
+# rather than silently ignored.
+function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
-    jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
+    # Build the default autodiff Jacobian lazily, so we don't allocate ForwardDiff
+    # configs when either a Jacobian or a `DF!` is supplied.
+    jacobian = ismissing(DF!) ?
+               (ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian) :
+               JacobianFunction{T}(F, DF!)
     cache = DogLegCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)

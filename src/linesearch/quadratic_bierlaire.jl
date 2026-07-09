@@ -86,28 +86,38 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params,
     # magnitude threshold on the denominator, since the denominator is legitimately
     # small near convergence while still yielding a valid interior minimum; on a
     # degenerate fit fall back to a bisection step of the bracket [a, c].
-    denom = f(a) * (b - c) + f(b) * (c - a) + f(c) * (a - b)
-    χ = T(0.5) * (f(a) * (b^2 - c^2) + f(b) * (c^2 - a^2) + f(c) * (a^2 - b^2)) / denom
+    # Evaluate f once per point and reuse: the fit, the χ comparison and the
+    # termination check below all need the same values (previously f(a), f(b),
+    # f(c) and f(χ) were recomputed several times each).
+    fa = f(a)
+    fb = f(b)
+    fc = f(c)
+    denom = fa * (b - c) + fb * (c - a) + fc * (a - b)
+    χ = T(0.5) * (fa * (b^2 - c^2) + fb * (c^2 - a^2) + fc * (a^2 - b^2)) / denom
     (isfinite(χ) && a ≤ χ ≤ c) || (χ = (a + c) / 2)
     # perform a perturbation if χ ≈ b (in order "to avoid stalling"); use a tight
     # absolute tolerance so the perturbation only fires when χ is essentially at b
     # (the former `b == χ` only caught exact equality, missing floating-point ties)
     χ = isapprox(b, χ; atol=method(ls).ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, method(ls).ε) : χ
+    fχ = f(χ)
+    # Carry the function values of the updated triple alongside the points, so the
+    # termination check needs no further evaluations.
     if χ > b
-        if f(χ) > f(b)
-            c = χ
+        if fχ > fb
+            c, fc = χ, fχ
         else
-            a, b = b, χ
+            a, fa = b, fb
+            b, fb = χ, fχ
         end
     else
-        if f(χ) > f(b)
-            a = χ
+        if fχ > fb
+            a, fa = χ, fχ
         else
-            c, b = b, χ
+            c, fc = b, fb
+            b, fb = χ, fχ
         end
     end
-    !(((c - a) ≤ method(ls).ε)) || !(((f(a) - f(b)) ≤ method(ls).ε) && ((f(c) - f(b)) ≤ method(ls).ε)) || return b
-    # ( (c - a) ≤ ls.ε ) || return b
+    !(((c - a) ≤ method(ls).ε)) || !(((fa - fb) ≤ method(ls).ε) && ((fc - fb) ≤ method(ls).ε)) || return b
     solve(ls, a, b, c, params, iteration_number + 1)
 end
 

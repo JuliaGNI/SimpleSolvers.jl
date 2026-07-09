@@ -219,3 +219,17 @@ end
     @test_throws NonlinearSolverException solve!(x₂, nl₂)
 
 end
+
+@testset "Phase 4.2 error-swallowing fallbacks removed" begin
+    # The catch-all `initialize!(x...)` (which swallowed MethodErrors behind a
+    # generic "not defined" message) was deleted.
+    @test !hasmethod(initialize!, Tuple{Int})
+    @test !hasmethod(initialize!, Tuple{Int,Int,Int})
+
+    # The 1-argument `solver_step!(s::NonlinearSolver)` stub (which only errored)
+    # was deleted, so an unsupported call is a proper `MethodError`.
+    f!(y, x, params) = y .= x .^ 2 .- 1
+    s = NewtonSolver([2.0], [3.0]; F=f!)
+    @test !hasmethod(solver_step!, Tuple{typeof(s)})
+    @test_throws MethodError solver_step!(s)
+end

@@ -37,10 +37,6 @@ Examples include:
 """
 abstract type Gradient{T} end
 
-function (::Gradient{T₁})(::AbstractVector{T₂}, ::AbstractVector{T₃}) where {T₁,T₂,T₃}
-    (T₁ == T₂ == T₃) ? error("Functor not implemented.") : error("Types $(T₁), $(T₂), $(T₃) in Gradient functor must be the same.")
-end
-
 function (grad::Gradient{T})(x::AbstractVector{T}) where {T}
     g = alloc_g(x)
     grad(g, x)

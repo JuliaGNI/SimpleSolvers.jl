@@ -56,14 +56,28 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     y₁ = f(α₁, params)
     y = zero(y₀)
 
-    # @assert y₀ * y₁ ≤ 0 "Either no or multiple real roots in [xmin,xmax]."
+    # Bisection can only locate a root if the endpoints straddle a sign change.
+    # Same-sign endpoints mean there is no (odd-multiplicity) root in the interval;
+    # the loop below would otherwise silently collapse onto α₁ and return a
+    # non-root.  This case arises benignly in the line search once the derivative
+    # has flattened at a minimum (both endpoint values ≈ 0 with the same sign), so
+    # rather than erroring we return the endpoint closest to a root (smallest |f|)
+    # and warn only at high verbosity.
+    if y₀ * y₁ > zero(y₀)
+        config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
+        return abs(y₀) ≤ abs(y₁) ? α₀ : α₁
+    end
 
-    for j in 1:config.max_iterations
+    converged = false
+    for _ in 1:config.max_iterations
         α = (α₀ + α₁) / 2
         y = f(α, params)
 
         # break if y is close to zero.
-        !≈(y, zero(y); atol=config.f_abstol) || break
+        if ≈(y, zero(y); atol=config.f_abstol)
+            converged = true
+            break
+        end
 
         if y₀ * y > 0
             α₀ = α  # Root is in the right half of [α₀,α₁].
@@ -73,11 +87,16 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
             y₁ = y
         end
 
-        !isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁))) || break
-
-        j != config.max_iterations || (println(α₀, " ", α₁, " ", α₁ - α₀);
-        error("Max iteration number exceeded"))
+        # break once the bracket has shrunk below the successive-step tolerance.
+        if isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁)))
+            converged = true
+            break
+        end
     end
+
+    # Return the best estimate rather than erroring on exhaustion; warn so the
+    # caller knows the tolerance was not met.
+    converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.max_iterations) iterations; returning best estimate α = $(α).")
 
     α
 end

@@ -101,7 +101,7 @@ HessianAutodiff{T}(F, nx::Integer)
 The functor does:
 
 ```julia
-hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
+hes(H, x) = ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
 ```
 """
 struct HessianAutodiff{T,FT<:Callable,CT<:ForwardDiff.HessianConfig} <: Hessian{T}

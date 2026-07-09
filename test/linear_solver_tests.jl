@@ -1,6 +1,6 @@
 using LinearAlgebra: ldiv!, SingularException
 using SimpleSolvers
-using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache
+using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache, pivot_index, solve!, alloc_x, alloc_g, alloc_h, alloc_j
 using StaticArrays: SMatrix, MMatrix
 using Test
 
@@ -148,4 +148,47 @@ end
     # An explicit `static=true` still forces a static cache even for a plain matrix.
     @test cache(LinearSolver(LU(; static=true), Adyn)).A isa MMatrix
     @test cache(LinearSolver(LU(; static=false), Adyn)).A isa Matrix
+end
+
+# Phase 4.1 (§5): the dead `pivots` field was removed from `LUSolverCache`
+# (`factorize!`/`ldiv!` use `perms`); the cache now has exactly three fields.
+@testset "LUSolverCache has no dead pivots field (Phase 4.1)" begin
+    ls = LinearSolver(LU(), [1.0 2.0; 3.0 4.0])
+    @test !hasproperty(cache(ls), :pivots)
+    @test fieldnames(typeof(cache(ls))) == (:A, :perms, :info)
+end
+
+# Phase 4.5 (§5): `find_maximum_value` was renamed to `pivot_index` (internal,
+# unexported) and returns the index of the largest-|·| entry from `k` onward.
+@testset "pivot_index returns index of largest |entry| (Phase 4.5)" begin
+    @test !isdefined(SimpleSolvers, :find_maximum_value)
+    v = [0.1, -3.0, 2.0, -0.5]
+    @test pivot_index(v, 1) == 2      # |-3| is the largest overall
+    @test pivot_index(v, 3) == 3      # from index 3 on, |2| is the largest
+end
+
+# Phase 4.4 (§5): `solve!(x, lsolver, A, b)` copies `A` straight into the existing
+# cache instead of allocating a throwaway `LinearProblem`; the result must still
+# match the direct solve.
+@testset "solve!(x, lsolver, A, b) copies into cache (Phase 4.4)" begin
+    A = [1.0 2.0 3.0; 5.0 7.0 11.0; 13.0 17.0 19.0]
+    b = [1.0, 2.0, 3.0]
+    lsolver = LinearSolver(LU(), zeros(3))
+    x = zeros(3)
+    solve!(x, lsolver, A, b)
+    @test A * x ≈ b atol = 1e-10
+end
+
+# Phase 4.5 (§5): the `alloc_*` helpers initialize with `NaN`, which only floating
+# point (and complex-of-float) element types support.  An integer input now
+# raises a clear error rather than a cryptic `InexactError` deep in setup.
+@testset "alloc_* rejects non-NaN-capable eltypes (Phase 4.5)" begin
+    @test all(isnan, alloc_x([1.0, 2.0]))
+    @test all(isnan, alloc_g([1.0, 2.0]))
+    @test isnan(alloc_x(1.0))
+    @test_throws ErrorException alloc_x([1, 2])
+    @test_throws ErrorException alloc_g([1, 2])
+    @test_throws ErrorException alloc_h([1, 2])
+    @test_throws ErrorException alloc_j([1, 2], [1, 2])
+    @test_throws ErrorException alloc_x(1)
 end

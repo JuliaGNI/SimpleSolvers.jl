@@ -41,8 +41,6 @@ linearproblem(s::NonlinearSolver) = s.linearproblem
 linesearch(s::NonlinearSolver) = s.linesearch
 jacobian(s::NonlinearSolver) = s.jacobian
 
-solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
-
 function initialize!(s::NonlinearSolver, x::AbstractVector)
     initialize!(cache(s), x)
 
@@ -84,7 +82,7 @@ linearsolver(s)
 
 # output
 
-LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], [0, 0, 0], 0))
+LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], 0))
 ```
 """
 linearsolver(solver::NonlinearSolver) = solver.linearsolver
@@ -152,8 +150,6 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
 
     x
 end
-
-mean(x::AbstractVector) = sum(x) / length(x)
 
 """
     solve!(x, s, state)

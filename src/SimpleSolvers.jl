@@ -16,8 +16,6 @@ import GeometricBase: update!, value
 import GeometricBase.Utils: L2norm, l2norm
 
 include("utils.jl")
-include("base/realcomplex.jl")
-include("base/initialize.jl")
 
 export update!
 export solve!, solve

@@ -64,13 +64,11 @@ The cache for the [`LU`](@ref) solver.
 
 # Keys
 - `A`: the factorized matrix `A`,
-- `pivots`: a vector of pivots used during factorization,
 - `perms`: a vector of permutations used during factorization,
 - `info`: stores an index regarding pivoting.
 """
 mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
-    pivots::Vector{Int}
     perms::Vector{Int}
     info::Int
 end
@@ -97,7 +95,7 @@ function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
     Ā = _lucache_matrix(Tf, A)
-    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
@@ -107,7 +105,7 @@ function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     # on a dynamically-sized matrix is inherently a runtime-sized `MMatrix` (opt-in,
     # built once at construction); the default `LU()` path above stays type stable.
     Ā = lu.static ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
-    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), 0)
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearProblem) where {T,LUT<:LU}
@@ -118,9 +116,11 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::Line
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
-    ls = LinearProblem(solution)
-    update!(ls, A, b)
-    solve!(solution, lsolver, ls)
+    # Copy `A` straight into the existing cache and factorize in place, rather than
+    # allocating a throwaway `LinearProblem` on every call.
+    factorize!(lsolver, A)
+    ldiv!(solution, lsolver, b)
+    solution
 end
 
 function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
@@ -221,6 +221,10 @@ For a plain (dynamically-sized) matrix, both the default `LU()` and `LU(; static
 Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
 function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
+    # The hand-rolled factorization below indexes `1:n` under `@inbounds`, so it is
+    # only correct for one-based storage.
+    Base.require_one_based_indexing(cache(lsolver).A)
+
     # Reset the singularity marker before (re)factorizing so that a stale nonzero
     # `info` from a previous factorization does not persist.
     cache(lsolver).info = 0
@@ -232,9 +236,8 @@ function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     n = size(cache(lsolver).A, 1)
 
     @inbounds for k ∈ axes(cache(lsolver).A, 1)
-        kp = method(lsolver).pivot ? find_maximum_value(@view(cache(lsolver).A[:, k]), k) : k
+        kp = method(lsolver).pivot ? pivot_index(@view(cache(lsolver).A[:, k]), k) : k
 
-        cache(lsolver).pivots[k] = kp
         cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
 
         if cache(lsolver).A[kp, k] != 0
@@ -274,13 +277,15 @@ end
 factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearProblem{T}) where {T,LUT<:LU} = factorize!(lsolver, ls.A)
 
 """
-    find_maximum_value(v, k)
+    pivot_index(v, k)
 
-Find the maximum value of vector `v` starting from the index `k`.
+Return the index (starting from `k`) of the entry of `v` with the largest absolute
+value.
 
 This is used for *pivoting* in [`factorize!`](@ref).
 """
-function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T<:Number}
+function pivot_index(v::AbstractVector{T}, k::Integer) where {T<:Number}
+    Base.require_one_based_indexing(v)
     kp = k
     amax = real(zero(T))
     for i in k:length(v)
@@ -332,6 +337,10 @@ julia> ldiv!(x, s, b)
 """
 function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
     @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
+
+    # The substitution loops below index `1:n` under `@inbounds`, so they are only
+    # correct for one-based storage.
+    Base.require_one_based_indexing(x, b, cache(lsolver).A)
 
     # A zero pivot was encountered during factorization: the matrix is singular
     # and back-/forward-substitution below would silently produce NaN/Inf.

@@ -42,7 +42,7 @@ See [`directions!`](@ref).
 """
 direction₂(cache::DogLegCache) = cache.Δx₂
 
-direction(cache::DogLegCache) = cache.Δx # error("The DoglegSolver stores two directions -> try `direction₁` or `direction₂`.")
+direction(cache::DogLegCache) = cache.Δx
 direction_difference(cache::DogLegCache) = cache.Δx_diff
 jacobianmatrix(cache::DogLegCache) = cache.j
 solution(cache::DogLegCache) = cache.x

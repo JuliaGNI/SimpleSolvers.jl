@@ -106,3 +106,14 @@ end
     ∇int(gg, x)
     @test gg ≈ 2x atol = 1e-6
 end
+
+# Phase 4.2 (§5): the generic `Gradient` functor fallback (which raised a
+# home-grown "Functor not implemented." error and masked `MethodError`s) was
+# removed.  A `Gradient` subtype without a functor now yields a proper
+# `MethodError`, so `hasmethod`/`applicable` report the truth.
+@testset "Gradient functor fallback removed (Phase 4.2)" begin
+    struct UnimplementedGradient{S} <: SimpleSolvers.Gradient{S} end
+    ug = UnimplementedGradient{Float64}()
+    @test !hasmethod(ug, Tuple{Vector{Float64},Vector{Float64}})
+    @test_throws MethodError ug(zeros(2), zeros(2))
+end

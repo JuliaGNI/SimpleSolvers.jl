@@ -67,7 +67,6 @@ struct BracketRootCriterion <: BracketingCriterion end
 
 function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
-    ya = f(a)
 
     b = a + s
     yb = f(b)
@@ -89,7 +88,6 @@ function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRAC
             return interval
         end
         a = b
-        ya = yb
         b = c
         yb = yc
         s *= k

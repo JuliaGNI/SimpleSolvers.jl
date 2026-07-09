@@ -15,7 +15,7 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 
 We show an example for one particular constructor:
 ```jldoctest; setup = :(using SimpleSolvers)
-F(y, x) = y .= sin.(x) ^ 2
+F(y, x, params) = y .= sin.(x) .^ 2
 NonlinearProblem(F, zeros(3))
 
 # output

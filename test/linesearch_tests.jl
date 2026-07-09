@@ -298,3 +298,27 @@ end
     @test Options(Float64; f_abstol=1 // 100) isa Options
     @test Options().f_abstol == 0.0
 end
+
+
+@testset "$(rpad("Phase 4.3 bisection hardening", 80))" begin
+    # A genuine sign-changing bracket still bisects to the root.
+    froot(α, _) = α - 1.0
+    @test bisection(froot, 0.0, 2.0) ≈ 1.0 atol = 1e-6
+
+    # No sign change over the bracket: rather than silently collapsing onto α₁
+    # (the old bug) or erroring (which would break the line search once the
+    # derivative has flattened at a minimum), `bisection` returns the endpoint
+    # closest to a root (smallest |f|).
+    fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
+    @test bisection(fpos, 0.0, 1.0) == 0.0    # |f(0)| = 1 < |f(1)| = 2
+    @test bisection(fpos, 1.0, 0.0) == 0.0    # endpoints get flipped internally
+
+    # The debug `println` and hard `error("Max iteration number exceeded")` were
+    # removed: exhausting the iteration budget returns the best estimate instead
+    # of throwing.  A tight tolerance forces exhaustion here.
+    fslow(α, _) = α - 1 / 3
+    cfg = Options(Float64; max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=0)
+    local αbest
+    @test (αbest = bisection(fslow, 0.0, 1.0, NullParameters(), cfg)) isa Float64
+    @test 0.0 ≤ αbest ≤ 1.0
+end

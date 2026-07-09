@@ -63,9 +63,13 @@ end
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), refactorize=1, kwargs...) where {T}
+function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, refactorize=1, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
-    jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
+    # Build the default autodiff Jacobian lazily, so we don't allocate ForwardDiff
+    # configs when either a Jacobian or a `DF!` is supplied.
+    jacobian = ismissing(DF!) ?
+               (ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian) :
+               JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)

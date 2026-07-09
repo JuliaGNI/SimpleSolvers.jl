@@ -114,7 +114,7 @@ JacobianAutodiff{T}(F, nx::Integer)
 The functor does:
 
 ```julia
-jac(J, x) = ForwardDiff.jacobian!(J, jac.ty, x, grad.Jconfig)
+jac(J, x, params) = ForwardDiff.jacobian!(J, (y, x) -> jac.F(y, x, params), jac.ty, x, jac.Jconfig)
 ```
 """
 struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:AbstractVector{T}} <: Jacobian{T}
@@ -140,7 +140,6 @@ JacobianAutodiff{T}(F, n::Integer) where {T} = JacobianAutodiff{T}(F, n, n)
 JacobianAutodiff(F::Callable, x::AbstractVector{T}) where {T} = JacobianAutodiff{T}(F, length(x))
 
 function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
-    F!(j, x) = jac.F(j, x, params)
     F_closure(y, x) = jac.F(y, x, params)
     ForwardDiff.jacobian!(J, F_closure, jac.ty, x, jac.Jconfig)
 end

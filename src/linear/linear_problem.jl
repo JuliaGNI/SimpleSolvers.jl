@@ -1,5 +1,5 @@
 """
-Encompasses the [`NoLinearProblem`](@ref) and the [`LinearProblem`](@ref). Sutyped from `AbstractProblem`, coming grom `GeometricBase`.
+Encompasses the [`NoLinearProblem`](@ref) and the [`LinearProblem`](@ref). Subtyped from `AbstractProblem`, coming from `GeometricBase`.
 """
 abstract type AbstractLinearProblem <: AbstractProblem end
 

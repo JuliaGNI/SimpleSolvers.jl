@@ -5,7 +5,7 @@ The condition that determines if the change induced by ``\alpha_k`` is *big enou
 
 # Example
 
-```julia; setup = :(using SimpleSolvers; using SimpleSolvers: SufficientDecreaseCondition)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: SufficientDecreaseCondition)
 c = SimpleSolvers.DEFAULT_WOLFE_c₁
 f(x) = (x - 1.) ^ 2
 xₖ = 0.

@@ -20,10 +20,11 @@ const DEFAULT_ARMIJO_p = 0.5
 @doc raw"""
     const DEFAULT_WOLFE_c₁
 
-A constant ``c_1`` that is used in the [`SufficientDecreaseCondition`](@ref):
+A constant ``c_1`` that is used in the [`SufficientDecreaseCondition`](@ref) (the
+Armijo condition):
 
 ```math
-\frac{f(\alpha) - f(\alpha_0)}{c_1} < \alpha\cdot{}f'(\alpha_0).
+f(\alpha) \leq f(\alpha_0) + c_1 \alpha f'(\alpha_0).
 ```
 """
 const DEFAULT_WOLFE_c₁ = 1E-4
@@ -49,7 +50,7 @@ const DEFAULT_WOLFE_c₂ = 0.9
 
 The keys are:
 - `α₀`=""" * string(DEFAULT_ARMIJO_α₀) * raw""": the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the Wolfe conditions (the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref)) are satisfied.
-- `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": a default step size on whose basis we compute a finite difference approximation of the derivative of the problem. Also see [`DEFAULT_WOLFE_c₁`](@ref).
+- `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": the constant ``c_1`` in the [`SufficientDecreaseCondition`](@ref) (Armijo condition). Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
 
