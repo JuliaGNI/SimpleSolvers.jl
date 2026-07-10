@@ -65,17 +65,27 @@ struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
 
+"""
+    bracket(f, x, bc, s, k, nmax)
+
+Grow a bracket outward from `x` (in steps scaled by `k`, starting from `s`) until
+the [`BracketingCriterion`](@ref) `bc` is satisfied. Used by [`bracket_minimum`](@ref)
+and [`bracket_root`](@ref).
+
+# Extended help
+
+Before entering the main loop we check whether the criterion is already satisfied
+just to the *left* of `a` (at `a - s`). This early exit is only valid for the
+[`BracketRootCriterion`](@ref), where it corresponds to a sign change in
+`(a - s, b)`. For the [`BracketMinimumCriterion`](@ref) it would instead bracket a
+maximum rather than a minimum, so it is deliberately skipped.
+"""
 function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
 
     b = a + s
     yb = f(b)
 
-    # Check if the condition is already satisfied to the left of `a`.  This early
-    # exit is only valid for the *root* criterion (a sign change between `a - s`
-    # and `b`).  For the *minimum* criterion it would bracket a maximum: under the
-    # invariant f(b) ≤ f(a) the interior point `b` is the highest of the three, so
-    # `f(a - s) ≥ f(b)` does not indicate a minimum in `(a - s, b)`.
     if bc isa BracketRootCriterion && bc(f(a - s), yb)
         return (a - s, b)
     end

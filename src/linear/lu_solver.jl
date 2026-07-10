@@ -82,11 +82,6 @@ type that supports division (mirroring `LinearAlgebra.lutype`), so that e.g.
 """
 lucache_eltype(::Type{T}) where {T} = typeof(oneunit(T) / oneunit(T))
 
-# Build the cache matrix, choosing static vs. dynamic storage.  The size of a
-# `StaticMatrix` is part of its *type*, so `MMatrix{M,N,Tf}(A)` is fully
-# inferrable; for a general `AbstractMatrix` the size is only known at runtime,
-# so we allocate a plain `Matrix`.  Keeping these on separate methods (rather
-# than a runtime `?:`) makes the default `LinearSolverCache` path type stable.
 _lucache_matrix(::Type{Tf}, A::StaticMatrix{M,N}) where {Tf,M,N} = MMatrix{M,N,Tf}(A)
 _lucache_matrix(::Type{Tf}, A::AbstractMatrix) where {Tf} = Tf.(A)
 
@@ -100,9 +95,6 @@ end
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
-    # An explicit `static` keyword overrides the dispatch default.  `static=true`
-    # on a dynamically-sized matrix is inherently a runtime-sized `MMatrix` (opt-in,
-    # built once at construction); the default `LU()` path above stays type stable.
     Ā = lu.static ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
     LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), 0)
 end
@@ -115,8 +107,6 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::Line
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
-    # Copy `A` straight into the existing cache and factorize in place, rather than
-    # allocating a throwaway `LinearProblem` on every call.
     factorize!(lsolver, A)
     ldiv!(solution, lsolver, b)
     solution

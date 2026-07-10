@@ -30,8 +30,8 @@ LinearProblem{T}(n)
 ```
 
 `LinearProblem(A, y)` stores *copies* of `A` and `y`, so the problem is ready to
-solve right after construction (and later changes to the caller's arrays do not
-leak into the problem):
+solve right after construction (and later mutations of the caller's arrays do not
+affect the stored copies):
 
 ```jldoctest; setup = :(using SimpleSolvers)
 A = [1. 2. 3.; 4. 5. 6.; 7. 8. 9.]

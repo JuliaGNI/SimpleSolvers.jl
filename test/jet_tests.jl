@@ -1,12 +1,6 @@
-# JET.jl static analysis (optional / allowed-to-warn).
-#
-# `report_package` surfaces potential runtime errors detected statically.  This
-# set only reports and is not allowed to fail the suite — it is a diagnostic aid.
-#
-# JET is tightly coupled to Julia internals and regularly does not work on
-# nightly / pre-release Julia versions (load or precompile failures inside
-# JET/JuliaInterpreter).  Since the analysis is diagnostic-only, it is skipped
-# gracefully when JET cannot load or run on the current Julia version.
+# JET.jl static analysis (diagnostic, non-failing). See https://github.com/aviatesk/JET.jl.
+# JET can fail to load on nightly/pre-release Julia, so it is skipped gracefully
+# when it cannot run on the current version.
 
 using SimpleSolvers
 using Test

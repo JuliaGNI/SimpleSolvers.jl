@@ -30,9 +30,6 @@ julia> round10.((f(a), f(b), f(c)))
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
 function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
-    # Evaluate `f` once per point and carry the values across iterations: each
-    # `f(xₖ)` was previously the `f(xₖ₊₁)` of the prior iteration, so caching
-    # roughly halves the number of function evaluations.
     fx₀ = f(x₀)
     x₁ = x₀ + δ
     fx₁ = f(x₁)
@@ -44,9 +41,6 @@ function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_
         return triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end
 
-    # Initialize so that the first iteration sees xₖ₋₁ = x₀, xₖ = x₁ (rather than
-    # the degenerate xₖ₋₁ = xₖ = x₁, which would return two identical points and
-    # make the downstream quadratic fit singular).
     local xₖ₋₁ = x₀
     local xₖ = x₀
     local xₖ₊₁ = x₁
