@@ -22,7 +22,7 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
     # the surrounding cache stays immutable.
     Δ::Base.RefValue{T}
 
-    function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
+    function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractVector{T}}
         j = alloc_j(x, y)
         c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(INITIAL_Δ)))
         initialize!(c, fill!(similar(x), NaN))
