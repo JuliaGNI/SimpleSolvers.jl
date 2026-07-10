@@ -69,6 +69,31 @@ end
     @test_logs (:warn, r"residual rfₐ has reached the maximally allowed value") match_mode = :any nonlinear_solver_warnings(status, tight)
 end
 
+@testset "allow_f_increases toggles stopping when the residual grows" begin
+    # `f_increased` is set when ‖value‖ exceeds ‖previousvalue‖.  With
+    # `allow_f_increases=false` a step that increases the residual halts the
+    # iteration (and warns); the default (`true`) tolerates it.
+    state = NonlinearSolverState([1.0, 1.0])
+    update!(state, [1.0, 1.0], [1.0, 0.0])   # value = [1,0]  (‖·‖ = 1)
+    update!(state, [1.0, 1.0], [3.0, 4.0])   # value = [3,4]  (‖·‖ = 5) > previous ⇒ increased
+
+    status = NonlinearSolverStatus(state, Options(; verbosity=0))
+    @test status.f_increased
+    @test !SimpleSolvers.isconverged(status)   # a genuine (non-converged) increase
+
+    # default tolerates the increase ⇒ this criterion alone does not stop
+    allow = Options(; allow_f_increases=true, verbosity=0)
+    @test !meets_stopping_criteria(state, allow)
+
+    # disallowing increases ⇒ stop (without convergence) ...
+    disallow = Options(; allow_f_increases=false, verbosity=0)
+    @test meets_stopping_criteria(state, disallow)
+
+    # ... and the "function increased and the solver stopped" warning is emitted.
+    st = NonlinearSolverStatus(state, disallow)
+    @test_logs (:warn, r"function increased and the solver stopped") match_mode = :any nonlinear_solver_warnings(st, disallow)
+end
+
 # struct NonlinearSolverTestMethod <: NonlinearSolverMethod end
 #
 # test_solver = NonlinearSolverTest{Float64}()
@@ -348,6 +373,38 @@ end
     # ... and a full solve on the same domain-restricted problem converges.
     x2 = [1.0]
     s2 = DogLegSolver(x2, Flog, similar(x2))
+    solve!(x2, s2)
+    @test isapprox(x2[1], exp(-2.0); atol=1e-8)
+end
+
+@testset "Newton solver_step! damps the direction when the trial value is NaN" begin
+    # From x₀ = 1 the full Newton step for F(x) = log(x) + 2 is d = -2, landing at
+    # x = -1 where F is NaN (a domain-restricted log, as from NaNMath.log or a table
+    # lookup).  The RHS-NaN safeguard in `solver_step!` halves the direction until
+    # the trial value is finite *before* the line search runs: d = -2 → -1 (x = 0,
+    # still NaN) → -0.5 (x = 0.5, finite).  With a Static line search (α = 1) the
+    # accepted iterate is therefore exactly x = 0.5 — proving the loop ran (an
+    # undamped step would have been rejected as NaN / left x at -1).
+    nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
+    Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
+    x = [1.0]
+    s = NewtonSolver(x, similar(x); F=Flog, linesearch=Static(), verbosity=0)
+    initialize!(s, x)
+    y = similar(x)
+    Flog(y, x, NullParameters())
+    state = NonlinearSolverState(x, y)
+    initialize!(state, x, y)
+
+    solver_step!(x, s, state, NullParameters())
+    @test x[1] ≈ 0.5                        # two halvings landed the step in-domain
+    yₜ = similar(x)
+    Flog(yₜ, x, NullParameters())
+    @test all(isfinite, yₜ)                 # the accepted trial value is finite
+
+    # ... and a full solve on the same domain-restricted problem converges to the
+    # root exp(-2) ≈ 0.135 (each overshoot is caught by the same safeguard).
+    x2 = [1.0]
+    s2 = NewtonSolver(x2, similar(x2); F=Flog, linesearch=Static(), verbosity=0)
     solve!(x2, s2)
     @test isapprox(x2[1], exp(-2.0); atol=1e-8)
 end
