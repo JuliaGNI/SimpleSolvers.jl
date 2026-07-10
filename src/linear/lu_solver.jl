@@ -130,8 +130,6 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::Abstr
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
-    # Solve against the factorization already stored in the cache (see
-    # `factorize!`) — no new factorization is performed.
     ldiv!(solution, lsolver, b)
 end
 
@@ -351,8 +349,7 @@ function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT},
 
     n = size(cache(lsolver).A, 1)
 
-    # The permutation gather below reads `b` out of order while writing `x`, which
-    # corrupts the result if `x` and `b` alias.  Work from a copy in that case.
+    # the permutation gather below corrupts the result if `x` and `b` alias
     if x === b
         b = copy(b)
     end

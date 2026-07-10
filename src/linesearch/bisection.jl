@@ -109,6 +109,16 @@ bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = 
     Bisection <: Linesearch
 
 See [`bisection`](@ref) for the implementation of the algorithm.
+
+# Extended help
+
+When invoked with a single trial step `α` (i.e. `solve(ls, α)`), the bracket is
+anchored at ``\\alpha = 0`` rather than at the caller's `α`: starting
+[`bracket_minimum`](@ref) at `α` is unsafe because the merit need not be
+decreasing there (the search could wander to a negative, infeasible step), and
+using `α` as the bracketing step size over-coarsens the search and destabilises
+stiff problems. The step magnitude is therefore governed by `bracket_minimum`'s
+tuned default, not by `α`.
 """
 struct Bisection{T} <: LinesearchMethod{T} end
 
@@ -121,12 +131,6 @@ function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullPar
 end
 
 function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
-    # Design note: the bracket is
-    # anchored at α = 0 rather than at the caller's α.  Starting `bracket_minimum`
-    # at α is unsafe — the merit need not be decreasing there and the search could
-    # wander to a negative (infeasible) step — and using α as the bracketing step
-    # size over-coarsens the search and destabilises stiff problems.  The step
-    # magnitude is governed by `bracket_minimum`'s tuned default, not by α.
     solve(ls, bracket_minimum(problem(ls), params, zero(T))..., params)
 end
 

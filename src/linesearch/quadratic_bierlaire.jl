@@ -57,8 +57,8 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
 end
 
 function BierlaireQuadratic(::Type{T}=Float64;
-    ε=default_precision(T), # previously DEFAULT_BIERLAIRE_ε,
-    ξ=default_precision(T)  # previously DEFAULT_BIERLAIRE_ξ
+    ε=default_precision(T),
+    ξ=default_precision(T)
 ) where {T}
     BierlaireQuadratic{T}(ε, ξ)
 end

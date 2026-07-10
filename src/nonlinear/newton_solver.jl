@@ -133,11 +133,9 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonS
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
-    # for a quasi-Newton method the Jacobian isn't updated in every iteration.
-    # Factorize on a fresh state (iteration = 0) and on the first step
-    # (iteration = 1), then every `refactorize` iterations.  The previous
-    # `mod(iteration - 1, refactorize)` skipped factorization on a fresh state
-    # (`mod(-1, r) = r - 1 ≠ 0`), running ldiv! against a NaN-initialized cache.
+    # for a quasi-Newton method the Jacobian isn't updated in every iteration:
+    # factorize on a fresh state (iteration 0) and the first step (iteration 1),
+    # then every `refactorize` iterations.
     if (mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
         jacobian!(s, x, params)
         matrix(linearproblem(s)) .= jacobianmatrix(s)
@@ -172,10 +170,7 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
 
-# `jacobian(s)` returns the `Jacobian` functor object, but `check_jacobian` /
-# `print_jacobian` operate on the actual Jacobian *matrix* — pass
-# `jacobianmatrix(s)` (this used to read `s.J`, which was the matrix before the
-# Jacobian-object refactor).
+# check_jacobian / print_jacobian operate on the Jacobian matrix, not the Jacobian functor
 check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobianmatrix(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobianmatrix(s))
 

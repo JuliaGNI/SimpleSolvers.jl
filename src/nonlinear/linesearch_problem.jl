@@ -2,16 +2,19 @@
     linesearch_problem(nlp, jacobian, cache)
 
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
+
+# Extended help
+
+The line search closures evaluate the merit at trial steps `α` using *private*
+scratch buffers rather than the solver's shared `cache`. The shared buffers
+(`solution`/`value`/`jacobianmatrix`) are read by the solver *after* the line
+search returns (e.g. the next `direction!` step and the convergence check), so
+writing trial iterates into them would be an aliasing hazard. The line search
+therefore only *reads* the current direction from the shared cache and the
+current iterate from `params.x`; every write goes to a closure-owned buffer.
 """
 function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
-    # Private scratch buffers for the line search.  Previously the closures wrote
-    # the trial iterate, its residual and its Jacobian straight into the solver's
-    # *shared* cache (`solution`/`value`/`jacobianmatrix`).  Those buffers are read
-    # by the solver *after* the line search returns (e.g. the next `direction!`
-    # step and the convergence check), so overwriting them at every trial `α` was
-    # an aliasing hazard.  The line search now only *reads* the
-    # current direction from the shared cache and the current iterate from
-    # `params.x`; every write goes to a buffer owned by the closures.
+    # private scratch buffers for the line search (see the docstring for why)
     xₜ = zero(solution(cache))
     yₜ = zero(value(cache))
     jₜ = zero(jacobianmatrix(cache))

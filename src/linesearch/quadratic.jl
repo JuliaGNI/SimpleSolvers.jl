@@ -65,34 +65,18 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
     s = method(ls).s
 
     for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
-        # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - a) + p₂(α - a)².
-        # The bracketing already evaluates the merit at both endpoints, so it
-        # returns the values along with the bracket — no re-evaluation here.
+        # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
+        # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
+        # from the bracketing, so no re-evaluation is needed here.
         a, b, y₀, y₁ = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
         d₀ = derivative(problem(ls), a, params)
         abs(d₀) < method(ls).ε && return α
 
-        # p₀ = y₀
-        # p₁ = d₀
-
-        # determine coefficient p₂ of p(α)
-        # p₂ = (y₁ - p₀ - p₁*(b-a)) / (b-a)^2
-
-        # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-        # αₜ = a - p₁ / (2p₂)
-
-        # The denominator is 2·p₂·(b - a)², proportional to the fitted curvature p₂.
-        # If p₂ ≤ 0 (locally linear or non-convex fit) the quadratic model has no
-        # interior minimum; if the resulting αₜ is not finite the fit is degenerate.
-        # In either case fall back to a bisection step of the current bracket [a, b]
-        # instead of producing an Inf/NaN αₜ.  (Note: p₂ is small but positive near
-        # convergence, where the interpolation is still valid, so we guard on the sign
-        # and finiteness rather than on a magnitude threshold.)
+        # minimizer αₜ = a - p₁ / (2p₂); guard on the fitted curvature (denom = 2p₂(b-a)²).
+        # A non-positive curvature (denom ≤ 0), a non-finite αₜ, or a minimizer outside
+        # the bracket means the quadratic model is untrustworthy — bisect [a, b] instead.
         denom = 2 * (y₁ - y₀ - d₀ * (b - a))
         αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
-        # The minimum of the merit lies inside the bracket [a, b]; a fitted minimizer
-        # outside it (or a non-finite one) means the quadratic model is not to be
-        # trusted — bisect the bracket instead.
         (isfinite(αₜ) && a ≤ αₜ ≤ b) || (αₜ = (a + b) / 2)
 
         (l2norm(αₜ - α) < method(ls).ε) && return αₜ
