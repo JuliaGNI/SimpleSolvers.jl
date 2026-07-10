@@ -64,6 +64,13 @@ signature are not enumerated here.)
   refactorizes every step, so the option was meaningless). DogLeg now uses a carried,
   ρ-based trust-region radius (N&W Alg. 4.1; new `DogLegCache` `trust_radius[!]`
   accessors) and `solver_step!(::DogLegSolver)` no longer takes a `Δ` keyword.
+- `DogLegSolver` no longer accepts a `linesearch` keyword. DogLeg is a trust-region
+  method: its `solver_step!` sets the step length via the trust-region radius and never
+  consults a line search, so the keyword was silently ignored (and the inherited
+  `Static`-line-search warning falsely implied it mattered). Passing `linesearch=…` is
+  now an error rather than a no-op; the structurally mandatory field is filled with a
+  trivial `Static` step. Same fix as the `QuasiNewton`/`Picard` silently-ignored-keyword
+  cases.
 - `PicardSolver` is now a residual-safeguarded fixed-point iteration and no longer
   accepts a `linesearch` keyword (`d = −F` is not a descent direction for the `‖F‖²`
   merit, so a line search would be silently ignored; passing one is now an error).

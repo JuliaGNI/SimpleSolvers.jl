@@ -183,12 +183,10 @@ for T ∈ (Float64, Float32)
         (NewtonSolver, (linesearch=Quadratic(T), refactorize=5), 32),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T), refactorize=5), 8),
         (NewtonSolver, (linesearch=StrongWolfe(T), refactorize=5), 2),
-        (DogLegSolver, (linesearch=Static(T),), 2),
-        (DogLegSolver, (linesearch=Backtracking(T),), 2),
-        (DogLegSolver, (linesearch=Bisection(T),), 2),
-        (DogLegSolver, (linesearch=Quadratic(T),), 2),
-        (DogLegSolver, (linesearch=BierlaireQuadratic(T),), 2),
-        (DogLegSolver, (linesearch=StrongWolfe(T),), 2),
+        # DogLegSolver is a trust-region method: it sets the step length via the
+        # trust-region radius, not a line search, so it takes no `linesearch`
+        # keyword here.
+        (DogLegSolver, (), 2),
         # PicardSolver is a (residual-safeguarded) fixed-point iteration
         # and does not run a derivative-based line search, so it takes
         # no `linesearch` keyword here.

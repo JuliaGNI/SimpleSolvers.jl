@@ -34,6 +34,11 @@ end
     DogLegSolver
 
 The [`NonlinearSolver`](@ref) for the [`DogLeg`](@ref) method.
+
+Note that the DogLeg [`solver_step!`](@ref) is a *trust-region* method: it chooses the
+step length via the trust-region radius, not a line search. Unlike the
+[`NewtonSolver`](@ref) — but like the [`PicardSolver`](@ref) — no `linesearch` keyword
+is accepted (passing one is an error rather than being silently ignored).
 """
 const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
@@ -278,15 +283,10 @@ end
 function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     config = Options(T; options_kwargs...)
 
-    if refactorize > 1 && typeof(method(linesearch)) <: Static
-        config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
-        refactorize = 1
-    end
-
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=DogLeg(refactorize), jacobian=jacobian)
 end
 
-function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, kwargs...) where {T}
+function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
     # Build the default autodiff Jacobian lazily, so we don't allocate ForwardDiff
     # configs when either a Jacobian or a `DF!` is supplied.
@@ -296,7 +296,11 @@ function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; l
     cache = DogLegCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
+    # The DogLeg `solver_step!` is a trust-region method and never consults a line
+    # search; the (structurally mandatory) `linesearch` field is filled with a trivial
+    # `Static` step.  A `linesearch` keyword is deliberately not accepted — it would be
+    # silently ignored (any stray keyword falls through to `Options` and errors there).
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)))
     DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
 end
 
