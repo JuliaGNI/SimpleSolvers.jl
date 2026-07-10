@@ -209,7 +209,13 @@ The function `bracket_minimum_with_fixed_point` is used as a starting point for 
 ```math
 p_2 = \frac{f(b) - f(a) - f'(a)b}{b^2},
 ```
-where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
+where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. The right end `b` is
+grown outward (with the left end `a` held fixed) until `f` stops decreasing, i.e.
+until the *turning point* `f(b) ≥ f(b_\mathrm{prev})` is reached, so that a minimum
+is bracketed in `(a, b)`. (The earlier variant compared against the fixed anchor
+`f(a)` instead, which failed to bracket a minimum whose right tail stays below
+`f(a)`.) The [`Quadratic`](@ref) caller guards the fitted curvature (`p_2 ≤ 0`
+falls back to a bisection step), so `f(b) > f(a)` is no longer required.
 
 Returns the bracket *together with the function values at its endpoints*,
 `(a, b, f(a), f(b))` with `a < b`.  The values are already computed during
@@ -232,13 +238,22 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
 
     bc = BracketMinimumCriterion()
 
+    # Track the previous point so we can stop at the *turning point* (where `f`
+    # stops decreasing) rather than only when `f` climbs back above the fixed
+    # anchor `f(a)`.  A minimum whose right tail stays below `f(a)` (e.g. a merit
+    # that dips and then only asymptotes back up) would otherwise never satisfy
+    # `f(b) ≥ f(a)` and the routine would exhaust `nmax` and error, even though a
+    # minimum was plainly bracketed.  This makes the fixed-point bracketer detect
+    # the minimum just like the moving-anchor `bracket_minimum`.
+    ybprev = yb
     for _ in 1:nmax
         b = b + s
         yb = f(b)
-        if bc(ya, yb)
+        if bc(ybprev, yb)
             # return the endpoints (sorted) along with their function values
             return a < b ? (a, b, ya, yb) : (b, a, yb, ya)
         end
+        ybprev = yb
         s *= k
     end
 

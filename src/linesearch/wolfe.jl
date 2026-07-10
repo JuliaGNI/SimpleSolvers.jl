@@ -150,17 +150,20 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     αprev = zero(T)
     φprev = φ0
     αi = clamp(α > zero(T) ? α : one(T), eps(T), αmax)
+    αvalid = αi   # last trial step that satisfied sufficient decrease
 
     for i in 1:config(ls).max_iterations
         φi = φ(αi)
         if !sdc(αi) || (i > 1 && φi ≥ φprev)
             return _wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)
         end
+        # αi satisfies sufficient decrease from here on
         cc(αi) && return αi
         di = dφ(αi)
         if di ≥ zero(T)
             return _wolfe_zoom(ls, φ, dφ, sdc, cc, αi, αprev, φi)
         end
+        αvalid = αi
         # ascend toward αmax; stop expanding once the cap is reached
         αi == αmax && break
         αprev = αi
@@ -168,8 +171,8 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
         αi = min(T(2) * αi, αmax)
     end
 
-    # Return the last strictly-positive trial step, which satisfies sufficient
-    # decrease; never return the zero step silently.
-    config(ls).verbosity ≥ 1 && @warn "StrongWolfe: no step satisfying the strong Wolfe conditions found within (0, $(αmax)]; returning the last sufficient-decrease step α = $(αi)."
-    αi
+    # Return the last trial step that satisfied sufficient decrease — never the
+    # freshly-doubled, unchecked `αi` from the expansion, and never the zero step.
+    config(ls).verbosity ≥ 1 && @warn "StrongWolfe: no step satisfying the strong Wolfe conditions found within (0, $(αmax)]; returning the last sufficient-decrease step α = $(αvalid)."
+    αvalid
 end

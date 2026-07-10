@@ -98,6 +98,16 @@ default 5); `DogLegSolver(x, y; F=…)` follows the same friendly `F=missing`
 pattern as the other solvers; and numerous broken convenience entry points and
 docstrings.
 
+Follow-up verification pass (independent re-review of the implemented algorithms):
+the `StrongWolfe` line search no longer returns an unvalidated, freshly-doubled step
+on the rare bracketing-exhaustion path (reachable with a small `max_iterations` or
+`αmax = Inf`); it now returns the last trial step that satisfied sufficient decrease,
+restoring its documented "never worse than Armijo" guarantee. The internal
+`bracket_minimum_with_fixed_point` now stops at the *turning point* (where the merit
+stops decreasing) rather than only where it climbs back above the fixed left anchor
+`f(a)`, so the `Quadratic` line search no longer errors on merits whose right tail
+stays below `f(a)` (e.g. one that dips to a minimum then only asymptotes back up).
+
 ### Internal
 
 - Source-file reorganization (no API or behavioral change): the solver-method type

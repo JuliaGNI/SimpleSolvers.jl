@@ -26,8 +26,11 @@ function compute_next_iterate(ls::Linesearch, x₀::T, n::Integer) where {T}
 end
 
 function make_linesearch_problem(x₀::Number)
+    # `_d` is the derivative of the merit φ(α) = f(x₀ + α·δx) with respect to the
+    # step α, i.e. the *directional* derivative g(x₀ + α·δx)·δx (chain rule) — the
+    # same convention the real `linesearch_problem` uses (its `D` is 2·F·(J·d)).
     _f(α, _) = f(compute_new_iterate(x₀, α, δx(x₀)))
-    _d(α, _) = g(compute_new_iterate(x₀, α, δx(x₀)))
+    _d(α, _) = g(compute_new_iterate(x₀, α, δx(x₀))) * δx(x₀)
     LinesearchProblem{typeof(x₀)}(_f, _d)
 end
 
