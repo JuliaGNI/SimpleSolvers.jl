@@ -59,6 +59,9 @@ end
     @test NewtonMethod{true}().refactorize == 1
     @test NewtonMethod{true}(3).refactorize == 3
     @test QuasiNewtonMethod().refactorize == 5
+
+    @test DogLeg().refactorize == 1
+    @test DogLeg(4).refactorize == 4
 end
 
 

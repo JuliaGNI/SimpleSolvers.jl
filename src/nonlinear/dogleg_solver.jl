@@ -21,7 +21,7 @@ The [`NonlinearSolver`](@ref) for the [`DogLeg`](@ref) method.
 const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
 @doc raw"""
-    directions!(s, x, params)
+    directions!(s, x, params, iteration=1)
 
 Compute [`direction₁`](@ref) and [`direction₂`](@ref) for the [`DogLegSolver`](@ref).
 
@@ -63,16 +63,20 @@ where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual v
 ```
 
 The [`DogLegSolver`](@ref) then interpolates between these two directions (this interpolation is piecewise linear).
+
+As for the (quasi-)[`NewtonSolver`](@ref), the [`Jacobian`](@ref) is only re-evaluated and refactored every `refactorize` iterations (see [`DogLeg`](@ref)), and always on a fresh state or the first step (`iteration ≤ 1`). In between, the stale Jacobian and its factorization are reused for both directions. The default `refactorize = 1` refactorizes on every step.
 """
-function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params) where {T}
+function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration=1) where {T}
     # the Newton direction
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
-    jacobian!(s, x, params)
-    matrix(linearproblem(s)) .= jacobianmatrix(s)
-    idxs = diagind(matrix(linearproblem(s)))
-    @view(matrix(linearproblem(s))[idxs]) .+= config(s).regularization_factor
-    factorize!(linearsolver(s), linearproblem(s))
+    if (mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
+        jacobian!(s, x, params)
+        matrix(linearproblem(s)) .= jacobianmatrix(s)
+        idxs = diagind(matrix(linearproblem(s)))
+        @view(matrix(linearproblem(s))[idxs]) .+= config(s).regularization_factor
+        factorize!(linearsolver(s), linearproblem(s))
+    end
     ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
     # the steepest descent direction
@@ -131,7 +135,7 @@ function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
-    directions!(s, x, params)
+    directions!(s, x, params, iteration_number(state))
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
 
@@ -217,16 +221,17 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     x
 end
 
-function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
+function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     config = Options(T; options_kwargs...)
 
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=DogLeg(), jacobian=jacobian)
+    if refactorize > 1 && typeof(method(linesearch)) <: Static
+        config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
+        refactorize = 1
+    end
+
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=DogLeg(refactorize), jacobian=jacobian)
 end
 
-# Note: the `DogLeg` method has no `refactorize` option — it re-evaluates and
-# refactorizes the Jacobian on every step — so (unlike `NewtonSolver`) this
-# constructor does not accept a `refactorize` keyword; passing one is rejected
-# rather than silently ignored.
 function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
     # Build the default autodiff Jacobian lazily, so we don't allocate ForwardDiff
@@ -248,4 +253,4 @@ function DogLegSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     !ismissing(F) || error("You have to provide an F.")
     DogLegSolver(x, F, y; kwargs...)
 end
-NonlinearSolver(::DogLeg, x...; kwargs...) = DogLegSolver(x...; kwargs...)
+NonlinearSolver(method::DogLeg, x...; kwargs...) = DogLegSolver(x...; refactorize=method.refactorize, kwargs...)

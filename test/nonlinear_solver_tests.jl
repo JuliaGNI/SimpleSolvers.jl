@@ -398,6 +398,14 @@ end
     # an explicit keyword still wins over the method's field
     s9 = NonlinearSolver(QuasiNewtonMethod(7), x, y; F=Flin, refactorize=9)
     @test SimpleSolvers.method(s9).refactorize == 9
+
+    # DogLeg carries a `refactorize` field too
+    d1 = NonlinearSolver(DogLeg(), x, y; F=Flin)
+    @test SimpleSolvers.method(d1).refactorize == 1
+    d4 = NonlinearSolver(DogLeg(4), x, y; F=Flin)
+    @test SimpleSolvers.method(d4).refactorize == 4
+    d9 = NonlinearSolver(DogLeg(4), x, y; F=Flin, refactorize=9)
+    @test SimpleSolvers.method(d9).refactorize == 9
 end
 
 @testset "DogLegSolver(x, y; F) convenience form" begin

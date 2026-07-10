@@ -59,8 +59,18 @@ See [`PicardSolver`](@ref).
 struct PicardMethod <: NonlinearSolverMethod end
 
 """
-    DogLeg()
+    DogLeg(refactorize=1)
 
 *Powell's dogleg method* [powell1970new](@cite).
+
+Like [`NewtonMethod`](@ref), the `refactorize` parameter determines after how many
+steps the [`Jacobian`](@ref) is re-evaluated and refactored (see [`factorize!`](@ref)).
+The default `refactorize = 1` re-evaluates and refactorizes the Jacobian on every step;
+`refactorize > 1` reuses the Jacobian (and its factorization) in between, giving a
+quasi-Newton-style dogleg method.
 """
-struct DogLeg <: NonlinearSolverMethod end
+struct DogLeg <: NonlinearSolverMethod
+    refactorize::Int
+
+    DogLeg(refactorize::Integer=1) = new(refactorize)
+end
