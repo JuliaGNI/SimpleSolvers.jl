@@ -177,7 +177,6 @@ julia> solve(LU(), A, b)
 Compare this to [`solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)`](@ref).
 """
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
-    # `LinearProblem(A, b)` stores copies of `A` and `b`, so no `update!` is needed.
     solve(lu, LinearProblem(A, b))
 end
 
@@ -232,12 +231,8 @@ Note the difference between the output types of the two refactorized matrices: t
 Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
 function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
-    # The hand-rolled factorization below indexes `1:n` under `@inbounds`, so it is
-    # only correct for one-based storage.
     Base.require_one_based_indexing(cache(lsolver).A)
 
-    # Reset the singularity marker before (re)factorizing so that a stale nonzero
-    # `info` from a previous factorization does not persist.
     cache(lsolver).info = 0
 
     @inbounds for i in eachindex(cache(lsolver).perms)
@@ -350,12 +345,8 @@ julia> ldiv!(x, s, b)
 function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
     @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
 
-    # The substitution loops below index `1:n` under `@inbounds`, so they are only
-    # correct for one-based storage.
     Base.require_one_based_indexing(x, b, cache(lsolver).A)
 
-    # A zero pivot was encountered during factorization: the matrix is singular
-    # and back-/forward-substitution below would silently produce NaN/Inf.
     cache(lsolver).info == 0 || throw(SingularException(cache(lsolver).info))
 
     n = size(cache(lsolver).A, 1)

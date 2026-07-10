@@ -452,15 +452,6 @@ end
         root(::Type{T}) where {T} = zeros(T, 2)
         tol(::Type{T}) where {T} = T == Float64 ? eps(T) : eps(T)
 
-        # NewtonSolver: this now converges on the Powell
-        # problem.  Previously it *stagnated* at x ≈ [1.108, 0] and that stalled
-        # iterate was falsely reported as converged: the backtracking
-        # line search shrank α to a denormal and the successive-change
-        # convergence criteria treated the resulting zero step as convergence.
-        # Fixing the backtracking stall and requiring a small residual for
-        # convergence lets Newton escape the stagnation point and reach the
-        # true root.
-
         x0 = ics(T)
         _root = root(T)
         solver = NewtonSolver(x0, F, copy(x0))
@@ -468,18 +459,12 @@ end
         solve!(x0, solver)
         @test ≈(x0, _root; atol=tol(T))
 
-        # PicardSolver cannot solve this problem, but for a principled reason: it is a
-        # proper (residual-safeguarded) fixed-point iteration
-        # x ← x + α(-F(x)), and the Powell map is not a contraction here, so it stalls
-        # at a non-root instead of converging.  Crucially it does *not* diverge to NaN
-        # or falsely report convergence (residual gate) — it simply runs out of
-        # iterations, so the equality assertion below fails as expected.
         x0 = ics(T)
         solver = PicardSolver(x0, F, copy(x0))
 
-        # Running out of iterations here is deliberate (see above), so we assert
-        # the expected "Solver took … iterations." warning rather than letting it
-        # leak to the test log.
+        # PicardSolver runs out of iterations on this problem (expected); assert the
+        # "Solver took … iterations." warning is emitted rather than letting it leak
+        # to the test log.
         @test_logs (:warn, r"Solver took \d+ iterations\.") match_mode = :any solve!(x0, solver)
         @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 

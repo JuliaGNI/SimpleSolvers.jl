@@ -53,8 +53,6 @@ function increase_iteration_number!(state::NonlinearSolverState)
 end
 
 function NonlinearSolverState{T}(n::Integer, m::Integer=n) where {T}
-    # The two-argument `NonlinearSolverState` already NaN-fills fresh copies of
-    # its inputs, so pre-filling `x`/`y` here would be redundant.
     x = zeros(T, n)
     y = zeros(T, m)
     NonlinearSolverState(x, y)

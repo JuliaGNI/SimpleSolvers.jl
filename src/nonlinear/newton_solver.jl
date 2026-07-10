@@ -140,9 +140,4 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobianmatrix(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobianmatrix(s))
 
-# Honor the method's `refactorize` field (this covers `QuasiNewton` =
-# `Newton{false}` as well).  It used to be discarded, so e.g.
-# `NonlinearSolver(QuasiNewton(7), x, y; F=…)` silently built a solver with
-# the default `refactorize = 5`.  An explicit `refactorize` keyword still wins
-# (the splatted kwargs override the earlier keyword).
 NonlinearSolver(method::Newton, args...; kwargs...) = NewtonSolver(args...; refactorize=method.refactorize, kwargs...)

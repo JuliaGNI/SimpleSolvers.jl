@@ -61,20 +61,9 @@ end
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
-    # Design note: the caller's α₀ is
-    # deliberately *not* used as the bracket start.  `bracket_minimum_with_fixed_point`
-    # holds its left endpoint fixed and only expands to the right, so it must start
-    # where the merit is guaranteed to be decreasing — α = 0 (φ'(0) < 0 for a
-    # descent direction).  Anchoring at α₀ > 0 would fail whenever the optimal step
-    # is smaller than α₀, and using α₀ as the initial step *size* over-coarsens the
-    # bracket and destabilises stiff problems (the tuned `method(ls).s` is required).
-    # The step magnitude is therefore governed by the method's `s`, not by α₀.
     α = zero(T)
     s = method(ls).s
 
-    # Iterate rather than recurse: the depth is bounded by the iteration
-    # maximum either way, but a loop keeps the stack flat and lets
-    # the state updates (α, s) read as what they are.
     for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
         # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - a) + p₂(α - a)².
         # The bracketing already evaluates the merit at both endpoints, so it

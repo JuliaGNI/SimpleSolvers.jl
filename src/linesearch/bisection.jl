@@ -37,11 +37,16 @@ So the algorithm checks in each step where the sign change occurred and moves th
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
+
+!!! info
+    Bisection can only locate a root if the endpoints straddle a sign change. If the
+    endpoints have the same sign there is no (odd-multiplicity) root in the interval;
+    this arises benignly in the line search once the derivative has flattened at a
+    minimum (both endpoint values ≈ 0 with the same sign). Rather than erroring,
+    `bisection` then returns the endpoint closest to a root (smallest `|f|`) and warns
+    only at high verbosity.
 """
 function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
-    # Promote to a floating point type on entry: with an integer `T` the midpoint
-    # `(α₀ + α₁) / 2` would silently switch `α`'s type mid-loop, and `Options(T)`
-    # is undefined for integer `T`.
     R = float(T)
     α₀ = R(αmin)
     α₁ = R(αmax)
@@ -56,13 +61,6 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     y₁ = f(α₁, params)
     y = zero(y₀)
 
-    # Bisection can only locate a root if the endpoints straddle a sign change.
-    # Same-sign endpoints mean there is no (odd-multiplicity) root in the interval;
-    # the loop below would otherwise silently collapse onto α₁ and return a
-    # non-root.  This case arises benignly in the line search once the derivative
-    # has flattened at a minimum (both endpoint values ≈ 0 with the same sign), so
-    # rather than erroring we return the endpoint closest to a root (smallest |f|)
-    # and warn only at high verbosity.
     if y₀ * y₁ > zero(y₀)
         config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
         return abs(y₀) ≤ abs(y₁) ? α₀ : α₁
@@ -87,15 +85,12 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
             y₁ = y
         end
 
-        # break once the bracket has shrunk below the successive-step tolerance.
         if isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁)))
             converged = true
             break
         end
     end
 
-    # Return the best estimate rather than erroring on exhaustion; warn so the
-    # caller knows the tolerance was not met.
     converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.max_iterations) iterations; returning best estimate α = $(α).")
 
     α
@@ -103,12 +98,7 @@ end
 
 bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number} = bisection(f, bracket_root(β -> f(β, params), α)..., params, config)
 
-# Disambiguation: `(f, ::T, ::T, ::Options)` matches both the interval form above
-# (with the `Options` landing in the untyped `params` slot) and the single-`α`
-# convenience form (with the second `T` landing in its untyped `params` slot),
-# and neither is more specific than the other.  A call with two numeric bounds and
-# an `Options` is unambiguously the interval form with default `params`, so route
-# it there and give the second `T` bound priority over the single-`α` reading.
+# Disambiguates `(f, ::T, ::T, ::Options)` in favor of the interval form with default `params`.
 bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = bisection(f, αmin, αmax, NullParameters(), config)
 
 """

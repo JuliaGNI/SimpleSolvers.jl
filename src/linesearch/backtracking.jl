@@ -108,12 +108,6 @@ function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters())
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
     sdc = SufficientDecreaseCondition(method(ls).c₁, y₀, d₀, f)
 
-    # Textbook backtracking (Nocedal & Wright, Alg. 3.1) terminates on the
-    # sufficient-decrease (Armijo) condition alone.  Enforcing the curvature
-    # condition inside the shrink-only loop below can never terminate, because
-    # shrinking α makes the curvature condition harder to satisfy (α → 0 ⇒
-    # D(α) → d₀ < c₂·d₀).  The curvature condition is therefore checked only
-    # post-hoc (see below), not as a loop termination criterion.
     αₐ = α₀  # last α satisfying sufficient decrease (α₀ = 0 trivially does)
     satisfied = false
     for i in 1:config(ls).max_iterations
@@ -127,16 +121,10 @@ function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters())
     end
 
     if !satisfied
-        # Never silently return a denormal α: fall back to the last α that
-        # satisfied sufficient decrease (α₀ = 0 if none did).
         config(ls).verbosity ≥ 1 && @warn "Backtracking line search did not satisfy the sufficient decrease condition within $(config(ls).max_iterations) iterations. Returning α = $(αₐ)."
         return αₐ
     end
 
-    # Opt-in, post-hoc curvature (second Wolfe) check.  If the accepted step
-    # fails it we warn rather than shrinking further (which would break the
-    # sufficient decrease guarantee); enforcing curvature requires a proper
-    # bracketing/zoom line search.
     cc = CurvatureCondition(method(ls).c₂, d₀, d, Val(:Standard))
     (config(ls).verbosity ≥ 2 && !cc(α)) && @warn "Backtracking line search: accepted step α = $(α) satisfies the sufficient decrease but not the curvature condition."
 

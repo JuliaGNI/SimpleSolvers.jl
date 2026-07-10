@@ -19,10 +19,6 @@ Allocate `NaN`s of the size of the Hessian of `f` (with respect to `x`).
 """
 alloc_h
 
-# The `alloc_*` helpers initialize their storage with `NaN`, which only exists for
-# floating-point (and complex-of-floating-point) element types.  Passing an
-# integer array would otherwise fail deep inside the broadcast with a cryptic
-# `InexactError`; raise a clear error instead.
 _nan(::Type{T}) where {T<:AbstractFloat} = T(NaN)
 _nan(::Type{Complex{T}}) where {T<:AbstractFloat} = Complex{T}(T(NaN))
 _nan(::Type{T}) where {T<:Number} = error("Cannot allocate NaN-initialized storage for element type $(T): only floating-point element types support NaN. Provide a floating-point input.")
