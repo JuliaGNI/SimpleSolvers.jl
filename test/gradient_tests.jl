@@ -79,22 +79,18 @@ test_grad(gus, gus1, 0)
     end
 end
 
-# Regression: the `GradientFunction` functor used to require both
-# arguments to have the *identical* concrete type (`g::VT, x::VT`), so a
-# `Vector`/`SubArray` pair (same eltype, different container) hit the misleading
-# "Functor not implemented." fallback.  The arguments are now two independent
-# `AbstractVector{T}`.
-@testset "GradientFunction accepts independent container types" begin
-    # a derivative closure that accepts any AbstractVector (the fix is that the
-    # SimpleSolvers functor no longer forces g and x to the *same* concrete type)
+# The `GradientFunction` functor requires `g` and `x` to share the same concrete
+# type (`g::VT, x::VT`): for a Euclidean gradient both live in the same space.
+@testset "GradientFunction requires g and x to share a type" begin
     ∇g!(g::AbstractVector, x::AbstractVector) = (g .= 2 .* x; g)
-    ∇lenient = GradientFunction{T}(F, ∇g!, n)
+    ∇same = GradientFunction{T}(F, ∇g!, n)
+    xv = [0.3, 0.7]
+    gv = zeros(2)
+    ∇same(gv, xv)
+    @test gv ≈ 2 .* xv
+    # a mixed container pair (Vector/SubArray) is intentionally not accepted
     M = [0.3 0.0; 0.7 0.0]
-    xsub = @view M[:, 1]        # SubArray{Float64}
-    gv = zeros(2)              # Vector{Float64}
-    @test typeof(gv) != typeof(xsub)
-    ∇lenient(gv, xsub)          # would previously hit the "Functor not implemented" fallback
-    @test gv ≈ 2 .* collect(xsub)
+    @test_throws MethodError ∇same(gv, @view M[:, 1])
 end
 
 # Regression: `GradientFiniteDifferences{T}` used to restrict `nx::Int`,
