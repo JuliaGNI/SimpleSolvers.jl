@@ -109,7 +109,7 @@ end
     # f(α) = (α - 100)² starting at α = 1: shrinking α makes the curvature
     # condition impossible to satisfy, so the old shrink-only loop (which
     # required both Wolfe conditions) ran all iterations and silently returned a
-    # denormal α ≈ 9.3e-302.  Now the loop terminates on sufficient decrease
+    # denormal α ≈ 9.3e-302.  The loop terminates on sufficient decrease
     # alone, so the step at α = 1 (which already decreases f) is accepted.
     prob = LinesearchProblem{Float64}((α, _) -> (α - 100.0)^2, (α, _) -> 2.0 * (α - 100.0))
     ls = Linesearch(prob, Backtracking(); verbosity=0)
@@ -141,7 +141,7 @@ end
 @testset "$(rpad("Quadratic defaults", 80))" begin
     # Quadratic(T, ::SolverMethod) used to square ε, s and s_reduction (an
     # accidental `^2`), disagreeing with the keyword constructor and pushing ε
-    # below machine epsilon.  It now matches the keyword constructor defaults and
+    # below machine epsilon.  It matches the keyword constructor defaults and
     # dispatches on ::SolverMethod like its siblings.
     for T in (Float32, Float64)
         q = Quadratic(T, Newton())
@@ -152,7 +152,7 @@ end
     end
 
     # `default_precision` used to error for any float type other than
-    # Float32/Float64 although `8eps(T)` is generic; it is now defined for all
+    # Float32/Float64 although `8eps(T)` is generic; it is defined for all
     # `AbstractFloat`s.
     @test SimpleSolvers.default_precision(Float16) == 8eps(Float16)
     @test SimpleSolvers.default_precision(BigFloat) == 8eps(BigFloat)
@@ -262,11 +262,11 @@ end
 
     # the former `Base.convert(::Type, ::LinesearchMethod)`
     # catch-all was ambiguous with Base and violated the `convert` contract.
-    # `convert` on a linesearch method now falls back to Base's default behaviour
+    # `convert` on a linesearch method falls back to Base's default behaviour
     # and no longer throws an ambiguity error.
     @test convert(Any, Static()) === Static()
     @test convert(Static, Static()) === Static()
-    # precision changes now go through `change_precision`, which returns the
+    # precision changes go through `change_precision`, which returns the
     # correct element type (not a differently-typed object from `convert`).
     @test change_precision(Float32, Static()) isa Static{Float32}
     @test eltype(change_precision(Float32, Static())) == Float32
@@ -278,20 +278,13 @@ end
     x₀ = -3.0
     ls_problem = make_linesearch_problem(x₀)
 
-    # linesearch.jl:69 — the 5-arg `solve(prob, method, α, params, config)` used to
-    # call a nonexistent 3-positional `Linesearch` constructor and always threw.
     @test Linesearch(ls_problem, Static(1.0), Options()) isa Linesearch
     @test solve(ls_problem, Static(1.0), 0.0) == 1.0
     @test solve(ls_problem, Static(0.8), 0.0, NullParameters(), Options()) == 0.8
 
-    # bisection.jl:81 — single-`x` `bisection` used to pass a 2-arg callback to
-    # `bracket_minimum` (a `MethodError`) and brackets a minimum where a sign
-    # change is needed.  It now uses `bracket_root` on a one-argument closure.
     fb(α, _) = α - 1.0
     @test bisection(fb, 0.5) ≈ 1.0 atol = 1e-6
 
-    # bracket_minimum.jl:250 — `bracket_root(prob, params, x)` used to forward to a
-    # nonexistent 3-positional `bracket_root(f, df, x)`.
     root_problem = LinesearchProblem{Float64}((α, _) -> α - 1.0, (α, _) -> 1.0)
     lo, hi = bracket_root(root_problem, NullParameters(), 0.5)
     @test lo ≤ 1.0 ≤ hi
@@ -299,9 +292,6 @@ end
 
 
 @testset "$(rpad("Mixed-precision compute_new_iterate!", 80))" begin
-    # backtracking_condition.jl:42 — the mixed-precision 3-arg `compute_new_iterate!`
-    # used to call the non-mutating `compute_new_iterate` and discard the result,
-    # so the array argument was never updated.  It now mutates in place.
     x = Float32[1.0, 2.0]
     p = Float32[1.0, 1.0]
     # α is Float64 → mixed precision path, which emits a warning by design
@@ -311,13 +301,10 @@ end
 
 
 @testset "$(rpad("Type-stability fixes", 80))" begin
-    # `Bisection(::Type{T}=Float64)` is now inferable (the old
-    # `Bisection(T::DataType=Float64)` returned `Bisection{<:Any}`).
     @test (@inferred Bisection()) === Bisection{Float64}()
     @test (@inferred Bisection(Float32)) === Bisection{Float32}()
 
-    # `bisection` promotes integer endpoints to floating point on entry
-    # (previously `α` switched type mid-loop and `Options(Int)` was undefined).
+    # `bisection` promotes integer endpoints to floating point on entry.
     fint(α, _) = α - 2.0
     r = bisection(fint, 0, 4)
     @test r ≈ 2.0 atol = 1e-6
@@ -329,15 +316,13 @@ end
     @test CurvatureCondition(0.9, -1.0, sin) isa CurvatureCondition{Float64,typeof(sin),:Standard}
     @test_throws AssertionError CurvatureCondition(1.5, -1.0, sin)   # c ∉ (0, 1)
     @test_throws AssertionError CurvatureCondition(0.0, -1.0, sin)   # c ∉ (0, 1)
-    # strong-Wolfe boundary: |D(α)| == |c·d| must now pass (was strict `<`)
+    # strong-Wolfe boundary: |D(α)| == |c·d| must pass (was strict `<`)
     ccs = CurvatureCondition(0.9, -1.0, α -> 0.9, Val(:Strong))
     @test ccs(0.0)                                                   # |0.9| ≤ |0.9·(-1)|
     # standard curvature: D(α) ≥ c·d
     ccn = CurvatureCondition(0.9, -1.0, α -> -0.5, Val(:Standard))
     @test ccn(0.0)                                                   # -0.5 ≥ -0.9
 
-    # `Options` tolerance keywords accept any `::Real` (integers, rationals),
-    # not just `AbstractFloat`.
     @test Options(Float64; x_abstol=0) isa Options
     @test Options(Float64; f_abstol=1 // 100) isa Options
     @test Options().f_abstol == 0.0
@@ -350,7 +335,7 @@ end
     @test bisection(froot, 0.0, 2.0) ≈ 1.0 atol = 1e-6
 
     # No sign change over the bracket: rather than silently collapsing onto α₁
-    # (the old bug) or erroring (which would break the line search once the
+    # or erroring (which would break the line search once the
     # derivative has flattened at a minimum), `bisection` returns the endpoint
     # closest to a root (smallest |f|).
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
@@ -358,8 +343,7 @@ end
     @test bisection(fpos, 1.0, 0.0) == 0.0    # endpoints get flipped internally
 
     # The debug `println` and hard `error("Max iteration number exceeded")` were
-    # removed: exhausting the iteration budget returns the best estimate instead
-    # of throwing.  A tight tolerance forces exhaustion here.
+    # A tight tolerance forces exhaustion here.
     fslow(α, _) = α - 1 / 3
     cfg = Options(Float64; max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=0)
     local αbest
@@ -368,10 +352,6 @@ end
 end
 
 @testset "$(rpad("bisection interval/config disambiguation", 80))" begin
-    # `bisection(f, αmin, αmax, config::Options)` used to be ambiguous with the
-    # single-`α` convenience form (both matched `(f, ::T, ::T, ::Options)`); Aqua
-    # flagged it. A disambiguating method now routes it to the interval form with
-    # default params. It must behave exactly like the explicit 5-arg call.
     froot(α, _) = α - 1.0
     cfg = Options(Float64)
     @test bisection(froot, 0.0, 2.0, cfg) ≈ 1.0 atol = 1e-6
@@ -442,9 +422,8 @@ end
     @test solve(ls, 0.0) ≈ -1.0 atol = ∛(2eps())
 end
 
-# Interface-consistency fix: Quadratic and
-# BierlaireQuadratic now validate their constructor parameters, like
-# Backtracking and StrongWolfe always did.
+# Quadratic and BierlaireQuadratic validate their constructor parameters, like
+# Backtracking and StrongWolfe.
 @testset "$(rpad("Quadratic/BierlaireQuadratic constructor validation", 80))" begin
     @test_throws AssertionError Quadratic(Float64; ε=0.0)
     @test_throws AssertionError Quadratic(Float64; s=-1.0)

@@ -79,7 +79,7 @@ test_lu_solver(LU(; static=true), A, b, x)
 
 
 # Regression: a singular matrix used to leave `cache.info` set but unchecked,
-# so `ldiv!` silently produced NaN/Inf.  It now throws a `SingularException`.
+# so `ldiv!` silently produced NaN/Inf.  It throws a `SingularException`.
 @testset "LU singular matrix throws" begin
     Asing = [1.0 2.0; 2.0 4.0]   # rank 1 → singular
     bsing = [1.0, 2.0]
@@ -112,7 +112,7 @@ end
 end
 
 # Regression: an integer input matrix used to throw in `factorize!`
-# (no eltype promotion in the cache).  The cache now promotes the element type
+# (no eltype promotion in the cache).  The cache promotes the element type
 # to a fractional type (like `LinearAlgebra.lutype`), so factorization and
 # solving work.
 @testset "LU integer matrix promotes eltype" begin
@@ -180,8 +180,8 @@ end
 end
 
 # The `alloc_*` helpers initialize with `NaN`, which only floating
-# point (and complex-of-float) element types support.  An integer input now
-# raises a clear error rather than a cryptic `InexactError` deep in setup.
+# point (and complex-of-float) element types support.  An integer input
+# raises a clear error.
 @testset "alloc_* rejects non-NaN-capable eltypes" begin
     @test all(isnan, alloc_x([1.0, 2.0]))
     @test all(isnan, alloc_g([1.0, 2.0]))
@@ -194,12 +194,12 @@ end
 end
 
 # Verify interface-consistency fixes:
-# (a) `LinearProblem(A, y)` now stores copies of its arguments (it used to
+# (a) `LinearProblem(A, y)` stores copies of its arguments (it used to
 #     NaN-initialize both, so a freshly constructed problem was unusable without
 #     an extra `update!`);
 # (b) `solve(::LinearSolver, …)` exists as the non-mutating counterpart of
 #     `solve!` (it used to be a `MethodError`, while `solve(::LU, …)` worked);
-# (c) `solve!(x, lsolver, b)` — documented all along — now has an LU
+# (c) `solve!(x, lsolver, b)` — documented all along — has an LU
 #     implementation that solves against the stored factorization (it used to
 #     always throw the generic "no method implemented" error).
 @testset "Linear solver interface consistency" begin

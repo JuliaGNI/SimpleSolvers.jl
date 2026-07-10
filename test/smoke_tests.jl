@@ -30,9 +30,7 @@ const yvec = T[1.0, 2.0, 3.0]
     @test SolverState isa Function   # GeometricBase state constructor, not a type
     @test isabstracttype(NonlinearSolverMethod)
     @test isabstracttype(LinesearchMethod)
-    # LinesearchMethod is now a direct subtype of SolverMethod (the former
-    # `NonlinearMethod` supertype was removed — a line search is not itself a
-    # nonlinear-solver method).
+    # LinesearchMethod is a direct subtype of SolverMethod.
     @test LinesearchMethod <: SolverMethod
     @test NonlinearSolverMethod <: SolverMethod
     @test !(LinesearchMethod <: NonlinearSolverMethod)
@@ -54,9 +52,8 @@ end
     @test !isdefined(SimpleSolvers, :PicardMethod)
     @test DogLeg() isa DogLeg
 
-    # `Newton{true}` is now constructable by name, with an
-    # optional `refactorize` argument (previously only `Newton()` and
-    # `Newton{false}(...)` existed, so `Newton{true}(1)` threw).
+    # `Newton{true}` is constructable by name, with an
+    # optional `refactorize` argument.
     @test Newton() === Newton{true}(1)
     @test Newton{true}().refactorize == 1
     @test Newton{true}(3).refactorize == 3
