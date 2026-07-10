@@ -416,3 +416,38 @@ end
     @test Quadratic() isa Quadratic                      # defaults are valid
     @test BierlaireQuadratic() isa BierlaireQuadratic    # defaults are valid
 end
+
+# §5 leftovers (2026-07-10): `bracket_minimum_with_fixed_point` now returns the
+# merit values at the bracket endpoints alongside the bracket — they are computed
+# during bracketing anyway, so the Quadratic line search no longer re-evaluates
+# them.  Both quadratic line searches iterate instead of recursing, which for
+# BierlaireQuadratic also stops fa/fb/fc from being recomputed at every level.
+@testset "$(rpad("bracket_minimum_with_fixed_point returns endpoint values (§5)", 80))" begin
+    f(x) = (x - 1)^2
+    a, b, fa, fb = SimpleSolvers.bracket_minimum_with_fixed_point(f, 0.0, 0.01)
+    @test a < 1.0 < b                      # brackets the minimum
+    @test fa == f(a) && fb == f(b)         # returned values match the endpoints
+
+    # flipped start: the merit initially increases to the right, so the search
+    # flips and expands leftward — the value/endpoint pairing must survive both
+    # the flip and the final reordering
+    g(x) = x^2
+    a2, b2, fa2, fb2 = SimpleSolvers.bracket_minimum_with_fixed_point(g, 0.1, 0.01)
+    @test a2 < 0.0 < b2
+    @test fa2 == g(a2) && fb2 == g(b2)
+end
+
+@testset "$(rpad("Quadratic searches: merit-evaluation canary (§5)", 80))" begin
+    # Deterministic evaluation counts on an exactly quadratic merit; measured
+    # 13 (Quadratic) and 16 (Bierlaire) after removing the redundant endpoint
+    # re-evaluations / per-recursion recomputation.  The bounds leave headroom
+    # but catch a reintroduced per-iteration re-evaluation.
+    for (method, α_expected, bound) in ((Quadratic(), 1.0, 16), (BierlaireQuadratic(), 1.0, 20))
+        cnt = Ref(0)
+        prob = LinesearchProblem{Float64}((α, p) -> (cnt[] += 1; (α - 1)^2), (α, p) -> 2(α - 1))
+        ls = Linesearch(prob, method; verbosity=0)
+        α = solve(ls, 0.5)
+        @test α ≈ α_expected atol = 1e-8
+        @test cnt[] ≤ bound
+    end
+end

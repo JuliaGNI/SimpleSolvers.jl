@@ -54,6 +54,14 @@ signature are not enumerated here.)
 - `Quadratic` and `BierlaireQuadratic` now validate their constructor parameters
   (like `Backtracking` and `StrongWolfe`); invalid values (e.g. `ε ≤ 0`,
   `s_reduction ≥ 1`) raise an `AssertionError` instead of being accepted.
+- Internal: the (unexported) `bracket_minimum_with_fixed_point` returns the
+  bracket *with the merit values at its endpoints*, `(a, b, f(a), f(b))`; both
+  quadratic line searches iterate instead of recursing and no longer re-evaluate
+  the merit at points whose values are already known (2–3 fewer merit
+  evaluations per interpolation iteration). The internal
+  `SufficientDecreaseCondition`/`CurvatureCondition` value fields were renamed
+  (`f`→`f₀`, `d`→`d₀`) so they no longer differ from the callable fields
+  (`F`/`D`) only by letter case.
 
 ### Added
 

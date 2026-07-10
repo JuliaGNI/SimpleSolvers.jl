@@ -67,47 +67,54 @@ BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, iteration_number::Integer) where {T}
     f = x -> problem(ls).F(x, params)
-    (iteration_number < max_number_of_quadratic_linesearch_iterations(T)) ||
-        ((config(ls).verbosity ≥ 2 && @warn "Maximum number of iterations was reached."); return b)
-    # The denominator vanishes when the three points are (nearly) collinear, i.e.
-    # the quadratic fit is degenerate and χ becomes Inf/NaN or falls outside the
-    # bracket.  Guard on the *result* (finite and inside [a, c]) rather than a
-    # magnitude threshold on the denominator, since the denominator is legitimately
-    # small near convergence while still yielding a valid interior minimum; on a
-    # degenerate fit fall back to a bisection step of the bracket [a, c].
+    ε = method(ls).ε
     # Evaluate f once per point and reuse: the fit, the χ comparison and the
-    # termination check below all need the same values (previously f(a), f(b),
-    # f(c) and f(χ) were recomputed several times each).
+    # termination check below all need the same values.  The triple updates carry
+    # the values along, so each loop round costs a single new evaluation (fχ).
+    # (The former recursive formulation recomputed fa, fb and fc at every
+    # recursion level, discarding the carried values.)
     fa = f(a)
     fb = f(b)
     fc = f(c)
-    denom = fa * (b - c) + fb * (c - a) + fc * (a - b)
-    χ = T(0.5) * (fa * (b^2 - c^2) + fb * (c^2 - a^2) + fc * (a^2 - b^2)) / denom
-    (isfinite(χ) && a ≤ χ ≤ c) || (χ = (a + c) / 2)
-    # perform a perturbation if χ ≈ b (in order "to avoid stalling"); use a tight
-    # absolute tolerance so the perturbation only fires when χ is essentially at b
-    # (the former `b == χ` only caught exact equality, missing floating-point ties)
-    χ = isapprox(b, χ; atol=method(ls).ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, method(ls).ε) : χ
-    fχ = f(χ)
-    # Carry the function values of the updated triple alongside the points, so the
-    # termination check needs no further evaluations.
-    if χ > b
-        if fχ > fb
-            c, fc = χ, fχ
+    # Iterate rather than recurse (bugs.md §5): the depth is bounded by the
+    # iteration maximum either way, but a loop keeps the stack flat and lets the
+    # triple (a, b, c) and its values persist across rounds.
+    for _ in iteration_number:(max_number_of_quadratic_linesearch_iterations(T) - 1)
+        # The denominator vanishes when the three points are (nearly) collinear, i.e.
+        # the quadratic fit is degenerate and χ becomes Inf/NaN or falls outside the
+        # bracket.  Guard on the *result* (finite and inside [a, c]) rather than a
+        # magnitude threshold on the denominator, since the denominator is legitimately
+        # small near convergence while still yielding a valid interior minimum; on a
+        # degenerate fit fall back to a bisection step of the bracket [a, c].
+        denom = fa * (b - c) + fb * (c - a) + fc * (a - b)
+        χ = T(0.5) * (fa * (b^2 - c^2) + fb * (c^2 - a^2) + fc * (a^2 - b^2)) / denom
+        (isfinite(χ) && a ≤ χ ≤ c) || (χ = (a + c) / 2)
+        # perform a perturbation if χ ≈ b (in order "to avoid stalling"); use a tight
+        # absolute tolerance so the perturbation only fires when χ is essentially at b
+        # (the former `b == χ` only caught exact equality, missing floating-point ties)
+        χ = isapprox(b, χ; atol=ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, ε) : χ
+        fχ = f(χ)
+        # Carry the function values of the updated triple alongside the points, so the
+        # termination check needs no further evaluations.
+        if χ > b
+            if fχ > fb
+                c, fc = χ, fχ
+            else
+                a, fa = b, fb
+                b, fb = χ, fχ
+            end
         else
-            a, fa = b, fb
-            b, fb = χ, fχ
+            if fχ > fb
+                a, fa = χ, fχ
+            else
+                c, fc = b, fb
+                b, fb = χ, fχ
+            end
         end
-    else
-        if fχ > fb
-            a, fa = χ, fχ
-        else
-            c, fc = b, fb
-            b, fb = χ, fχ
-        end
+        ((c - a) ≤ ε) && ((fa - fb) ≤ ε) && ((fc - fb) ≤ ε) && return b
     end
-    !(((c - a) ≤ method(ls).ε)) || !(((fa - fb) ≤ method(ls).ε) && ((fc - fb) ≤ method(ls).ε)) || return b
-    solve(ls, a, b, c, params, iteration_number + 1)
+    config(ls).verbosity ≥ 2 && @warn "Maximum number of iterations was reached."
+    b
 end
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iteration_number::Integer) where {T}

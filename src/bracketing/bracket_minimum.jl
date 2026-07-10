@@ -193,6 +193,11 @@ The function `bracket_minimum_with_fixed_point` is used as a starting point for 
 p_2 = \frac{f(b) - f(a) - f'(a)b}{b^2},
 ```
 where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
+
+Returns the bracket *together with the function values at its endpoints*,
+`(a, b, f(a), f(b))` with `a < b`.  The values are already computed during
+bracketing, so the caller (the [`Quadratic`](@ref) line search) does not have
+to re-evaluate `f` at the endpoints.
 """
 function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
@@ -214,8 +219,8 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
         b = b + s
         yb = f(b)
         if bc(ya, yb)
-            interval = a < b ? (a, b) : (b, a)
-            return interval
+            # return the endpoints (sorted) along with their function values
+            return a < b ? (a, b, ya, yb) : (b, a, yb, ya)
         end
         s *= k
     end

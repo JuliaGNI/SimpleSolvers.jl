@@ -25,9 +25,7 @@ p(α) = p_0 + p_1(\alpha - \alpha_0) + p_2(\alpha - \alpha_0)^2.
 ```
 Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
 We do not check the [`SufficientDecreaseCondition`](@ref) here. We instead repeatedly build new quadratic polynomials until a minimum is found (to sufficient accuracy).
-
-This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy).
-The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
+The iteration may also stop after it reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
 
 # Keywords
 
@@ -62,48 +60,6 @@ end
 
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
-function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_iterations::Integer) where {T}
-    # `number_of_iterations` starts at 0, so `<` allows exactly `max` interpolation
-    # steps (`≤` allowed max + 1).
-    number_of_iterations < max_number_of_quadratic_linesearch_iterations(T) || return α₀
-
-    # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
-    a, b = bracket_minimum_with_fixed_point(problem(ls), params, α₀, s)
-    d₀ = derivative(problem(ls), a, params)
-    !(abs(d₀) < method(ls).ε) || return α₀
-
-    # compute values at `a` and `b`
-    y₀ = value(problem(ls), a, params)
-    y₁ = value(problem(ls), b, params)
-
-    # p₀ = y₀
-    # p₁ = d₀
-
-    # determine coefficient p₂ of p(α)
-    # p₂ = (y₁ - p₀ - p₁*(b-a)) / (b-a)^2
-
-    # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-    # αₜ = a - p₁ / (2p₂)
-
-    # The denominator is 2·p₂·(b - a)², proportional to the fitted curvature p₂.
-    # If p₂ ≤ 0 (locally linear or non-convex fit) the quadratic model has no
-    # interior minimum; if the resulting αₜ is not finite the fit is degenerate.
-    # In either case fall back to a bisection step of the current bracket [a, b]
-    # instead of producing an Inf/NaN αₜ.  (Note: p₂ is small but positive near
-    # convergence, where the interpolation is still valid, so we guard on the sign
-    # and finiteness rather than on a magnitude threshold.)
-    denom = 2 * (y₁ - y₀ - d₀ * (b - a))
-    αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
-    # The minimum of the merit lies inside the bracket [a, b]; a fitted minimizer
-    # outside it (or a non-finite one) means the quadratic model is not to be
-    # trusted — bisect the bracket instead.
-    (isfinite(αₜ) && a ≤ αₜ ≤ b) || (αₜ = (a + b) / 2)
-
-    (l2norm(αₜ - α₀) < method(ls).ε) && return αₜ
-
-    solve(ls, αₜ, params, s * method(ls).s_reduction, number_of_iterations + 1)
-end
-
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
     # Design note (Phase 5, resolving the former "use α₀" TODO): the caller's α₀ is
     # deliberately *not* used as the bracket start.  `bracket_minimum_with_fixed_point`
@@ -113,7 +69,50 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
     # is smaller than α₀, and using α₀ as the initial step *size* over-coarsens the
     # bracket and destabilises stiff problems (the tuned `method(ls).s` is required).
     # The step magnitude is therefore governed by the method's `s`, not by α₀.
-    solve(ls, zero(T), params, method(ls).s, 0)
+    α = zero(T)
+    s = method(ls).s
+
+    # Iterate rather than recurse (bugs.md §5): the depth is bounded by the
+    # iteration maximum either way, but a loop keeps the stack flat and lets
+    # the state updates (α, s) read as what they are.
+    for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
+        # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - a) + p₂(α - a)².
+        # The bracketing already evaluates the merit at both endpoints, so it
+        # returns the values along with the bracket — no re-evaluation here.
+        a, b, y₀, y₁ = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
+        d₀ = derivative(problem(ls), a, params)
+        abs(d₀) < method(ls).ε && return α
+
+        # p₀ = y₀
+        # p₁ = d₀
+
+        # determine coefficient p₂ of p(α)
+        # p₂ = (y₁ - p₀ - p₁*(b-a)) / (b-a)^2
+
+        # compute minimum αₜ of p(α); i.e. p'(α) = 0.
+        # αₜ = a - p₁ / (2p₂)
+
+        # The denominator is 2·p₂·(b - a)², proportional to the fitted curvature p₂.
+        # If p₂ ≤ 0 (locally linear or non-convex fit) the quadratic model has no
+        # interior minimum; if the resulting αₜ is not finite the fit is degenerate.
+        # In either case fall back to a bisection step of the current bracket [a, b]
+        # instead of producing an Inf/NaN αₜ.  (Note: p₂ is small but positive near
+        # convergence, where the interpolation is still valid, so we guard on the sign
+        # and finiteness rather than on a magnitude threshold.)
+        denom = 2 * (y₁ - y₀ - d₀ * (b - a))
+        αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
+        # The minimum of the merit lies inside the bracket [a, b]; a fitted minimizer
+        # outside it (or a non-finite one) means the quadratic model is not to be
+        # trusted — bisect the bracket instead.
+        (isfinite(αₜ) && a ≤ αₜ ≤ b) || (αₜ = (a + b) / 2)
+
+        (l2norm(αₜ - α) < method(ls).ε) && return αₜ
+
+        α = αₜ
+        s *= method(ls).s_reduction
+    end
+
+    α
 end
 
 Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
