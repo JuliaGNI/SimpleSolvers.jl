@@ -455,7 +455,10 @@ end
         x0 = ics(T)
         solver = PicardSolver(x0, F, copy(x0))
 
-        solve!(x0, solver)
+        # Running out of iterations here is deliberate (see above), so we assert
+        # the expected "Solver took … iterations." warning rather than letting it
+        # leak to the test log.
+        @test_logs (:warn, r"Solver took \d+ iterations\.") match_mode = :any solve!(x0, solver)
         @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 
         x0 = ics(T)
