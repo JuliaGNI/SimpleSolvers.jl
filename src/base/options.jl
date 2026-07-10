@@ -100,10 +100,9 @@ Options()
                 x_reltol = 4.440892098500626e-16
                 x_suctol = 4.440892098500626e-16
                 f_abstol = 0.0
-                f_reltol = 4.440892098500626e-16
+                f_reltol = 1.4901161193847656e-8
                 f_suctol = 4.440892098500626e-16
                 f_mindec = 0.0001
-                g_restol = 1.4901161193847656e-8
           f_abstol_break = Inf
        allow_f_increases = true
           min_iterations = 0
@@ -125,7 +124,11 @@ Options()
 ```
 
 !!! info
-    For the first few constants (`x_abstol` to `g_restol`) the default constructor uses the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
+    The tolerance constants (`x_abstol` through `f_suctol`) default to values derived from
+    [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref), except `f_reltol`, which
+    defaults to `√eps(T)`: it is the relative residual tolerance used by
+    [`assess_convergence`](@ref) — the residual is small when `rfₐ ≤ f_abstol + f_reltol·‖F(x₀)‖`,
+    i.e. the absolute tolerance is `f_abstol` and the relative tolerance is `f_reltol`.
 
 !!! info
     `dogleg_radius_initial`, `dogleg_radius_shrink`, `dogleg_radius_expand` and
@@ -147,7 +150,6 @@ struct Options{T}
     f_reltol::T
     f_suctol::T
     f_mindec::T
-    g_restol::T
     f_abstol_break::T
     allow_f_increases::Bool
     min_iterations::Int
@@ -172,10 +174,9 @@ function Options(T=Float64;
     x_reltol::Real=default_tolerance(T),
     x_suctol::Real=default_tolerance(T),
     f_abstol::Real=absolute_tolerance(T),
-    f_reltol::Real=default_tolerance(T),
+    f_reltol::Real=(√(eps(T))),
     f_suctol::Real=default_tolerance(T),
     f_mindec::Real=minimum_decrease_threshold(T),
-    g_restol::Real=(√(default_tolerance(T) / 2)),
     f_abstol_break::Real=T(Inf),
     allow_f_increases::Bool=ALLOW_F_INCREASES,
     min_iterations::Integer=MIN_ITERATIONS,
@@ -204,7 +205,6 @@ function Options(T=Float64;
             f_reltol,
             f_suctol,
             f_mindec,
-            g_restol,
             f_abstol_break)...,
         allow_f_increases,
         min_iterations,
@@ -243,6 +243,5 @@ f_abstol(o::Options) = o.f_abstol
 f_reltol(o::Options) = o.f_reltol
 f_suctol(o::Options) = o.f_suctol
 f_mindec(o::Options) = o.f_mindec
-g_restol(o::Options) = o.g_restol
 
 verbosity(o::Options) = o.verbosity

@@ -31,6 +31,10 @@ signature are not enumerated here.)
 - The error-swallowing fallbacks `initialize!(x...)`, the 1-arg
   `solver_step!(::NonlinearSolver)`, and the generic two-arg `Gradient` functor;
   unsupported calls now raise a proper `MethodError`.
+- The `Options.g_restol` field (and its `g_restol(::Options)` accessor). Its role — the
+  residual tolerance in the convergence check — is now filled by `f_reltol`
+  (defaulting to `√eps(T)`, `g_restol`'s former value), which additionally scales with
+  the initial residual. `Options(; g_restol=…)` is no longer a valid keyword.
 
 ### Changed (breaking)
 
@@ -140,7 +144,22 @@ descent side). Plus minor cleanups: a dead assignment removed from `bisection`, 
 the `triple_point_finder` docstring corrected to state its actual (non-strict on the
 left) bracket guarantee.
 
-Second review pass (three further correctness fixes):
+Second review pass (four further correctness fixes):
+- Convergence assessment now uses the standard **`atol + rtol·‖F₀‖` residual test**. The
+  successive-change criteria were gated on a fixed *absolute* residual `rfₐ ≤ g_restol`
+  (`≈ √eps`), so a well-scaled solve whose residual floors at a large absolute value
+  (a large-magnitude or ill-conditioned `F`, e.g. `F(x) = 10¹⁰·(x²−2)`) could never be
+  reported as converged and ran to `max_iterations`. The gate is now
+  `rfₐ ≤ f_abstol + f_reltol·‖F(x₀)‖`, with `atol = f_abstol` and `rtol = f_reltol`
+  relative to the initial residual, so the tolerance follows the problem scale while a
+  step that stalls near its initial residual is still rejected. The (previously unused)
+  `Options.f_reltol` field now holds the relative tolerance and defaults to `√eps(T)`
+  (was `2eps(T)`); the redundant `g_restol` field was removed (see *Removed (breaking)*).
+  Note the default `f_abstol = 0` makes the default gate purely relative — there is no
+  longer a fixed `√eps` absolute floor for problems whose `‖F(x₀)‖ < 1`; set `f_abstol`
+  to restore one. `NonlinearSolverState` gained an `initial_residual` field (set by
+  `initialize!`) to carry `‖F(x₀)‖`; the relative term is dropped (leaving the absolute
+  `f_abstol` test) until the state is initialized.
 - `Backtracking` no longer returns `α = 0` when the sufficient-decrease condition
   cannot be met within `max_iterations`. Returning the `α₀ = 0` anchor froze the outer
   iterate (`x .+= 0 .* d`) and spun the solve to `max_iterations`; it now returns the

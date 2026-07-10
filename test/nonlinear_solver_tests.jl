@@ -22,7 +22,7 @@ Random.seed!(1234)
     update!(state, [1.0, 1.0], [5.0, 5.0])
     rxₛ, rfₐ, rfₛ = residuals(state)
     @test rxₛ == 0 && rfₛ == 0            # the step has stalled
-    @test rfₐ > config.g_restol          # but the residual is large
+    @test rfₐ > config.f_reltol          # but the residual is large
     x_converged, f_converged, _ = assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
     @test !x_converged && !f_converged   # ⇒ NOT converged
 
@@ -35,9 +35,51 @@ Random.seed!(1234)
     xc2, fc2, _ = assess_convergence(rxₛ2, rfₐ2, rfₛ2, config, state2)
     @test xc2 || fc2
 
-    # The successive-change criteria are gated by the (nonzero) residual tolerance
-    # g_restol, which is what rejects the stalled step above.
-    @test config.g_restol > 0
+    # This bare state was never initialized (`initial_residual` is `NaN`), so the residual
+    # gate reduces to the pure absolute test `rfₐ ≤ f_abstol`; the default `f_abstol = 0`
+    # rejects the large stalled residual. (The relative `f_reltol·‖F₀‖` path is covered next.)
+    @test config.f_abstol == 0
+end
+
+@testset "Convergence gate scales with the initial residual" begin
+    config = Options()
+    g = config.f_reltol
+
+    # Large-magnitude problem: the initial residual ‖F(x₀)‖ = 1e10, and the iterate has
+    # settled at an absolute residual of 4e-6 — far above the absolute floor (≈ √eps) but
+    # ~15 orders below the initial residual.  The old absolute-only gate rejected this
+    # forever; the relative gate f_reltol·‖F(x₀)‖ accepts it.
+    conv = NonlinearSolverState([sqrt(2.0)])
+    initialize!(conv, [sqrt(2.0)], [1e10])       # records r₀ = 1e10
+    update!(conv, [sqrt(2.0)], [4e-6])           # settled iterate, residual ≪ r₀
+    update!(conv, [sqrt(2.0)], [4e-6])
+    rx, rfa, rfs = residuals(conv)
+    @test rfa > g                                # absolute gate alone would reject
+    xc, fc, _ = assess_convergence(rx, rfa, rfs, config, conv)
+    @test xc || fc                               # ...but the scale-relative gate accepts
+
+    # A step that stalls near its initial residual (rfₐ ≈ r₀) is still NOT converged.
+    stall = NonlinearSolverState([1.0])
+    initialize!(stall, [1.0], [1e10])            # r₀ = 1e10
+    update!(stall, [1.0], [1e10])                # residual did not decrease
+    update!(stall, [1.0], [1e10])
+    rx2, rfa2, rfs2 = residuals(stall)
+    xc2, fc2, _ = assess_convergence(rx2, rfa2, rfs2, config, stall)
+    @test !xc2 && !fc2
+
+    # End to end: a Newton solve of the large-magnitude problem now converges to the
+    # root instead of running to max_iterations at a "large" (but scale-appropriate)
+    # residual.
+    Fbig(y, x, p) = (y .= 1e10 .* (x .^ 2 .- 2); y)
+    x = [1.0]
+    s = NewtonSolver(x, similar(x); F=Fbig, verbosity=0)
+    state = NonlinearSolverState(x, similar(x))
+    solve!(x, s, state)
+    @test isapprox(x[1], sqrt(2.0); atol=1e-7)
+    @test iteration_number(state) < config.max_iterations   # stopped by convergence, not the iteration cap
+    yb = similar(x)
+    Fbig(yb, x, NullParameters())
+    @test SimpleSolvers.l2norm(yb) > g                       # ...at a residual above the absolute gate
 end
 
 @testset "f_abstol_break stops a diverging residual" begin

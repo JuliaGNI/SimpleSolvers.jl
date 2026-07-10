@@ -70,21 +70,27 @@ triple `(x_converged, f_converged, f_increased)`.
 The successive-change criteria (in `x` and `f`) alone are *not* sufficient to
 declare convergence: a stalled step (e.g. an artificially tiny line-search step)
 makes the successive residuals `rxₛ` and `rfₛ` vanish even when the absolute
-residual `rfₐ` is large.  We therefore require the absolute residual to be small
-(`rfₐ ≤ config.g_restol`) *in addition* to the successive-change criterion
-before reporting convergence. Concretely:
+residual `rfₐ` is large.  We therefore require the residual to be *small* — written
+`residual_small` below — *in addition* to the successive-change criterion before
+reporting convergence.  The residual passes the standard `atol + rtol·‖F₀‖` test:
 
-- `x_converged`: `rxₛ ≤ norm(solution(state)) * config.x_suctol` **and** `rfₐ ≤ config.g_restol`,
-- `f_converged`: (`rfₛ ≤ norm(value(state)) * config.f_suctol` **and** `rfₐ ≤ config.g_restol`) **or** `rfₐ ≤ config.f_abstol`,
+`residual_small` ⟺ `rfₐ ≤ config.f_abstol + config.f_reltol * initial_residual(state)`,
+
+with the absolute tolerance `atol = config.f_abstol` (defaulting to `0`) and the relative
+tolerance `rtol = config.f_reltol` (defaulting to `√eps(T)`) applied to the initial residual
+`‖F(x₀)‖`. Concretely:
+
+- `x_converged`: `rxₛ ≤ norm(solution(state)) * config.x_suctol` **and** `residual_small`,
+- `f_converged`: (`rfₛ ≤ norm(value(state)) * config.f_suctol` **and** `residual_small`) **or** `rfₐ ≤ config.f_abstol`,
 - `f_increased`: `norm(value(state)) > norm(previousvalue(state))`.
 
-Here `config.g_restol` (defaulting to `√eps(T)`, a small but nonzero value)
-guards the successive-change criteria against stagnation: it is loose enough that
-a genuinely converged iterate always satisfies it (the successive-change criteria
-still supply the tight, machine-precision accuracy) yet tight enough to reject a
-stalled step at a large residual.  `config.f_abstol` provides an independent
-absolute-residual convergence path (used e.g. when the relative successive-change
-criteria cannot fire because the solution sits at the origin).
+This guards the successive-change criteria against stagnation: it is loose enough that a
+genuinely converged iterate satisfies it (the successive-change criteria still supply the
+tight, machine-precision accuracy) yet tight enough to reject a step that stalls near its
+initial residual (`rfₐ ≈ ‖F(x₀)‖ ≫ f_reltol·‖F(x₀)‖`). The relative term is what lets a
+*well-scaled* solve whose residual floors at a large *absolute* value (e.g. a
+large-magnitude or ill-conditioned `F`) still converge; it drops to zero (leaving the pure
+absolute `f_abstol` test) until the state has been initialized (`initial_residual` is `NaN`).
 
 Also see [`meets_stopping_criteria`](@ref).
 """
@@ -93,9 +99,15 @@ function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config:
     x_settled = rxₛ ≤ norm(solution(state)) * config.x_suctol
     f_settled = rfₛ ≤ norm(value(state)) * config.f_suctol
 
-    # A stalled step is only genuine convergence when the absolute residual is
-    # also small; otherwise we are stuck at a non-solution.
-    residual_small = rfₐ ≤ config.g_restol
+    # The residual counts as small when it passes the standard `atol + rtol·‖F₀‖`
+    # residual test with `atol = f_abstol` and `rtol = f_reltol` (relative to the initial
+    # residual `‖F(x₀)‖`). This lets a large-magnitude / ill-conditioned solve converge
+    # once its residual is reduced by `f_reltol` from `‖F(x₀)‖`, while a step that stalls
+    # near `‖F(x₀)‖` still fails. The relative term drops to zero for an uninitialized
+    # state (`initial_residual` is `NaN`), leaving the pure absolute `f_abstol` test.
+    r₀ = initial_residual(state)
+    relative_residual = isnan(r₀) ? zero(rfₐ) : config.f_reltol * r₀
+    residual_small = rfₐ ≤ config.f_abstol + relative_residual
 
     x_converged = x_settled && residual_small
     f_converged = (f_settled && residual_small) || rfₐ ≤ config.f_abstol
