@@ -18,7 +18,7 @@ julia> default_ϵ(Float64)
 
 ```jldoctest; setup = :(using SimpleSolvers: default_ϵ)
 julia> default_ϵ(Float32)
-0.0027446747f0
+0.0027621358f0
 ```
 """
 default_ϵ(::Type{T}) where {T<:Number} = 8sqrt(eps(T))

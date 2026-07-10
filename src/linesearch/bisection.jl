@@ -103,6 +103,14 @@ end
 
 bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number} = bisection(f, bracket_root(β -> f(β, params), α)..., params, config)
 
+# Disambiguation: `(f, ::T, ::T, ::Options)` matches both the interval form above
+# (with the `Options` landing in the untyped `params` slot) and the single-`α`
+# convenience form (with the second `T` landing in its untyped `params` slot),
+# and neither is more specific than the other.  A call with two numeric bounds and
+# an `Options` is unambiguously the interval form with default `params`, so route
+# it there and give the second `T` bound priority over the single-`α` reading.
+bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = bisection(f, αmin, αmax, NullParameters(), config)
+
 """
     Bisection <: Linesearch
 

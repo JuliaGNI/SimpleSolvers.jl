@@ -323,6 +323,17 @@ end
     @test 0.0 ≤ αbest ≤ 1.0
 end
 
+@testset "$(rpad("Phase 6: bisection interval/config disambiguation", 80))" begin
+    # `bisection(f, αmin, αmax, config::Options)` used to be ambiguous with the
+    # single-`α` convenience form (both matched `(f, ::T, ::T, ::Options)`); Aqua
+    # flagged it. A disambiguating method now routes it to the interval form with
+    # default params. It must behave exactly like the explicit 5-arg call.
+    froot(α, _) = α - 1.0
+    cfg = Options(Float64)
+    @test bisection(froot, 0.0, 2.0, cfg) ≈ 1.0 atol = 1e-6
+    @test bisection(froot, 0.0, 2.0, cfg) == bisection(froot, 0.0, 2.0, NullParameters(), cfg)
+end
+
 @testset "$(rpad("Phase 5: StrongWolfe line search (bracket + zoom)", 80))" begin
     # For f(x) = x² − 1 with the Newton direction δx = −g/2 the line minimiser is
     # at α = 1 (φ'(1) = 0), so the strong Wolfe conditions are met exactly there.
