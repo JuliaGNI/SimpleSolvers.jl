@@ -1,7 +1,7 @@
 """
     NonlinearSolver
 
-A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
+A `struct` that comprises *Newton solvers* (see [`Newton`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`Picard`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
 
 !!! info
     The associated solvers are `const`s derived from `NonlinearSolver`. See [`NewtonSolver`](@ref), [`PicardSolver`](@ref) and [`DogLegSolver`](@ref). In practice we usually call those associated constructors directly rather than creating a `NonlinearSolver` instance manually.
@@ -13,7 +13,7 @@ A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Pi
 - `jacobian::`[`Jacobian`](@ref): the Jacobian is used to compute the *direction* in the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`jacobian`](@ref),
 - `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the *direction* of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`Linesearch`](@ref)
-- `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`NewtonMethod`](@ref)),
+- `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`Newton`](@ref)),
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 """
@@ -32,7 +32,7 @@ struct NonlinearSolver{T,MT<:NonlinearSolverMethod,NLST<:NonlinearProblem,LST<:A
     # `JT<:Jacobian{T}`), so an element-type mismatch (e.g. a `Jacobian{Float32}`
     # with `T = Float64`) fails with a clean `MethodError` at the constructor
     # instead of a confusing `TypeError` from `new{…}`.
-    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=NewtonMethod(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian{T},NLST<:NonlinearProblem,LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}}
+    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=Newton(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian{T},NLST<:NonlinearProblem,LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}}
         new{T,MT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
     end
 end

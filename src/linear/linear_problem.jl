@@ -4,7 +4,7 @@ Encompasses the [`NoLinearProblem`](@ref) and the [`LinearProblem`](@ref). Subty
 abstract type AbstractLinearProblem <: AbstractProblem end
 
 """
-A *dummy linear system* used for the *fixed point iterator* ([`PicardMethod`](@ref)).
+A *dummy linear system* used for the *fixed point iterator* ([`Picard`](@ref)).
 """
 struct NoLinearProblem <: AbstractLinearProblem end
 

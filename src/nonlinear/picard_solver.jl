@@ -1,8 +1,8 @@
-const PicardSolver{T} = NonlinearSolver{T,PicardMethod}
+const PicardSolver{T} = NonlinearSolver{T,Picard}
 
 function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
     config = Options(T; options_kwargs...)
-    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache, config; jacobian=jacobian, method=PicardMethod())
+    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache, config; jacobian=jacobian, method=Picard())
 end
 
 """
@@ -58,7 +58,7 @@ function PicardSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
     PicardSolver(x, F, y; kwargs...)
 end
 
-NonlinearSolver(::PicardMethod, x...; kwargs...) = PicardSolver(x...; kwargs...)
+NonlinearSolver(::Picard, x...; kwargs...) = PicardSolver(x...; kwargs...)
 
 function direction!(d::AbstractVector{T}, x::AbstractVector{T}, it::PicardSolver{T}, params) where {T}
     value!(d, nonlinearproblem(it), x, params)

@@ -1,7 +1,7 @@
 """
     NewtonSolver
 
-A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}`.
+A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,Newton{true}}`.
 
 # Constructors
 
@@ -31,13 +31,13 @@ true
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 """
-const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}
-const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewtonMethod}
+const NewtonSolver{T} = NonlinearSolver{T,Newton{true}}
+const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewton}
 
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     config = Options(T; options_kwargs...)
 
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=NewtonMethod(), jacobian=jacobian)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=Newton(), jacobian=jacobian)
 end
 
 function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
@@ -48,7 +48,7 @@ function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linese
         refactorize = 1
     end
 
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=QuasiNewtonMethod(refactorize), jacobian=jacobian)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=QuasiNewton(refactorize), jacobian=jacobian)
 end
 
 """
@@ -136,9 +136,9 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobian(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobian(s))
 
-# Honor the method's `refactorize` field (this covers `QuasiNewtonMethod` =
-# `NewtonMethod{false}` as well).  It used to be discarded, so e.g.
-# `NonlinearSolver(QuasiNewtonMethod(7), x, y; F=…)` silently built a solver with
+# Honor the method's `refactorize` field (this covers `QuasiNewton` =
+# `Newton{false}` as well).  It used to be discarded, so e.g.
+# `NonlinearSolver(QuasiNewton(7), x, y; F=…)` silently built a solver with
 # the default `refactorize = 5`.  An explicit `refactorize` keyword still wins
 # (the splatted kwargs override the earlier keyword).
-NonlinearSolver(method::NewtonMethod, args...; kwargs...) = NewtonSolver(args...; refactorize=method.refactorize, kwargs...)
+NonlinearSolver(method::Newton, args...; kwargs...) = NewtonSolver(args...; refactorize=method.refactorize, kwargs...)

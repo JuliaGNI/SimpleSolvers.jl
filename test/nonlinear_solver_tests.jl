@@ -83,14 +83,14 @@ for T ∈ (Float64, Float32)
         # precision.  With the corrected ε = default_precision(T) the line search
         # converges to its designed precision, which caps the attainable accuracy
         # (≈2.5 eps in Float64, ≈17 eps in Float32); hence the looser tolfac here.
-        (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 32),
+        (NewtonSolver, (linesearch=Quadratic(T, Newton()),), 32),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
         # Phase 5: the strong-Wolfe (bracket + zoom) line search.
         (NewtonSolver, (linesearch=StrongWolfe(T),), 2),
         (QuasiNewtonSolver, (linesearch=Static(T),), 2),
         (QuasiNewtonSolver, (linesearch=Backtracking(T),), 2),
         (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
-        (QuasiNewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),), 32),
+        (QuasiNewtonSolver, (linesearch=Quadratic(T, Newton()),), 32),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
         # Phase 5: PicardSolver is now a (residual-safeguarded) fixed-point
         # iteration and no longer runs a derivative-based line search, so it takes
@@ -130,9 +130,9 @@ end
 for T ∈ (Float64, Float32)
     # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
     for (solver_method, kwarguments, tolfac) in (
-        (NewtonMethod(), (linesearch=Static(T),), 2),
-        (QuasiNewtonMethod(), (linesearch=Static(T),), 2),
-        (PicardMethod(), (), 8),
+        (Newton(), (linesearch=Static(T),), 2),
+        (QuasiNewton(), (linesearch=Static(T),), 2),
+        (Picard(), (), 8),
         (DogLeg(), (), 1)
     )
 
@@ -160,8 +160,8 @@ end
 # test regularization
 for T ∈ (Float64, Float32)
     for (solver_method, kwarguments) in (
-        (NewtonMethod(), (linesearch=Static(T),)),
-        (QuasiNewtonMethod(5), (linesearch=Static(T),)),
+        (Newton(), (linesearch=Static(T),)),
+        (QuasiNewton(5), (linesearch=Static(T),)),
         (DogLeg(), ())
     )
 
@@ -212,7 +212,7 @@ end
         @test abs(x1[1] - cos(x1[1])) ≤ sqrt(eps(T))
 
         x2 = T[0.5]
-        solve!(x2, NonlinearSolver(PicardMethod(), x2, similar(x2); F=Fcos))
+        solve!(x2, NonlinearSolver(Picard(), x2, similar(x2); F=Fcos))
         @test isapprox(x2[1], T(dottie); atol=sqrt(eps(T)))
     end
 
@@ -313,8 +313,8 @@ end
     x = zeros(T, n)
     y = zeros(T, n)
 
-    nl₁ = NonlinearSolver(NewtonMethod(), x, y; F=Fnan, jacobian=J₁, verbosity=2)
-    nl₂ = NonlinearSolver(NewtonMethod(), x, y; F=Fnan, jacobian=J₂, verbosity=2)
+    nl₁ = NonlinearSolver(Newton(), x, y; F=Fnan, jacobian=J₁, verbosity=2)
+    nl₂ = NonlinearSolver(Newton(), x, y; F=Fnan, jacobian=J₂, verbosity=2)
 
     x₁ = zeros(T, n)
     x₂ = zeros(T, n)
@@ -381,7 +381,7 @@ end
 
 # Interface-consistency fixes (verification 2026-07-10):
 # (a) the method-dispatch constructor `NonlinearSolver(method, …)` used to
-#     discard the method's `refactorize` field, so `QuasiNewtonMethod(7)`
+#     discard the method's `refactorize` field, so `QuasiNewton(7)`
 #     silently built a solver with the default `refactorize = 5`;
 # (b) `DogLegSolver(x, y; F)` follows the same `F=missing` + friendly-error
 #     pattern as NewtonSolver/PicardSolver (it used to raise a bare
@@ -389,14 +389,14 @@ end
 @testset "NonlinearSolver(method, ...) honors refactorize" begin
     Flin(y, x, p) = (y .= x)
     x, y = ones(2), zeros(2)
-    s5 = NonlinearSolver(QuasiNewtonMethod(), x, y; F=Flin)
+    s5 = NonlinearSolver(QuasiNewton(), x, y; F=Flin)
     @test SimpleSolvers.method(s5).refactorize == 5
-    s7 = NonlinearSolver(QuasiNewtonMethod(7), x, y; F=Flin)
+    s7 = NonlinearSolver(QuasiNewton(7), x, y; F=Flin)
     @test SimpleSolvers.method(s7).refactorize == 7
-    s1 = NonlinearSolver(NewtonMethod(), x, y; F=Flin)
+    s1 = NonlinearSolver(Newton(), x, y; F=Flin)
     @test SimpleSolvers.method(s1).refactorize == 1
     # an explicit keyword still wins over the method's field
-    s9 = NonlinearSolver(QuasiNewtonMethod(7), x, y; F=Flin, refactorize=9)
+    s9 = NonlinearSolver(QuasiNewton(7), x, y; F=Flin, refactorize=9)
     @test SimpleSolvers.method(s9).refactorize == 9
 
     # DogLeg carries a `refactorize` field too

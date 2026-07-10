@@ -86,7 +86,7 @@ shrinking the radius instead of rescaling the dogleg directions); non-square
 finite-difference Jacobians; precision-aware FD step `8√eps(T)`; singular linear
 systems now throw `SingularException` instead of returning NaN;
 `default_precision(T)` is now defined for all `AbstractFloat`s (used to error for
-`Float16`/`BigFloat`); `NonlinearSolver(QuasiNewtonMethod(n), …)` now honors `n`
+`Float16`/`BigFloat`); `NonlinearSolver(QuasiNewton(n), …)` now honors `n`
 (the method's `refactorize` field used to be silently discarded in favor of the
 default 5); `DogLegSolver(x, y; F=…)` follows the same friendly `F=missing`
 pattern as the other solvers; and numerous broken convenience entry points and

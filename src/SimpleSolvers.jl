@@ -25,9 +25,9 @@ export solution, minimum
 
 export SolverMethod, SolverState
 export DirectMethod
-export NonlinearSolverMethod, PicardMethod, LinesearchMethod
+export NonlinearSolverMethod, Picard, LinesearchMethod
 
-export NewtonMethod, Newton
+export Newton, QuasiNewton
 
 include("base/methods.jl")
 
@@ -104,7 +104,7 @@ include("linesearch/static.jl")
 include("linesearch/wolfe.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
-    NewtonSolver, QuasiNewtonSolver, assess_convergence, QuasiNewtonMethod
+    NewtonSolver, QuasiNewtonSolver, assess_convergence
 
 export PicardSolver
 

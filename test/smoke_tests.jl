@@ -45,20 +45,23 @@ end
 
 
 @testset "$(rpad("Nonlinear methods", 80))" begin
-    @test NewtonMethod() isa NewtonMethod
-    @test Newton() isa NewtonMethod
-    @test QuasiNewtonMethod() isa NewtonMethod
-    @test QuasiNewtonMethod(5) isa NewtonMethod
-    @test PicardMethod() isa PicardMethod
+    @test Newton() isa Newton
+    @test QuasiNewton == Newton{false}
+    @test QuasiNewton() isa Newton
+    @test QuasiNewton(5) isa Newton
+    @test !isdefined(SimpleSolvers, :NewtonMethod)
+    @test !isdefined(SimpleSolvers, :QuasiNewtonMethod)
+    @test Picard() isa Picard
+    @test !isdefined(SimpleSolvers, :PicardMethod)
     @test DogLeg() isa DogLeg
 
-    # Phase 3.3 / §2.6: `NewtonMethod{true}` is now constructable by name, with an
-    # optional `refactorize` argument (previously only `NewtonMethod()` and
-    # `NewtonMethod{false}(...)` existed, so `NewtonMethod{true}(1)` threw).
-    @test NewtonMethod() === NewtonMethod{true}(1)
-    @test NewtonMethod{true}().refactorize == 1
-    @test NewtonMethod{true}(3).refactorize == 3
-    @test QuasiNewtonMethod().refactorize == 5
+    # Phase 3.3 / §2.6: `Newton{true}` is now constructable by name, with an
+    # optional `refactorize` argument (previously only `Newton()` and
+    # `Newton{false}(...)` existed, so `Newton{true}(1)` threw).
+    @test Newton() === Newton{true}(1)
+    @test Newton{true}().refactorize == 1
+    @test Newton{true}(3).refactorize == 3
+    @test QuasiNewton().refactorize == 5
 
     @test DogLeg().refactorize == 1
     @test DogLeg(4).refactorize == 4
@@ -132,5 +135,5 @@ end
     @test PicardSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
     @test DogLegSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
 
-    @test NonlinearSolver(NewtonMethod(), xvec, yr; F=F_vec!) isa NonlinearSolver
+    @test NonlinearSolver(Newton(), xvec, yr; F=F_vec!) isa NonlinearSolver
 end

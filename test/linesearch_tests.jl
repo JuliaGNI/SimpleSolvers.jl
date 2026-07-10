@@ -141,7 +141,7 @@ end
     # below machine epsilon.  It now matches the keyword constructor defaults and
     # dispatches on ::SolverMethod like its siblings.
     for T in (Float32, Float64)
-        q = Quadratic(T, NewtonMethod())
+        q = Quadratic(T, Newton())
         @test q ≈ Quadratic(T)
         @test q.ε == SimpleSolvers.default_precision(T)
         @test q.s == T(SimpleSolvers.DEFAULT_BRACKETING_s)
