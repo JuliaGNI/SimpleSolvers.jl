@@ -41,7 +41,7 @@ end
 Build a line search problem based on a [`NonlinearSolver`](@ref).
 
 !!! info "Producing a single-valued output"
-    We apply `L2norm` to the output of `problem!`. This is because the solver operates on a function with array-valued outputs from which we have to find roots (in contrast to an optimizer which operates on a function with a scalar output of which we should find a minimum).
+    We apply `L2norm` to the output of `value!` (the evaluation of the nonlinear problem). This is because the solver operates on a function with array-valued outputs from which we have to find roots (in contrast to an optimizer which operates on a function with a scalar output of which we should find a minimum).
 
 # Examples
 

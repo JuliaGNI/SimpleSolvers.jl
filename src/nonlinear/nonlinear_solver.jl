@@ -70,9 +70,9 @@ nonlinearproblem(s::NonlinearSolver) = s.nonlinearproblem
 jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = jacobian(s)(jacobianmatrix(cache(s)), x, params)
 
 """
-    jacobianmatrix(solver::NewtonSolver)
+    jacobianmatrix(solver::NonlinearSolver)
 
-Return the evaluated Jacobian (a matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
+Return the evaluated Jacobian (a matrix) stored in the cache (see [`NonlinearSolverCache`](@ref)) of `solver`.
 
 Also see [`jacobian(::NonlinearProblem)`](@ref).
 """

@@ -27,7 +27,7 @@ abstract type BracketingCriterion end
 """
     BracketMinimumCriterion <: BracketingCriterion
 
-The criterion used for [`bracket_minimum`](@ref). It checks whether ``y(c)`` is bigger than ``y(b)`` (i.e. checks whether we are passed the minimum).
+The criterion used for [`bracket_minimum`](@ref). It checks whether ``y(c)`` is greater than or equal to ``y(b)`` (i.e. checks whether we are passed the minimum).
 Compare this with [`BracketRootCriterion`](@ref).
 
 # Functor
@@ -149,7 +149,7 @@ The algorithm then successively computes:
 c \gets b + s,
 ```
 
-and then checks whether ``f(c) > f(b)`` (also see [`BracketMinimumCriterion`](@ref)). If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
+and then checks whether ``f(c) \geq f(b)`` (also see [`BracketMinimumCriterion`](@ref)). If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
 If this is not satisfied ``a,`` ``b`` and ``s`` are updated:
 ```math
 \begin{aligned}

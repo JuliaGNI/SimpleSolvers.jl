@@ -62,13 +62,12 @@ true
 ```
 
 # Keywords
-- `nonlinearproblem::`[`NonlinearProblem`](@ref): the system that has to be solved. This can be accessed by calling [`nonlinearproblem`](@ref),
-- `jacobian::`[`Jacobian`](@ref)
-- `linear::`[`LinearSolver`](@ref): the linear solver is used to compute the *direction* of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
+- `linear_solver_method`: the method used to build the linear solver (see [`LinearSolver`](@ref)) that computes the *direction* of the solver step (see [`solver_step!`](@ref)),
+- `DF!`: an in-place function computing the Jacobian,
 - `linesearch::`[`Linesearch`](@ref)
+- `jacobian::`[`Jacobian`](@ref)
 - `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
-- `cache::`[`NonlinearSolverCache`](@ref)
-- `config::`[`Options`](@ref)
+- `options_kwargs`: see [`Options`](@ref)
 """
 const NewtonSolver{T} = NonlinearSolver{T,Newton{true}}
 const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewton}

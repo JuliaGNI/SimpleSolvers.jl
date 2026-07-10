@@ -1,13 +1,13 @@
 @doc raw"""
     NonlinearSolverStatus
 
-Stores absolute, relative and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
+Stores absolute and successive residuals for `x` and `f`. It is used as a diagnostic tool in [`NewtonSolver`](@ref).
 
 !!! info
     Compare this to the [`NonlinearSolverState`](@ref) and the [`NonlinearSolverCache`](@ref).
 
 # Keys
-- `iteration`: number of iterations
+- `iterations`: number of iterations
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
 - `rfₛ`: successive residual in `f`,
@@ -47,7 +47,7 @@ end
 @doc raw"""
     residuals(state)
 
-Compute the residuals for `cache::`[`NonlinearSolverCache`](@ref).
+Compute the residuals for `state::`[`NonlinearSolverState`](@ref).
 The computed residuals are the following:
 - `rxₛ` : successive residual (the norm of ``x - \bar{x}``),
 - `rfₐ`: absolute residual in ``f``,
@@ -121,9 +121,10 @@ Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
     print_status(status, config)
 
 Print the solver status if:
-- `config.verbosity` ``\geq1`` and one of the following two
+- `config.verbosity` ``\geq1`` and one of the following three
 1. the solver is converged,
-2. `status.iterations > config.max_iterations`
+2. `status.iterations ≥ config.max_iterations`,
+3. `status.iterations ≥ config.warn_iterations`
 - `config.verbosity` ``>1.``
 """
 function print_status(status::NonlinearSolverStatus, config::Options)
@@ -145,20 +146,19 @@ isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_conv
 havenan(status::NonlinearSolverStatus) = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
 
 """
-    meets_stopping_criteria(status, config)
+    meets_stopping_criteria(state, config)
 
-Determines whether the iteration stops based on the current [`NonlinearSolverStatus`](@ref).
+Determines whether the iteration stops based on the current [`NonlinearSolverState`](@ref).
 
 !!! warning
     The function `meets_stopping_criteria` may return `true` even if the solver has not converged. To check convergence, call [`assess_convergence`](@ref) (with the same input arguments).
 
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
-- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`isconverged`](@ref)) and `iteration_number(status) ≥ config.min_iterations`,
+- the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`isconverged`](@ref)) and `state.iterations ≥ config.min_iterations`,
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
-- `iteration_number(status) ≥ config.max_iterations`,
-- if any component in `solution(status)` is `NaN`,
-- if any component in `status.f` is `NaN`,
+- `state.iterations ≥ config.max_iterations`,
 - `status.rfₐ > config.f_abstol_break` (by default `Inf`). In theory this returns `true` if the residual gets too big.
+- one of the residuals (`rxₛ`, `rfₐ`, `rfₛ`) is `NaN` (checked with `havenan`) and `state.iterations ≥ 1`,
 So convergence is only one possible criterion for which [`meets_stopping_criteria`](@ref). We may also satisfy a stopping criterion without having convergence!
 
 # Examples

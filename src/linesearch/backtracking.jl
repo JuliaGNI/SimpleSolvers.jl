@@ -49,7 +49,7 @@ const DEFAULT_WOLFE_c₂ = 0.9
 # Keys
 
 The keys are:
-- `α₀`=""" * string(DEFAULT_ARMIJO_α₀) * raw""": the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the Wolfe conditions (the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref)) are satisfied.
+- `α₀`=""" * string(DEFAULT_ARMIJO_α₀) * raw""": the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the [`SufficientDecreaseCondition`](@ref) is satisfied.
 - `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": the constant ``c_1`` in the [`SufficientDecreaseCondition`](@ref) (Armijo condition). Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": a parameter with which ``\alpha`` is decreased in every step until the stopping criterion is satisfied.
@@ -65,11 +65,11 @@ d_0 &\gets f'(x_0),\\
 \alpha &\gets \alpha_0,
 \end{aligned}
 ```
-where ``f`` is of type [`LinesearchProblem`](@ref) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the [`SufficientDecreaseCondition`](@ref) and the [`CurvatureCondition`](@ref) are satisfied.
+where ``f`` is of type [`LinesearchProblem`](@ref) and ``\alpha_0`` is stored in `ls`. It then repeatedly does ``\alpha \gets \alpha\cdot{}p`` until either (i) the maximum number of iterations is reached (the `max_iterations` keyword in [`Options`](@ref)) or (ii) the [`SufficientDecreaseCondition`](@ref) is satisfied. The [`CurvatureCondition`](@ref) is not used to terminate the iteration; it is only checked afterwards to emit a warning.
 
 # Extended help
 
-[Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``\epsilon`` have different names such as ``\tau`` and ``c``.
+[Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``c_1`` have different names such as ``\tau`` and ``c``.
 """
 struct Backtracking{T} <: LinesearchMethod{T}
     α₀::T

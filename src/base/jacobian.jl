@@ -126,7 +126,7 @@ The `struct` stores:
 # Constructors
 
 ```julia
-JacobianAutodiff(F, y::AbstractVector)
+JacobianAutodiff(F, x::AbstractVector)
 JacobianAutodiff{T}(F, nx::Integer)
 ```
 
@@ -205,9 +205,9 @@ for j in eachindex(x)
     fill!(jac.e, 0)
     jac.e[j] = 1
     jac.tx .= x .- ϵⱼ .* jac.e
-    f(jac.f1, jac.tx)
+    jac.F(jac.f1, jac.tx, params)
     jac.tx .= x .+ ϵⱼ .* jac.e
-    f(jac.f2, jac.tx)
+    jac.F(jac.f2, jac.tx, params)
     for i in eachindex(jac.f1)
         J[i,j] = (jac.f2[i] - jac.f1[i]) / (2ϵⱼ)
     end

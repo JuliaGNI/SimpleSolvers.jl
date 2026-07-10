@@ -304,7 +304,7 @@ function pivot_index(v::AbstractVector{T}, k::Integer) where {T<:Number}
 end
 
 """
-    ldiv!(x, lu, b)
+    ldiv!(x, lsolver, b)
 
 Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
 

@@ -38,7 +38,7 @@ The [`NonlinearSolver`](@ref) for the [`DogLeg`](@ref) method.
 const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
 @doc raw"""
-    directions!(s, x, params, iteration=1)
+    directions!(s, x, params, iteration=1; force_refactorize=false)
 
 Compute [`direction₁`](@ref) and [`direction₂`](@ref) for the [`DogLegSolver`](@ref).
 

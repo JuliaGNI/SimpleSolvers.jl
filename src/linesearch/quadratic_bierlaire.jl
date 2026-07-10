@@ -41,7 +41,7 @@ end
 
 
 """
-    BierlaireQuadratic <: Linesearch
+    BierlaireQuadratic <: LinesearchMethod
 
 Algorithm taken from [bierlaire2015optimization](@cite).
 """

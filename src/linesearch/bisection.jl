@@ -1,7 +1,7 @@
 @doc raw"""
-    bisection(f, xmin, xmax; config)
+    bisection(f, αmin, αmax, params, config)
 
-Perform bisection of `f` in the interval [`xmin`, `xmax`] with [`Options`](@ref) `config`.
+Perform bisection of `f` in the interval [`αmin`, `αmax`] with [`Options`](@ref) `config`.
 
 The algorithm is repeated until a root is found (up to tolerance `config.f_abstol` which is determined by [`default_tolerance`](@ref) by default).
 
@@ -33,7 +33,7 @@ and then repeat:
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated (and errors) if `config.max_iterations` is reached (by default """ * """$(MAX_ITERATIONS) in [`Options`](@ref) struct).
+So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated if `config.max_iterations` is reached (by default """ * """$(MAX_ITERATIONS) in [`Options`](@ref) struct); in that case a warning is emitted (at `verbosity ≥ 1`) and the best estimate found so far is returned.
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
@@ -106,7 +106,7 @@ end
 bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = bisection(f, αmin, αmax, NullParameters(), config)
 
 """
-    Bisection <: Linesearch
+    Bisection <: LinesearchMethod
 
 See [`bisection`](@ref) for the implementation of the algorithm.
 

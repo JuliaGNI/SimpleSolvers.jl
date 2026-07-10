@@ -81,9 +81,9 @@ LinearProblem{T}(n::Integer) where {T} = LinearProblem{T}(n, n)
 LinearProblem(y::AbstractVector{T}) where {T} = LinearProblem{T}(length(y))
 
 """
-    update!(ls::LinearProblem, A, y)
+    update!(ls::LinearProblem, A, b)
 
-Set the [`rhs`](@ref) vector to `y` and the matrix stored in the [`LinearProblem`](@ref) `ls` to `A`.
+Set the [`rhs`](@ref) vector to `b` and the matrix stored in the [`LinearProblem`](@ref) `ls` to `A`.
 
 !!! info
     Calling `update!` doesn't solve the [`LinearProblem`](@ref), you still have to call [`solve!`](@ref) in combination with a [`LinearSolver`](@ref).

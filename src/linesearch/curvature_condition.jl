@@ -2,7 +2,7 @@
 # (derivative at the base point α = 0) so it does not differ from the callable
 # `D` only by letter case.
 @doc raw"""
-    CurvatureCondition <: LinesearchCondition
+    CurvatureCondition <: BacktrackingCondition
 
 The second of the Wolfe conditions [nocedal2006numerical](@cite). The first one is the [`SufficientDecreaseCondition`](@ref).
 

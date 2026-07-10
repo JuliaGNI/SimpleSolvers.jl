@@ -1,6 +1,6 @@
 # Backtracking Line Search
 
-A *backtracking line search method* determines the amount to move in a given search direction by iteratively decreasing a step size ``\alpha`` until an acceptable level is reached. In `SimpleSolvers` we can use the [sufficient decrease condition](@ref "The Sufficient Decrease Condition") and the [curvature condition](@ref "The Curvature Condition") to quantify this *acceptable level*. The sufficient decrease condition is also referred to as the *Armijo condition* and the sufficient decrease condition and the curvature condition are referred to as the *Wolfe conditions*[^1] [nocedal2006numerical](@cite). 
+A *backtracking line search method* determines the amount to move in a given search direction by iteratively decreasing a step size ``\alpha`` until an acceptable level is reached. In `SimpleSolvers` we use the [sufficient decrease condition](@ref "The Sufficient Decrease Condition") to quantify this *acceptable level*. The sufficient decrease condition is also referred to as the *Armijo condition* and together with the [curvature condition](@ref "The Curvature Condition") it forms the *Wolfe conditions*[^1] [nocedal2006numerical](@cite). 
 
 [^1]: If we use the [strong curvature condition](@ref "Strong Curvature Condition") instead of the [standard curvature condition](@ref "Standard Curvature Condition") we conversely also say that we use the *strong Wolfe conditions*.
 
