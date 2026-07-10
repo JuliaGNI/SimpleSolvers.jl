@@ -91,9 +91,9 @@ export Backtracking,
     StrongWolfe
 
 include("linesearch/linesearch.jl")
-include("linesearch/backtracking/backtracking_condition.jl")
-include("linesearch/backtracking/curvature_condition.jl")
-include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking_condition.jl")
+include("linesearch/curvature_condition.jl")
+include("linesearch/sufficient_decrease_condition.jl")
 include("linesearch/backtracking.jl")
 include("linesearch/bisection.jl")
 include("linesearch/quadratic.jl")
