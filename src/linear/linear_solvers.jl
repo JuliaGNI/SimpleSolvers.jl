@@ -43,7 +43,7 @@ Return the cache of the [`LinearSolver`](@ref).
 julia> ls = LinearSolver(LU(), [1 2; 3 4]);
 
 julia> cache(ls)
-SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}([1.0 2.0; 3.0 4.0], [0, 0], 0)
+SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{2, 2, Float64, 4}}([1.0 2.0; 3.0 4.0], [0, 0], [0, 0], 0)
 ```
 """
 cache(ls::LinearSolver) = ls.cache

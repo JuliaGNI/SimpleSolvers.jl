@@ -86,7 +86,7 @@ linearsolver(s)
 
 # output
 
-LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], 0))
+LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], [0, 0, 0], 0))
 ```
 """
 linearsolver(solver::NonlinearSolver) = solver.linearsolver
