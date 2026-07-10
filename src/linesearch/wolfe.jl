@@ -120,8 +120,8 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     # One-slot memoisation of the merit φ and its derivative φ′: the bracketing /
     # zoom logic and the composed Wolfe conditions (`sdc`/`cc`) query the same
     # trial `α`, so caching the last evaluation avoids recomputing the (expensive)
-    # merit and derivative.  `NaN` never equals a real query, so the first call at
-    # any `α` always evaluates.
+    # merit and derivative.
+    # `NaN` never equals a real query, so the first call at any `α` always evaluates.
     φα = Ref(T(NaN)); φv = Ref(T(NaN))
     dα = Ref(T(NaN)); dv = Ref(T(NaN))
     function φ(a)
@@ -143,8 +143,7 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     end
 
     # The strong Wolfe conditions are the Armijo (sufficient decrease) condition
-    # plus the strong curvature condition, so compose them from the shared types
-    # rather than re-deriving the inequalities here.
+    # plus the strong curvature condition.
     sdc = SufficientDecreaseCondition(c₁, φ0, d0, φ)
     cc = CurvatureCondition(c₂, d0, dφ, Val(:Strong))
 
@@ -169,9 +168,8 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
         αi = min(T(2) * αi, αmax)
     end
 
-    # No point satisfying the strong Wolfe conditions was bracketed (e.g. φ keeps
-    # decreasing up to αmax).  Return the last strictly-positive trial step, which
-    # satisfies sufficient decrease; never return the zero step silently.
+    # Return the last strictly-positive trial step, which satisfies sufficient
+    # decrease; never return the zero step silently.
     config(ls).verbosity ≥ 1 && @warn "StrongWolfe: no step satisfying the strong Wolfe conditions found within (0, $(αmax)]; returning the last sufficient-decrease step α = $(αi)."
     αi
 end
