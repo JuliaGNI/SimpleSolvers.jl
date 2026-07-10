@@ -29,7 +29,9 @@ function test_various_nonlinearproblems(A::AbstractMatrix{T}, b::AbstractVector{
     x = rand(T, length(A[1, :]))
 
     @test value!(zero(x), sys₁, x, params) ≈ value!(zero(x), sys₂, x, params) ≈ F(zero(x), x, params)
-    @test jacobian!(zero(A₁), sys₂, x, params) ≈ jacobian!(zero(A₁), sys₂, x, params) ≈ jacobian!(zero(A₁), sys₂, x, params)
+    # sys₂ carries the analytic Jacobian DF!; its evaluated Jacobian must match a
+    # direct call to DF!.
+    @test jacobian!(zero(A₁), sys₂, x, params) ≈ DF!(zero(A₁), x, params)
     @test_throws "NonlinearProblem does not contain Jacobian." jacobian!(zero(A₁), sys₁, x, params)
 end
 
@@ -37,19 +39,15 @@ for (A, b) in ((A₁, b₁), (A₂, b₂))
     test_various_nonlinearproblems(A, b)
 end
 
-# Regression: the phantom eltype parameter `T` was removed from
-# `NonlinearProblem`, so it now carries exactly two type parameters (the function
-# and Jacobian types).  No field depended on `T`.
+# `NonlinearProblem` carries exactly two type parameters (the function
+# and Jacobian types).
 @testset "NonlinearProblem has no phantom eltype parameter" begin
-    # The two-parameter form (function type, Jacobian type) is now the full type;
-    # the old three-parameter `NonlinearProblem{Float64,...}` no longer exists.
     @test sys₁ isa NonlinearProblem{typeof(F),Missing}
     @test sys₂ isa NonlinearProblem{typeof(F),typeof(DF!)}
 end
 
-# Regression: the inner constructor used to force `x` and `f` to the
-# *same* concrete array type (`x::Tx, f::Tx`), so mixed container types (e.g. a
-# `Vector` and a `SubArray` with the same eltype) failed deep in construction.
+# Verify that the inner constructor allows for mixed container types (e.g. a
+# `Vector` and a `SubArray` with the same eltype).
 @testset "NonlinearProblem accepts independent x/f container types" begin
     M = [1.0 2.0; 3.0 4.0]
     xv = M[:, 1]            # Vector{Float64}

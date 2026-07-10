@@ -104,11 +104,7 @@ Options()
                 f_suctol = 4.440892098500626e-16
                 f_mindec = 0.0001
                 g_restol = 1.4901161193847656e-8
-          x_abstol_break = Inf
-          x_reltol_break = Inf
           f_abstol_break = Inf
-          f_reltol_break = Inf
-          g_restol_break = Inf
        allow_f_increases = true
           min_iterations = 0
           max_iterations = 1000
@@ -152,11 +148,7 @@ struct Options{T}
     f_suctol::T
     f_mindec::T
     g_restol::T
-    x_abstol_break::T
-    x_reltol_break::T
     f_abstol_break::T
-    f_reltol_break::T
-    g_restol_break::T
     allow_f_increases::Bool
     min_iterations::Int
     max_iterations::Int
@@ -184,11 +176,7 @@ function Options(T=Float64;
     f_suctol::Real=default_tolerance(T),
     f_mindec::Real=minimum_decrease_threshold(T),
     g_restol::Real=(√(default_tolerance(T) / 2)),
-    x_abstol_break::Real=T(Inf),
-    x_reltol_break::Real=T(Inf),
     f_abstol_break::Real=T(Inf),
-    f_reltol_break::Real=T(Inf),
-    g_restol_break::Real=T(Inf),
     allow_f_increases::Bool=ALLOW_F_INCREASES,
     min_iterations::Integer=MIN_ITERATIONS,
     max_iterations::Integer=MAX_ITERATIONS,
@@ -217,11 +205,7 @@ function Options(T=Float64;
             f_suctol,
             f_mindec,
             g_restol,
-            x_abstol_break,
-            x_reltol_break,
-            f_abstol_break,
-            f_reltol_break,
-            g_restol_break)...,
+            f_abstol_break)...,
         allow_f_increases,
         min_iterations,
         max_iterations,

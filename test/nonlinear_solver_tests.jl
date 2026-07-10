@@ -1,6 +1,7 @@
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!, BierlaireQuadratic
 using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update!, iteration_number
+using SimpleSolvers: meets_stopping_criteria, nonlinear_solver_warnings, NonlinearSolverStatus
 using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value, direction, direction!, NullParameters
 using SimpleSolvers: trust_radius, DOGLEG_Δ_INITIAL
 using Test
@@ -37,6 +38,35 @@ Random.seed!(1234)
     # The successive-change criteria are gated by the (nonzero) residual tolerance
     # g_restol, which is what rejects the stalled step above.
     @test config.g_restol > 0
+end
+
+@testset "f_abstol_break stops a diverging residual" begin
+    # `f_abstol_break` is the only divergence ("break") tolerance the solver
+    # consults: once the absolute residual rfₐ = ‖y‖ exceeds it, the iteration halts
+    # even though it has not converged (`meets_stopping_criteria` returns true and a
+    # warning is emitted).  It defaults to Inf, so it never fires unless set.
+    # (The former unused siblings `x_abstol_break`, `x_reltol_break`,
+    # `f_reltol_break` and `g_restol_break` were removed from `Options`.)
+
+    # A settled iterate (rxₛ = rfₛ = 0) with a large, non-converged residual rfₐ = 5.
+    state = NonlinearSolverState([1.0, 1.0])
+    update!(state, [1.0, 1.0], [3.0, 4.0])
+    update!(state, [1.0, 1.0], [3.0, 4.0])
+    _, rfₐ, _ = residuals(state)
+    @test rfₐ ≈ 5.0
+
+    # A loose break tolerance is not exceeded ⇒ this criterion does not stop the solve.
+    loose = Options(; f_abstol_break=10.0, verbosity=0)
+    @test !meets_stopping_criteria(state, loose)
+
+    # A tight break tolerance is exceeded ⇒ the solve stops (without convergence) ...
+    tight = Options(; f_abstol_break=1.0, verbosity=0)
+    @test meets_stopping_criteria(state, tight)
+    status = NonlinearSolverStatus(state, tight)
+    @test !SimpleSolvers.isconverged(status)
+
+    # ... and the "residual reached the maximally allowed value" warning is emitted.
+    @test_logs (:warn, r"residual rfₐ has reached the maximally allowed value") match_mode = :any nonlinear_solver_warnings(status, tight)
 end
 
 # struct NonlinearSolverTestMethod <: NonlinearSolverMethod end

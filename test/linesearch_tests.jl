@@ -133,7 +133,7 @@ end
 
 @testset "$(rpad("Quadratic Linesearch (Derivative-Based)", 80))" begin
 
-    test_linesearch(BierlaireQuadratic(), 1)
+    test_linesearch(Quadratic(), 1)
 
 end
 
