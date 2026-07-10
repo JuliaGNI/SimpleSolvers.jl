@@ -133,8 +133,12 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
 
-check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobian(s))
-print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobian(s))
+# `jacobian(s)` returns the `Jacobian` functor object, but `check_jacobian` /
+# `print_jacobian` operate on the actual Jacobian *matrix* — pass
+# `jacobianmatrix(s)` (this used to read `s.J`, which was the matrix before the
+# Jacobian-object refactor).
+check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobianmatrix(s))
+print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobianmatrix(s))
 
 # Honor the method's `refactorize` field (this covers `QuasiNewton` =
 # `Newton{false}` as well).  It used to be discarded, so e.g.

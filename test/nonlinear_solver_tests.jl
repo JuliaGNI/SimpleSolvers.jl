@@ -379,6 +379,24 @@ end
     @test_throws MethodError solver_step!(s)
 end
 
+# JET Group C regression (2026-07-10): `check_jacobian(s)` / `print_jacobian(s)`
+# forwarded to `jacobian(s)` (the `Jacobian` functor *object*) instead of the
+# Jacobian *matrix*, so both exported convenience methods threw a `MethodError`
+# on every call (`check_jacobian` has only an `::AbstractMatrix` method, and
+# `print_jacobian` had no base method at all after the Jacobian-object refactor).
+@testset "check_jacobian / print_jacobian operate on the Jacobian matrix" begin
+    f!(y, x, params) = y .= x .^ 2 .- 1
+    x = [2.0]
+    s = NewtonSolver(x, [3.0]; F=f!)
+    solve!(x, s)   # populate the cached Jacobian matrix
+    # both accept a solver and dispatch to the matrix methods without throwing
+    @test check_jacobian(s) === nothing
+    @test print_jacobian(s) === nothing
+    # the base matrix methods exist and are what the solver forms delegate to
+    @test hasmethod(check_jacobian, Tuple{AbstractMatrix})
+    @test hasmethod(print_jacobian, Tuple{AbstractMatrix})
+end
+
 # Interface-consistency fixes (verification 2026-07-10):
 # (a) the method-dispatch constructor `NonlinearSolver(method, …)` used to
 #     discard the method's `refactorize` field, so `QuasiNewton(7)`

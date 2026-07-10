@@ -47,6 +47,19 @@ function check_jacobian(J::AbstractMatrix; digits=5)
 end
 
 """
+    print_jacobian(J)
+
+Display the Jacobian `J`.
+
+!!! info
+    Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
+"""
+function print_jacobian(J::AbstractMatrix)
+    display(J)
+    println()
+end
+
+"""
     JacobianFunction <: Jacobian
 
 A `struct` that realizes a [`Jacobian`](@ref) by explicitly supplying a function taken from the [`NonlinearProblem`](@ref).

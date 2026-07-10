@@ -1145,3 +1145,52 @@ codecov checks — 15/15 pass; the PR is mergeable.
 - The PR #161 description (created before these commits) likewise predates the
   rename and the DogLeg `refactorize` feature; consider refreshing it before
   merge.
+
+---
+
+# Assistant session (2026-07-10, after c3b31c1)
+
+Small follow-up work on `bugfixes`, driven by warnings/diagnostics in the test
+suite.
+
+## Powell Picard iteration-count warning (test-only)
+
+The `"standard Newton fails and Dogleg works"` testset in
+`test/nonlinear_solver_tests.jl` began emitting a `"Solver took 1000
+iterations."` warning. Traced it to the **Picard** leg, not Newton/DogLeg:
+since Phase 5 `PicardSolver` is a proper residual-safeguarded fixed-point
+iteration, and the Powell map is not a contraction, so it now *correctly*
+refuses to converge and exhausts `max_iterations` (= `warn_iterations` = 1000),
+tripping the (verbosity-independent) warning at
+`nonlinear_solver_status.jl:208`. Before the Phase 2 residual gate it falsely
+"converged" early, so no warning. Fix was test-only: wrapped the Picard
+`solve!` in `@test_logs (:warn, r"Solver took \d+ iterations\.") match_mode =
+:any` to assert the expected warning instead of leaking it (commit `781b212`).
+
+## JET Group C fix — dead `check_jacobian` / `print_jacobian` on solvers
+
+`JET.report_package` reported 13 issues (note: `show(report)` itself crashes on
+Julia 1.13.0-rc1 via a JET/Base `with_output_color` MethodError — extract
+reports individually with `JET.print_report_message`; this is why
+`test/jet_tests.jl` is diagnostic/non-failing and try/catch-wrapped). Triage:
+- **Group A (6): Base-internal noise** — `reinterpret`/`bitcast`/`padding` on
+  abstract unions and `getproperty(::…{Union{}})` cascades. Not our code;
+  runtime-unreachable.
+- **Group B (4): forwarding-constructor union-split false positives** —
+  `HessianFunction`/`HessianAutodiff`/`LinearProblem`/`NonlinearSolverState`
+  `{T}(n::Integer,…)` constructors where JET over-widens the allocation's rank;
+  the phantom wrong-rank branch has no method but never occurs at runtime (smoke
+  tests construct all of them). Left as-is.
+- **Group C (2): genuine broken exports** — FIXED. `check_jacobian(s)` /
+  `print_jacobian(s)` (`newton_solver.jl:136-137`) forwarded to `jacobian(s)`
+  (the `Jacobian` *functor object*) instead of the Jacobian *matrix*, so both
+  threw `MethodError` on every call. `check_jacobian` has only an
+  `::AbstractMatrix` method; `print_jacobian` had **no** base method at all
+  (its `::Matrix` method was dropped in the Jacobian-object refactor; historically
+  present in `294bbe3`, where the solvers stored `s.J` as the matrix directly).
+  Fix: restored `print_jacobian(J::AbstractMatrix)` in `base/jacobian.jl` and
+  routed both wrappers through `jacobianmatrix(s)`. Added a regression testset
+  (this class of dead-export bug is what the smoke tests target but can't catch,
+  since they only *construct* types — they never *call* these methods). JET now
+  reports 11 (Groups A+B only). **Why the smoke tests missed it:** they assert
+  `X(...) isa X`, never exercise exported free functions like these accessors.
