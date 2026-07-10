@@ -30,9 +30,10 @@ struct NonlinearProblem{TF<:Callable,TJ<:Union{Callable,Missing}} <: AbstractPro
     # `x` and `f` are only used to size/type-check the problem on construction; the
     # struct stores neither, so they may be independent array types (e.g. a
     # `Vector` and a `SubArray` with the same eltype).
-function NonlinearProblem(F::Callable, J::Union{Callable,Missing}, x::AbstractArray, f::AbstractArray=x)
-    @assert eltype(x) == eltype(f) "x and f must have the same element type."
-    new{typeof(F),typeof(J)}(F, J)
+    function NonlinearProblem(F::Callable, J::Union{Callable,Missing}, x::AbstractArray, f::AbstractArray=x)
+        @assert eltype(x) == eltype(f) "x and f must have the same element type."
+        new{typeof(F),typeof(J)}(F, J)
+    end
 end
 
 function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray=x)
