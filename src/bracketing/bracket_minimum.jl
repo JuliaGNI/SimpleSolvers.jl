@@ -15,6 +15,13 @@ const DEFAULT_BRACKETING_k = 2.0
 "Default constant. Number of maximum iterations for [`bracket_minimum`](@ref), [`bracket_minimum_with_fixed_point`](@ref) and [`bracket_root`](@ref)."
 const DEFAULT_BRACKETING_nmax = 100
 
+"""
+    BracketingCriterion
+
+Abstract type for the criteria used while bracketing. It determines when a bracket has been found.
+The two concrete subtypes are [`BracketMinimumCriterion`](@ref) (used by [`bracket_minimum`](@ref)) and
+[`BracketRootCriterion`](@ref) (used by [`bracket_root`](@ref)).
+"""
 abstract type BracketingCriterion end
 
 """
