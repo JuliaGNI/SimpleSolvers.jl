@@ -60,10 +60,15 @@ struct Linesearch{T,MET<:LinesearchMethod{T},PT<:LinesearchProblem{T},OPT<:Optio
     Linesearch{T}(problem, method, config) where {T} = new{T,typeof(method),typeof(problem),typeof(config)}(problem, method, config)
 end
 
-Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); options_kwargs...) where {T} = Linesearch{T}(problem, change_precision(T, method), Options(T; options_kwargs...))
+Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); options_kwargs...) where {T} =
+    Linesearch{T}(problem, change_precision(T, method), Options(T; options_kwargs...))
 
-Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Options) where {T} = Linesearch{T}(problem, change_precision(T, method), config)
+Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Options{T}) where {T} =
+    Linesearch{T}(problem, change_precision(T, method), config)
 
+function solve(prob::LinesearchProblem{T}, method::LinesearchMethod, α, params=NullParameters(), config::Options{T}=Options(T)) where {T}
+    solve(Linesearch(prob, method, config), T(α), params)
+end
 problem(s::Linesearch) = s.problem
 config(s::Linesearch) = s.config
 method(s::Linesearch) = s.method
