@@ -118,17 +118,23 @@ function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::Nonlinear
         end
     end
 
-    # Damped fixed-point step with a residual-monotonicity safeguard.
+    # Damped fixed-point step with a residual-monotonicity safeguard: starting from the
+    # full step α = 1 — whose residual ‖F(x + d)‖ is already in `value(cache)` from the NaN
+    # loop above, so it is *not* recomputed here — halve α until the residual no longer
+    # increases (‖F(x + αd)‖ ≤ ‖F(x)‖) or the step underflows (α ≤ eps). The committed
+    # iterate is always the last one actually *evaluated* (`solution(cache)`), so its
+    # residual was checked; if the map is locally expanding the smallest trial step is taken
+    # and the convergence test correctly reports non-convergence. The loop is bounded by the
+    # step underflow (not by `max_iterations`, which caps the outer iteration).
     r₀ = l2norm(value(state))                       # ‖F(x)‖ at the current iterate
     p = T(DEFAULT_PICARD_BACKTRACKING_p)
     α = one(T)
-    for _ in 1:config(s).max_iterations
+    while !(l2norm(value(cache(s))) ≤ r₀) && α > eps(T)
+        α *= p
         compute_new_iterate!(solution(cache(s)), x, α, direction(cache(s)))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        (l2norm(value(cache(s))) ≤ r₀ || α ≤ eps(T)) && break
-        α *= p
     end
-    compute_new_iterate!(x, α, direction(cache(s)))
+    x .= solution(cache(s))
 
     x
 end

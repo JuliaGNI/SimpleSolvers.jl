@@ -321,6 +321,49 @@ end
     @test isapprox(x[1], 1.0; atol=1e-6)
 end
 
+@testset "Picard damping commits a residual-checked step (independent of max_iterations)" begin
+    # The damping loop is bounded by the step underflow, not by `max_iterations`. Even with
+    # `max_iterations = 1` (which used to bound the loop and let it commit an *unchecked*,
+    # extra-shrunk α — or here the full residual-increasing step), the committed iterate is
+    # one that was actually evaluated and does not increase the residual.
+    Fover(y, x, p) = (y .= 3 .* (x .- 1.0))   # full step from x₀ = 2 overshoots to x = -1
+    x = [2.0]
+    s = PicardSolver(x, Fover, similar(x); max_iterations=1)
+    initialize!(s, x)
+    y = similar(x)
+    Fover(y, x, NullParameters())
+    state = NonlinearSolverState(x, y)
+    initialize!(state, x, y)
+    r₀ = SimpleSolvers.l2norm(value(state))
+
+    solver_step!(x, s, state, NullParameters())
+    yₙ = similar(x)
+    Fover(yₙ, x, NullParameters())
+    @test SimpleSolvers.l2norm(yₙ) ≤ r₀       # committed step did not increase the residual
+    @test x[1] ≈ 0.5                          # α damped to 0.5 (the full step to -1 was rejected)
+end
+
+@testset "Picard reuses the full-step residual (no redundant F evaluation)" begin
+    # On a contraction the full fixed-point step already reduces the residual, so the
+    # safeguard accepts α = 1 without re-evaluating F — the α = 1 residual is reused from the
+    # NaN-safeguard evaluation. One solver_step! then evaluates F exactly twice: once in
+    # `direction!` (F(x)) and once at the full step (F(x + d)); it used to be three (a
+    # redundant F(x + d) in the damping loop). Canary against a reintroduced re-evaluation.
+    evals = Ref(0)
+    Fcos(y, x, p) = (evals[] += 1; y .= x .- cos.(x))
+    x = [0.5]
+    s = PicardSolver(x, Fcos, similar(x))
+    initialize!(s, x)
+    y = similar(x)
+    Fcos(y, x, NullParameters())
+    state = NonlinearSolverState(x, y)
+    initialize!(state, x, y)
+
+    evals[] = 0
+    solver_step!(x, s, state, NullParameters())
+    @test evals[] == 2
+end
+
 @testset "DogLeg ρ-based trust region grows on good steps and carries Δ" begin
     # With the full ρ-based radius update (N&W Alg. 4.1) the trust radius is carried
     # across outer steps and *expanded* on good steps that sit on the boundary —

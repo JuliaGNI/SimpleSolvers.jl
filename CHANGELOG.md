@@ -144,7 +144,15 @@ descent side). Plus minor cleanups: a dead assignment removed from `bisection`, 
 the `triple_point_finder` docstring corrected to state its actual (non-strict on the
 left) bracket guarantee.
 
-Second review pass (five further correctness fixes):
+Second review pass (six further correctness fixes):
+- `PicardSolver`'s residual-monotonicity damping loop no longer (a) re-evaluates `F` at the
+  full step `α = 1` — that residual is reused from the NaN safeguard, saving one `F`
+  evaluation per Picard step — nor (b) commits an *unchecked* step. The loop was bounded by
+  `config.max_iterations` and, on count-exhaustion (reachable with a small
+  `max_iterations`), applied an `α` shrunk one factor past the last evaluated step, so the
+  committed iterate's residual was never checked. It is now bounded by the step underflow
+  (`α ≤ eps`, independent of `max_iterations`) and always commits the last actually-evaluated
+  iterate, preserving the `‖F(x + αd)‖ ≤ ‖F(x)‖` guarantee.
 - `LinearSolver`/`LU` now **restrict the element type to floating-point** — real
   (`AbstractFloat`) or complex (`Complex{<:AbstractFloat}`). A non-float input (integer,
   rational, …) is rejected at construction with a clear `ArgumentError` instead of being
