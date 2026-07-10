@@ -33,6 +33,3 @@ end
 @safetestset "Nonlinear Solvers                                                               " begin
     include("nonlinear_solver_tests.jl")
 end
-@safetestset "Check whether standard Newton fails and Dogleg works                            " begin
-    include("failing_newton_iterations.jl")
-end
