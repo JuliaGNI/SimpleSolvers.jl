@@ -124,14 +124,13 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iterati
 end
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
-    # Design note: `triple_point_finder`
-    # requires the merit to be decreasing at its starting point and only searches to
-    # the right, so the bracket must start at α = 0 (where φ'(0) < 0 for a descent
-    # direction), not at the caller's α₀ — starting at α₀ errors whenever the optimal
-    # step is smaller than α₀.  Using α₀ as the triple-point step size δ likewise
-    # over-coarsens the search on stiff problems.  The step magnitude is governed by
-    # `triple_point_finder`'s tuned default, not by α₀.
-    solve(ls, zero(T), params, 1)
+    # Start triple-point bracketing at the caller's α₀ when it lies on the descent side
+    # (φ′(α₀) < 0, so the minimiser is to its right). `triple_point_finder` only searches
+    # rightward and requires a decreasing merit at its start, so otherwise fall back to
+    # the α = 0 anchor, where a descent direction is guaranteed decreasing (starting at an
+    # α₀ past the minimiser would otherwise error). See issue #164.
+    start = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
+    solve(ls, start, params, 1)
 end
 
 

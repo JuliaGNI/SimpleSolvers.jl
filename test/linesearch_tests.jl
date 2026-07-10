@@ -416,25 +416,24 @@ end
     @test solve(ls_asc, 0.7) == 0.7
 end
 
-@testset "$(rpad("bracketing line searches are α₀-robust", 80))" begin
-    # The three former TODO sites asked whether the bracketing line searches
-    # (Bisection, Quadratic, BierlaireQuadratic) should start from the caller's α₀
-    # instead of α = 0.  This is resolved as a *design decision*: they keep the
-    # α = 0 anchor (the only point where a descent direction is guaranteed
-    # decreasing, which one-sided rightward bracketing requires) with the method's
-    # tuned step scale.  The α₀ argument is accepted but does not change the anchor
-    # or scale, so the result is independent of α₀.  For f(x) = x² − 1 with the
-    # Newton direction δx = −g/2 the line minimiser is at α = 1 (x₀ + 1·δx = 0):
-    # every α₀ must converge there.
+@testset "$(rpad("bracketing line searches use the caller's α₀ (issue #164)", 80))" begin
+    # The three former TODO sites asked whether the bracketing line searches should
+    # use the caller's α₀ instead of always anchoring at α = 0.  All three now fold
+    # α₀ in while keeping the α = 0 anchor as the safe fallback (the only point where
+    # a descent direction is guaranteed decreasing, which one-sided rightward
+    # bracketing requires):
+    #   - Bisection: α₀ ≥ minimiser is used directly as the upper bracket bound,
+    #     otherwise it seeds the bracketing step scale;
+    #   - Quadratic / BierlaireQuadratic: bracketing starts at α₀ when φ′(α₀) < 0
+    #     (α₀ on the descent side, minimiser to its right), otherwise at 0.
+    # For f(x) = x² − 1 with the Newton direction δx = −g/2 the line minimiser is at
+    # α = 1 (x₀ + 1·δx = 0); every α₀ (spanning under-/over-shoot) must converge there.
     prob = make_linesearch_problem(-3.0)
     for method in (Bisection(), Quadratic(), BierlaireQuadratic())
         ls = Linesearch(prob, method; x_abstol=0.0)
-        results = [solve(ls, α₀) for α₀ in (0.25, 0.5, 1.0, 2.0, 4.0)]
-        for α in results
-            @test compute_new_iterate(-3.0, α, δx(-3.0)) ≈ 0.0 atol = ∛(2eps())
+        for α₀ in (0.25, 0.5, 1.0, 2.0, 4.0)
+            @test compute_new_iterate(-3.0, solve(ls, α₀), δx(-3.0)) ≈ 0.0 atol = ∛(2eps())
         end
-        # α₀-independent by design
-        @test all(r -> r ≈ first(results), results)
     end
 end
 

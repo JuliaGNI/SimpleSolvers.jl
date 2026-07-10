@@ -48,6 +48,18 @@ signature are not enumerated here.)
 - `Quadratic` and `BierlaireQuadratic` now validate their constructor parameters
   (like `Backtracking` and `StrongWolfe`); invalid values (e.g. `ε ≤ 0`,
   `s_reduction ≥ 1`) raise an `AssertionError` instead of being accepted.
+- The single-step bracketing line searches (`Bisection`, `Quadratic`,
+  `BierlaireQuadratic`) now fold the caller's trial step `α` into bracketing instead
+  of discarding it (issue #164). In each case the `α = 0` anchor (where a descent
+  direction is guaranteed decreasing) is kept as the safe fallback, and `α` is probed
+  via one extra derivative evaluation:
+    - `Bisection`: if `φ′(α) ≥ 0` the interval `[0, α]` is used directly as the
+      bracket, otherwise `α` seeds the bracketing step scale (clamped to
+      `[DEFAULT_BRACKETING_s, 1]`);
+    - `Quadratic`/`BierlaireQuadratic`: bracketing starts at `α` when `φ′(α) < 0`
+      (`α` on the descent side, minimiser to its right), otherwise at `0`.
+  The returned step still converges to the line minimiser, but is no longer
+  independent of `α`.
 - Internal: the (unexported) `bracket_minimum_with_fixed_point` returns the
   bracket *with the merit values at its endpoints*, `(a, b, f(a), f(b))`; both
   quadratic line searches iterate instead of recursing and no longer re-evaluate

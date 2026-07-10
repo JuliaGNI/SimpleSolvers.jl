@@ -61,7 +61,12 @@ end
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
-    α = zero(T)
+    # Start the bracketing at the caller's α₀ when it lies on the descent side
+    # (φ′(α₀) < 0, so the minimiser is to its right); otherwise keep the α = 0 anchor,
+    # where a descent direction is guaranteed decreasing. `bracket_minimum_with_fixed_point`
+    # searches rightward from a fixed left point, so that point must be on the descent
+    # side. See issue #164.
+    α = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
     s = method(ls).s
 
     for _ in 1:max_number_of_quadratic_linesearch_iterations(T)

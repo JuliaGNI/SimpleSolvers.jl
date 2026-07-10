@@ -113,12 +113,22 @@ See [`bisection`](@ref) for the implementation of the algorithm.
 # Extended help
 
 When invoked with a single trial step `α` (i.e. `solve(ls, α)`), the bracket is
-anchored at ``\\alpha = 0`` rather than at the caller's `α`: starting
-[`bracket_minimum`](@ref) at `α` is unsafe because the merit need not be
-decreasing there (the search could wander to a negative, infeasible step), and
-using `α` as the bracketing step size over-coarsens the search and destabilises
-stiff problems. The step magnitude is therefore governed by `bracket_minimum`'s
-tuned default, not by `α`.
+always *lower-anchored* at ``\\alpha = 0`` — the only point where a genuine
+descent direction is guaranteed to have a decreasing merit (``\\varphi'(0) < 0``),
+which one-sided rightward bracketing requires. The caller's `α` is then folded in
+via one extra derivative evaluation (see issue #164):
+
+- if ``\\varphi'(\\alpha) \\geq 0`` then `α` overshot the minimum and ``[0, \\alpha]``
+  already brackets a stationary point, so it is handed straight to [`bisection`](@ref)
+  with no bracketing loop;
+- otherwise ``\\alpha`` still lies on the descent side, so the bracket is grown
+  outward from ``0`` with the initial step seeded from ``|\\alpha|`` — clamped
+  between [`DEFAULT_BRACKETING_s`](@ref) and `1` so a large `α` does not
+  over-coarsen the search and a tiny `α` does not crawl — rather than the fixed
+  default step.
+
+This keeps the safe ``\\alpha = 0`` anchor while letting the caller's `α` set the
+search scale and, when it overshoots, serve directly as the upper bracket bound.
 """
 struct Bisection{T} <: LinesearchMethod{T} end
 
@@ -131,7 +141,20 @@ function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullPar
 end
 
 function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
-    solve(ls, bracket_minimum(problem(ls), params, zero(T))..., params)
+    prob = problem(ls)
+
+    # Lower-anchor the bracket at α = 0, where a genuine descent direction has a
+    # decreasing merit (φ′(0) < 0). Probe the caller's trial step α (one extra
+    # derivative evaluation) to decide how to fold it in; see the docstring and #164.
+    if α > zero(T) && derivative(prob, zero(T), params) < zero(T) && derivative(prob, α, params) ≥ zero(T)
+        # α overshot the minimum: [0, α] already brackets the stationary point.
+        return solve(ls, zero(T), α, params)
+    end
+
+    # α is on the descent side (or not a descent step / α ≤ 0): grow the bracket from
+    # 0, seeding the step scale from |α| (clamped) instead of the fixed default.
+    s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
+    solve(ls, bracket_minimum(prob, params, zero(T), s)..., params)
 end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")
