@@ -3,7 +3,7 @@ const MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS = 5
 """
     triple_point_finder(f, x)
 
-Find three points `a < b < c` s.t. `f(a) > f(b)` and `f(c) > f(b)` (so that a minimum is bracketed in `(a, c)`). This is used for performing a quadratic line search (see [`Quadratic`](@ref)).
+Find three points `a < b < c` s.t. `f(a) > f(b)` and `f(c) > f(b)` (so that a minimum is bracketed in `(a, c)`). This is used for performing a quadratic line search (see [`BierlaireQuadratic`](@ref)).
 
 # Implementation
 
