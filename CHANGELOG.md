@@ -23,10 +23,7 @@ signature are not enumerated here.)
   `NonlinearProblem` (now `NonlinearProblem{TF,TJ}`).
 - The `NonlinearProblem{T}(F, [J,] n₁, n₂)` size-only convenience constructors
   (zero callers; the `{T}`=eltype syntax is invalid after dropping the phantom `T`).
-- The dead `NonlinearPreconditioner` type, and the internal `_static` /
-  `N_STATIC_THRESHOLD` helpers and `DEFAULT_Δ_REDUCTION` constant.
-- The `pivots` field of `LUSolverCache` (its positional constructor now takes
-  `A, perms, info`).
+- The dead `NonlinearPreconditioner` type and the `DEFAULT_Δ_REDUCTION` constant.
 - The error-swallowing fallbacks `initialize!(x...)`, the 1-arg
   `solver_step!(::NonlinearSolver)`, and the generic two-arg `Gradient` functor;
   unsupported calls now raise a proper `MethodError`.
@@ -35,9 +32,6 @@ signature are not enumerated here.)
 
 - `CurvatureCondition`'s `mode` is now a positional `Val{:Standard}()`/`Val{:Strong}()`
   argument (was a runtime `mode::Symbol` keyword) — inference-stable.
-- The default `LU()` linear-solver cache for a plain matrix is now a `Matrix`, not an
-  `MMatrix` (StaticArray inputs still yield an `MMatrix`; `LU(; static=true)` still
-  forces one).
 - `DogLegSolver(x, F, y; …)` no longer accepts a `refactorize` keyword (DogLeg
   refactorizes every step, so the option was meaningless). DogLeg now uses a carried,
   ρ-based trust-region radius (N&W Alg. 4.1; new `DogLegCache` `trust_radius[!]`

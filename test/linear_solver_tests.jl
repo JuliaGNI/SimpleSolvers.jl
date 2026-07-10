@@ -124,38 +124,38 @@ end
     @test [1.0 2.0; 3.0 4.0] * x ≈ [1.0, 1.0] atol = 1e-12
 end
 
-# Regression: the cache matrix type used to be chosen by a runtime
-# `_static(A)` size threshold and a runtime `MMatrix{size(A)...}` build, so
-# `LinearSolverCache(LU(), A)` was not inferable.  The default path now dispatches
-# on whether the input is a `StaticArray`: a plain `AbstractMatrix` yields a plain
-# `Matrix` cache and a `StaticArray` yields a mutable static (`MMatrix`) cache —
-# both fully inferable.
-@testset "LU cache type is chosen by dispatch and inferable" begin
-    Adyn = [4.0 5.0 -2.0; 7.0 -1.0 2.0; 3.0 1.0 4.0]
+# The default `LU()` cache matrix type is chosen by size via `_static(A)`: a matrix
+# whose leading dimension does not exceed `N_STATIC_THRESHOLD` is stored as a mutable
+# static (`MMatrix`) cache, a larger one as a plain `Matrix`.  An explicit
+# `static=true`/`false` keyword overrides the size-based choice.
+@testset "LU cache type is chosen by the static size threshold" begin
+    @test isdefined(SimpleSolvers, :_static)
+    @test isdefined(SimpleSolvers, :N_STATIC_THRESHOLD)
 
-    cdyn = @inferred LinearSolverCache(LU(), Adyn)
-    @test cache(LinearSolver(LU(), Adyn)).A isa Matrix
-    @test cdyn.A isa Matrix
+    Asmall = [4.0 5.0 -2.0; 7.0 -1.0 2.0; 3.0 1.0 4.0]   # 3×3, ≤ threshold
+    @test SimpleSolvers._static(Asmall)
+    @test cache(LinearSolver(LU(), Asmall)).A isa MMatrix
 
-    Astat = SMatrix{3,3}(Adyn)
-    cstat = @inferred LinearSolverCache(LU(), Astat)
-    @test cstat.A isa MMatrix
+    Abig = zeros(SimpleSolvers.N_STATIC_THRESHOLD + 1, SimpleSolvers.N_STATIC_THRESHOLD + 1)
+    @test !SimpleSolvers._static(Abig)
+    @test cache(LinearSolver(LU(), Abig)).A isa Matrix
+    @test !(cache(LinearSolver(LU(), Abig)).A isa MMatrix)
 
-    # `_static` and `N_STATIC_THRESHOLD` were removed.
-    @test !isdefined(SimpleSolvers, :_static)
-    @test !isdefined(SimpleSolvers, :N_STATIC_THRESHOLD)
+    # A `StaticArray` input is stored as a mutable static (`MMatrix`) cache.
+    Astat = SMatrix{3,3}(Asmall)
+    @test cache(LinearSolver(LU(), Astat)).A isa MMatrix
 
-    # An explicit `static=true` still forces a static cache even for a plain matrix.
-    @test cache(LinearSolver(LU(; static=true), Adyn)).A isa MMatrix
-    @test cache(LinearSolver(LU(; static=false), Adyn)).A isa Matrix
+    # An explicit `static` keyword overrides the size-based choice.
+    @test cache(LinearSolver(LU(; static=true), Asmall)).A isa MMatrix
+    @test cache(LinearSolver(LU(; static=false), Asmall)).A isa Matrix
 end
 
-# The dead `pivots` field was removed from `LUSolverCache`
-# (`factorize!`/`ldiv!` use `perms`); the cache now has exactly three fields.
-@testset "LUSolverCache has no dead pivots field" begin
+# `LUSolverCache` carries a `pivots` field, populated in `factorize!` alongside
+# `perms`.
+@testset "LUSolverCache has a pivots field" begin
     ls = LinearSolver(LU(), [1.0 2.0; 3.0 4.0])
-    @test !hasproperty(cache(ls), :pivots)
-    @test fieldnames(typeof(cache(ls))) == (:A, :perms, :info)
+    @test hasproperty(cache(ls), :pivots)
+    @test fieldnames(typeof(cache(ls))) == (:A, :pivots, :perms, :info)
 end
 
 # `find_maximum_value` was renamed to `pivot_index` (internal,

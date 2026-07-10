@@ -27,7 +27,7 @@ LU(; pivot=true, static=true)
 LU{Bool}(true, true)
 ```
 
-Note that if we do not supply an explicit keyword `static`, the corresponding field is `missing` (as in the first case). In that default case the cache matrix type is chosen by dispatch: a `StaticArray` input yields a mutable static (`MMatrix`) cache, any other `AbstractMatrix` yields a plain `Matrix`. An explicit `static=true`/`false` forces the choice regardless of the input type.
+Note that if we do not supply an explicit keyword `static`, the corresponding field is `missing` (as in the first case). In that default case the cache matrix type is chosen by size via [`_static`](@ref): a matrix whose leading dimension does not exceed [`N_STATIC_THRESHOLD`](@ref) yields a mutable static (`MMatrix`) cache, a larger one yields a plain `Matrix`. An explicit `static=true`/`false` forces the choice regardless of the matrix size.
 
 # Example
 
@@ -63,11 +63,13 @@ The cache for the [`LU`](@ref) solver.
 
 # Keys
 - `A`: the factorized matrix `A`,
+- `pivots`: a vector of pivots used during factorization,
 - `perms`: a vector of permutations used during factorization,
 - `info`: stores an index regarding pivoting.
 """
 mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
+    pivots::Vector{Int}
     perms::Vector{Int}
     info::Int
 end
@@ -82,21 +84,36 @@ type that supports division (mirroring `LinearAlgebra.lutype`), so that e.g.
 """
 lucache_eltype(::Type{T}) where {T} = typeof(oneunit(T) / oneunit(T))
 
-_lucache_matrix(::Type{Tf}, A::StaticMatrix{M,N}) where {Tf,M,N} = MMatrix{M,N,Tf}(A)
-_lucache_matrix(::Type{Tf}, A::AbstractMatrix) where {Tf} = Tf.(A)
+"""
+Threshold for the maximum size a static matrix should have. See [`_static`](@ref).
+"""
+const N_STATIC_THRESHOLD = 10
+
+"""
+    _static(A)
+
+Determine whether the [`LUSolverCache`](@ref) for a default [`LU`](@ref) should store
+`A` as a mutable static matrix (`MMatrix`) or as a plain `Matrix`.  Every matrix whose
+leading dimension is smaller than or equal to [`N_STATIC_THRESHOLD`](@ref) is stored as
+an `MMatrix`.
+
+This is only consulted for the default `LU()` (i.e. `LU{Missing}`); an explicit
+`static=true`/`false` keyword overrides it.  See the examples in [`factorize!`](@ref).
+"""
+_static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD
 
 function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
-    Ā = _lucache_matrix(Tf, A)
-    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), 0)
+    Ā = _static(A) ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
     Ā = lu.static ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
-    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), 0)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearProblem) where {T,LUT<:LU}
@@ -152,7 +169,7 @@ julia> b = ones(3)
  1.0
 
 julia> solve(LU(), A, b)
-3-element Vector{Float64}:
+3-element StaticArraysCore.SizedVector{3, Float64, Vector{Float64}} with indices SOneTo(3):
  1.0
  0.5
  0.25
@@ -204,13 +221,13 @@ Here `cache(lsolver).A` stores the factorized matrix. If we call `factorize!` wi
 julia> lsolver = LinearSolver(LU(), A);
 
 julia> factorize!(lsolver).cache.A
-3×3 Matrix{Float64}:
+3×3 StaticArraysCore.MMatrix{3, 3, Float64, 9} with indices SOneTo(3)×SOneTo(3):
  13.0        17.0       19.0
   0.0769231   0.692308   1.53846
   0.384615    0.666667   2.66667
 ```
 
-For a plain (dynamically-sized) matrix, both the default `LU()` and `LU(; static=false)` allocate a plain `Matrix` cache. Pass a `StaticArray` (or `LU(; static=true)`) to obtain a mutable static (`MMatrix`) cache instead.
+Note the difference between the output types of the two refactorized matrices: the default `LU()` chose a mutable static (`MMatrix`) cache because the matrix is small (see [`_static`](@ref) and [`N_STATIC_THRESHOLD`](@ref)), whereas `LU(; static=false)` forced a plain `Matrix`.
 
 Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
@@ -232,6 +249,7 @@ function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     @inbounds for k ∈ axes(cache(lsolver).A, 1)
         kp = method(lsolver).pivot ? pivot_index(@view(cache(lsolver).A[:, k]), k) : k
 
+        cache(lsolver).pivots[k] = kp
         cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
 
         if cache(lsolver).A[kp, k] != 0
