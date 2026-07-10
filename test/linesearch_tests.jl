@@ -301,7 +301,8 @@ end
     # so the array argument was never updated.  It now mutates in place.
     x = Float32[1.0, 2.0]
     p = Float32[1.0, 1.0]
-    compute_new_iterate!(x, 1.0, p)   # α is Float64 → mixed precision path
+    # α is Float64 → mixed precision path, which emits a warning by design
+    @test_logs (:warn,) compute_new_iterate!(x, 1.0, p)
     @test x ≈ Float32[2.0, 3.0]
 end
 
