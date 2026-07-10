@@ -27,7 +27,8 @@ sdc(1.9), sdc(2.)
 
 We call the constant that pertains to the sufficient decrease condition ``c``. This is typically called ``c_1`` in the literature [nocedal2006numerical](@cite).
 See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
-""" struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
+"""
+struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
     c::T
     f₀::T
     d₀::T
