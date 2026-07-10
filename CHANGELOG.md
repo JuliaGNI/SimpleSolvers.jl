@@ -53,6 +53,11 @@ signature are not enumerated here.)
   struct with `Newton(refactorize=1)` (mirroring `DogLeg`). `QuasiNewton` is kept
   as a convenience constructor `QuasiNewton(refactorize=5) = Newton(refactorize)`.
   `Newton{true}`/`Newton{false}` no longer parse.
+- The default line search of `NewtonSolver(x, F, y; …)` changed from `Backtracking`
+  to `StrongWolfe` (the only line search that genuinely enforces the strong curvature
+  condition). Pass `linesearch=Backtracking(T)` to restore the previous behavior.
+  (`DogLegSolver` is a trust-region method and does not run the stored line search, so
+  its default is unaffected; `PicardSolver` takes no line search.)
 - `CurvatureCondition`'s `mode` is now a positional `Val{:Standard}()`/`Val{:Strong}()`
   argument (was a runtime `mode::Symbol` keyword) — inference-stable.
 - `DogLegSolver(x, F, y; …)` no longer accepts a `refactorize` keyword (DogLeg
