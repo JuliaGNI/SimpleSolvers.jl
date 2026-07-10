@@ -16,7 +16,7 @@ where ``c_2`` is the associated hyperparameter and ``d`` is the derivative at ``
 
 With the strong curvature condition we check:
 ```math
-|f'(\alpha)| < c_2 |d|.
+|f'(\alpha)| ≤ c_2 |d|.
 ```
 
 # Constructor
