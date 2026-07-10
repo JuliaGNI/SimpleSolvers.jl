@@ -22,7 +22,7 @@ function check_value_for_nonlinearsolverstatus(T::DataType)
     compare_statements(s, expected_statement)
 end
 
-function compare_statements(s::Union{NewtonSolver,QuasiNewtonSolver}, expected_statement::String)
+function compare_statements(s::NewtonSolver, expected_statement::String)
     io = IOBuffer()
     show(io, s)
     statement_we_have = String(take!(io))

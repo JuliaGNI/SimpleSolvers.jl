@@ -101,7 +101,7 @@ include("linesearch/static.jl")
 include("linesearch/wolfe.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
-    NewtonSolver, QuasiNewtonSolver, assess_convergence
+    NewtonSolver, assess_convergence
 
 export PicardSolver
 

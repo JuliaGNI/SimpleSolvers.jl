@@ -1,5 +1,7 @@
 """
-    Newton <: NonlinearSolverMethod
+    Newton(refactorize=1)
+
+The Newton (and quasi-Newton) nonlinear solver method.
 
 # Constructors
 
@@ -8,7 +10,7 @@ Newton()
 
 # output
 
-Newton{true}(1)
+Newton(1)
 ```
 
 ```jldoctest; setup = :(using SimpleSolvers)
@@ -16,31 +18,41 @@ QuasiNewton()
 
 # output
 
-QuasiNewton(5)
+Newton(5)
 ```
 !!! info
-    The *refactorize* parameter determines how often the Jacobian is refactored. This is the difference between the [`NewtonSolver`](@ref) and [`QuasiNewtonSolver`](@ref).
+    The *refactorize* parameter determines how often the [`Jacobian`](@ref) is
+    re-evaluated and refactored (see [`factorize!`](@ref)). The default
+    `refactorize = 1` refactorizes on every step (a plain Newton method), whereas
+    `refactorize > 1` reuses the factorization in between, giving a quasi-Newton
+    method (conveniently constructed via [`QuasiNewton`](@ref)).
 """
-struct Newton{QT} <: NonlinearSolverMethod
+struct Newton <: NonlinearSolverMethod
     refactorize::Int
 
-    Newton{true}(refactorize::Integer=1) = new{true}(refactorize)
-    Newton{false}(refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER) = new{false}(refactorize)
+    Newton(refactorize::Integer=1) = new(refactorize)
 end
 
-Newton() = Newton{true}()
-
 """
-The default number of iterations before the [`Jacobian`](@ref) is refactored in the [`QuasiNewtonSolver`](@ref)
+The default number of iterations before the [`Jacobian`](@ref) is refactored when
+constructing a quasi-Newton method via [`QuasiNewton`](@ref).
 """
 const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
 
-const QuasiNewton = Newton{false}
+"""
+    QuasiNewton(refactorize=$(DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER))
+
+Convenience constructor for a [`Newton`](@ref) method whose [`Jacobian`](@ref) is
+only re-evaluated and refactored every `refactorize` iterations. Equivalent to
+`Newton(refactorize)` but with a quasi-Newton default (see
+[`DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER`](@ref)).
+"""
+QuasiNewton(refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER) = Newton(refactorize)
 
 """
     NewtonSolver
 
-A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,Newton{true}}`.
+A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,Newton}`.
 
 # Constructors
 
@@ -66,19 +78,12 @@ true
 - `DF!`: an in-place function computing the Jacobian,
 - `linesearch::`[`Linesearch`](@ref)
 - `jacobian::`[`Jacobian`](@ref)
-- `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
+- `refactorize::Int`: determines after how many steps the Jacobian is re-evaluated and refactored (see [`factorize!`](@ref)). `refactorize > 1` gives a quasi-Newton method (see [`QuasiNewton`](@ref)),
 - `options_kwargs`: see [`Options`](@ref)
 """
-const NewtonSolver{T} = NonlinearSolver{T,Newton{true}}
-const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewton}
+const NewtonSolver{T} = NonlinearSolver{T,Newton}
 
-function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    config = Options(T; options_kwargs...)
-
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=Newton(), jacobian=jacobian)
-end
-
-function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
+function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
     config = Options(T; options_kwargs...)
 
     if refactorize > 1 && typeof(method(linesearch)) <: Static
@@ -86,7 +91,7 @@ function QuasiNewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linese
         refactorize = 1
     end
 
-    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=QuasiNewton(refactorize), jacobian=jacobian)
+    NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=Newton(refactorize), jacobian=jacobian)
 end
 
 """
@@ -111,11 +116,7 @@ function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; l
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
     ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
-    if refactorize == 1
-        NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
-    else
-        QuasiNewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, refactorize=refactorize, kwargs...)
-    end
+    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, refactorize=refactorize, kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
@@ -128,7 +129,7 @@ end
 
 Compute the Newton direction (for the [`NewtonSolver`](@ref)).
 """
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonSolver{T},QuasiNewtonSolver{T}}, params, iteration) where {T}
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration) where {T}
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
@@ -145,35 +146,15 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::Union{NewtonS
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
 end
 
-function direction!(s::Union{NewtonSolver,QuasiNewtonSolver}, x::AbstractVector, params, iteration)
+function direction!(s::NewtonSolver, x::AbstractVector, params, iteration)
     direction!(direction(cache(s)), x, s, params, iteration)
 end
 
-"""
-    QuasiNewtonSolver
-
-A convenience constructor for [`NewtonSolver`](@ref). Also see [`DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER`](@ref).
-
-Calling `QuasiNewtonSolver` hence produces an instance of [`NewtonSolver`](@ref) with the difference that `refactorize ≠ 1`. The [`Jacobian`](@ref) is thus not evaluated and refactored in every step.
-
-# Implementation
-It does:
-
-```julia
-QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
-```
-
-!!! warning
-    This will be deprecated in the future in the favour of using `NewtonSolver` directly and specifying the `refactorize` integer.
-"""
-QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
-
-
 # check_jacobian / print_jacobian operate on the Jacobian matrix, not the Jacobian
 # functor.  An optional leading `io` argument is forwarded through (default stdout).
-check_jacobian(io::IO, s::Union{NewtonSolver,QuasiNewtonSolver}; kwargs...) = check_jacobian(io, jacobianmatrix(s); kwargs...)
-check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}; kwargs...) = check_jacobian(jacobianmatrix(s); kwargs...)
-print_jacobian(io::IO, s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(io, jacobianmatrix(s))
-print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobianmatrix(s))
+check_jacobian(io::IO, s::NewtonSolver; kwargs...) = check_jacobian(io, jacobianmatrix(s); kwargs...)
+check_jacobian(s::NewtonSolver; kwargs...) = check_jacobian(jacobianmatrix(s); kwargs...)
+print_jacobian(io::IO, s::NewtonSolver) = print_jacobian(io, jacobianmatrix(s))
+print_jacobian(s::NewtonSolver) = print_jacobian(jacobianmatrix(s))
 
 NonlinearSolver(method::Newton, args...; kwargs...) = NewtonSolver(args...; refactorize=method.refactorize, kwargs...)

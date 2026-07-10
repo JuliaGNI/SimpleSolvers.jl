@@ -28,6 +28,11 @@ signature are not enumerated here.)
 - The `NonlinearProblem{T}(F, [J,] n₁, n₂)` size-only convenience constructors
   (zero callers; the `{T}`=eltype syntax is invalid after dropping the phantom `T`).
 - The dead `NonlinearPreconditioner` type and the `DEFAULT_Δ_REDUCTION` constant.
+- The `QuasiNewtonSolver` type alias and export (it was just
+  `NonlinearSolver{T,Newton{false}}`, i.e. the same solver as `NewtonSolver` with a
+  different `refactorize` default). There is now a single `NewtonSolver` type
+  (`NonlinearSolver{T,Newton}`); build a quasi-Newton solver with
+  `NewtonSolver(…; refactorize=n)` (or via `NonlinearSolver(QuasiNewton(n), …)`).
 - The error-swallowing fallbacks `initialize!(x...)`, the 1-arg
   `solver_step!(::NonlinearSolver)`, and the generic two-arg `Gradient` functor;
   unsupported calls now raise a proper `MethodError`.
@@ -39,9 +44,15 @@ signature are not enumerated here.)
 ### Changed (breaking)
 
 - The concrete nonlinear-solver method types were renamed to drop the `Method` suffix:
-  `NewtonMethod` → `Newton`, `QuasiNewtonMethod` → `QuasiNewton`
-  (`QuasiNewton = Newton{false}`) and `PicardMethod` → `Picard`. The old names are gone;
-  update `NonlinearSolver(NewtonMethod(), …)` call sites to `Newton()` (etc.).
+  `NewtonMethod` → `Newton`, `QuasiNewtonMethod` → `QuasiNewton` and
+  `PicardMethod` → `Picard`. The old names are gone; update
+  `NonlinearSolver(NewtonMethod(), …)` call sites to `Newton()` (etc.).
+- `Newton` no longer carries a type parameter (was `Newton{QT}` with
+  `QuasiNewton = Newton{false}`): the Newton/quasi-Newton distinction is entirely
+  captured by the existing `refactorize::Int` field, so `Newton` is now a plain
+  struct with `Newton(refactorize=1)` (mirroring `DogLeg`). `QuasiNewton` is kept
+  as a convenience constructor `QuasiNewton(refactorize=5) = Newton(refactorize)`.
+  `Newton{true}`/`Newton{false}` no longer parse.
 - `CurvatureCondition`'s `mode` is now a positional `Val{:Standard}()`/`Val{:Strong}()`
   argument (was a runtime `mode::Symbol` keyword) — inference-stable.
 - `DogLegSolver(x, F, y; …)` no longer accepts a `refactorize` keyword (DogLeg
@@ -93,7 +104,7 @@ signature are not enumerated here.)
   "no method implemented".
 - Aqua.jl, JET.jl, and construct-every-export smoke tests as CI quality gates.
 - The diagnostics helpers `check_gradient`, `check_hessian`, `check_jacobian` and
-  `print_jacobian` (and their `NewtonSolver`/`QuasiNewtonSolver` forwarders) gained an
+  `print_jacobian` (and their `NewtonSolver` forwarders) gained an
   optional leading `io::IO` argument (defaulting to `stdout`), so their output can be
   redirected or captured. `print_jacobian` now renders via `show(io, "text/plain", J)`
   instead of `display(J)`: the terminal output is identical but is now deterministic and

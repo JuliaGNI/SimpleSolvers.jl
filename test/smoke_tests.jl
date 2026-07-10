@@ -43,7 +43,6 @@ end
 
 @testset "$(rpad("Nonlinear methods", 80))" begin
     @test Newton() isa Newton
-    @test QuasiNewton == Newton{false}
     @test QuasiNewton() isa Newton
     @test QuasiNewton(5) isa Newton
     @test !isdefined(SimpleSolvers, :NewtonMethod)
@@ -52,11 +51,13 @@ end
     @test !isdefined(SimpleSolvers, :PicardMethod)
     @test DogLeg() isa DogLeg
 
-    # `Newton{true}` is constructable by name, with an
-    # optional `refactorize` argument.
-    @test Newton() === Newton{true}(1)
-    @test Newton{true}().refactorize == 1
-    @test Newton{true}(3).refactorize == 3
+    # `Newton` is constructable by name, with an
+    # optional `refactorize` argument; `QuasiNewton` is a convenience
+    # constructor for a `Newton` with a quasi-Newton `refactorize` default.
+    @test Newton() === Newton(1)
+    @test Newton().refactorize == 1
+    @test Newton(3).refactorize == 3
+    @test QuasiNewton() === Newton(5)
     @test QuasiNewton().refactorize == 5
 
     @test DogLeg().refactorize == 1
@@ -127,7 +128,7 @@ end
 
     yr = zero(xvec)
     @test NewtonSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
-    @test QuasiNewtonSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
+    @test NewtonSolver(xvec, yr; F=F_vec!, refactorize=5) isa NonlinearSolver
     @test PicardSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
     @test DogLegSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
 
