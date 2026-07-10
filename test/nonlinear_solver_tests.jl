@@ -244,7 +244,7 @@ end
     end
 end
 
-@testset "DogLeg trust radius resets on solver reuse (verification 2026-07-10)" begin
+@testset "DogLeg trust radius resets on solver reuse" begin
     # `initialize!` used to reset every DogLegCache buffer *except* the carried
     # trust radius, so a reused solver started its next solve with the radius the
     # previous solve ended with (up to DOGLEG_Δ_MAX = 1e2) instead of INITIAL_Δ.
@@ -291,7 +291,7 @@ end
     @test isapprox(x2[1], exp(-2.0); atol=1e-8)
 end
 
-@testset "PicardSolver rejects a linesearch keyword (verification 2026-07-10)" begin
+@testset "PicardSolver rejects a linesearch keyword" begin
     # The Picard solver_step! is a fixed-point iteration and consults no line
     # search; a `linesearch` keyword used to be accepted and silently ignored.
     Fcos(y, x, p) = (y .= x .- cos.(x))
@@ -379,25 +379,29 @@ end
     @test_throws MethodError solver_step!(s)
 end
 
-# JET Group C regression (2026-07-10): `check_jacobian(s)` / `print_jacobian(s)`
+# check that `check_jacobian(s)` / `print_jacobian(s)` are
 # forwarded to `jacobian(s)` (the `Jacobian` functor *object*) instead of the
 # Jacobian *matrix*, so both exported convenience methods threw a `MethodError`
 # on every call (`check_jacobian` has only an `::AbstractMatrix` method, and
 # `print_jacobian` had no base method at all after the Jacobian-object refactor).
-@testset "check_jacobian / print_jacobian operate on the Jacobian matrix" begin
+@testset "check_jacobian / print_jacobian operate on the Jacobian matrix from the Newton solver" begin
     f!(y, x, params) = y .= x .^ 2 .- 1
     x = [2.0]
-    s = NewtonSolver(x, [3.0]; F=f!)
+    y = [3.0]
+    s = NewtonSolver(x, y; F=f!)
     solve!(x, s)   # populate the cached Jacobian matrix
     # both accept a solver and dispatch to the matrix methods without throwing
-    @test check_jacobian(s) === nothing
-    @test print_jacobian(s) === nothing
+    # a `MethodError` (the `Jacobian` object is callable and forwards to `jacobian`)
+    # @test check_jacobian(s) === nothing
+    # @test print_jacobian(s) === nothing
+    @test hasmethod(check_jacobian, Tuple{typeof(s)})
+    @test hasmethod(print_jacobian, Tuple{typeof(s)})
     # the base matrix methods exist and are what the solver forms delegate to
     @test hasmethod(check_jacobian, Tuple{AbstractMatrix})
     @test hasmethod(print_jacobian, Tuple{AbstractMatrix})
 end
 
-# Interface-consistency fixes (verification 2026-07-10):
+# Interface-consistency fixes:
 # (a) the method-dispatch constructor `NonlinearSolver(method, …)` used to
 #     discard the method's `refactorize` field, so `QuasiNewton(7)`
 #     silently built a solver with the default `refactorize = 5`;

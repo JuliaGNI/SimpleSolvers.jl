@@ -404,7 +404,7 @@ end
     end
 end
 
-# Interface-consistency fix (verification 2026-07-10): Quadratic and
+# Interface-consistency fix: Quadratic and
 # BierlaireQuadratic now validate their constructor parameters, like
 # Backtracking and StrongWolfe always did.
 @testset "$(rpad("Quadratic/BierlaireQuadratic constructor validation", 80))" begin
@@ -417,7 +417,7 @@ end
     @test BierlaireQuadratic() isa BierlaireQuadratic    # defaults are valid
 end
 
-# Additional fixes (2026-07-10): `bracket_minimum_with_fixed_point` now returns the
+# Check that `bracket_minimum_with_fixed_point` returns the
 # merit values at the bracket endpoints alongside the bracket — they are computed
 # during bracketing anyway, so the Quadratic line search no longer re-evaluates
 # them.  Both quadratic line searches iterate instead of recursing, which for

@@ -193,7 +193,7 @@ end
     @test_throws ErrorException alloc_x(1)
 end
 
-# Interface-consistency fixes (verification 2026-07-10):
+# Verify interface-consistency fixes:
 # (a) `LinearProblem(A, y)` now stores copies of its arguments (it used to
 #     NaN-initialize both, so a freshly constructed problem was unusable without
 #     an extra `update!`);
