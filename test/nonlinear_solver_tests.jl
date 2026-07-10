@@ -377,6 +377,26 @@ end
     @test isapprox(x2[1], exp(-2.0); atol=1e-8)
 end
 
+@testset "DogLeg falls back to steepest descent on a singular Jacobian" begin
+    # F(x) = [x₁²; x₂] has Jacobian [2x₁ 0; 0 1], which is singular whenever x₁ = 0.
+    # Newton cannot factorize it (SingularException); DogLeg must fall back to a
+    # steepest-descent (Cauchy) step instead of letting `ldiv!` throw.  From x₀ = [0,1]
+    # the Cauchy step [0,-1] lands exactly on the root [0,0], so the solve succeeds.
+    Fsing(y, x, p) = (y[1] = x[1]^2; y[2] = x[2]; y)
+    x0 = [0.0, 1.0]                          # Jacobian singular at the start
+
+    nlN = NonlinearSolver(Newton(), copy(x0), zero(x0); F=Fsing, verbosity=0)
+    @test_throws SingularException solve!(copy(x0), nlN)
+
+    xD = copy(x0)
+    sD = DogLegSolver(xD, Fsing, zero(x0); verbosity=0)
+    solve!(xD, sD)                           # must not throw
+    yD = zero(x0)
+    Fsing(yD, xD, NullParameters())
+    @test SimpleSolvers.l2norm(yD) < 1.0     # residual reduced from ‖F(x₀)‖ = 1
+    @test isapprox(xD, [0.0, 0.0]; atol=1e-8)
+end
+
 @testset "Newton solver_step! damps the direction when the trial value is NaN" begin
     # From x₀ = 1 the full Newton step for F(x) = log(x) + 2 is d = -2, landing at
     # x = -1 where F is NaN (a domain-restricted log, as from NaNMath.log or a table

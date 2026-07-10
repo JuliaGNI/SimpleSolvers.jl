@@ -231,3 +231,20 @@ end
     @test solve!(x, lsolver, b) ≈ xref
     @test solve(lsolver, b) ≈ xref
 end
+
+# Regression: the bare-RHS forms `solve!(x, lsolver, b)` / `solve(lsolver, b)` solve
+# against the *stored* factorization and must not be usable before `factorize!`.  An
+# unfactorized cache has `perms` all zero, so `ldiv!` would gather `b[perms[i]] = b[0]`
+# and silently return garbage; it now throws instead.
+@testset "bare-RHS solve on an unfactorized LinearSolver errors" begin
+    A = [4.0 1.0; 1.0 3.0]
+    b = [1.0, 2.0]
+    lsolver = LinearSolver(LU(), A)          # constructed but not yet factorized
+    x = zeros(2)
+    @test_throws ArgumentError ldiv!(x, lsolver, b)
+    @test_throws ArgumentError solve!(x, lsolver, b)
+    @test_throws ArgumentError solve(lsolver, b)
+    # after factorizing, the same calls work
+    factorize!(lsolver, A)
+    @test solve!(x, lsolver, b) ≈ A \ b
+end

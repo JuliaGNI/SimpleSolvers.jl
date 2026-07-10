@@ -125,6 +125,19 @@ end
     @test Backtracking() isa Backtracking                       # defaults are valid
 end
 
+@testset "$(rpad("Backtracking exhaustion returns the last nonzero step", 80))" begin
+    # A strictly increasing merit with positive slope at 0 can never satisfy the
+    # sufficient-decrease condition, so the search exhausts.  It must return the last
+    # (nonzero) trial step, not the α₀ = 0 anchor: returning 0 would freeze the outer
+    # solver iterate (x .+= 0 .* d) and spin it to max_iterations.  The loop also stops
+    # once α underflows to eps instead of shrinking to a denormal over all iterations.
+    prob = LinesearchProblem{Float64}((α, _) -> α + 1.0, (α, _) -> 1.0)  # φ'(0) = 1 > 0
+    ls = Linesearch(prob, Backtracking(); verbosity=0)
+    α = solve(ls, 1.0)
+    @test α > zero(α)          # nonzero step, not the α₀ = 0 anchor
+    @test α ≤ eps(1.0)         # shrunk down to the negligible-step floor, no further
+end
+
 @testset "$(rpad("Quadratic Linesearch (Bierlaire)", 80))" begin
 
     test_linesearch(BierlaireQuadratic(), 1)

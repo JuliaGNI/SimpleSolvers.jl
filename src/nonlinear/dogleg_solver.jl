@@ -94,9 +94,10 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration
         @view(matrix(linearproblem(s))[idxs]) .+= config(s).regularization_factor
         factorize!(linearsolver(s), linearproblem(s))
     end
-    ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
 
-    # the steepest descent direction
+    # the steepest descent direction (depends only on J and rhs, not on the
+    # factorization, so it is computed *before* the Newton solve — this also makes it
+    # available as the singular-Jacobian fallback below)
     # direction₁ ← Jᵀ·rhs = -JᵀF; fac₁ = ‖JᵀF‖²
     mul!(direction₁(cache(s)), transpose(jacobianmatrix(s)), rhs(linearproblem(s)))
     fac₁ = L2norm(direction₁(cache(s)))
@@ -112,6 +113,20 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration
         fac₂ = direction₁(cache(s)) ⋅ cache(s).y₃
         direction₁(cache(s)) .*= fac₁
         direction₁(cache(s)) ./= fac₂
+    end
+
+    # the Newton direction. A singular Jacobian factorization (e.g. an ill-conditioned
+    # iterate with the default `regularization_factor = 0`) leaves the Newton leg
+    # unavailable — `ldiv!` would throw a `SingularException`. Fall back to a pure
+    # steepest-descent step by reusing d₁ as d₂: the dogleg interpolation then
+    # degenerates to the Cauchy step (‖d₂‖ = ‖d₁‖ means `dogleg_direction!` never
+    # reaches its interpolation branch), which is exactly the graceful degradation the
+    # dogleg method exists to provide.
+    if cache(linearsolver(s)).info == 0
+        ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
+    else
+        verbosity(config(s)) ≥ 2 && @warn "DogLeg: singular Jacobian; falling back to a steepest-descent (Cauchy) step."
+        direction₂(cache(s)) .= direction₁(cache(s))
     end
 
     direction₁(cache(s)), direction₂(cache(s))

@@ -140,6 +140,24 @@ descent side). Plus minor cleanups: a dead assignment removed from `bisection`, 
 the `triple_point_finder` docstring corrected to state its actual (non-strict on the
 left) bracket guarantee.
 
+Second review pass (three further correctness fixes):
+- `Backtracking` no longer returns `α = 0` when the sufficient-decrease condition
+  cannot be met within `max_iterations`. Returning the `α₀ = 0` anchor froze the outer
+  iterate (`x .+= 0 .* d`) and spun the solve to `max_iterations`; it now returns the
+  last trial step actually evaluated and stops shrinking once `α ≤ eps` instead of
+  driving `α` to a denormal over all iterations.
+- The custom LU solver's bare-RHS forms `solve!(x, lsolver, b)` / `solve(lsolver, b)`
+  (which solve against the *stored* factorization) now throw an `ArgumentError` when the
+  solver has never been factorized, instead of silently returning garbage (`ldiv!` would
+  gather `b[perms[i]] = b[0]` on the zero-initialized `perms`).
+- The `DogLegSolver` degrades gracefully on a singular Jacobian: with the default
+  `regularization_factor = 0`, a singular factorization used to make the Newton-leg
+  `ldiv!` throw a `SingularException` and abort the whole solve *before* the
+  steepest-descent leg was formed. The steepest-descent (Cauchy) direction is now
+  computed first and reused as the Newton leg when the factorization is singular, so the
+  dogleg step degenerates to the Cauchy step — the graceful degradation the method exists
+  to provide. (A plain `Newton`/`QuasiNewton` solve still throws, having no fallback.)
+
 ### Internal
 
 - Source-file reorganization (no API or behavioral change): the solver-method type

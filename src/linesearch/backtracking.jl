@@ -108,20 +108,23 @@ function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters())
     # note that we set pₖ ← 0 here as this is the descent direction for the linesearch problem.
     sdc = SufficientDecreaseCondition(method(ls).c₁, y₀, d₀, f)
 
-    αₐ = α₀  # last α satisfying sufficient decrease (α₀ = 0 trivially does)
+    αₐ = α  # last trial step that was actually evaluated
     satisfied = false
     for i in 1:config(ls).max_iterations
+        αₐ = α
         if sdc(α)
-            αₐ = α
             satisfied = true
             break
-        else
-            α *= method(ls).p
         end
+        # Stop shrinking once the step is negligible: further iterations would only
+        # drive α down to a denormal without changing the outcome, and returning the
+        # α₀ = 0 anchor here would freeze the outer iterate (x .+= 0 .* d).
+        α ≤ eps(one(α)) && break
+        α *= method(ls).p
     end
 
     if !satisfied
-        config(ls).verbosity ≥ 1 && @warn "Backtracking line search did not satisfy the sufficient decrease condition within $(config(ls).max_iterations) iterations. Returning α = $(αₐ)."
+        config(ls).verbosity ≥ 1 && @warn "Backtracking line search did not satisfy the sufficient decrease condition within $(config(ls).max_iterations) iterations. Returning the last trial step α = $(αₐ)."
         return αₐ
     end
 

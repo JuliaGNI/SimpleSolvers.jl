@@ -345,6 +345,15 @@ function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT},
 
     Base.require_one_based_indexing(x, b, cache(lsolver).A)
 
+    # Guard against solving with a cache that was never factorized (e.g. the bare-RHS
+    # `solve!(x, lsolver, b)` / `solve(lsolver, b)` forms, which do *not* call
+    # `factorize!`). `factorize!` is what fills `perms` with a genuine permutation
+    # (every entry ≥ 1); at construction `perms` is all zeros, so `perms[1] == 0`
+    # reliably flags an unfactorized cache. Without this guard the gather below would
+    # read `b[perms[i]] = b[0]` and silently return garbage.
+    (isempty(cache(lsolver).perms) || iszero(cache(lsolver).perms[1])) &&
+        throw(ArgumentError("LinearSolver has not been factorized; call factorize! before ldiv!/solve!."))
+
     cache(lsolver).info == 0 || throw(SingularException(cache(lsolver).info))
 
     n = size(cache(lsolver).A, 1)
