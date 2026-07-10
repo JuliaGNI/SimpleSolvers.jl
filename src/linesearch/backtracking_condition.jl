@@ -5,7 +5,7 @@ Abstract type comprising the conditions that are used for checking step sizes fo
 """
 abstract type BacktrackingCondition{T} end
 
-(bc::BacktrackingCondition)(xₖ, αₖ, gradₖ) = error("Condition $(BCT) not defined for this combination of input arguments.")
+(bc::BacktrackingCondition)(xₖ, αₖ, gradₖ) = error("Condition $(typeof(bc)) not defined for this combination of input arguments.")
 
 """
     compute_new_iterate!(xₖ₊₁, xₖ, αₖ, pₖ)
@@ -40,8 +40,8 @@ function compute_new_iterate!(xₖ::VT, αₖ::T, pₖ::TVT) where {T<:Number,VT
 end
 
 function compute_new_iterate!(xₖ::VT, αₖ::T₁, pₖ::TVT) where {T₁<:Number,T<:Number,VT<:Union{T,AbstractArray{T}},TVT<:Union{T,AbstractArray{T}}}
-    @warn "Your are computing with mixed precisions ($(T₁) and $(T)). This is probably not on purpose."
-    compute_new_iterate(xₖ, T(αₖ), pₖ)
+    @warn "You are computing with mixed precisions ($(T₁) and $(T)). This is probably not on purpose."
+    compute_new_iterate!(xₖ, T(αₖ), pₖ)
 end
 
 function compute_new_iterate(xₖ::VT, αₖ::T, pₖ::TVT) where {T<:Number,VT<:Union{T,AbstractArray{T}},TVT<:Union{T,AbstractArray{T}}}

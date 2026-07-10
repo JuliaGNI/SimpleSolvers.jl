@@ -10,7 +10,7 @@ The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 
 ```jldoctest; setup = :(using SimpleSolvers)
 julia> state = NonlinearSolverState(zeros(3))
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN])
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], NaN)
 ```
 """
 mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T}} <: AbstractSolverState
@@ -20,6 +20,9 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
     x̄::XT
     y::YT
     ȳ::YT
+
+    r₀::T   # the initial residual ‖F(x₀)‖, set by `initialize!`; reference scale
+            # for the relative-residual convergence test (`NaN` until initialized)
 
     function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=X) where {T}
         x = zero(X)
@@ -32,7 +35,7 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
         y .= T(NaN)
         ȳ .= T(NaN)
 
-        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ)
+        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ, T(NaN))
     end
 end
 
@@ -42,6 +45,15 @@ value(state::NonlinearSolverState) = state.y
 
 previoussolution(state::NonlinearSolverState) = state.x̄
 previousvalue(state::NonlinearSolverState) = state.ȳ
+
+"""
+    initial_residual(state)
+
+Return the initial residual ‖F(x₀)‖ recorded by [`initialize!`](@ref) (`NaN` if the
+state has not been initialized). This is the reference scale for the relative-residual
+convergence test in [`assess_convergence`](@ref).
+"""
+initial_residual(state::NonlinearSolverState) = state.r₀
 
 """
     increase_iteration_number!(state)
@@ -55,8 +67,6 @@ end
 function NonlinearSolverState{T}(n::Integer, m::Integer=n) where {T}
     x = zeros(T, n)
     y = zeros(T, m)
-    x .= T(NaN)
-    y .= T(NaN)
     NonlinearSolverState(x, y)
 end
 
@@ -64,6 +74,7 @@ function initialize!(state::NonlinearSolverState{T}, x::AbstractVector{T}, y::Ab
     state.iterations = 0
     state.x .= x
     state.y .= y
+    state.r₀ = l2norm(y)   # record the initial residual as the relative-convergence scale
     state.x̄ .= T(NaN)
     state.ȳ .= T(NaN)
 end
@@ -88,10 +99,10 @@ julia> y = zero(x); f(y, x, NullParameters())
  0.06120871905481365
 
 julia> state = NonlinearSolverState(x)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN], [NaN], [NaN], [NaN])
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN], [NaN], [NaN], [NaN], NaN)
 
 julia> update!(state, x, y)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.25], [NaN], [0.06120871905481365], [NaN])
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.25], [NaN], [0.06120871905481365], [NaN], NaN)
 
 julia> x = ones(1) / 2
 1-element Vector{Float64}:
@@ -102,7 +113,7 @@ julia> f(y, x, NullParameters())
  0.0
 
 julia> update!(state, x, y)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.5], [0.25], [0.0], [0.06120871905481365])
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.5], [0.25], [0.0], [0.06120871905481365], NaN)
 ```
 
 The [`NonlinearSolverState`](@ref) stores the previous solution, the previous value, the current solution and the current value.

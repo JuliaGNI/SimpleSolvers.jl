@@ -12,11 +12,16 @@ Derived from [`AbstractNonlinearSolverCache`](@ref). Used in [`NonlinearSolver`]
 
 # Keys
 
-- `x`: the next iterate (or *guess* thereof). The *guess* is computed when calling the functions created by [`linesearch_problem`](@ref),
+- `x`: the next iterate (or *guess* thereof),
 - `Δx`: search direction. This is updated when calling [`solver_step!`](@ref) via the [`LinearSolver`](@ref) stored in the [`NewtonSolver`](@ref),
 - `rhs`: the right-hand-side (this can be accessed by calling [`rhs`](@ref)),
-- `y`: the problem evaluated at `x`. This is used in [`linesearch_problem`](@ref),
-- `j::AbstractMatrix`: the Jacobian evaluated at `x`. This is used in [`linesearch_problem`](@ref). Note that this is not of type [`Jacobian`](@ref)!
+- `y`: the problem evaluated at `x`,
+- `j::AbstractMatrix`: the Jacobian evaluated at `x`. Note that this is not of type [`Jacobian`](@ref)!
+
+!!! info
+    The line search reads the current search direction `Δx` from this cache but
+    writes its trial iterate, residual and Jacobian into its own private buffers
+    (see [`linesearch_problem`](@ref)); it does **not** overwrite `x`, `y` or `j`.
 
 """
 struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNonlinearSolverCache{T}
@@ -36,6 +41,12 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
     end
 end
 
+"""
+    direction(cache)
+
+Return the direction (i.e. the step vector ``\\Delta{}x``) stored in a solver
+cache such as [`NonlinearSolverCache`](@ref) or [`DogLegCache`](@ref).
+"""
 direction(cache::NonlinearSolverCache) = cache.Δx
 jacobianmatrix(cache::NonlinearSolverCache) = cache.j
 solution(cache::NonlinearSolverCache) = cache.x

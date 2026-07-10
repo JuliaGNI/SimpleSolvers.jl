@@ -15,12 +15,19 @@ const DEFAULT_BRACKETING_k = 2.0
 "Default constant. Number of maximum iterations for [`bracket_minimum`](@ref), [`bracket_minimum_with_fixed_point`](@ref) and [`bracket_root`](@ref)."
 const DEFAULT_BRACKETING_nmax = 100
 
+"""
+    BracketingCriterion
+
+Abstract type for the criteria used while bracketing. It determines when a bracket has been found.
+The two concrete subtypes are [`BracketMinimumCriterion`](@ref) (used by [`bracket_minimum`](@ref)) and
+[`BracketRootCriterion`](@ref) (used by [`bracket_root`](@ref)).
+"""
 abstract type BracketingCriterion end
 
 """
     BracketMinimumCriterion <: BracketingCriterion
 
-The criterion used for [`bracket_minimum`](@ref). It checks whether ``y(c)`` is bigger than ``y(b)`` (i.e. checks whether we are passed the minimum).
+The criterion used for [`bracket_minimum`](@ref). It checks whether ``y(c)`` is greater than or equal to ``y(b)`` (i.e. checks whether we are passed the minimum).
 Compare this with [`BracketRootCriterion`](@ref).
 
 # Functor
@@ -65,15 +72,28 @@ struct BracketRootCriterion <: BracketingCriterion end
 (::BracketMinimumCriterion)(yb::T, yc::T) where {T<:Number} = yc ≥ yb
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
 
+"""
+    bracket(f, x, bc, s, k, nmax)
+
+Grow a bracket outward from `x` (in steps scaled by `k`, starting from `s`) until
+the [`BracketingCriterion`](@ref) `bc` is satisfied. Used by [`bracket_minimum`](@ref)
+and [`bracket_root`](@ref).
+
+# Extended help
+
+Before entering the main loop we check whether the criterion is already satisfied
+just to the *left* of `a` (at `a - s`). This early exit is only valid for the
+[`BracketRootCriterion`](@ref), where it corresponds to a sign change in
+`(a - s, b)`. For the [`BracketMinimumCriterion`](@ref) it would instead bracket a
+maximum rather than a minimum, so it is deliberately skipped.
+"""
 function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
-    ya = f(a)
 
     b = a + s
     yb = f(b)
 
-    # check if condition is already satisfied
-    if bc(f(a - s), yb)
+    if bc isa BracketRootCriterion && bc(f(a - s), yb)
         return (a - s, b)
     end
 
@@ -85,7 +105,6 @@ function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRAC
             return interval
         end
         a = b
-        ya = yb
         b = c
         yb = yc
         s *= k
@@ -130,7 +149,7 @@ The algorithm then successively computes:
 c \gets b + s,
 ```
 
-and then checks whether ``f(c) > f(b)`` (also see [`BracketMinimumCriterion`](@ref)). If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
+and then checks whether ``f(c) \geq f(b)`` (also see [`BracketMinimumCriterion`](@ref)). If this is true it returns ``(a, c)`` or ``(c, a)``, depending on whether ``a<c`` or ``c<a`` respectively.
 If this is not satisfied ``a,`` ``b`` and ``s`` are updated:
 ```math
 \begin{aligned}
@@ -190,7 +209,18 @@ The function `bracket_minimum_with_fixed_point` is used as a starting point for 
 ```math
 p_2 = \frac{f(b) - f(a) - f'(a)b}{b^2},
 ```
-where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. We check that ``f(b) > f(a)`` in order to ensure that the curvature of the polynomial (i.e. ``p_2`` is positive) and we have a minimum.
+where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. The right end `b` is
+grown outward (with the left end `a` held fixed) until `f` stops decreasing, i.e.
+until the *turning point* `f(b) ≥ f(b_\mathrm{prev})` is reached, so that a minimum
+is bracketed in `(a, b)`. (The earlier variant compared against the fixed anchor
+`f(a)` instead, which failed to bracket a minimum whose right tail stays below
+`f(a)`.) The [`Quadratic`](@ref) caller guards the fitted curvature (`p_2 ≤ 0`
+falls back to a bisection step), so `f(b) > f(a)` is no longer required.
+
+Returns the bracket *together with the function values at its endpoints*,
+`(a, b, f(a), f(b))` with `a < b`.  The values are already computed during
+bracketing, so the caller (the [`Quadratic`](@ref) line search) does not have
+to re-evaluate `f` at the endpoints.
 """
 function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
@@ -208,13 +238,22 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
 
     bc = BracketMinimumCriterion()
 
+    # Track the previous point so we can stop at the *turning point* (where `f`
+    # stops decreasing) rather than only when `f` climbs back above the fixed
+    # anchor `f(a)`.  A minimum whose right tail stays below `f(a)` (e.g. a merit
+    # that dips and then only asymptotes back up) would otherwise never satisfy
+    # `f(b) ≥ f(a)` and the routine would exhaust `nmax` and error, even though a
+    # minimum was plainly bracketed.  This makes the fixed-point bracketer detect
+    # the minimum just like the moving-anchor `bracket_minimum`.
+    ybprev = yb
     for _ in 1:nmax
         b = b + s
         yb = f(b)
-        if bc(ya, yb)
-            interval = a < b ? (a, b) : (b, a)
-            return interval
+        if bc(ybprev, yb)
+            # return the endpoints (sorted) along with their function values
+            return a < b ? (a, b, ya, yb) : (b, a, yb, ya)
         end
+        ybprev = yb
         s *= k
     end
 
@@ -248,5 +287,5 @@ function bracket_root(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DE
 end
 
 function bracket_root(prob::LinesearchProblem{T}, params, x::T; kwargs...) where {T<:Number}
-    bracket_root(x -> value(prob, x, params), x -> derivative(prob, x, params), x; kwargs...)
+    bracket_root(β -> value(prob, β, params), x; kwargs...)
 end

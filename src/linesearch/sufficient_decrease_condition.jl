@@ -1,3 +1,6 @@
+# The value fields carry a `₀` subscript (value/derivative at the base point
+# α = 0) so they do not differ from the callable `F` only by letter case
+# (a former `f` vs `F` naming was an easy silent typo).
 @doc raw"""
     SufficientDecreaseCondition <: BacktrackingCondition
 
@@ -5,7 +8,7 @@ The condition that determines if the change induced by ``\alpha_k`` is *big enou
 
 # Example
 
-```julia; setup = :(using SimpleSolvers; using SimpleSolvers: SufficientDecreaseCondition)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: SufficientDecreaseCondition)
 c = SimpleSolvers.DEFAULT_WOLFE_c₁
 f(x) = (x - 1.) ^ 2
 xₖ = 0.
@@ -27,19 +30,19 @@ See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
 """
 struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
     c::T
-    f::T
-    d::T
+    f₀::T
+    d₀::T
 
     F::FT
 
-    function SufficientDecreaseCondition(c::Tc, f::T, d::T, F::FT) where {Tc<:Number,T<:Number,FT<:Callable}
+    function SufficientDecreaseCondition(c::Tc, f₀::T, d₀::T, F::FT) where {Tc<:Number,T<:Number,FT<:Callable}
         @assert T == Tc "You are computing with mixed precision ($(T) and $(Tc)). This is probably not intended (and not supported)."
-        @assert !isnan(f) "f is NaN"
-        @assert !isnan(d) "d is NaN"
-        new{T,FT}(c, f, d, F)
+        @assert !isnan(f₀) "f₀ is NaN"
+        @assert !isnan(d₀) "d₀ is NaN"
+        new{T,FT}(c, f₀, d₀, F)
     end
 end
 
 function (sdc::SufficientDecreaseCondition{T})(α::T) where {T}
-    sdc.F(α) ≤ sdc.f + sdc.c * α * sdc.d
+    sdc.F(α) ≤ sdc.f₀ + sdc.c * α * sdc.d₀
 end

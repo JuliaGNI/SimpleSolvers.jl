@@ -13,7 +13,7 @@ A line search method has the goal of minimizing a [`LinesearchProblem`](@ref) ap
     ```
     where ``g_{x_k}:T_{x_k}\mathcal{M}\times{}T_{x_k}\mathcal{M}\to\mathbb{R}`` is a Riemannian metric.
 
-A line search is therefore a *sub-optimization problem* in an optimizer (or solver) in which we want to find an ``\alpha`` that minimizes:
+A line search is therefore a *sub-optimization problem* in an optimizer or solver in which we want to find an ``\alpha`` that minimizes:
 
 ```math
     \min_\alpha{}f^\mathrm{ls}(\alpha) = \min_\alpha{}f(\mathcal{R}_{x_k}(\alpha{}p_k)),
@@ -26,7 +26,7 @@ After having (i) found the search direction ``p_k``, (ii) defined the linesearch
     x_{k+1} \gets \mathcal{R}_{x_k}(\alpha_k{}p_k).
 ```
 
-In practice we will not be able to find the ideal ``\alpha`` at every step, but only an approximation thereof. Examples of line search algorithms that aim at finding this ``\alpha`` are the [static line search](@ref "Static Line Search") and the [backtracking line search](@ref "Backtracking Line Search").
+In practice we will not be able to find the ideal ``\alpha`` at every step, but only an approximation thereof. Examples of line search algorithms that aim at finding this ``\alpha`` are the [static line search](@ref "Static Line Search"), the [backtracking line search](@ref "Backtracking Line Search") and the [strong Wolfe line search](@ref "Strong Wolfe Line Search").
 
 ## Line Search Problem
 

@@ -100,15 +100,10 @@ Options()
                 x_reltol = 4.440892098500626e-16
                 x_suctol = 4.440892098500626e-16
                 f_abstol = 0.0
-                f_reltol = 4.440892098500626e-16
+                f_reltol = 1.4901161193847656e-8
                 f_suctol = 4.440892098500626e-16
                 f_mindec = 0.0001
-                g_restol = 1.4901161193847656e-8
-          x_abstol_break = Inf
-          x_reltol_break = Inf
           f_abstol_break = Inf
-          f_reltol_break = Inf
-          g_restol_break = Inf
        allow_f_increases = true
           min_iterations = 0
           max_iterations = 1000
@@ -121,11 +116,28 @@ Options()
       nan_max_iterations = 10
               nan_factor = 0.5
    regularization_factor = 0.0
+   dogleg_radius_initial = 1.0
+    dogleg_radius_shrink = 0.25
+    dogleg_radius_expand = 2.0
+       dogleg_radius_max = 100.0
 
 ```
 
 !!! info
-    For the first few constants (`x_abstol` to `g_restol`) the default constructor uses the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
+    The tolerance constants (`x_abstol` through `f_suctol`) default to values derived from
+    [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref), except `f_reltol`, which
+    defaults to `√eps(T)`: it is the relative residual tolerance used by
+    [`assess_convergence`](@ref) — the residual is small when `rfₐ ≤ f_abstol + f_reltol·‖F(x₀)‖`,
+    i.e. the absolute tolerance is `f_abstol` and the relative tolerance is `f_reltol`.
+
+!!! info
+    `dogleg_radius_initial`, `dogleg_radius_shrink`, `dogleg_radius_expand` and
+    `dogleg_radius_max` are the trust-region parameters for the [`DogLegSolver`](@ref):
+    the initial and maximum radius (``\\Delta_0`` and ``\\hat\\Delta`` in
+    [nocedal2006numerical; Alg. 4.1](@cite)) and the factors by which the radius is
+    shrunk on a poor step / expanded on a very good boundary step. They default to
+    [`DOGLEG_Δ_INITIAL`](@ref), [`DOGLEG_Δ_SHRINK`](@ref), [`DOGLEG_Δ_EXPAND`](@ref) and
+    [`DOGLEG_Δ_MAX`](@ref), and are ignored by the other solvers.
 
 !!! info
     Also see [`meets_stopping_criteria`](@ref).
@@ -138,12 +150,7 @@ struct Options{T}
     f_reltol::T
     f_suctol::T
     f_mindec::T
-    g_restol::T
-    x_abstol_break::T
-    x_reltol_break::T
     f_abstol_break::T
-    f_reltol_break::T
-    g_restol_break::T
     allow_f_increases::Bool
     min_iterations::Int
     max_iterations::Int
@@ -156,22 +163,21 @@ struct Options{T}
     nan_max_iterations::Int
     nan_factor::T
     regularization_factor::T
+    dogleg_radius_initial::T
+    dogleg_radius_shrink::T
+    dogleg_radius_expand::T
+    dogleg_radius_max::T
 end
 
 function Options(T=Float64;
-    x_abstol::AbstractFloat=default_tolerance(T),
-    x_reltol::AbstractFloat=default_tolerance(T),
-    x_suctol::AbstractFloat=default_tolerance(T),
-    f_abstol::AbstractFloat=4absolute_tolerance(T),
-    f_reltol::AbstractFloat=default_tolerance(T),
-    f_suctol::AbstractFloat=default_tolerance(T),
-    f_mindec::AbstractFloat=minimum_decrease_threshold(T),
-    g_restol::AbstractFloat=(√(default_tolerance(T) / 2)),
-    x_abstol_break::AbstractFloat=T(Inf),
-    x_reltol_break::AbstractFloat=T(Inf),
-    f_abstol_break::AbstractFloat=T(Inf),
-    f_reltol_break::AbstractFloat=T(Inf),
-    g_restol_break::AbstractFloat=T(Inf),
+    x_abstol::Real=default_tolerance(T),
+    x_reltol::Real=default_tolerance(T),
+    x_suctol::Real=default_tolerance(T),
+    f_abstol::Real=absolute_tolerance(T),
+    f_reltol::Real=(√(eps(T))),
+    f_suctol::Real=default_tolerance(T),
+    f_mindec::Real=minimum_decrease_threshold(T),
+    f_abstol_break::Real=T(Inf),
     allow_f_increases::Bool=ALLOW_F_INCREASES,
     min_iterations::Integer=MIN_ITERATIONS,
     max_iterations::Integer=MAX_ITERATIONS,
@@ -182,8 +188,12 @@ function Options(T=Float64;
     show_every::Integer=SHOW_EVERY,
     verbosity::Integer=VERBOSITY,
     nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
-    nan_factor::AbstractFloat=NAN_FACTOR,
-    regularization_factor::AbstractFloat=T(REGULARIZATION_FACTOR),
+    nan_factor::Real=NAN_FACTOR,
+    regularization_factor::Real=T(REGULARIZATION_FACTOR),
+    dogleg_radius_initial::Real=T(DOGLEG_Δ_INITIAL),
+    dogleg_radius_shrink::Real=T(DOGLEG_Δ_SHRINK),
+    dogleg_radius_expand::Real=T(DOGLEG_Δ_EXPAND),
+    dogleg_radius_max::Real=T(DOGLEG_Δ_MAX),
 )
 
     show_every = show_every > 0 ? show_every : 1
@@ -195,12 +205,7 @@ function Options(T=Float64;
             f_reltol,
             f_suctol,
             f_mindec,
-            g_restol,
-            x_abstol_break,
-            x_reltol_break,
-            f_abstol_break,
-            f_reltol_break,
-            g_restol_break)...,
+            f_abstol_break)...,
         allow_f_increases,
         min_iterations,
         max_iterations,
@@ -213,6 +218,10 @@ function Options(T=Float64;
         nan_max_iterations,
         nan_factor,
         regularization_factor,
+        dogleg_radius_initial,
+        dogleg_radius_shrink,
+        dogleg_radius_expand,
+        dogleg_radius_max,
     )
 end
 
@@ -234,6 +243,5 @@ f_abstol(o::Options) = o.f_abstol
 f_reltol(o::Options) = o.f_reltol
 f_suctol(o::Options) = o.f_suctol
 f_mindec(o::Options) = o.f_mindec
-g_restol(o::Options) = o.g_restol
 
 verbosity(o::Options) = o.verbosity

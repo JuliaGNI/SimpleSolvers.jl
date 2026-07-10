@@ -6,7 +6,8 @@ using StaticArrays
 using LinearAlgebra
 using Printf
 
-import Base.minimum
+import LinearAlgebra: checksquare
+
 import Base.Callable
 import GeometricBase: AbstractProblem, AbstractSolver, AbstractSolverState
 import GeometricBase: NullParameters, OptionalParameters, SolverMethod, SolverState
@@ -14,23 +15,18 @@ import GeometricBase: update!, value
 import GeometricBase.Utils: L2norm, l2norm
 
 include("utils.jl")
-include("base/realcomplex.jl")
-include("base/initialize.jl")
 
 export update!
 export solve!, solve
-export config, result, state, status
-export algorithm, problem
-export solution, minimizer, minimum
+export config
+export problem
+export solution
 
 export SolverMethod, SolverState
-export BracketingMethod
-export DirectMethod, IterativeMethod
-export NonlinearMethod, PicardMethod, LinesearchMethod
+export DirectMethod
+export NonlinearSolverMethod, Picard, LinesearchMethod
 
-export NewtonMethod, Newton
-
-include("base/methods.jl")
+export Newton, QuasiNewton
 
 export Gradient,
     GradientAutodiff,
@@ -44,9 +40,7 @@ include("base/gradient.jl")
 export LinesearchProblem
 
 export value,
-    gradient,
-    derivative,
-    hessian
+    derivative
 
 include("linesearch/linesearch_problem.jl")
 
@@ -58,8 +52,7 @@ export Hessian,
     HessianAutodiff,
     HessianFunction
 
-export check_hessian,
-    print_hessian
+export check_hessian
 
 include("base/hessian.jl")
 
@@ -74,7 +67,7 @@ export check_jacobian,
 include("base/jacobian.jl")
 
 
-export LinearProblem, LinearSolver, LU, LUSolverLAPACK,
+export LinearProblem, LinearSolver, LU,
     factorize!, linearproblem
 
 include("linear/linear_problem.jl")
@@ -82,7 +75,6 @@ include("linear/linear_solver_method.jl")
 include("linear/linear_solver_cache.jl")
 include("linear/linear_solvers.jl")
 include("linear/lu_solver.jl")
-include("linear/lu_solver_lapack.jl")
 
 export bracket_minimum
 
@@ -94,20 +86,22 @@ export Backtracking,
     Bisection,
     Quadratic,
     BierlaireQuadratic,
-    Static
+    Static,
+    StrongWolfe
 
 include("linesearch/linesearch.jl")
-include("linesearch/backtracking/backtracking_condition.jl")
-include("linesearch/backtracking/curvature_condition.jl")
-include("linesearch/backtracking/sufficient_decrease_condition.jl")
+include("linesearch/backtracking_condition.jl")
+include("linesearch/curvature_condition.jl")
+include("linesearch/sufficient_decrease_condition.jl")
 include("linesearch/backtracking.jl")
 include("linesearch/bisection.jl")
 include("linesearch/quadratic.jl")
 include("linesearch/quadratic_bierlaire.jl")
 include("linesearch/static.jl")
+include("linesearch/wolfe.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
-    NewtonSolver, QuasiNewtonSolver, assess_convergence, solve!, NewtonMethod, QuasiNewtonMethod
+    NewtonSolver, assess_convergence
 
 export PicardSolver
 

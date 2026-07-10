@@ -27,17 +27,16 @@ LU(; pivot=true, static=true)
 LU{Bool}(true, true)
 ```
 
-Note that if we do not supply an explicit keyword `static`, the corresponding field is `missing` (as in the first case). Also see [`_static`](@ref).
+Note that if we do not supply an explicit keyword `static`, the corresponding field is `missing` (as in the first case). In that default case the cache matrix type is chosen by size via [`_static`](@ref): a matrix whose leading dimension does not exceed [`N_STATIC_THRESHOLD`](@ref) yields a mutable static (`MMatrix`) cache, a larger one yields a plain `Matrix`. An explicit `static=true`/`false` forces the choice regardless of the matrix size.
 
 # Example
 
 We use the `LU` together with [`solve`](@ref) to solve a linear system:
 
-```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv, update!; Random.seed!(123))
+```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv; Random.seed!(123))
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
 ls = LinearProblem(A, v)
-update!(ls, A, v)
 
 lu = LU()
 
@@ -58,22 +57,6 @@ struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
 end
 
 """
-Threshold for the maximum size a static matrix should have. See [`_static`](@ref).
-"""
-const N_STATIC_THRESHOLD = 10
-
-"""
-    _static(A)
-
-Determine whether to allocate a `StaticArray` or simply copy the input array.
-This is used when calling [`LinearSolverCache`](@ref) on [`LU`](@ref).
-Every matrix that is smaller or equal to [`N_STATIC_THRESHOLD`](@ref) is turned into a `StaticArray` as a consequence.
-
-See the examples in [`factorize!`](@ref).
-"""
-_static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD ? true : false
-
-"""
     LUSolverCache <: LinearSolverCache
 
 The cache for the [`LU`](@ref) solver.
@@ -91,16 +74,53 @@ mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
     info::Int
 end
 
+"""
+    lucache_eltype(T)
+
+The element type used by the [`LUSolverCache`](@ref) for an input matrix of element type
+`T`.  Linear solves are only supported for floating-point problems — real (`AbstractFloat`)
+or complex (`Complex{<:AbstractFloat}`) — so any other element type (e.g. an integer or
+rational matrix) is rejected here with a clear error rather than silently promoted.  For a
+supported type the cache uses `T` unchanged.
+"""
+function lucache_eltype(::Type{T}) where {T}
+    T <: AbstractFloat || T <: Complex{<:AbstractFloat} ||
+        throw(ArgumentError("LinearSolver only supports floating-point element types " *
+                            "(AbstractFloat or Complex{<:AbstractFloat}); got $T. " *
+                            "Convert the problem to a floating-point type first, e.g. `float.(A)`."))
+    T
+end
+
+"""
+Threshold for the maximum size a static matrix should have. See [`_static`](@ref).
+"""
+const N_STATIC_THRESHOLD = 10
+
+"""
+    _static(A)
+
+Determine whether the [`LUSolverCache`](@ref) for a default [`LU`](@ref) should store
+`A` as a mutable static matrix (`MMatrix`) or as a plain `Matrix`.  Every matrix whose
+leading dimension is smaller than or equal to [`N_STATIC_THRESHOLD`](@ref) is stored as
+an `MMatrix`.
+
+This is only consulted for the default `LU()` (i.e. `LU{Missing}`); an explicit
+`static=true`/`false` keyword overrides it.  See the examples in [`factorize!`](@ref).
+"""
+_static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD
+
 function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
-    Ā = _static(A) ? MMatrix{size(A)...}(copy(A)) : copy(A)
-    LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    Tf = lucache_eltype(T)
+    Ā = _static(A) ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
-    Ā = lu.static ? MMatrix{size(A)...}(copy(A)) : copy(A)
-    LUSolverCache{T,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    Tf = lucache_eltype(T)
+    Ā = lu.static ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearProblem) where {T,LUT<:LU}
@@ -111,9 +131,13 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::Line
 end
 
 function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
-    ls = LinearProblem(solution)
-    update!(ls, A, b)
-    solve!(solution, lsolver, ls)
+    factorize!(lsolver, A)
+    ldiv!(solution, lsolver, b)
+    solution
+end
+
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
+    ldiv!(solution, lsolver, b)
 end
 
 function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
@@ -158,9 +182,7 @@ julia> solve(LU(), A, b)
 Compare this to [`solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)`](@ref).
 """
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
-    ls = LinearProblem(A, b)
-    update!(ls, A, b)
-    solve(lu, ls)
+    solve(lu, LinearProblem(A, b))
 end
 
 """
@@ -209,11 +231,15 @@ julia> factorize!(lsolver).cache.A
   0.384615    0.666667   2.66667
 ```
 
-Also note the difference between the output types of the two refactorized matrices. This is because we set the keyword `static` to false when calling [`LU`](@ref). Also see [`_static`](@ref).
+Note the difference between the output types of the two refactorized matrices: the default `LU()` chose a mutable static (`MMatrix`) cache because the matrix is small (see [`_static`](@ref) and [`N_STATIC_THRESHOLD`](@ref)), whereas `LU(; static=false)` forced a plain `Matrix`.
 
 Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
 function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
+    Base.require_one_based_indexing(cache(lsolver).A)
+
+    cache(lsolver).info = 0
+
     @inbounds for i in eachindex(cache(lsolver).perms)
         cache(lsolver).perms[i] = i
     end
@@ -221,7 +247,7 @@ function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     n = size(cache(lsolver).A, 1)
 
     @inbounds for k ∈ axes(cache(lsolver).A, 1)
-        kp = method(lsolver).pivot ? find_maximum_value(@view(cache(lsolver).A[:, k]), k) : k
+        kp = method(lsolver).pivot ? pivot_index(@view(cache(lsolver).A[:, k]), k) : k
 
         cache(lsolver).pivots[k] = kp
         cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
@@ -263,13 +289,15 @@ end
 factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearProblem{T}) where {T,LUT<:LU} = factorize!(lsolver, ls.A)
 
 """
-    find_maximum_value(v, k)
+    pivot_index(v, k)
 
-Find the maximum value of vector `v` starting from the index `k`.
+Return the index (starting from `k`) of the entry of `v` with the largest absolute
+value.
 
 This is used for *pivoting* in [`factorize!`](@ref).
 """
-function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T<:Number}
+function pivot_index(v::AbstractVector{T}, k::Integer) where {T<:Number}
+    Base.require_one_based_indexing(v)
     kp = k
     amax = real(zero(T))
     for i in k:length(v)
@@ -283,7 +311,7 @@ function find_maximum_value(v::AbstractVector{T}, k::Integer) where {T<:Number}
 end
 
 """
-    ldiv!(x, lu, b)
+    ldiv!(x, lsolver, b)
 
 Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
 
@@ -322,7 +350,25 @@ julia> ldiv!(x, s, b)
 function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
     @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
 
+    Base.require_one_based_indexing(x, b, cache(lsolver).A)
+
+    # Guard against solving with a cache that was never factorized (e.g. the bare-RHS
+    # `solve!(x, lsolver, b)` / `solve(lsolver, b)` forms, which do *not* call
+    # `factorize!`). `factorize!` is what fills `perms` with a genuine permutation
+    # (every entry ≥ 1); at construction `perms` is all zeros, so `perms[1] == 0`
+    # reliably flags an unfactorized cache. Without this guard the gather below would
+    # read `b[perms[i]] = b[0]` and silently return garbage.
+    (isempty(cache(lsolver).perms) || iszero(cache(lsolver).perms[1])) &&
+        throw(ArgumentError("LinearSolver has not been factorized; call factorize! before ldiv!/solve!."))
+
+    cache(lsolver).info == 0 || throw(SingularException(cache(lsolver).info))
+
     n = size(cache(lsolver).A, 1)
+
+    # the permutation gather below corrupts the result if `x` and `b` alias
+    if x === b
+        b = copy(b)
+    end
 
     @inbounds for i in 1:n
         x[i] = b[cache(lsolver).perms[i]]

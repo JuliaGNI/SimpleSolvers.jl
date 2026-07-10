@@ -1,7 +1,20 @@
 """
+    NonlinearSolverMethod <: SolverMethod
+
+A supertype collecting all nonlinear *solver* methods, i.e. [`Newton`](@ref),
+[`Picard`](@ref) and [`DogLeg`](@ref).
+
+Compare this with [`LinesearchMethod`](@ref): both are subtypes of `SolverMethod`,
+but a `LinesearchMethod` describes a one-dimensional line search (used *inside* a
+solver step) whereas a `NonlinearSolverMethod` describes the outer nonlinear
+iteration itself.
+"""
+abstract type NonlinearSolverMethod <: SolverMethod end
+
+"""
     NonlinearSolver
 
-A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`PicardMethod`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
+A `struct` that comprises *Newton solvers* (see [`Newton`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`Picard`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).
 
 !!! info
     The associated solvers are `const`s derived from `NonlinearSolver`. See [`NewtonSolver`](@ref), [`PicardSolver`](@ref) and [`DogLegSolver`](@ref). In practice we usually call those associated constructors directly rather than creating a `NonlinearSolver` instance manually.
@@ -13,11 +26,11 @@ A `struct` that comprises *Newton solvers* (see [`NewtonMethod`](@ref)), the *Pi
 - `jacobian::`[`Jacobian`](@ref): the Jacobian is used to compute the *direction* in the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`jacobian`](@ref),
 - `linearsolver::`[`LinearSolver`](@ref): the linear solver is used to compute the *direction* of the solver step (see [`solver_step!`](@ref)). This can be accessed by calling [`linearsolver`](@ref),
 - `linesearch::`[`Linesearch`](@ref)
-- `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`NewtonMethod`](@ref)),
+- `method::`[`NonlinearSolverMethod`](@ref): the solver method (e.g. [`Newton`](@ref)),
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 """
-struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}} <: AbstractSolver
+struct NonlinearSolver{T,MT<:NonlinearSolverMethod,NLST<:NonlinearProblem,LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
     linearproblem::LST
     jacobian::JT
@@ -28,8 +41,8 @@ struct NonlinearSolver{T,MT<:NonlinearSolverMethod,AT,NLST<:NonlinearProblem{T},
     cache::CT
     config::Options{T}
 
-    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=NewtonMethod(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian,NLST,LST,LSoT,LiSeT,CT}
-        new{T,MT,AT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
+    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=Newton(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian{T},NLST<:NonlinearProblem,LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}}
+        new{T,MT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
     end
 end
 
@@ -40,8 +53,6 @@ method(s::NonlinearSolver) = s.method
 linearproblem(s::NonlinearSolver) = s.linearproblem
 linesearch(s::NonlinearSolver) = s.linesearch
 jacobian(s::NonlinearSolver) = s.jacobian
-
-solver_step!(s::NonlinearSolver) = error("solver_step! not implemented for $(typeof(s))")
 
 function initialize!(s::NonlinearSolver, x::AbstractVector)
     initialize!(cache(s), x)
@@ -59,9 +70,9 @@ nonlinearproblem(s::NonlinearSolver) = s.nonlinearproblem
 jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = jacobian(s)(jacobianmatrix(cache(s)), x, params)
 
 """
-    jacobianmatrix(solver::NewtonSolver)
+    jacobianmatrix(solver::NonlinearSolver)
 
-Return the evaluated Jacobian (a matrix) stored in the [`NonlinearProblem`](@ref) of `solver`.
+Return the evaluated Jacobian (a matrix) stored in the cache (see [`NonlinearSolverCache`](@ref)) of `solver`.
 
 Also see [`jacobian(::NonlinearProblem)`](@ref).
 """
@@ -95,6 +106,61 @@ struct NonlinearSolverException <: Exception
 end
 
 Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
+
+"""
+    resolve_jacobian(F, DF!, jacobian, x, y)
+
+Resolve the [`Jacobian`](@ref) for a nonlinear-solver constructor: an explicit `DF!`
+wins (wrapped as a [`JacobianFunction`](@ref)), otherwise an explicit `jacobian`,
+otherwise a lazily-built [`JacobianAutodiff`](@ref). Building the autodiff Jacobian
+lazily avoids allocating a ForwardDiff config when either `DF!` or a `jacobian` is
+supplied.
+"""
+function resolve_jacobian(F, DF!, jacobian, x::AbstractVector{T}, y) where {T}
+    ismissing(DF!) || return JacobianFunction{T}(F, DF!)
+    ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian
+end
+
+"""
+    maybe_refactorize!(s, x, params, iteration; force=false)
+
+Re-evaluate the [`Jacobian`](@ref) at `x`, copy it into the [`LinearProblem`](@ref)
+(adding the diagonal `regularization_factor`), and refactorize the
+[`LinearSolver`](@ref) — but only on a refactorization step: a fresh state or the
+first step (`iteration ≤ 1`), every `refactorize` iterations (see [`Newton`](@ref)),
+or when `force`d (used by the [`DogLegSolver`](@ref) to recover from a collapsed
+trust-region radius). Otherwise the stale Jacobian and its factorization are reused
+(quasi-Newton). Returns the solver `s`.
+"""
+function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Bool=false)
+    (force || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) || return s
+    jacobian!(s, x, params)
+    lp = linearproblem(s)
+    matrix(lp) .= jacobianmatrix(s)
+    idxs = diagind(matrix(lp))
+    @view(matrix(lp)[idxs]) .+= config(s).regularization_factor
+    factorize!(linearsolver(s), lp)
+    s
+end
+
+"""
+    nan_recovery!(s, x, params)
+
+Damp `direction(cache(s))` by `nan_factor` until the trial iterate `x + d` has a
+finite residual (or the `nan_max_iterations` budget is exhausted). On return
+`solution(cache(s))` and `value(cache(s))` hold the last trial iterate and its
+residual. Used by the generic and Picard [`solver_step!`](@ref)s. Returns the solver `s`.
+"""
+function nan_recovery!(s::NonlinearSolver{T}, x, params) where {T}
+    for _ in 1:config(s).nan_max_iterations
+        solution(cache(s)) .= x .+ direction(cache(s))
+        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+        any(isnan, value(cache(s))) || break
+        config(s).verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector."
+        direction(cache(s)) .*= T(config(s).nan_factor)
+    end
+    s
+end
 
 """
     solver_step!(x, s, state, params)
@@ -134,26 +200,13 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     direction!(s, x, params, iteration_number(state))
     any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
 
-    # The following loop checks if the RHS contains any NaNs.
-    # If so, the direction vector is reduced by a factor of NAN_FACTOR.
-    for _ in 1:config(s).nan_max_iterations
-        solution(cache(s)) .= x .+ direction(cache(s))
-        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        if any(isnan, value(cache(s)))
-            (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
-            direction(cache(s)) .*= T(config(s).nan_factor)
-        else
-            break
-        end
-    end
+    nan_recovery!(s, x, params)
 
     α = solve(linesearch(s), one(T), (x=x, parameters=params))
     compute_new_iterate!(x, α, direction(cache(s)))
 
     x
 end
-
-mean(x::AbstractVector) = sum(x) / length(x)
 
 """
     solve!(x, s, state)

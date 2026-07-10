@@ -3,10 +3,6 @@
 
 A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` and ``F`` is in nonlinear in general (also compare this to [`LinearProblem`](@ref)).
 
-!!! info
-    `NonlinearProblem`s are used for *solvers* whereas `OptimizerProblem`s are their equivalent for *optimizers*.
-
-
 # Keys
 - `F`
 - `J::Union{Callable, Missing}`: accessed by calling [`jacobian`](@ref).
@@ -15,25 +11,26 @@ A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` an
 
 We show an example for one particular constructor:
 ```jldoctest; setup = :(using SimpleSolvers)
-F(y, x) = y .= sin.(x) ^ 2
+F(y, x, params) = y .= sin.(x) .^ 2
 NonlinearProblem(F, zeros(3))
 
 # output
 
-NonlinearProblem{Float64, typeof(F), Missing}(F, missing)
+NonlinearProblem{typeof(F), Missing}(F, missing)
 ```
 """
-struct NonlinearProblem{T,TF<:Callable,TJ<:Union{Callable,Missing}} <: AbstractProblem
+struct NonlinearProblem{TF<:Callable,TJ<:Union{Callable,Missing}} <: AbstractProblem
     F::TF
     J::TJ
 
-    function NonlinearProblem(F::Callable, J::Union{Callable,Missing}, x::Tx, f::Tx=x) where {T,Tx<:AbstractArray{T}}
-        new{T,typeof(F),typeof(J)}(F, J)
+    # `x` and `f` are only used to size/type-check the problem on construction; the
+    # struct stores neither, so they may be independent array types (e.g. a
+    # `Vector` and a `SubArray` with the same eltype).
+    function NonlinearProblem(F::Callable, J::Union{Callable,Missing}, x::AbstractArray, f::AbstractArray=x)
+        @assert eltype(x) == eltype(f) "x and f must have the same element type."
+        new{typeof(F),typeof(J)}(F, J)
     end
 end
-
-NonlinearProblem{T}(F::Callable, J::Union{Callable,Missing}, n₁::Integer, n₂::Integer; kwargs...) where {T} = NonlinearProblem(F, J, zeros(T, n₁); kwargs...)
-NonlinearProblem{T}(F::Callable, n₁::Integer, n₂::Integer; kwargs...) where {T} = NonlinearProblem{T}(F, missing, n₁, n₂)
 
 function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray=x)
     NonlinearProblem(F, missing, x, f)
@@ -44,7 +41,7 @@ end
 
 Evaluate the [`NonlinearProblem`](@ref) at `x`.
 """
-function value!(y::AbstractArray{T}, nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
+function value!(y::AbstractArray{T}, nlp::NonlinearProblem, x::AbstractArray{T}, params) where {T}
     nlp.F(y, x, params)
     y
 end
@@ -57,10 +54,10 @@ Return the *Jacobian function* stored in the [`NonlinearProblem`](@ref) `nlp`.
 """
 jacobian(nlp::NonlinearProblem) = nlp.J
 
-function jacobian!(j::AbstractMatrix{T}, nlp::NonlinearProblem{T}, x::AbstractArray{T}, params) where {T}
+function jacobian!(j::AbstractMatrix{T}, nlp::NonlinearProblem, x::AbstractArray{T}, params) where {T}
     nlp.J(j, x, params)
 end
 
-function jacobian!(::AbstractMatrix{T}, ::NonlinearProblem{T,FT,Missing}, ::AbstractArray{T}, params) where {T,FT<:Callable}
-    error("NonlinearSystem does not contain Jacobian.")
+function jacobian!(::AbstractMatrix{T}, ::NonlinearProblem{FT,Missing}, ::AbstractArray{T}, params) where {T,FT<:Callable}
+    error("NonlinearProblem does not contain Jacobian.")
 end

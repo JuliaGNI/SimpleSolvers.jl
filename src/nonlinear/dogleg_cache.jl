@@ -17,13 +17,33 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
 
     j::JT
 
-    function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
+    # Trust-region radius, carried across outer solver steps (see [`solver_step!`]
+    # for the [`DogLegSolver`](@ref)).  A `Ref` so it can be mutated in place while
+    # the surrounding cache stays immutable.
+    Δ::Base.RefValue{T}
+
+    function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractVector{T}}
         j = alloc_j(x, y)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j)
+        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(DOGLEG_Δ_INITIAL)))
         initialize!(c, fill!(similar(x), NaN))
         c
     end
 end
+
+"""
+    trust_radius(cache::DogLegCache)
+
+Return the current trust-region radius ``\\Delta`` carried by the [`DogLegCache`](@ref).
+"""
+trust_radius(cache::DogLegCache) = cache.Δ[]
+
+"""
+    trust_radius!(cache::DogLegCache, Δ)
+
+Store the trust-region radius ``\\Delta`` in the [`DogLegCache`](@ref) so it carries
+over to the next outer solver step.
+"""
+trust_radius!(cache::DogLegCache{T}, Δ::T) where {T} = (cache.Δ[] = Δ)
 
 """
     direction₁(cache::DogLegCache)
@@ -42,7 +62,7 @@ See [`directions!`](@ref).
 """
 direction₂(cache::DogLegCache) = cache.Δx₂
 
-direction(cache::DogLegCache) = cache.Δx # error("The DoglegSolver stores two directions -> try `direction₁` or `direction₂`.")
+direction(cache::DogLegCache) = cache.Δx
 direction_difference(cache::DogLegCache) = cache.Δx_diff
 jacobianmatrix(cache::DogLegCache) = cache.j
 solution(cache::DogLegCache) = cache.x
@@ -62,6 +82,11 @@ function initialize!(cache::DogLegCache{T}, ::AbstractVector{T}) where {T}
     cache.y₃ .= T(NaN)
 
     jacobianmatrix(cache) .= T(NaN)
+
+    # Reset the trust-region radius: it is carried *across solver steps within one
+    # solve*, but a fresh solve (solver reuse) must not inherit the radius the
+    # previous solve ended with.
+    trust_radius!(cache, T(DOGLEG_Δ_INITIAL))
 
     cache
 end

@@ -1,15 +1,4 @@
 """
-    DEFAULT_JACOBIAN_ϵ
-
-A constant used for computing the finite difference Jacobian. See [`JacobianFiniteDifferences`](@ref).
-
-# Extended help
-
-For the [`GradientFiniteDifferences`](@ref) this is called [`DEFAULT_GRADIENT_ϵ`](@ref).
-"""
-const DEFAULT_JACOBIAN_ϵ = 8sqrt(eps())
-
-"""
     Jacobian
 
 Abstract type. `struct`s that are derived from this need an associated functor that computes the Jacobian of a function (in-place).
@@ -32,9 +21,11 @@ Examples include:
 abstract type Jacobian{T} end
 
 """
-    check_jacobian(J)
+    check_jacobian([io], J)
 
 Check the condition number, determinant, max and min value of the Jacobian `J`.
+
+Output is written to `io` (defaulting to `stdout`).
 
 !!! info
     Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
@@ -49,13 +40,32 @@ minimum(|Jacobian|):          1.0
 maximum(|Jacobian|):          3.0
 ```
 """
-function check_jacobian(J::AbstractMatrix; digits=5)
-    println("Condition Number of Jacobian: ", round(cond(J); digits=digits))
-    println("Determinant of Jacobian:      ", round(det(J); digits=digits))
-    println("minimum(|Jacobian|):          ", round(minimum(abs.(J)); digits=digits))
-    println("maximum(|Jacobian|):          ", round(maximum(abs.(J)); digits=digits))
-    println()
+function check_jacobian(io::IO, J::AbstractMatrix; digits=5)
+    println(io, "Condition Number of Jacobian: ", round(cond(J); digits=digits))
+    println(io, "Determinant of Jacobian:      ", round(det(J); digits=digits))
+    println(io, "minimum(|Jacobian|):          ", round(minimum(abs.(J)); digits=digits))
+    println(io, "maximum(|Jacobian|):          ", round(maximum(abs.(J)); digits=digits))
+    println(io)
 end
+
+check_jacobian(J::AbstractMatrix; kwargs...) = check_jacobian(stdout, J; kwargs...)
+
+"""
+    print_jacobian([io], J)
+
+Display the Jacobian `J` as an aligned `text/plain` table.
+
+Output is written to `io` (defaulting to `stdout`).
+
+!!! info
+    Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
+"""
+function print_jacobian(io::IO, J::AbstractMatrix)
+    show(io, MIME("text/plain"), J)
+    println(io)
+end
+
+print_jacobian(J::AbstractMatrix) = print_jacobian(stdout, J)
 
 """
     JacobianFunction <: Jacobian
@@ -116,7 +126,7 @@ The `struct` stores:
 # Constructors
 
 ```julia
-JacobianAutodiff(F, y::AbstractVector)
+JacobianAutodiff(F, x::AbstractVector)
 JacobianAutodiff{T}(F, nx::Integer)
 ```
 
@@ -125,7 +135,7 @@ JacobianAutodiff{T}(F, nx::Integer)
 The functor does:
 
 ```julia
-jac(J, x) = ForwardDiff.jacobian!(J, jac.ty, x, grad.Jconfig)
+jac(J, x, params) = ForwardDiff.jacobian!(J, (y, x) -> jac.F(y, x, params), jac.ty, x, jac.Jconfig)
 ```
 """
 struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:AbstractVector{T}} <: Jacobian{T}
@@ -134,7 +144,7 @@ struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:Abstra
     ty::YT
 
     function JacobianAutodiff(F::CT, x::YT, y::YT) where {T,YT<:AbstractArray{T},CT<:Callable}
-        applicable(F, y, x, ()) || error("The function needs to have the following signature: F(y, x, params).")
+        isempty(methods(F, Tuple{typeof(y),typeof(x),Any})) && error("The function needs to have the following signature: F(y, x, params).")
 
         Jconfig = ForwardDiff.JacobianConfig(nothing, y, x)
         new{T,typeof(F),typeof(Jconfig),YT}(F, Jconfig, y)
@@ -151,7 +161,6 @@ JacobianAutodiff{T}(F, n::Integer) where {T} = JacobianAutodiff{T}(F, n, n)
 JacobianAutodiff(F::Callable, x::AbstractVector{T}) where {T} = JacobianAutodiff{T}(F, length(x))
 
 function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
-    F!(j, x) = jac.F(j, x, params)
     F_closure(y, x) = jac.F(y, x, params)
     ForwardDiff.jacobian!(J, F_closure, jac.ty, x, jac.Jconfig)
 end
@@ -173,8 +182,8 @@ A `struct` that realizes [`Jacobian`](@ref) by using finite differences.
 The `struct` stores:
 - `F`: a function that has to be differentiated.
 - `ϵ`: small constant on whose basis the finite differences are computed.
-- `f1`: ``f`` evaluated at ``x - (1 + x_j)\epsilon\cdot{}x_j`` for all ``j``.
-- `f2`: ``f`` evaluated at ``x + (1 + x_j)\epsilon\cdot{}x_j`` for all ``j``.
+- `f1`: ``f`` evaluated at ``x - \epsilon_j e_j`` with ``\epsilon_j = \epsilon|x_j| + \epsilon`` for all ``j``.
+- `f2`: ``f`` evaluated at ``x + \epsilon_j e_j`` with ``\epsilon_j = \epsilon|x_j| + \epsilon`` for all ``j``.
 - `e`: auxiliary vector used for computing finite differences. It's of the form ``e_1 = \begin{bmatrix} 1 & 0 & \cdots & 0 \end{bmatrix}^T``.
 - `tx`: auxiliary vector used for computing finite differences. It stores the offset in the `x` vector.
 
@@ -184,7 +193,7 @@ The `struct` stores:
 JacobianFiniteDifferences{T}(F, nx::Integer, ny::Integer; ϵ)
 ```
 
-By default for `ϵ` is [`DEFAULT_JACOBIAN_ϵ`](@ref).
+By default for `ϵ` is [`default_ϵ`](@ref)`(T)`.
 
 # Functor
 
@@ -192,14 +201,14 @@ The functor does:
 
 ```julia
 for j in eachindex(x)
-    ϵⱼ = jac.ϵ * x[j] + jac.ϵ
+    ϵⱼ = jac.ϵ * abs(x[j]) + jac.ϵ
     fill!(jac.e, 0)
     jac.e[j] = 1
     jac.tx .= x .- ϵⱼ .* jac.e
-    f(jac.f1, jac.tx)
+    jac.F(jac.f1, jac.tx, params)
     jac.tx .= x .+ ϵⱼ .* jac.e
-    f(jac.f2, jac.tx)
-    for i in eachindex(x)
+    jac.F(jac.f2, jac.tx, params)
+    for i in eachindex(jac.f1)
         J[i,j] = (jac.f2[i] - jac.f1[i]) / (2ϵⱼ)
     end
 end
@@ -214,7 +223,7 @@ struct JacobianFiniteDifferences{T,FT<:Callable} <: Jacobian{T}
     tx::Vector{T}
 end
 
-function JacobianFiniteDifferences{T}(F::Callable, nx::Integer, ny::Integer; ϵ=DEFAULT_JACOBIAN_ϵ) where {T}
+function JacobianFiniteDifferences{T}(F::Callable, nx::Integer, ny::Integer; ϵ=default_ϵ(T)) where {T}
     f1 = zeros(T, ny)
     f2 = zeros(T, ny)
     e = zeros(T, nx)
@@ -229,14 +238,14 @@ function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVe
     local ϵⱼ::T
 
     for j in eachindex(x)
-        ϵⱼ = jac.ϵ * x[j] + jac.ϵ
+        ϵⱼ = jac.ϵ * abs(x[j]) + jac.ϵ
         fill!(jac.e, 0)
         jac.e[j] = 1
         jac.tx .= x .- ϵⱼ .* jac.e
         jac.F(jac.f1, jac.tx, params)
         jac.tx .= x .+ ϵⱼ .* jac.e
         jac.F(jac.f2, jac.tx, params)
-        for i in eachindex(x)
+        for i in eachindex(jac.f1)
             J[i, j] = (jac.f2[i] - jac.f1[i]) / (2ϵⱼ)
         end
     end
@@ -253,6 +262,29 @@ Base.:(==)(j1::JacobianFiniteDifferences{T1}, j2::JacobianFiniteDifferences{T2})
     T1 == T2
 )
 
+
+@doc raw"""
+    Jacobian{T}(F, nx, ny; mode = :autodiff, kwargs...)
+
+Construct a [`Jacobian`](@ref) of element type `T` for a function `F` mapping `nx`
+inputs to `ny` outputs, selecting the backend via the `mode` keyword:
+
+- `mode = :autodiff` (default) builds a [`JacobianAutodiff`](@ref) (ForwardDiff).
+- `mode = :finitedifferences` builds a [`JacobianFiniteDifferences`](@ref); any
+  remaining keyword arguments (e.g. `ϵ`) are forwarded to it.
+
+The convenience forms `Jacobian{T}(F, n)`, `Jacobian(F, x)` and
+`Jacobian(F, x, y)` forward here.
+"""
+function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode::Symbol = :autodiff, kwargs...) where {T}
+    if mode == :autodiff
+        JacobianAutodiff{T}(F, nx, ny)
+    elseif mode == :finitedifferences
+        JacobianFiniteDifferences{T}(F, nx, ny; kwargs...)
+    else
+        error("Unknown Jacobian mode $(mode); use :autodiff or :finitedifferences.")
+    end
+end
 
 Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
 

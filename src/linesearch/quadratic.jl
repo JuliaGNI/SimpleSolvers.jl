@@ -25,9 +25,7 @@ p(α) = p_0 + p_1(\alpha - \alpha_0) + p_2(\alpha - \alpha_0)^2.
 ```
 Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
 We do not check the [`SufficientDecreaseCondition`](@ref) here. We instead repeatedly build new quadratic polynomials until a minimum is found (to sufficient accuracy).
-
-This algorithm repeatedly builds new quadratic polynomials until a minimum is found (to sufficient accuracy).
-The iteration may also stop after we reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
+The iteration may also stop after it reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
 
 # Keywords
 
@@ -45,6 +43,9 @@ struct Quadratic{T} <: LinesearchMethod{T}
     s_reduction::T
 
     function Quadratic{T}(ε::T, s::T, s_reduction::T) where {T}
+        @assert ε > 0 "Precision ε must be positive."
+        @assert s > 0 "Bracketing step s must be positive."
+        @assert 0 < s_reduction < 1 "Bracketing step reduction factor must satisfy 0 < s_reduction < 1."
         new{T}(ε, s, s_reduction)
     end
 end
@@ -57,49 +58,47 @@ function Quadratic(::Type{T}=Float64;
     Quadratic{T}(ε, s, s_reduction)
 end
 
-Quadratic(::Type{T}, ::NonlinearSolverMethod) where {T} = Quadratic{T}(
-    default_precision(T)^2,
-    T(DEFAULT_BRACKETING_s^2),
-    T(DEFAULT_s_REDUCTION^2)
-)
-
-function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_iterations::Integer) where {T}
-    number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return α₀
-
-    # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
-    a, b = bracket_minimum_with_fixed_point(problem(ls), params, α₀, s)
-    d₀ = derivative(problem(ls), a, params)
-    !(abs(d₀) < method(ls).ε) || return α₀
-
-    # compute values at `a` and `b`
-    y₀ = value(problem(ls), a, params)
-    y₁ = value(problem(ls), b, params)
-
-    # p₀ = y₀
-    # p₁ = d₀
-
-    # determine coefficient p₂ of p(α)
-    # p₂ = (y₁ - p₀ - p₁*(b-a)) / (b-a)^2
-
-    # compute minimum αₜ of p(α); i.e. p'(α) = 0.
-    # αₜ = a - p₁ / (2p₂)
-
-    αₜ = a - d₀ * (b - a)^2 / 2(y₁ - y₀ - d₀ * (b - a))
-
-    (l2norm(αₜ - α₀) < method(ls).ε) && return αₜ
-
-    solve(ls, αₜ, params, s * method(ls).s_reduction, number_of_iterations + 1)
-end
+Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
-    # TODO: The following line should use α₀ instead of zero(T) but that requires a rework of the bracketing algorithm
-    # solve(ls, α₀, params, method(ls).s, 0)
-    solve(ls, zero(T), params, method(ls).s, 0)
+    # Start the bracketing at the caller's α₀ when it lies on the descent side
+    # (φ′(α₀) < 0, so the minimiser is to its right); otherwise keep the α = 0 anchor,
+    # where a descent direction is guaranteed decreasing. `bracket_minimum_with_fixed_point`
+    # searches rightward from a fixed left point, so that point must be on the descent
+    # side. See issue #164.
+    α = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
+    s = method(ls).s
+
+    for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
+        # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
+        # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
+        # from the bracketing, so no re-evaluation is needed here.
+        a, b, y₀, y₁ = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
+        d₀ = derivative(problem(ls), a, params)
+        # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
+        # (not the loop's start `α`), which differ when the bracketer flipped because
+        # the start was not on the descent side.
+        abs(d₀) < method(ls).ε && return a
+
+        # minimizer αₜ = a - p₁ / (2p₂); guard on the fitted curvature (denom = 2p₂(b-a)²).
+        # A non-positive curvature (denom ≤ 0), a non-finite αₜ, or a minimizer outside
+        # the bracket means the quadratic model is untrustworthy — bisect [a, b] instead.
+        denom = 2 * (y₁ - y₀ - d₀ * (b - a))
+        αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
+        (isfinite(αₜ) && a ≤ αₜ ≤ b) || (αₜ = (a + b) / 2)
+
+        (l2norm(αₜ - α) < method(ls).ε) && return αₜ
+
+        α = αₜ
+        s *= method(ls).s_reduction
+    end
+
+    α
 end
 
 Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
 
-function Base.convert(::Type{T}, method::Quadratic) where {T}
+function change_precision(::Type{T}, method::Quadratic) where {T}
     T ≠ eltype(method) || return method
     Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction))
 end

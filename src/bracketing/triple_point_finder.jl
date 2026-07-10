@@ -3,7 +3,14 @@ const MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS = 5
 """
     triple_point_finder(f, x)
 
-Find three points `a > b > c` s.t. `f(a) > f(b)` and `f(c) > f(b)`. This is used for performing a quadratic line search (see [`Quadratic`](@ref)).
+Find three points `a < b < c` (strictly ordered in position) with `f(a) ≥ f(b)` and `f(c) > f(b)`, so that a minimum is bracketed in `(a, c)`. This is used for performing a quadratic line search (see [`BierlaireQuadratic`](@ref)).
+
+!!! note
+    The left inequality is *non-strict* (`f(a) ≥ f(b)`): while descending, consecutive
+    samples may tie on a plateau, and for a flat-bottomed `f` a strict `f(a) > f(b)`
+    is unattainable. `f(b)` is still strictly below `f(c)`, and `BierlaireQuadratic`
+    guards a degenerate (collinear) fit by falling back to a bisection step, so the
+    non-strict left bound is sufficient to bracket the minimum.
 
 # Implementation
 
@@ -30,26 +37,32 @@ julia> round10.((f(a), f(b), f(c)))
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
 function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+    fx₀ = f(x₀)
     x₁ = x₀ + δ
+    fx₁ = f(x₁)
 
-    if f(x₁) ≥ f(x₀)
+    if fx₁ ≥ fx₀
         if adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS
-            error("The function `f` must be decreasing at `$(x₀)`; `f($(x₁)) = $(f(x₁))` must be smaller than `f($(x₀)) = $(f(x₀))`.")
+            error("The function `f` must be decreasing at `$(x₀)`; `f($(x₁)) = $(fx₁)` must be smaller than `f($(x₀)) = $(fx₀)`.")
         end
-        triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
+        return triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end
 
     local xₖ₋₁ = x₀
-    local xₖ = x₁
-    local xₖ₊₁ = xₖ
+    local xₖ = x₀
+    local xₖ₊₁ = x₁
+    local fxₖ = fx₀
+    local fxₖ₊₁ = fx₁
     local increment = δ
 
     for k in 1:nmax
         xₖ₋₁ = xₖ
         xₖ = xₖ₊₁
+        fxₖ = fxₖ₊₁
         increment = 2 * increment
         xₖ₊₁ = xₖ + increment
-        if f(xₖ₊₁) > f(xₖ)
+        fxₖ₊₁ = f(xₖ₊₁)
+        if fxₖ₊₁ > fxₖ
             return (xₖ₋₁, xₖ, xₖ₊₁)
         end
     end

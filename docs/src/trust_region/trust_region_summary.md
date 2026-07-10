@@ -128,7 +128,7 @@ The intersection point in the third case is found by solving the quadratic equat
 ```
 for ``\tau \in (1, 2]``. The two solutions are (for ``\beta = \tau - 1``):
 ```math
-\beta = \frac{-(p^U)^T(p^B - p^U) \pm \sqrt{(p^U)^T(p^B - p^U)^2 - \|p^B - p^U\|^2(\|p^U\|^2 - \Delta_k^2)}}{\|p^B - p^U\|^2}
+\beta = \frac{-(p^U)^T(p^B - p^U) \pm \sqrt{\left((p^U)^T(p^B - p^U)\right)^2 - \|p^B - p^U\|^2(\|p^U\|^2 - \Delta_k^2)}}{\|p^B - p^U\|^2}
 ```
 The solution that lies in the interval ``(1, 2]`` is chosen.
 

@@ -1,6 +1,6 @@
 name = "SimpleSolvers"
 uuid = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
-version = "0.8.4"
+version = "0.9.0"
 authors = ["Michael Kraus"]
 
 [deps]
@@ -11,19 +11,25 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
+Aqua = "0.8"
 Distances = "0.10"
 ForwardDiff = "0.10, 1"
 GeometricBase = "0.13, 0.14"
+JET = "0.9, 0.10"
+LinearAlgebra = "1"
 NaNMath = "1"
+Printf = "1"
 Random = "1"
 SafeTestsets = "0.1.0"
 StaticArrays = "1.9.13"
+Test = "1"
 julia = "1.6"
 
 [extras]
+Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -31,4 +37,4 @@ SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["LinearAlgebra", "NaNMath", "SafeTestsets", "Test", "Random"]
+test = ["Aqua", "JET", "LinearAlgebra", "NaNMath", "SafeTestsets", "Test", "Random"]

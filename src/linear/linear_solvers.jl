@@ -39,11 +39,22 @@ Return the cache of the [`LinearSolver`](@ref).
 
 # Examples
 
+For the default `LU()`, a small matrix (leading dimension ≤ [`N_STATIC_THRESHOLD`](@ref)) is stored as a mutable static matrix (`MMatrix`):
+
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-julia> ls = LinearSolver(LU(), [1 2; 3 4]);
+julia> ls = LinearSolver(LU(), [1.0 2.0; 3.0 4.0]);
 
 julia> cache(ls)
-SimpleSolvers.LUSolverCache{Int64, StaticArraysCore.MMatrix{2, 2, Int64, 4}}([1 2; 3 4], [0, 0], [0, 0], 0)
+SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{2, 2, Float64, 4}}([1.0 2.0; 3.0 4.0], [0, 0], [0, 0], 0)
+```
+
+Passing `static=false` forces a plain `Matrix` cache regardless of size:
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
+julia> ls = LinearSolver(LU(; static=false), [1.0 2.0; 3.0 4.0]);
+
+julia> cache(ls)
+SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}([1.0 2.0; 3.0 4.0], [0, 0], [0, 0], 0)
 ```
 """
 cache(ls::LinearSolver) = ls.cache
@@ -121,7 +132,7 @@ end
 Solve the [`LinearProblem`](@ref) with the [`LinearSolver`](@ref) `ls`.
 """
 function solve!(::LinearSolver, args...)
-    error("No method for solve! implemented for this combination of input arguments $(typeof(args...)).")
+    error("No method for solve! implemented for this combination of input arguments $(typeof.(args)).")
 end
 
 @doc raw"""
@@ -146,8 +157,22 @@ Solve the linear system described by:
 ```
 and store it in `x`. Here ``A`` and ``b`` are provided as an input arguments.
 
-Comapre this to [`solve(::LinearSolver, ::AbstractVector)`](@ref).
+Compare this to [`solve(::LinearSolver, ::AbstractVector)`](@ref).
 """
 function solve!(::AbstractVector, ::LinearSolver, ::AbstractMatrix, ::AbstractVector)
     error("No method for solve! implemented for this combination of input arguments.")
 end
+
+"""
+    solve(ls::LinearSolver, args...)
+
+Counterpart of [`solve!`](@ref) for a prebuilt [`LinearSolver`](@ref): allocates
+(and returns) a fresh solution vector instead of writing into a caller-supplied
+one.  Note that the solver's *cache* is still updated in place (the
+factorization is computed there).
+
+Accepts the same trailing arguments as `solve!(ls, args...)`: a
+[`LinearProblem`](@ref), a matrix-vector pair `A, b`, or a bare right-hand side
+`b` (the latter uses the factorization already stored in `ls`).
+"""
+solve(ls::LinearSolver, args...) = solve!(ls, args...)

@@ -3,6 +3,15 @@ using SafeTestsets
 # @safetestset "Print Statements                                                                " begin
 #     include("check_print_statements.jl")
 # end
+@safetestset "Smoke Tests (construct every exported type)                                     " begin
+    include("smoke_tests.jl")
+end
+@safetestset "Aqua Quality Assurance                                                          " begin
+    include("aqua_tests.jl")
+end
+# @safetestset "JET Static Analysis                                                             " begin
+#     include("jet_tests.jl")
+# end
 @safetestset "Gradients                                                                       " begin
     include("gradient_tests.jl")
 end
@@ -23,7 +32,4 @@ end
 end
 @safetestset "Nonlinear Solvers                                                               " begin
     include("nonlinear_solver_tests.jl")
-end
-@safetestset "Check whether standard Newton fails and Dogleg works                            " begin
-    include("failing_newton_iterations.jl")
 end

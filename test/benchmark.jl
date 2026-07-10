@@ -12,12 +12,12 @@ function test(n)
         for (Solver, kwarguments) in (
             (NewtonSolver, (linesearch=Static(T),)),
             (NewtonSolver, (linesearch=Backtracking(T),)),
-            (NewtonSolver, (linesearch=Quadratic(T, NewtonMethod()),)),
+            (NewtonSolver, (linesearch=Quadratic(T, Newton()),)),
             (NewtonSolver, (linesearch=BierlaireQuadratic(T),)),
             (NewtonSolver, (linesearch=Bisection(T),)),
             (FixedPointIterator, (linesearch=Static(T),)),
             (FixedPointIterator, (linesearch=Backtracking(T),)),
-            (FixedPointIterator, (linesearch=Quadratic(T, NewtonMethod()),)),
+            (FixedPointIterator, (linesearch=Quadratic(T, Newton()),)),
             (FixedPointIterator, (linesearch=BierlaireQuadratic(T),)),
             (FixedPointIterator, (linesearch=Bisection(T),)),
         )

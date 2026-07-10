@@ -19,23 +19,10 @@ julia> default_precision(Float32)
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
 julia> default_precision(Float16)
-ERROR: No default precision defined for Float16.
-[...]
+Float16(0.007812)
 ```
 """
-function default_precision end
-
-function default_precision(::Type{Float32})
-    8eps(Float32)
-end
-
-function default_precision(::Type{Float64})
-    8eps(Float64)
-end
-
-function default_precision(::Type{T}) where {T<:AbstractFloat}
-    error("No default precision defined for $(T).")
-end
+default_precision(::Type{T}) where {T<:AbstractFloat} = 8eps(T)
 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
@@ -54,7 +41,7 @@ end
 
 
 """
-    BierlaireQuadratic <: Linesearch
+    BierlaireQuadratic <: LinesearchMethod
 
 Algorithm taken from [bierlaire2015optimization](@cite).
 """
@@ -63,13 +50,15 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ξ::T
 
     function BierlaireQuadratic{T}(ε::T, ξ::T) where {T}
+        @assert ε > 0 "Precision ε must be positive."
+        @assert ξ > 0 "Derivative threshold ξ must be positive."
         new{T}(ε, ξ)
     end
 end
 
 function BierlaireQuadratic(::Type{T}=Float64;
-    ε=default_precision(T), # previously DEFAULT_BIERLAIRE_ε,
-    ξ=default_precision(T)  # previously DEFAULT_BIERLAIRE_ξ
+    ε=default_precision(T),
+    ξ=default_precision(T)
 ) where {T}
     BierlaireQuadratic{T}(ε, ξ)
 end
@@ -78,27 +67,54 @@ BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, iteration_number::Integer) where {T}
     f = x -> problem(ls).F(x, params)
-    (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
-        ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
-    χ = T(0.5) * (f(a) * (b^2 - c^2) + f(b) * (c^2 - a^2) + f(c) * (a^2 - b^2)) / (f(a) * (b - c) + f(b) * (c - a) + f(c) * (a - b))
-    # perform a perturbation if χ ≈ b (in order "to avoid stalling")
-    χ = b == χ ? shift_χ_to_avoid_stalling(χ, a, b, c, method(ls).ε) : χ
-    if χ > b
-        if f(χ) > f(b)
-            c = χ
+    ε = method(ls).ε
+    # Evaluate f once per point and reuse: the fit, the χ comparison and the
+    # termination check below all need the same values.  The triple updates carry
+    # the values along, so each loop round costs a single new evaluation (fχ).
+    # (The former recursive formulation recomputed fa, fb and fc at every
+    # recursion level, discarding the carried values.)
+    fa = f(a)
+    fb = f(b)
+    fc = f(c)
+    # Iterate rather than recurse: the depth is bounded by the iteration
+    # maximum either way, but a loop keeps the stack flat and lets the
+    # triple (a, b, c) and its values persist across rounds.
+    for _ in iteration_number:(max_number_of_quadratic_linesearch_iterations(T) - 1)
+        # The denominator vanishes when the three points are (nearly) collinear, i.e.
+        # the quadratic fit is degenerate and χ becomes Inf/NaN or falls outside the
+        # bracket.  Guard on the *result* (finite and inside [a, c]) rather than a
+        # magnitude threshold on the denominator, since the denominator is legitimately
+        # small near convergence while still yielding a valid interior minimum; on a
+        # degenerate fit fall back to a bisection step of the bracket [a, c].
+        denom = fa * (b - c) + fb * (c - a) + fc * (a - b)
+        χ = T(0.5) * (fa * (b^2 - c^2) + fb * (c^2 - a^2) + fc * (a^2 - b^2)) / denom
+        (isfinite(χ) && a ≤ χ ≤ c) || (χ = (a + c) / 2)
+        # perform a perturbation if χ ≈ b (in order "to avoid stalling"); use a tight
+        # absolute tolerance so the perturbation only fires when χ is essentially at b
+        # (the former `b == χ` only caught exact equality, missing floating-point ties)
+        χ = isapprox(b, χ; atol=ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, ε) : χ
+        fχ = f(χ)
+        # Carry the function values of the updated triple alongside the points, so the
+        # termination check needs no further evaluations.
+        if χ > b
+            if fχ > fb
+                c, fc = χ, fχ
+            else
+                a, fa = b, fb
+                b, fb = χ, fχ
+            end
         else
-            a, b = b, χ
+            if fχ > fb
+                a, fa = χ, fχ
+            else
+                c, fc = b, fb
+                b, fb = χ, fχ
+            end
         end
-    else
-        if f(χ) > f(b)
-            a = χ
-        else
-            c, b = b, χ
-        end
+        ((c - a) ≤ ε) && ((fa - fb) ≤ ε) && ((fc - fb) ≤ ε) && return b
     end
-    !(((c - a) ≤ method(ls).ε)) || !(((f(a) - f(b)) ≤ method(ls).ε) && ((f(c) - f(b)) ≤ method(ls).ε)) || return b
-    # ( (c - a) ≤ ls.ε ) || return b
-    solve(ls, a, b, c, params, iteration_number + 1)
+    config(ls).verbosity ≥ 2 && @warn "Maximum number of iterations was reached."
+    b
 end
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iteration_number::Integer) where {T}
@@ -108,16 +124,20 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iterati
 end
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
-    # TODO: The following line should use α₀ instead of zero(T) but that requires a rework of the bracketing algorithm
-    # solve(problem, ls, α₀, params, 1)
-    solve(ls, zero(T), params, 1)
+    # Start triple-point bracketing at the caller's α₀ when it lies on the descent side
+    # (φ′(α₀) < 0, so the minimiser is to its right). `triple_point_finder` only searches
+    # rightward and requires a decreasing merit at its start, so otherwise fall back to
+    # the α = 0 anchor, where a descent direction is guaranteed decreasing (starting at an
+    # α₀ past the minimiser would otherwise error). See issue #164.
+    start = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
+    solve(ls, start, params, 1)
 end
 
 
 
 Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
 
-function Base.convert(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
+function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
     T ≠ AT || return method
     if method.ε == default_precision(AT) && method.ξ == default_precision(AT)
         BierlaireQuadratic{T}(default_precision(T), default_precision(T))

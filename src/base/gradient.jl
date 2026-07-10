@@ -1,13 +1,27 @@
+@doc raw"""
+    default_ϵ(::Type{T})
+
+The default step size on whose basis finite differences are computed, for the
+working precision `T`.  Used by [`GradientFiniteDifferences`](@ref) and
+[`JacobianFiniteDifferences`](@ref).
+
+Its value is ``8\sqrt{\varepsilon_T}``, where ``\varepsilon_T`` is the machine
+epsilon of `T`.  Being precision-aware (`eps(T)`, not a baked-in `Float64`
+epsilon) is essential for `Float32` finite differences to be accurate.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: default_ϵ)
+julia> default_ϵ(Float64)
+1.1920928955078125e-7
+```
+
+```jldoctest; setup = :(using SimpleSolvers: default_ϵ)
+julia> default_ϵ(Float32)
+0.0027621358f0
+```
 """
-    DEFAULT_GRADIENT_ϵ
-
-A constant on whose basis finite differences are computed. See [`GradientFiniteDifferences`](@ref).
-
-# Extended help
-
-For the [`JacobianFiniteDifferences`](@ref) this is called [`DEFAULT_JACOBIAN_ϵ`](@ref).
-"""
-const DEFAULT_GRADIENT_ϵ = 8sqrt(eps())
+default_ϵ(::Type{T}) where {T<:Number} = 8sqrt(eps(T))
 
 """
     Gradient
@@ -23,10 +37,6 @@ Examples include:
 """
 abstract type Gradient{T} end
 
-function (::Gradient{T₁})(::AbstractVector{T₂}, ::AbstractVector{T₃}) where {T₁,T₂,T₃}
-    (T₁ == T₂ == T₃) ? error("Functor not implemented.") : error("Types $(T₁), $(T₂), $(T₃) in Gradient functor must be the same.")
-end
-
 function (grad::Gradient{T})(x::AbstractVector{T}) where {T}
     g = alloc_g(x)
     grad(g, x)
@@ -34,9 +44,11 @@ function (grad::Gradient{T})(x::AbstractVector{T}) where {T}
 end
 
 """
-    check_gradient(g)
+    check_gradient([io], g)
 
 Check norm, maximum value and minimum value of a vector.
+
+Output is written to `io` (defaulting to `stdout`).
 
 # Examples
 
@@ -49,12 +61,14 @@ minimum(|Gradient|):          0.9
 maximum(|Gradient|):          3.0
 ```
 """
-function check_gradient(g::AbstractVector; digits::Integer=5)
-    println("norm(Gradient):               ", round(norm(g); digits=digits))
-    println("minimum(|Gradient|):          ", round(minimum(abs.(g)); digits=digits))
-    println("maximum(|Gradient|):          ", round(maximum(abs.(g)); digits=digits))
-    println()
+function check_gradient(io::IO, g::AbstractVector; digits::Integer=5)
+    println(io, "norm(Gradient):               ", round(norm(g); digits=digits))
+    println(io, "minimum(|Gradient|):          ", round(minimum(abs.(g)); digits=digits))
+    println(io, "maximum(|Gradient|):          ", round(maximum(abs.(g)); digits=digits))
+    println(io)
 end
+
+check_gradient(g::AbstractVector; kwargs...) = check_gradient(stdout, g; kwargs...)
 
 # do we need this?
 # function print_gradient(g::AbstractVector)
@@ -87,7 +101,7 @@ struct GradientFunction{T,FT<:Callable,GT<:Callable} <: Gradient{T}
 end
 
 function GradientFunction(::Callable, ::AbstractArray)
-    error("`GradientFunction` can only be called by providing two `Callable`s or an `OptimizerProblem`.")
+    error("`GradientFunction` can only be called by providing a `Callable` and an `AbstractArray`.")
 end
 
 function GradientFunction{T}(F::TF, ∇F!::TG, ::Integer) where {T,TF<:Callable,TG<:Callable}
@@ -98,7 +112,7 @@ function GradientFunction(F::Callable, ∇F!::Callable, x::AbstractVector{T}) wh
     GradientFunction{T}(F, ∇F!, length(x))
 end
 
-(grad::GradientFunction{T})(g::VT, x::VT) where {T,VT<:AbstractVector{T}} = grad.∇F!(g, x)
+(grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T} = grad.∇F!(g, x)
 
 """
     GradientAutodiff <: Gradient
@@ -163,7 +177,7 @@ The `struct` stores:
 GradientFiniteDifferences{T}(F, nx::Integer; ϵ)
 ```
 
-By default for `ϵ` is [`DEFAULT_GRADIENT_ϵ`](@ref).
+By default for `ϵ` is [`default_ϵ`](@ref)`(T)`.
 
 # Functor
 
@@ -171,7 +185,7 @@ The functor does (for `grad(g, x)`):
 
 ```julia
 for j in eachindex(x,g)
-    ϵⱼ = grad.ϵ * x[j] + grad.ϵ
+    ϵⱼ = grad.ϵ * abs(x[j]) + grad.ϵ
     fill!(grad.e, 0)
     grad.e[j] = 1
     grad.tx .= x .- ϵⱼ .* grad.e
@@ -189,7 +203,7 @@ struct GradientFiniteDifferences{T,FT<:Callable} <: Gradient{T}
     tx::Vector{T}
 end
 
-function GradientFiniteDifferences{T}(F::FT, nx::Int; ϵ=DEFAULT_GRADIENT_ϵ) where {T,FT}
+function GradientFiniteDifferences{T}(F::FT, nx::Integer; ϵ=default_ϵ(T)) where {T,FT}
     e = zeros(T, nx)
     tx = zeros(T, nx)
     GradientFiniteDifferences{T,FT}(F, ϵ, e, tx)
@@ -199,7 +213,7 @@ function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractV
     local ϵⱼ::T
 
     for j in eachindex(x, g)
-        ϵⱼ = grad.ϵ * x[j] + grad.ϵ
+        ϵⱼ = grad.ϵ * abs(x[j]) + grad.ϵ
         fill!(grad.e, zero(T))
         grad.e[j] = one(T)
         grad.tx .= x .- ϵⱼ .* grad.e

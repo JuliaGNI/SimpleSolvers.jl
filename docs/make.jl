@@ -9,6 +9,8 @@ Bibliography.sort_bibliography!(bib.entries, :nyt)  # name-year-title
 
 const buildpath = haskey(ENV, "CI") ? ".." : ""
 
+run(`make -C $(joinpath(@__DIR__, "src", "trust_region"))`)
+
 makedocs(;
     plugins=[bib],
     modules=[SimpleSolvers],
@@ -32,6 +34,7 @@ makedocs(;
             "The Sufficient Decrease Condition" => "linesearch/sufficient_decrease_condition.md",
             "The Curvature Condition" => "linesearch/curvature_condition.md",
             "Backtracking" => "linesearch/backtracking.md",
+            "Strong Wolfe" => "linesearch/wolfe.md",
             "Bisections" => "linesearch/bisections.md",
             "Quadratic" => "linesearch/quadratic.md",
             "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md",

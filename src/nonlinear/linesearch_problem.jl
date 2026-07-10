@@ -2,19 +2,34 @@
     linesearch_problem(nlp, jacobian, cache)
 
 Make a line search problem for a *Newton solver* (the `cache` here is an instance of [`NonlinearSolverCache`](@ref)).
+
+# Extended help
+
+The line search closures evaluate the merit at trial steps `α` using *private*
+scratch buffers rather than the solver's shared `cache`. The shared buffers
+(`solution`/`value`/`jacobianmatrix`) are read by the solver *after* the line
+search returns (e.g. the next `direction!` step and the convergence check), so
+writing trial iterates into them would be an aliasing hazard. The line search
+therefore only *reads* the current direction from the shared cache and the
+current iterate from `params.x`; every write goes to a closure-owned buffer.
 """
-function linesearch_problem(nlp::NonlinearProblem{T}, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
+function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
+    # private scratch buffers for the line search (see the docstring for why)
+    xₜ = zero(solution(cache))
+    yₜ = zero(value(cache))
+    jₜ = zero(jacobianmatrix(cache))
+
     function f(α::Number, params)
-        compute_new_iterate!(solution(cache), params.x, α, direction(cache))
-        value!(value(cache), nlp, solution(cache), params.parameters)
-        L2norm(value(cache))
+        compute_new_iterate!(xₜ, params.x, α, direction(cache))
+        value!(yₜ, nlp, xₜ, params.parameters)
+        L2norm(yₜ)
     end
 
     function d(α::Number, params)
-        compute_new_iterate!(solution(cache), params.x, α, direction(cache))
-        value!(value(cache), nlp, solution(cache), params.parameters)
-        jacobian(jacobianmatrix(cache), solution(cache), params.parameters)
-        2dot(value(cache), jacobianmatrix(cache), direction(cache))
+        compute_new_iterate!(xₜ, params.x, α, direction(cache))
+        value!(yₜ, nlp, xₜ, params.parameters)
+        jacobian(jₜ, xₜ, params.parameters)
+        2dot(yₜ, jₜ, direction(cache))
     end
 
     LinesearchProblem{T}(f, d)
@@ -26,7 +41,7 @@ end
 Build a line search problem based on a [`NonlinearSolver`](@ref).
 
 !!! info "Producing a single-valued output"
-    Different from the `linesearch_problem` for `NewtonOptimizerCache`s, we apply `L2norm` to the output of `problem!`. This is because the solver operates on an optimizer problem with multiple outputs from which we have to find roots, whereas an optimizer operates on an optimizer problem with a single output of which we should find a minimum.
+    We apply `L2norm` to the output of `value!` (the evaluation of the nonlinear problem). This is because the solver operates on a function with array-valued outputs from which we have to find roots (in contrast to an optimizer which operates on a function with a scalar output of which we should find a minimum).
 
 # Examples
 

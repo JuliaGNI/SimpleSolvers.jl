@@ -22,9 +22,11 @@ Examples include:
 abstract type Hessian{T} end
 
 """
-    check_hessian(H)
+    check_hessian([io], H)
 
 Check the condition number, determinant, max and min value of the Hessian `H`.
+
+Output is written to `io` (defaulting to `stdout`).
 
 !!! info
     Here the Hessian `H` is a matrix and not of type [`Hessian`](@ref).
@@ -39,13 +41,15 @@ minimum(|Hessian|):          1.0
 maximum(|Hessian|):          3.0
 ```
 """
-function check_hessian(H::AbstractMatrix; digits::Integer=5)
-    println("Condition Number of Hessian: ", round(cond(H); digits=digits))
-    println("Determinant of Hessian:      ", round(det(H); digits=digits))
-    println("minimum(|Hessian|):          ", round(minimum(abs.(H)); digits=digits))
-    println("maximum(|Hessian|):          ", round(maximum(abs.(H)); digits=digits))
-    println()
+function check_hessian(io::IO, H::AbstractMatrix; digits::Integer=5)
+    println(io, "Condition Number of Hessian: ", round(cond(H); digits=digits))
+    println(io, "Determinant of Hessian:      ", round(det(H); digits=digits))
+    println(io, "minimum(|Hessian|):          ", round(minimum(abs.(H)); digits=digits))
+    println(io, "maximum(|Hessian|):          ", round(maximum(abs.(H)); digits=digits))
+    println(io)
 end
+
+check_hessian(H::AbstractMatrix; kwargs...) = check_hessian(stdout, H; kwargs...)
 
 """
     HessianFunction <: Hessian
@@ -101,7 +105,7 @@ HessianAutodiff{T}(F, nx::Integer)
 The functor does:
 
 ```julia
-hes(g, x) = ForwardDiff.hessian!(hes.H, hes.F, x, grad.Hconfig)
+hes(H, x) = ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
 ```
 """
 struct HessianAutodiff{T,FT<:Callable,CT<:ForwardDiff.HessianConfig} <: Hessian{T}
