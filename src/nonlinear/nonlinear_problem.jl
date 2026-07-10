@@ -62,5 +62,5 @@ function jacobian!(j::AbstractMatrix{T}, nlp::NonlinearProblem, x::AbstractArray
 end
 
 function jacobian!(::AbstractMatrix{T}, ::NonlinearProblem{FT,Missing}, ::AbstractArray{T}, params) where {T,FT<:Callable}
-    error("NonlinearSystem does not contain Jacobian.")
+    error("NonlinearProblem does not contain Jacobian.")
 end
