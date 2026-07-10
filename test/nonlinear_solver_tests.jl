@@ -2,7 +2,7 @@ using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!, BierlaireQuadratic
 using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update!, iteration_number
 using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value, direction, direction!, NullParameters
-using SimpleSolvers: trust_radius, INITIAL_Δ
+using SimpleSolvers: trust_radius, DOGLEG_Δ_INITIAL
 using Test
 using Random
 using ForwardDiff
@@ -227,48 +227,52 @@ end
 @testset "DogLeg ρ-based trust region grows on good steps and carries Δ" begin
     # With the full ρ-based radius update (N&W Alg. 4.1) the trust radius is carried
     # across outer steps and *expanded* on good steps that sit on the boundary —
-    # the old code reset Δ to INITIAL_Δ every step and could only shrink it.
+    # the old code reset Δ to DOGLEG_Δ_INITIAL every step and could only shrink it.
     # For a linear residual F(x) = x the Gauss-Newton model is exact (ρ ≈ 1), and
-    # starting far from the root (‖Newton step‖ = 5 > INITIAL_Δ = 1) forces several
+    # starting far from the root (‖Newton step‖ = 5 > DOGLEG_Δ_INITIAL = 1) forces several
     # boundary steps that grow Δ before the full Newton step converges.
     Flin(y, x, p) = (y .= x)
     for T in (Float64, Float32)
         x = T[5.0, 5.0]
         s = DogLegSolver(x, Flin, similar(x))
         ss = SolverState(s)
-        @test trust_radius(cache(s)) == T(INITIAL_Δ)   # reset before solving
+        @test trust_radius(cache(s)) == T(DOGLEG_Δ_INITIAL)   # reset before solving
         solve!(x, s, ss)
         @test all(v -> isapprox(v, zero(T); atol=10eps(T)), x)  # converged
-        @test trust_radius(cache(s)) > T(INITIAL_Δ)             # radius expanded & carried
+        @test trust_radius(cache(s)) > T(DOGLEG_Δ_INITIAL)             # radius expanded & carried
     end
 end
 
 @testset "DogLeg trust radius resets on solver reuse" begin
     # `initialize!` used to reset every DogLegCache buffer *except* the carried
     # trust radius, so a reused solver started its next solve with the radius the
-    # previous solve ended with (up to DOGLEG_Δ_MAX = 1e2) instead of INITIAL_Δ.
+    # previous solve ended with (up to DOGLEG_Δ_MAX = 1e2) instead of DOGLEG_Δ_INITIAL.
     Flin(y, x, p) = (y .= x)
     x = [5.0, 5.0]
     s = DogLegSolver(x, Flin, similar(x))
     solve!(x, s)
-    @test trust_radius(cache(s)) > INITIAL_Δ    # the first solve expanded Δ ...
+    @test trust_radius(cache(s)) > DOGLEG_Δ_INITIAL    # the first solve expanded Δ ...
     initialize!(s, [5.0, 5.0])
-    @test trust_radius(cache(s)) == INITIAL_Δ   # ... but a fresh solve starts over
+    @test trust_radius(cache(s)) == DOGLEG_Δ_INITIAL   # ... but a fresh solve starts over
     x2 = [5.0, 5.0]
     solve!(x2, s)                               # and solver reuse still converges
     @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
 end
 
-@testset "DogLeg trust-region radius bounds are configurable via Options" begin
-    # The initial and maximum trust-region radius are now `Options` fields
-    # (`dogleg_initial_radius`, `dogleg_max_radius`), defaulting to INITIAL_Δ and
-    # DOGLEG_Δ_MAX.  The solver reads them (rather than the constants) so large-/
-    # small-scale problems can tune the radius.
+@testset "DogLeg trust-region parameters are configurable via Options" begin
+    # The trust-region radius bounds and its shrink/expand factors are now `Options`
+    # fields (`dogleg_radius_initial`, `dogleg_radius_max`, `dogleg_radius_shrink`,
+    # `dogleg_radius_expand`), defaulting to DOGLEG_Δ_INITIAL, DOGLEG_Δ_MAX,
+    # DOGLEG_Δ_SHRINK and DOGLEG_Δ_EXPAND.  The solver reads them (rather than the
+    # constants) so problems whose natural scale differs from 1 can tune the region.
     Flin(y, x, p) = (y .= x)
     s = DogLegSolver([5.0, 5.0], Flin, similar([5.0, 5.0]);
-                     dogleg_initial_radius=0.5, dogleg_max_radius=4.0)
-    @test config(s).dogleg_initial_radius == 0.5
-    @test config(s).dogleg_max_radius == 4.0
+                     dogleg_radius_initial=0.5, dogleg_radius_max=4.0,
+                     dogleg_radius_shrink=0.1, dogleg_radius_expand=3.0)
+    @test config(s).dogleg_radius_initial == 0.5
+    @test config(s).dogleg_radius_max == 4.0
+    @test config(s).dogleg_radius_shrink == 0.1
+    @test config(s).dogleg_radius_expand == 3.0
     initialize!(s, [5.0, 5.0])
     @test trust_radius(cache(s)) == 0.5              # reset uses the configured radius
 
@@ -276,6 +280,17 @@ end
     solve!(x, s)
     @test all(v -> isapprox(v, 0.0; atol=1e-10), x)  # still converges
     @test trust_radius(cache(s)) ≤ 4.0               # never expanded past the configured max
+
+    # The expand factor is genuinely consumed: with `dogleg_radius_expand = 1.0` the
+    # radius can never grow, so after solving from far out it stays at the initial
+    # radius (a good boundary step multiplies by 1.0).  For linear F the model is
+    # exact (ρ ≈ 1), so no shrink fires and the radius is pinned at the initial value.
+    s2 = DogLegSolver([5.0, 5.0], Flin, similar([5.0, 5.0]);
+                      dogleg_radius_initial=1.0, dogleg_radius_expand=1.0)
+    x2 = [5.0, 5.0]
+    solve!(x2, s2)
+    @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
+    @test trust_radius(cache(s2)) == 1.0             # radius never grew ⇒ expand factor was used
 end
 
 @testset "DogLeg treats an undefined (NaN) trial merit as a rejected step" begin

@@ -1,10 +1,10 @@
-"Default initial trust-region radius for the [`DogLegSolver`](@ref); the default of the `dogleg_initial_radius` field of [`Options`](@ref), which the solver actually reads."
-const INITIAL_Δ = 1.0
-"Default maximum trust-region radius (``\\hat\\Delta`` in [nocedal2006numerical; Alg. 4.1](@cite)) for the [`DogLegSolver`](@ref); the radius is never expanded beyond this. The default of the `dogleg_max_radius` field of [`Options`](@ref), which the solver actually reads."
+"Default initial trust-region radius for the [`DogLegSolver`](@ref); the default of the `dogleg_radius_initial` field of [`Options`](@ref), which the solver actually reads."
+const DOGLEG_Δ_INITIAL = 1.0
+"Default maximum trust-region radius (``\\hat\\Delta`` in [nocedal2006numerical; Alg. 4.1](@cite)) for the [`DogLegSolver`](@ref); the radius is never expanded beyond this. The default of the `dogleg_radius_max` field of [`Options`](@ref), which the solver actually reads."
 const DOGLEG_Δ_MAX = 1E2
-"Factor by which the trust-region radius is shrunk on a poor step (``\\rho < 1/4``)."
+"Factor by which the trust-region radius is shrunk on a poor step (``\\rho < 1/4``); the default of the `dogleg_radius_shrink` field of [`Options`](@ref), which the solver actually reads."
 const DOGLEG_Δ_SHRINK = 0.25
-"Factor by which the trust-region radius is expanded on a very good step (``\\rho > 3/4`` at the boundary)."
+"Factor by which the trust-region radius is expanded on a very good step (``\\rho > 3/4`` at the boundary); the default of the `dogleg_radius_expand` field of [`Options`](@ref), which the solver actually reads."
 const DOGLEG_Δ_EXPAND = 2.0
 "Lower ρ threshold below which the trust-region radius is shrunk."
 const DOGLEG_ρ_LOW = 0.25
@@ -153,10 +153,10 @@ end
 
 function initialize!(s::DogLegSolver, x::AbstractVector)
     # The cache reset (`initialize!(::DogLegCache, …)`) restores the radius to the
-    # constant default; override it with the configured `dogleg_initial_radius` so a
+    # constant default; override it with the configured `dogleg_radius_initial` so a
     # (re)used solver starts each solve from the caller's chosen radius.
     initialize!(cache(s), x)
-    trust_radius!(cache(s), config(s).dogleg_initial_radius)
+    trust_radius!(cache(s), config(s).dogleg_radius_initial)
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
@@ -170,7 +170,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     # freeze, and the solve would silently spin to `max_iterations`.
     Δ = trust_radius(cache(s))
     force_refresh = Δ ≤ eps(T)
-    force_refresh && (Δ = config(s).dogleg_initial_radius)
+    force_refresh && (Δ = config(s).dogleg_radius_initial)
 
     directions!(s, x, params, iteration_number(state); force_refactorize=force_refresh)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
@@ -204,7 +204,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         # with NaN is false and the loop would spin forever at constant Δ.)
         if isnan(φ)
             verbosity(config(s)) ≥ 2 && @warn "DogLeg: undefined merit (NaN) at the trial step; shrinking the trust-region radius."
-            Δ *= T(DOGLEG_Δ_SHRINK)
+            Δ *= config(s).dogleg_radius_shrink
             continue
         end
 
@@ -229,10 +229,10 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
 
         # Radius update (before the accept test, so a shrink applies to the retry).
         if ρ < T(DOGLEG_ρ_LOW)
-            Δ *= T(DOGLEG_Δ_SHRINK)
+            Δ *= config(s).dogleg_radius_shrink
         elseif ρ > T(DOGLEG_ρ_HIGH) && isapprox(pₙ, Δ; rtol=sqrt(eps(T)))
             # very good step sitting on the trust-region boundary ⇒ grow the radius
-            Δ = min(T(DOGLEG_Δ_EXPAND) * Δ, config(s).dogleg_max_radius)
+            Δ = min(config(s).dogleg_radius_expand * Δ, config(s).dogleg_radius_max)
         end
 
         if ρ > T(DOGLEG_η)

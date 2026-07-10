@@ -80,10 +80,12 @@ signature are not enumerated here.)
   solves against the stored factorization; it used to unconditionally throw
   "no method implemented".
 - Aqua.jl, JET.jl, and construct-every-export smoke tests as CI quality gates.
-- `Options` gains `dogleg_initial_radius` and `dogleg_max_radius` fields (defaulting to
-  `INITIAL_Δ = 1.0` and `DOGLEG_Δ_MAX = 1e2`), so the `DogLegSolver`'s trust-region
-  radius bounds can be tuned for problems whose natural scale differs from 1 (the
-  solver now reads these instead of the hard-coded constants).
+- `Options` gains `dogleg_radius_initial`, `dogleg_radius_max`, `dogleg_radius_shrink`
+  and `dogleg_radius_expand` fields (defaulting to `DOGLEG_Δ_INITIAL = 1.0`,
+  `DOGLEG_Δ_MAX = 1e2`, `DOGLEG_Δ_SHRINK = 0.25` and `DOGLEG_Δ_EXPAND = 2.0`), so the
+  `DogLegSolver`'s trust-region radius bounds and its shrink/expand factors can be
+  tuned for problems whose natural scale differs from 1 (the solver now reads these
+  from `Options` instead of the hard-coded constants).
 
 ### Fixed (highlights)
 

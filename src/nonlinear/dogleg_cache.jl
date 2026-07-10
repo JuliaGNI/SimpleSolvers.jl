@@ -24,7 +24,7 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
 
     function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractVector{T}}
         j = alloc_j(x, y)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(INITIAL_Δ)))
+        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(DOGLEG_Δ_INITIAL)))
         initialize!(c, fill!(similar(x), NaN))
         c
     end
@@ -86,7 +86,7 @@ function initialize!(cache::DogLegCache{T}, ::AbstractVector{T}) where {T}
     # Reset the trust-region radius: it is carried *across solver steps within one
     # solve*, but a fresh solve (solver reuse) must not inherit the radius the
     # previous solve ended with.
-    trust_radius!(cache, T(INITIAL_Δ))
+    trust_radius!(cache, T(DOGLEG_Δ_INITIAL))
 
     cache
 end

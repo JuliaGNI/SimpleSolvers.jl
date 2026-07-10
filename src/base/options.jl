@@ -121,8 +121,10 @@ Options()
       nan_max_iterations = 10
               nan_factor = 0.5
    regularization_factor = 0.0
-   dogleg_initial_radius = 1.0
-       dogleg_max_radius = 100.0
+   dogleg_radius_initial = 1.0
+    dogleg_radius_shrink = 0.25
+    dogleg_radius_expand = 2.0
+       dogleg_radius_max = 100.0
 
 ```
 
@@ -130,10 +132,13 @@ Options()
     For the first few constants (`x_abstol` to `g_restol`) the default constructor uses the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
 
 !!! info
-    `dogleg_initial_radius` and `dogleg_max_radius` are the trust-region radius bounds
-    for the [`DogLegSolver`](@ref) (``\\Delta_0`` and ``\\hat\\Delta`` in
-    [nocedal2006numerical; Alg. 4.1](@cite)); they default to [`INITIAL_Δ`](@ref) and
-    [`DOGLEG_Δ_MAX`](@ref) and are ignored by the other solvers.
+    `dogleg_radius_initial`, `dogleg_radius_shrink`, `dogleg_radius_expand` and
+    `dogleg_radius_max` are the trust-region parameters for the [`DogLegSolver`](@ref):
+    the initial and maximum radius (``\\Delta_0`` and ``\\hat\\Delta`` in
+    [nocedal2006numerical; Alg. 4.1](@cite)) and the factors by which the radius is
+    shrunk on a poor step / expanded on a very good boundary step. They default to
+    [`DOGLEG_Δ_INITIAL`](@ref), [`DOGLEG_Δ_SHRINK`](@ref), [`DOGLEG_Δ_EXPAND`](@ref) and
+    [`DOGLEG_Δ_MAX`](@ref), and are ignored by the other solvers.
 
 !!! info
     Also see [`meets_stopping_criteria`](@ref).
@@ -164,8 +169,10 @@ struct Options{T}
     nan_max_iterations::Int
     nan_factor::T
     regularization_factor::T
-    dogleg_initial_radius::T
-    dogleg_max_radius::T
+    dogleg_radius_initial::T
+    dogleg_radius_shrink::T
+    dogleg_radius_expand::T
+    dogleg_radius_max::T
 end
 
 function Options(T=Float64;
@@ -194,8 +201,10 @@ function Options(T=Float64;
     nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
     nan_factor::Real=NAN_FACTOR,
     regularization_factor::Real=T(REGULARIZATION_FACTOR),
-    dogleg_initial_radius::Real=T(INITIAL_Δ),
-    dogleg_max_radius::Real=T(DOGLEG_Δ_MAX),
+    dogleg_radius_initial::Real=T(DOGLEG_Δ_INITIAL),
+    dogleg_radius_shrink::Real=T(DOGLEG_Δ_SHRINK),
+    dogleg_radius_expand::Real=T(DOGLEG_Δ_EXPAND),
+    dogleg_radius_max::Real=T(DOGLEG_Δ_MAX),
 )
 
     show_every = show_every > 0 ? show_every : 1
@@ -225,8 +234,10 @@ function Options(T=Float64;
         nan_max_iterations,
         nan_factor,
         regularization_factor,
-        dogleg_initial_radius,
-        dogleg_max_radius,
+        dogleg_radius_initial,
+        dogleg_radius_shrink,
+        dogleg_radius_expand,
+        dogleg_radius_max,
     )
 end
 
