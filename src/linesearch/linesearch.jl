@@ -28,6 +28,7 @@ method's precision is adapted to the working precision `T`.  It replaces a forme
 misuse of `Base.convert` (which was ambiguous with `Base` and violated the
 `convert` contract by returning a differently-typed object).
 """
+change_precision(::Type{T}, method::LinesearchMethod{T}) where {T} = method
 change_precision(::Type, method::LinesearchMethod) =
     error("change_precision not implemented for $(typeof(method)).")
 
