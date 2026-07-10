@@ -1046,3 +1046,102 @@ Verification:
 - `julia --project=docs docs/make.jl` passed. Remaining output is warning-only:
   Makie arrows deprecations, Documenter navbar repo-root warning, and skipped
   deploy outside CI.
+
+---
+
+# Interim maintainer changes (2026-07-10, after the §5 line-search commit)
+
+Eleven commits landed on `bugfixes` between/after `0546fc0` (§5 line-search
+fixes) that were not made through this assistant session; recorded here so this
+file stays a faithful running history, with explicit notes on which earlier
+statements they SUPERSEDE.
+
+## Substantive changes
+
+1. **`4c1f84a` (benedict-96) — DogLeg gains a working `refactorize` option.**
+   `DogLeg` now stores `refactorize::Int` (default 1, `DogLeg(4)` etc.);
+   `directions!` takes the iteration and only re-evaluates + refactorizes the
+   Jacobian when `mod(iteration, refactorize) == 0 || iteration ≤ 1` (the same
+   guard as `NewtonSolver`); the `DogLegSolver` constructor accepts the
+   `refactorize` keyword again, with the `Static`-linesearch safeguard;
+   `NonlinearSolver(::DogLeg, …)` honours the method's field (mirroring the
+   `Newton` fix from the interface pass). **SUPERSEDES** the Phase 4.1
+   deviation ("`refactorize` rejected as meaningless — DogLeg refactorizes
+   every step") and the corresponding rejection test rationale.
+   ⚠ The CHANGELOG entry "DogLegSolver … no longer accepts a `refactorize`
+   keyword" (lines ~41–42) is now WRONG and needs rewording to describe the
+   new semantics instead.
+
+2. **`46970c5` (M. Kraus) — method types renamed: `NewtonMethod{RF}` →
+   `Newton{RF}`, `QuasiNewtonMethod` → `QuasiNewton`, `PicardMethod` →
+   `Picard`** (old names removed, not deprecated; exports, docs, tests,
+   benchmarks updated; smoke tests assert the old names are gone). Documented
+   in detail in the "naming cleanup" section above (authored by the
+   maintainer). **SUPERSEDES** the interface-consistency pass's "Reviewed,
+   deliberately not changed" naming entry — the resolution went the opposite
+   way from the one sketched there: instead of giving `DogLeg` a `Method`
+   suffix, the suffix was dropped everywhere.
+   ⚠ The CHANGELOG does not yet list this rename under "Removed/Changed
+   (breaking)" (only an incidental reference on the `QuasiNewton(n)` line was
+   updated); it should, since `NewtonMethod`/`QuasiNewtonMethod`/`PicardMethod`
+   were exported names.
+   Also: **`memory.md` itself became tracked in this commit** — supersedes
+   Phase 6.3's "helper files not committed" for this file (`bugs.md` and
+   `plan.md` remain untracked).
+
+3. **`00ccc0b` (M. Kraus) — documentation build fixed** (section above,
+   authored by the maintainer). Attribution note for the history: the broken
+   docstring attachment it repairs was introduced by *this session's* §5
+   commit `0546fc0` — the explanatory comments about the `f₀`/`d₀` renames
+   were placed between the `@doc raw"""…"""` blocks and the
+   `SufficientDecreaseCondition`/`CurvatureCondition` structs, which detaches
+   the docstring from the binding for Documenter. Lesson recorded: never put
+   comments between a `@doc` block and the definition it documents.
+   The commit also wires the trust-region TikZ→PNG generation into the docs
+   build (`docs/src/trust_region/Makefile`, `docs/make.jl`) and trims
+   `.github/workflows/Documenter.yml`.
+
+4. **Copilot-autofix saga in `src/linesearch/linesearch.jl`** (three commits):
+   `82d6491` (autofix) added a *typed* 5-arg
+   `solve(prob, method, α, params, config::Options{T})` alongside the existing
+   untyped one and tightened the 3-positional `Linesearch` constructor to
+   `Options{T}`; this introduced an ambiguity that `8091269` first constrained
+   (`T<:Real`) and `8acac1e` then resolved properly by deleting the duplicate
+   method and loosening the `Linesearch`-level fallback to accept any `α`
+   (converted via `T(α)`). Net effect relative to before: one 5-arg `solve`
+   (unchanged semantics), `Linesearch(problem, method, config::Options{T})`
+   now element-type-checked, and the fallback `solve(ls, α, params)` accepts
+   mixed-precision `α`.
+
+## Smaller items
+
+5. `7b304ac` (autofix): stale error message "NonlinearSystem does not contain
+   Jacobian" → "NonlinearProblem …" (`nonlinear_problem.jl`); `2d63bec` updates
+   the matching `@test_throws` string and a smoke-testset title width.
+6. `12de0e1`: `triple_point_finder` docstring now cross-references
+   `BierlaireQuadratic` (its actual consumer) instead of `Quadratic`.
+7. `1f2d363`: formatting follow-up in the two backtracking-condition files.
+8. `c3b31c1`: **`test/failing_newton_iterations.jl` deleted**; its Powell-problem
+   Newton/Picard/DogLeg tests moved into `test/nonlinear_solver_tests.jl`.
+   Earlier references to that filename (Phases 2, 5, verification pass) are
+   historical.
+9. `1561d51` (benedict-96): Aqua badge added to the README.
+
+## State at the time of writing
+
+Local `bugfixes` is in sync with origin at `c3b31c1`; working tree clean apart
+from the untracked `bugs.md`/`plan.md`. The maintainer's commits were pushed
+through the pre-push hook (full `Pkg.test()`), and `docs/make.jl` passes per
+the section above. The full CI run for `c3b31c1` completed **all green**:
+Julia 1.10 / 1.12 / ^1.13.0-0 / nightly on ubuntu + macOS + windows,
+Documentation (14m39s, including the maintainer's docs-build fixes), and both
+codecov checks — 15/15 pass; the PR is mergeable.
+
+## Open follow-ups from this section
+
+- Update the two stale CHANGELOG spots: (a) the DogLeg `refactorize` rejection
+  entry (now describes the opposite of the code), (b) add the
+  `Newton`/`QuasiNewton`/`Picard` rename to the breaking changes.
+- The PR #161 description (created before these commits) likewise predates the
+  rename and the DogLeg `refactorize` feature; consider refreshing it before
+  merge.
