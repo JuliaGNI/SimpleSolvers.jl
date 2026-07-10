@@ -107,6 +107,12 @@ restoring its documented "never worse than Armijo" guarantee. The internal
 stops decreasing) rather than only where it climbs back above the fixed left anchor
 `f(a)`, so the `Quadratic` line search no longer errors on merits whose right tail
 stays below `f(a)` (e.g. one that dips to a minimum then only asymptotes back up).
+The DogLeg solver no longer freezes when the carried trust-region radius underflows:
+a step that enters with a collapsed radius (`Δ ≤ eps`) now resets the radius and
+forces a fresh Jacobian, so it makes progress instead of silently spinning to
+`max_iterations`. This is reachable in quasi-Newton mode (`refactorize > 1`), where a
+stale Jacobian's steepest-descent direction need not reduce `‖F‖²`; the default
+`refactorize = 1` (Jacobian refreshed every step) is unaffected.
 
 ### Internal
 

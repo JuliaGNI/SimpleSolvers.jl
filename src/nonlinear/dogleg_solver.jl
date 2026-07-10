@@ -81,13 +81,13 @@ where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual v
 
 The [`DogLegSolver`](@ref) then interpolates between these two directions (this interpolation is piecewise linear).
 
-As for the (quasi-)[`NewtonSolver`](@ref), the [`Jacobian`](@ref) is only re-evaluated and refactored every `refactorize` iterations (see [`DogLeg`](@ref)), and always on a fresh state or the first step (`iteration ≤ 1`). In between, the stale Jacobian and its factorization are reused for both directions. The default `refactorize = 1` refactorizes on every step.
+As for the (quasi-)[`NewtonSolver`](@ref), the [`Jacobian`](@ref) is only re-evaluated and refactored every `refactorize` iterations (see [`DogLeg`](@ref)), and always on a fresh state or the first step (`iteration ≤ 1`), or when `force_refactorize = true` (used by [`solver_step!`](@ref) to recover from a collapsed trust-region radius). In between, the stale Jacobian and its factorization are reused for both directions. The default `refactorize = 1` refactorizes on every step.
 """
-function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration=1) where {T}
+function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration=1; force_refactorize::Bool=false) where {T}
     # the Newton direction
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
-    if (mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
+    if (force_refactorize || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
         jacobian!(s, x, params)
         matrix(linearproblem(s)) .= jacobianmatrix(s)
         idxs = diagind(matrix(linearproblem(s)))
@@ -152,7 +152,19 @@ function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
-    directions!(s, x, params, iteration_number(state))
+    # If the carried trust-region radius collapsed on the previous step, that step
+    # made no progress (in quasi-Newton mode this happens when a *stale* Jacobian's
+    # steepest-descent direction is not a descent direction for ‖F‖²).  Recover by
+    # resetting the radius and forcing a fresh Jacobian this step: a freshly evaluated
+    # steepest-descent direction is guaranteed to reduce the merit for a small enough
+    # step, so the trust-region loop below can accept before the radius underflows
+    # again.  Without this, `while Δ > eps(T)` would never run, the iterate would
+    # freeze, and the solve would silently spin to `max_iterations`.
+    Δ = trust_radius(cache(s))
+    force_refresh = Δ ≤ eps(T)
+    force_refresh && (Δ = T(INITIAL_Δ))
+
+    directions!(s, x, params, iteration_number(state); force_refactorize=force_refresh)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
 
@@ -164,7 +176,6 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     # the Jacobian evaluation and factorization (`directions!`) run exactly once
     # per solver step.  Termination on the Δ floor is independent of `verbosity`.
     φ₀ = L2norm(value(state))          # current merit φ(x) = ‖F(x)‖²
-    Δ = trust_radius(cache(s))
     accepted = false
     while Δ > eps(T)
         dogleg_direction!(cache(s), Δ)

@@ -290,6 +290,46 @@ end
     @test isapprox(x2[1], exp(-2.0); atol=1e-8)
 end
 
+@testset "DogLeg recovers from a collapsed trust-region radius" begin
+    # Once the carried trust radius underflowed (Δ ≤ eps), the next
+    # solver_step!'s `while Δ > eps(T)` never ran, so the iterate froze and the
+    # solve spun to max_iterations with no progress and no failure signal.  This is
+    # reachable in quasi-Newton mode (refactorize > 1), where a *stale* Jacobian's
+    # steepest-descent direction need not reduce ‖F‖².  A step that enters with a
+    # collapsed radius now resets Δ and forces a fresh Jacobian, so it makes
+    # progress instead of freezing.
+    Fnl(y, x, p) = (y .= [x[1]^2 - 2, x[2]^2 - 3])   # root (√2, √3)
+    for T in (Float64, Float32)
+        x = T[3.0, 3.0]
+        s = DogLegSolver(x, Fnl, similar(x); refactorize=3)
+        y = similar(x)
+        Fnl(y, x, NullParameters())
+        state = NonlinearSolverState(x, y)
+        initialize!(s, x)
+        initialize!(state, x, y)
+
+        # Collapse the carried radius, as a poor (stale-Jacobian) step would have.
+        SimpleSolvers.trust_radius!(cache(s), eps(T) / 2)
+        r₀ = SimpleSolvers.l2norm(value(state))
+        x_before = copy(x)
+
+        solver_step!(x, s, state, NullParameters())
+
+        @test trust_radius(cache(s)) > eps(T)   # radius recovered to a workable value
+        @test x != x_before                     # the iterate moved (did not freeze)
+        yₜ = similar(x)
+        Fnl(yₜ, x, NullParameters())
+        @test SimpleSolvers.l2norm(yₜ) < r₀     # the recovered step reduced the residual
+
+        # ... and a full quasi-Newton (refactorize > 1) solve converges end to end.
+        x2 = T[3.0, 3.0]
+        s2 = DogLegSolver(x2, Fnl, similar(x2); refactorize=3)
+        solve!(x2, s2)
+        @test isapprox(x2[1], sqrt(T(2)); atol=∛(eps(T))) &&
+              isapprox(x2[2], sqrt(T(3)); atol=∛(eps(T)))
+    end
+end
+
 @testset "PicardSolver rejects a linesearch keyword" begin
     # The Picard solver_step! is a fixed-point iteration and consults no line
     # search; a `linesearch` keyword used to be accepted and silently ignored.
