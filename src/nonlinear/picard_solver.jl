@@ -48,9 +48,9 @@ solve!(x, s, state)
  0.0
 ```
 """
-function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, jacobian=missing, kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, DF!, x, y)
-    jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
+    jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)
     # The Picard `solver_step!` never consults a line search; the (structurally
     # mandatory) `linesearch` field is filled with a trivial `Static` step.  A
@@ -106,17 +106,9 @@ function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::Nonlinear
     direction!(s, x, params, iteration_number(state))
     any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
 
-    # NaN recovery on the residual direction (mirrors the generic solver step).
-    for _ in 1:config(s).nan_max_iterations
-        solution(cache(s)) .= x .+ direction(cache(s))
-        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        if any(isnan, value(cache(s)))
-            (config(s).verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
-            direction(cache(s)) .*= T(config(s).nan_factor)
-        else
-            break
-        end
-    end
+    # NaN recovery on the residual direction (mirrors the generic solver step); leaves
+    # the α = 1 trial residual in `value(cache(s))`, reused by the safeguard below.
+    nan_recovery!(s, x, params)
 
     # Damped fixed-point step with a residual-monotonicity safeguard: starting from the
     # full step α = 1 — whose residual ‖F(x + d)‖ is already in `value(cache)` from the NaN

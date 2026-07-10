@@ -107,11 +107,7 @@ end
 """
 function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=StrongWolfe(T), jacobian=missing, refactorize=1, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
-    # Build the default autodiff Jacobian lazily, so we don't allocate ForwardDiff
-    # configs when either a Jacobian or a `DF!` is supplied.
-    jacobian = ismissing(DF!) ?
-               (ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian) :
-               JacobianFunction{T}(F, DF!)
+    jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
@@ -133,16 +129,9 @@ function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
-    # for a quasi-Newton method the Jacobian isn't updated in every iteration:
-    # factorize on a fresh state (iteration 0) and the first step (iteration 1),
-    # then every `refactorize` iterations.
-    if (mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
-        jacobian!(s, x, params)
-        matrix(linearproblem(s)) .= jacobianmatrix(s)
-        idxs = diagind(matrix(linearproblem(s)))
-        @view(matrix(linearproblem(s))[idxs]) .+= config(s).regularization_factor
-        factorize!(linearsolver(s), linearproblem(s))
-    end
+    # for a quasi-Newton method the Jacobian isn't updated in every iteration
+    # (see `maybe_refactorize!`).
+    maybe_refactorize!(s, x, params, iteration)
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
 end
 

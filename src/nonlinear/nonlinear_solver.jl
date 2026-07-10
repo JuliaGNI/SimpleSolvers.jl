@@ -108,6 +108,61 @@ end
 Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
 
 """
+    resolve_jacobian(F, DF!, jacobian, x, y)
+
+Resolve the [`Jacobian`](@ref) for a nonlinear-solver constructor: an explicit `DF!`
+wins (wrapped as a [`JacobianFunction`](@ref)), otherwise an explicit `jacobian`,
+otherwise a lazily-built [`JacobianAutodiff`](@ref). Building the autodiff Jacobian
+lazily avoids allocating a ForwardDiff config when either `DF!` or a `jacobian` is
+supplied.
+"""
+function resolve_jacobian(F, DF!, jacobian, x::AbstractVector{T}, y) where {T}
+    ismissing(DF!) || return JacobianFunction{T}(F, DF!)
+    ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian
+end
+
+"""
+    maybe_refactorize!(s, x, params, iteration; force=false)
+
+Re-evaluate the [`Jacobian`](@ref) at `x`, copy it into the [`LinearProblem`](@ref)
+(adding the diagonal `regularization_factor`), and refactorize the
+[`LinearSolver`](@ref) — but only on a refactorization step: a fresh state or the
+first step (`iteration ≤ 1`), every `refactorize` iterations (see [`Newton`](@ref)),
+or when `force`d (used by the [`DogLegSolver`](@ref) to recover from a collapsed
+trust-region radius). Otherwise the stale Jacobian and its factorization are reused
+(quasi-Newton). Returns the solver `s`.
+"""
+function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Bool=false)
+    (force || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) || return s
+    jacobian!(s, x, params)
+    lp = linearproblem(s)
+    matrix(lp) .= jacobianmatrix(s)
+    idxs = diagind(matrix(lp))
+    @view(matrix(lp)[idxs]) .+= config(s).regularization_factor
+    factorize!(linearsolver(s), lp)
+    s
+end
+
+"""
+    nan_recovery!(s, x, params)
+
+Damp `direction(cache(s))` by `nan_factor` until the trial iterate `x + d` has a
+finite residual (or the `nan_max_iterations` budget is exhausted). On return
+`solution(cache(s))` and `value(cache(s))` hold the last trial iterate and its
+residual. Used by the generic and Picard [`solver_step!`](@ref)s. Returns the solver `s`.
+"""
+function nan_recovery!(s::NonlinearSolver{T}, x, params) where {T}
+    for _ in 1:config(s).nan_max_iterations
+        solution(cache(s)) .= x .+ direction(cache(s))
+        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
+        any(isnan, value(cache(s))) || break
+        config(s).verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector."
+        direction(cache(s)) .*= T(config(s).nan_factor)
+    end
+    s
+end
+
+"""
     solver_step!(x, s, state, params)
 
 Compute one step for solving the problem stored in an instance `s` of [`NonlinearSolver`](@ref).
@@ -145,18 +200,7 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     direction!(s, x, params, iteration_number(state))
     any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
 
-    # The following loop checks if the RHS contains any NaNs.
-    # If so, the direction vector is reduced by a factor of NAN_FACTOR.
-    for _ in 1:config(s).nan_max_iterations
-        solution(cache(s)) .= x .+ direction(cache(s))
-        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        if any(isnan, value(cache(s)))
-            (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector.")
-            direction(cache(s)) .*= T(config(s).nan_factor)
-        else
-            break
-        end
-    end
+    nan_recovery!(s, x, params)
 
     α = solve(linesearch(s), one(T), (x=x, parameters=params))
     compute_new_iterate!(x, α, direction(cache(s)))

@@ -92,13 +92,7 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration
     # the Newton direction
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
-    if (force_refactorize || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1)
-        jacobian!(s, x, params)
-        matrix(linearproblem(s)) .= jacobianmatrix(s)
-        idxs = diagind(matrix(linearproblem(s)))
-        @view(matrix(linearproblem(s))[idxs]) .+= config(s).regularization_factor
-        factorize!(linearsolver(s), linearproblem(s))
-    end
+    maybe_refactorize!(s, x, params, iteration; force=force_refactorize)
 
     # the steepest descent direction (depends only on J and rhs, not on the
     # factorization, so it is computed *before* the Newton solve — this also makes it
@@ -288,11 +282,7 @@ end
 
 function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
-    # Build the default autodiff Jacobian lazily, so we don't allocate ForwardDiff
-    # configs when either a Jacobian or a `DF!` is supplied.
-    jacobian = ismissing(DF!) ?
-               (ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian) :
-               JacobianFunction{T}(F, DF!)
+    jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = DogLegCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
