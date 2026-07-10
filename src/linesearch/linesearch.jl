@@ -83,10 +83,10 @@ The argument `params` needs to be of an appropriate form expected by the respect
 
 See [`linesearch_problem`](@ref).
 """
-function solve(::Linesearch{T,MET}, α::T, params=NullParameters()) where {T,MET<:LinesearchMethod{T}}
+function solve(::Linesearch{T,MET}, α::T, params=NullParameters()) where {T <: Real, MET<:LinesearchMethod{T}}
     error("Solve method missing for $(MET).")
 end
 
-function solve(prob::LinesearchProblem, method::LinesearchMethod, α, params=NullParameters(), config::Options=Options())
+function solve(prob::LinesearchProblem, method::LinesearchMethod, α::T, params=NullParameters(), config::Options=Options()) where {T <: Real}
     solve(Linesearch(prob, method, config), α, params)
 end
