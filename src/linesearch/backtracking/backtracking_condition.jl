@@ -40,7 +40,7 @@ function compute_new_iterate!(xₖ::VT, αₖ::T, pₖ::TVT) where {T<:Number,VT
 end
 
 function compute_new_iterate!(xₖ::VT, αₖ::T₁, pₖ::TVT) where {T₁<:Number,T<:Number,VT<:Union{T,AbstractArray{T}},TVT<:Union{T,AbstractArray{T}}}
-    @warn "Your are computing with mixed precisions ($(T₁) and $(T)). This is probably not on purpose."
+    @warn "You are computing with mixed precisions ($(T₁) and $(T)). This is probably not on purpose."
     compute_new_iterate!(xₖ, T(αₖ), pₖ)
 end
 
