@@ -34,5 +34,10 @@ docs/site/
 Manifest.toml
 docs/Manifest.toml
 
-# images
+# Images
+*.pdf
 *.png
+
+# Temporary Latex files
+*.aux
+*.log

@@ -22,8 +22,6 @@ jobs:
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1"
-      - name: Make tikz images
-        run: make all -C docs/src/trust_region
       - name: Set environment variables
         run: echo "PYTHON=''" >> $GITHUB_ENV
       - name: Install dependencies

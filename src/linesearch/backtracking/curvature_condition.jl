@@ -1,3 +1,6 @@
+# As in `SufficientDecreaseCondition`, the value field carries a `₀` subscript
+# (derivative at the base point α = 0) so it does not differ from the callable
+# `D` only by letter case.
 @doc raw"""
     CurvatureCondition <: LinesearchCondition
 
@@ -26,11 +29,7 @@ Here `D` has to be a function computing the derivative of the objective. The mod
 is passed as a `Val` (defaulting to `Val(:Standard)`) so that it is encoded in the
 type and dispatch — and hence inference — is stable without relying on constant
 propagation of a `Symbol` keyword. The other inputs are numbers.
-"""
-# As in `SufficientDecreaseCondition`, the value field carries a `₀` subscript
-# (derivative at the base point α = 0) so it does not differ from the callable
-# `D` only by letter case.
-struct CurvatureCondition{T,DT<:Callable,COND} <: BacktrackingCondition{T}
+""" struct CurvatureCondition{T,DT<:Callable,COND} <: BacktrackingCondition{T}
     c::T
     d₀::T
 

@@ -1018,3 +1018,31 @@ Verification:
   docs issues: unresolved `SufficientDecreaseCondition` / `CurvatureCondition`
   references and missing dogleg PNG assets; no rename-related doc failures were
   observed before that cross-reference failure.
+
+---
+
+# Documentation build fix after method renames (2026-07-10)
+
+Follow-up to the naming cleanup: used this file's recent notes to identify the
+remaining docs blockers that were unrelated to the `Newton`/`QuasiNewton`/`Picard`
+rename but still prevented `docs/make.jl` from completing.
+
+Fixed:
+- Attached the raw docstrings for `SufficientDecreaseCondition` and
+  `CurvatureCondition` directly to their struct definitions. The previous
+  `@doc raw"""..."""` blocks were separated from the structs by comments, so
+  Documenter could not resolve `@ref` links to those bindings.
+- Restored the trust-region page's PNG image references and made the docs build
+  generate those ignored PNGs via `docs/src/trust_region/Makefile` before
+  `makedocs` runs.
+- Reworked the Makefile targets so `make` builds the actual generated files
+  (`dogleg_tikz_light.png` and `dogleg_tikz_dark.png`) from the matching TikZ
+  sources, instead of using stale aggregate target names.
+- Kept the global `*.png` ignore rule unchanged; generated PNG assets are not
+  tracked.
+
+Verification:
+- `julia --project=. -e 'using Pkg; Pkg.test()'` passed.
+- `julia --project=docs docs/make.jl` passed. Remaining output is warning-only:
+  Makie arrows deprecations, Documenter navbar repo-root warning, and skipped
+  deploy outside CI.

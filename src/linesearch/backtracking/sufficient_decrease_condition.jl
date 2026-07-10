@@ -1,3 +1,6 @@
+# The value fields carry a `₀` subscript (value/derivative at the base point
+# α = 0) so they do not differ from the callable `F` only by letter case
+# (bugs.md §5: the former `f` vs `F` was an easy silent typo).
 @doc raw"""
     SufficientDecreaseCondition <: BacktrackingCondition
 
@@ -24,11 +27,7 @@ sdc(1.9), sdc(2.)
 
 We call the constant that pertains to the sufficient decrease condition ``c``. This is typically called ``c_1`` in the literature [nocedal2006numerical](@cite).
 See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
-"""
-# The value fields carry a `₀` subscript (value/derivative at the base point
-# α = 0) so they do not differ from the callable `F` only by letter case
-# (bugs.md §5: the former `f` vs `F` was an easy silent typo).
-struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
+""" struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
     c::T
     f₀::T
     d₀::T

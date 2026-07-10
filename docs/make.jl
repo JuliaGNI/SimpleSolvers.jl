@@ -9,6 +9,8 @@ Bibliography.sort_bibliography!(bib.entries, :nyt)  # name-year-title
 
 const buildpath = haskey(ENV, "CI") ? ".." : ""
 
+run(`make -C $(joinpath(@__DIR__, "src", "trust_region"))`)
+
 makedocs(;
     plugins=[bib],
     modules=[SimpleSolvers],
