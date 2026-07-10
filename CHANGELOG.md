@@ -19,6 +19,10 @@ signature are not enumerated here.)
 - Exported `NonlinearMethod` (removed); `NonlinearSolverMethod` is now exported in its
   place. `LinesearchMethod` is now a direct subtype of `SolverMethod`
   (was `<: NonlinearMethod`).
+- The `minimum` export (and the corresponding `import Base.minimum`): no method for it
+  was ever defined here. The optimizer subsystem it belonged to now lives in a separate
+  package, and the dangling references to it (docstrings, an orphaned TikZ diagram) were
+  removed.
 - Phantom type parameters: `AT` from `NonlinearSolver`; the eltype `T` from
   `NonlinearProblem` (now `NonlinearProblem{TF,TJ}`).
 - The `NonlinearProblem{T}(F, [J,] n₁, n₂)` size-only convenience constructors
@@ -30,6 +34,10 @@ signature are not enumerated here.)
 
 ### Changed (breaking)
 
+- The concrete nonlinear-solver method types were renamed to drop the `Method` suffix:
+  `NewtonMethod` → `Newton`, `QuasiNewtonMethod` → `QuasiNewton`
+  (`QuasiNewton = Newton{false}`) and `PicardMethod` → `Picard`. The old names are gone;
+  update `NonlinearSolver(NewtonMethod(), …)` call sites to `Newton()` (etc.).
 - `CurvatureCondition`'s `mode` is now a positional `Val{:Standard}()`/`Val{:Strong}()`
   argument (was a runtime `mode::Symbol` keyword) — inference-stable.
 - `DogLegSolver(x, F, y; …)` no longer accepts a `refactorize` keyword (DogLeg
@@ -80,6 +88,12 @@ signature are not enumerated here.)
   solves against the stored factorization; it used to unconditionally throw
   "no method implemented".
 - Aqua.jl, JET.jl, and construct-every-export smoke tests as CI quality gates.
+- The diagnostics helpers `check_gradient`, `check_hessian`, `check_jacobian` and
+  `print_jacobian` (and their `NewtonSolver`/`QuasiNewtonSolver` forwarders) gained an
+  optional leading `io::IO` argument (defaulting to `stdout`), so their output can be
+  redirected or captured. `print_jacobian` now renders via `show(io, "text/plain", J)`
+  instead of `display(J)`: the terminal output is identical but is now deterministic and
+  honours the given `io` (a rich frontend gets plain text rather than an HTML table).
 - `Options` gains `dogleg_radius_initial`, `dogleg_radius_max`, `dogleg_radius_shrink`
   and `dogleg_radius_expand` fields (defaulting to `DOGLEG_Δ_INITIAL = 1.0`,
   `DOGLEG_Δ_MAX = 1e2`, `DOGLEG_Δ_SHRINK = 0.25` and `DOGLEG_Δ_EXPAND = 2.0`), so the
@@ -135,3 +149,9 @@ left) bracket guarantee.
   `DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER` constant) in `newton_solver.jl`, `Picard` in
   `picard_solver.jl`, and `DogLeg` in `dogleg_solver.jl`. The exported names and their
   behavior are unchanged.
+- The `src/linesearch/backtracking/` subdirectory was flattened into `src/linesearch/`
+  (the backtracking condition files now live alongside the other line searches). No API
+  or behavioral change.
+- `StrongWolfe` now composes the shared `SufficientDecreaseCondition` and
+  `CurvatureCondition(…, Val(:Strong))` (issue #166) instead of re-implementing the
+  Wolfe inequalities inline; the evaluation count and behavior are unchanged.
