@@ -1,6 +1,6 @@
 # Quadratic Line Search
 
-Quadratic [line search](@ref "Line Search") is based on making a quadratic approximation to an optimizer problem and then pick the minimum of this quadratic approximation as the next iteration of ``\alpha``.
+Quadratic [line search](@ref "Line Search") is based on making a quadratic approximation to a scalar optimization problem and then pick the minimum of this quadratic approximation as the next iteration of ``\alpha``.
 
 The quadratic polynomial is built the following way[^1]:
 

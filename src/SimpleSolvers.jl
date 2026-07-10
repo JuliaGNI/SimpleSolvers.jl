@@ -8,7 +8,6 @@ using Printf
 
 import LinearAlgebra: checksquare
 
-import Base.minimum
 import Base.Callable
 import GeometricBase: AbstractProblem, AbstractSolver, AbstractSolverState
 import GeometricBase: NullParameters, OptionalParameters, SolverMethod, SolverState
@@ -21,7 +20,7 @@ export update!
 export solve!, solve
 export config
 export problem
-export solution, minimum
+export solution
 
 export SolverMethod, SolverState
 export DirectMethod

@@ -101,7 +101,7 @@ struct GradientFunction{T,FT<:Callable,GT<:Callable} <: Gradient{T}
 end
 
 function GradientFunction(::Callable, ::AbstractArray)
-    error("`GradientFunction` can only be called by providing two `Callable`s or an `OptimizerProblem`.")
+    error("`GradientFunction` can only be called by providing a `Callable` and an `AbstractArray`.")
 end
 
 function GradientFunction{T}(F::TF, ∇F!::TG, ::Integer) where {T,TF<:Callable,TG<:Callable}

@@ -3,10 +3,6 @@
 
 A `NonlinearProblem` describes ``F(x) = y``, where we want to solve for ``x`` and ``F`` is in nonlinear in general (also compare this to [`LinearProblem`](@ref)).
 
-!!! info
-    `NonlinearProblem`s are used for *solvers* whereas `OptimizerProblem`s are their equivalent for *optimizers*.
-
-
 # Keys
 - `F`
 - `J::Union{Callable, Missing}`: accessed by calling [`jacobian`](@ref).

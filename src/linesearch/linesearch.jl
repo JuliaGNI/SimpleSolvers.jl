@@ -9,7 +9,7 @@ See these examples for specific information on linesearch algorithms.
 A `LinesearchMethod` is usually used in [`Linesearch`](@ref) (or with [`solve`](@ref)).
 
 It is a subtype of `SolverMethod` (imported from `GeometricBase`) — line searches
-are one-dimensional subproblems used *inside* both nonlinear solvers and
+are one-dimensional subproblems used *inside* nonlinear solvers and
 optimizers, so (unlike a [`NonlinearSolverMethod`](@ref)) a `LinesearchMethod` is
 not itself a nonlinear-solver method.
 """
