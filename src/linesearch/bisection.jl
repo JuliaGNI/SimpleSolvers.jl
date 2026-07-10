@@ -96,7 +96,11 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     α
 end
 
-bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number} = bisection(f, bracket_root(β -> f(β, params), α)..., params, config)
+function bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
+    R = float(T)
+    lo, hi = bracket_root(β -> f(β, params), R(α))
+    bisection(f, lo, hi, params, config)
+end
 
 # Disambiguates `(f, ::T, ::T, ::Options)` in favor of the interval form with default `params`.
 bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = bisection(f, αmin, αmax, NullParameters(), config)
