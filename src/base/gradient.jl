@@ -108,7 +108,7 @@ function GradientFunction(F::Callable, ∇F!::Callable, x::AbstractVector{T}) wh
     GradientFunction{T}(F, ∇F!, length(x))
 end
 
-(grad::GradientFunction{T})(g::VT, x::VT) where {T,VT<:AbstractVector{T}} = grad.∇F!(g, x)
+(grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T} = grad.∇F!(g, x)
 
 """
     GradientAutodiff <: Gradient
