@@ -185,3 +185,25 @@ end
     @test mfd32 ≈ J32 atol = 1e-6
     @test mad32 ≈ J32 atol = eps()
 end
+
+# Copilot review finding on PR #161: the JacobianAutodiff signature check used
+# `hasmethod(F, Tuple{typeof(y), typeof(x), Any})`, which only matches methods
+# accepting *arbitrary* params — a valid `F(y, x, params::MyParams)` with a
+# concretely typed params argument was spuriously rejected.  The check now uses
+# `methods` (type intersection), which accepts any 3-argument form matching
+# (y, x) while still rejecting functions without a params argument.
+struct JacTestParams end
+
+@testset "JacobianAutodiff accepts params-typed functions" begin
+    Ftyped!(y, x, params::JacTestParams) = (y .= x .^ 2)
+    jac = JacobianAutodiff(Ftyped!, rand(2), rand(2))
+    @test jac isa JacobianAutodiff
+    J = zeros(2, 2)
+    x = [1.0, 2.0]
+    jac(J, x, JacTestParams())
+    @test J ≈ [2.0 0.0; 0.0 4.0] atol = 10eps()
+
+    # a function without a params argument is still rejected with a clear error
+    F2arg!(y, x) = (y .= x .^ 2)
+    @test_throws ErrorException JacobianAutodiff(F2arg!, rand(2), rand(2))
+end

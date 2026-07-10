@@ -25,7 +25,7 @@ For the strong curvature condition[^1] we *replace the curvature condition* by:
 Note the sign change here. This is because the term ``g(\mathrm{grad}_{x_k}f, p_k)`` is negative if ``p_k`` is a [search direction](@ref "Line Search"). Both the standard *curvature condition* and the *strong curvature condition* are implemented under [`CurvatureCondition`](@ref).
 
 !!! info
-    In order to use the corresponding condition you have to either pass `mode = :Standard` or `mode = :Strong` to the constructor of `CurvatureCondition`.
+    In order to use the corresponding condition you have to pass either `Val(:Standard)` or `Val(:Strong)` as the last positional argument to the constructor of `CurvatureCondition` (the default is `Val(:Standard)`).
 
 
 ## Example
@@ -46,16 +46,16 @@ f(y, x, params) = y .= 10 .* x .^ 3 ./ 6 .- x .^ 2 ./ 2
 _params = NullParameters()
 f(y, x, _params)
 s = NewtonSolver(x, y; F = f)
-c₁ = 1e-4
+c₂ = 0.9   # the curvature constant; must lie in (0, 1)
 state = NonlinearSolverState(x)
 update!(state, x, y)
 direction!(s, x, _params, 0)
 p = copy(direction(cache(s))) # hide
 ls_obj = linesearch_problem(s)
 params = (x = state.x, parameters = _params)
-cc = CurvatureCondition(ls_obj.F(0., params), ls_obj.D(0., params), alpha -> ls_prob.D(alpha, params))
+cc = CurvatureCondition(c₂, ls_obj.D(0., params), alpha -> ls_obj.D(alpha, params))
 
 # check different values
 α₁, α₂, α₃, α₄, α₅ = .09, .4, 0.7, 1., 1.3
-# (cc(α₁), cc(α₂), cc(α₃), cc(α₄), cc(α₅))
+(cc(α₁), cc(α₂), cc(α₃), cc(α₄), cc(α₅))
 ```

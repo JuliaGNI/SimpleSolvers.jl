@@ -123,7 +123,13 @@ struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:Abstra
     ty::YT
 
     function JacobianAutodiff(F::CT, x::YT, y::YT) where {T,YT<:AbstractArray{T},CT<:Callable}
-        hasmethod(F, Tuple{typeof(y),typeof(x),Any}) || error("The function needs to have the following signature: F(y, x, params).")
+        # Accept any three-argument method whose first two arguments match (y, x).
+        # `hasmethod(F, Tuple{…,Any})` would be too strict: it only matches methods
+        # accepting *arbitrary* params, spuriously rejecting a valid
+        # `F(y, x, params::MyParams)`.  `methods` matches by type intersection, so
+        # typed-params methods are found while two-argument functions are still
+        # rejected.
+        isempty(methods(F, Tuple{typeof(y),typeof(x),Any})) && error("The function needs to have the following signature: F(y, x, params).")
 
         Jconfig = ForwardDiff.JacobianConfig(nothing, y, x)
         new{T,typeof(F),typeof(Jconfig),YT}(F, Jconfig, y)

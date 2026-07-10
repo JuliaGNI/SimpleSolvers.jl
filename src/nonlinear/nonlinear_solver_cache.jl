@@ -41,6 +41,12 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
     end
 end
 
+"""
+    direction(cache)
+
+Return the direction (i.e. the step vector ``\\Delta{}x``) stored in a solver
+cache such as [`NonlinearSolverCache`](@ref) or [`DogLegCache`](@ref).
+"""
 direction(cache::NonlinearSolverCache) = cache.Δx
 jacobianmatrix(cache::NonlinearSolverCache) = cache.j
 solution(cache::NonlinearSolverCache) = cache.x
