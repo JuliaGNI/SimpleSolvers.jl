@@ -121,11 +121,19 @@ Options()
       nan_max_iterations = 10
               nan_factor = 0.5
    regularization_factor = 0.0
+   dogleg_initial_radius = 1.0
+       dogleg_max_radius = 100.0
 
 ```
 
 !!! info
     For the first few constants (`x_abstol` to `g_restol`) the default constructor uses the functions [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
+
+!!! info
+    `dogleg_initial_radius` and `dogleg_max_radius` are the trust-region radius bounds
+    for the [`DogLegSolver`](@ref) (``\\Delta_0`` and ``\\hat\\Delta`` in
+    [nocedal2006numerical; Alg. 4.1](@cite)); they default to [`INITIAL_Δ`](@ref) and
+    [`DOGLEG_Δ_MAX`](@ref) and are ignored by the other solvers.
 
 !!! info
     Also see [`meets_stopping_criteria`](@ref).
@@ -156,6 +164,8 @@ struct Options{T}
     nan_max_iterations::Int
     nan_factor::T
     regularization_factor::T
+    dogleg_initial_radius::T
+    dogleg_max_radius::T
 end
 
 function Options(T=Float64;
@@ -184,6 +194,8 @@ function Options(T=Float64;
     nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
     nan_factor::Real=NAN_FACTOR,
     regularization_factor::Real=T(REGULARIZATION_FACTOR),
+    dogleg_initial_radius::Real=T(INITIAL_Δ),
+    dogleg_max_radius::Real=T(DOGLEG_Δ_MAX),
 )
 
     show_every = show_every > 0 ? show_every : 1
@@ -213,6 +225,8 @@ function Options(T=Float64;
         nan_max_iterations,
         nan_factor,
         regularization_factor,
+        dogleg_initial_radius,
+        dogleg_max_radius,
     )
 end
 

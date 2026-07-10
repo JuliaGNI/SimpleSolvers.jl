@@ -80,6 +80,10 @@ signature are not enumerated here.)
   solves against the stored factorization; it used to unconditionally throw
   "no method implemented".
 - Aqua.jl, JET.jl, and construct-every-export smoke tests as CI quality gates.
+- `Options` gains `dogleg_initial_radius` and `dogleg_max_radius` fields (defaulting to
+  `INITIAL_Δ = 1.0` and `DOGLEG_Δ_MAX = 1e2`), so the `DogLegSolver`'s trust-region
+  radius bounds can be tuned for problems whose natural scale differs from 1 (the
+  solver now reads these instead of the hard-coded constants).
 
 ### Fixed (highlights)
 
@@ -113,6 +117,12 @@ forces a fresh Jacobian, so it makes progress instead of silently spinning to
 `max_iterations`. This is reachable in quasi-Newton mode (`refactorize > 1`), where a
 stale Jacobian's steepest-descent direction need not reduce `‖F‖²`; the default
 `refactorize = 1` (Jacobian refreshed every step) is unaffected.
+The `Quadratic` line search's near-stationary early return now returns the bracket
+point `a` at which the derivative was actually tested rather than the loop's start
+`α` (they differ only when the bracketer flipped because the start was not on the
+descent side). Plus minor cleanups: a dead assignment removed from `bisection`, and
+the `triple_point_finder` docstring corrected to state its actual (non-strict on the
+left) bracket guarantee.
 
 ### Internal
 

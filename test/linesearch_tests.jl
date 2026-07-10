@@ -431,6 +431,17 @@ end
     end
 end
 
+@testset "$(rpad("Quadratic returns the tested bracket point (non-descent start)", 80))" begin
+    # When the start is not on the descent side, `bracket_minimum_with_fixed_point`
+    # flips and the bracket's left endpoint `a` (where the derivative is tested and
+    # the early-return fires) differs from the loop's start `α`.  The Quadratic search
+    # must return `a`, not `α`.  Here φ(α) = (α + 1)² is increasing at the α = 0 anchor
+    # (φ'(0) = 2 > 0) with its minimiser at α = -1.
+    prob = LinesearchProblem{Float64}((a, _) -> (a + 1.0)^2, (a, _) -> 2.0 * (a + 1.0))
+    ls = Linesearch(prob, Quadratic(); x_abstol=0.0)
+    @test solve(ls, 0.0) ≈ -1.0 atol = ∛(2eps())
+end
+
 # Interface-consistency fix: Quadratic and
 # BierlaireQuadratic now validate their constructor parameters, like
 # Backtracking and StrongWolfe always did.

@@ -82,7 +82,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
             y₀ = y
         else
             α₁ = α  # Root is in the left half of [α₀,α₁].
-            y₁ = y
+            # (no need to track y₁: the loop's sign test uses only y₀.)
         end
 
         if isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁)))

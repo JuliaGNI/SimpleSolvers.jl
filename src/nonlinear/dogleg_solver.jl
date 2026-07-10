@@ -1,6 +1,6 @@
-"Initial trust-region radius for the [`DogLegSolver`](@ref)."
+"Default initial trust-region radius for the [`DogLegSolver`](@ref); the default of the `dogleg_initial_radius` field of [`Options`](@ref), which the solver actually reads."
 const INITIAL_Δ = 1.0
-"Maximum trust-region radius (``\\hat\\Delta`` in [nocedal2006numerical; Alg. 4.1](@cite)) for the [`DogLegSolver`](@ref); the radius is never expanded beyond this."
+"Default maximum trust-region radius (``\\hat\\Delta`` in [nocedal2006numerical; Alg. 4.1](@cite)) for the [`DogLegSolver`](@ref); the radius is never expanded beyond this. The default of the `dogleg_max_radius` field of [`Options`](@ref), which the solver actually reads."
 const DOGLEG_Δ_MAX = 1E2
 "Factor by which the trust-region radius is shrunk on a poor step (``\\rho < 1/4``)."
 const DOGLEG_Δ_SHRINK = 0.25
@@ -151,6 +151,14 @@ function dogleg_direction!(cache::DogLegCache{T}, Δ::T) where {T}
     direction(cache)
 end
 
+function initialize!(s::DogLegSolver, x::AbstractVector)
+    # The cache reset (`initialize!(::DogLegCache, …)`) restores the radius to the
+    # constant default; override it with the configured `dogleg_initial_radius` so a
+    # (re)used solver starts each solve from the caller's chosen radius.
+    initialize!(cache(s), x)
+    trust_radius!(cache(s), config(s).dogleg_initial_radius)
+end
+
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     # If the carried trust-region radius collapsed on the previous step, that step
     # made no progress (in quasi-Newton mode this happens when a *stale* Jacobian's
@@ -162,7 +170,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     # freeze, and the solve would silently spin to `max_iterations`.
     Δ = trust_radius(cache(s))
     force_refresh = Δ ≤ eps(T)
-    force_refresh && (Δ = T(INITIAL_Δ))
+    force_refresh && (Δ = config(s).dogleg_initial_radius)
 
     directions!(s, x, params, iteration_number(state); force_refactorize=force_refresh)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
@@ -224,7 +232,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
             Δ *= T(DOGLEG_Δ_SHRINK)
         elseif ρ > T(DOGLEG_ρ_HIGH) && isapprox(pₙ, Δ; rtol=sqrt(eps(T)))
             # very good step sitting on the trust-region boundary ⇒ grow the radius
-            Δ = min(T(DOGLEG_Δ_EXPAND) * Δ, T(DOGLEG_Δ_MAX))
+            Δ = min(T(DOGLEG_Δ_EXPAND) * Δ, config(s).dogleg_max_radius)
         end
 
         if ρ > T(DOGLEG_η)

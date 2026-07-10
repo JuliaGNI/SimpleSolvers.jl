@@ -75,7 +75,10 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
         # from the bracketing, so no re-evaluation is needed here.
         a, b, y₀, y₁ = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
         d₀ = derivative(problem(ls), a, params)
-        abs(d₀) < method(ls).ε && return α
+        # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
+        # (not the loop's start `α`), which differ when the bracketer flipped because
+        # the start was not on the descent side.
+        abs(d₀) < method(ls).ε && return a
 
         # minimizer αₜ = a - p₁ / (2p₂); guard on the fitted curvature (denom = 2p₂(b-a)²).
         # A non-positive curvature (denom ≤ 0), a non-finite αₜ, or a minimizer outside

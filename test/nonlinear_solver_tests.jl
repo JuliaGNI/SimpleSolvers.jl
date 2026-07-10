@@ -259,6 +259,25 @@ end
     @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
 end
 
+@testset "DogLeg trust-region radius bounds are configurable via Options" begin
+    # The initial and maximum trust-region radius are now `Options` fields
+    # (`dogleg_initial_radius`, `dogleg_max_radius`), defaulting to INITIAL_Δ and
+    # DOGLEG_Δ_MAX.  The solver reads them (rather than the constants) so large-/
+    # small-scale problems can tune the radius.
+    Flin(y, x, p) = (y .= x)
+    s = DogLegSolver([5.0, 5.0], Flin, similar([5.0, 5.0]);
+                     dogleg_initial_radius=0.5, dogleg_max_radius=4.0)
+    @test config(s).dogleg_initial_radius == 0.5
+    @test config(s).dogleg_max_radius == 4.0
+    initialize!(s, [5.0, 5.0])
+    @test trust_radius(cache(s)) == 0.5              # reset uses the configured radius
+
+    x = [5.0, 5.0]
+    solve!(x, s)
+    @test all(v -> isapprox(v, 0.0; atol=1e-10), x)  # still converges
+    @test trust_radius(cache(s)) ≤ 4.0               # never expanded past the configured max
+end
+
 @testset "DogLeg treats an undefined (NaN) trial merit as a rejected step" begin
     # F(x) = log(x) + 2 has its root at exp(-2) ≈ 0.135; from x₀ = 1 the full
     # Newton step lands at x = -1, outside the domain (the NaN-returning log

@@ -3,7 +3,14 @@ const MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS = 5
 """
     triple_point_finder(f, x)
 
-Find three points `a < b < c` s.t. `f(a) > f(b)` and `f(c) > f(b)` (so that a minimum is bracketed in `(a, c)`). This is used for performing a quadratic line search (see [`BierlaireQuadratic`](@ref)).
+Find three points `a < b < c` (strictly ordered in position) with `f(a) ≥ f(b)` and `f(c) > f(b)`, so that a minimum is bracketed in `(a, c)`. This is used for performing a quadratic line search (see [`BierlaireQuadratic`](@ref)).
+
+!!! note
+    The left inequality is *non-strict* (`f(a) ≥ f(b)`): while descending, consecutive
+    samples may tie on a plateau, and for a flat-bottomed `f` a strict `f(a) > f(b)`
+    is unattainable. `f(b)` is still strictly below `f(c)`, and `BierlaireQuadratic`
+    guards a degenerate (collinear) fit by falling back to a bisection step, so the
+    non-strict left bound is sufficient to bracket the minimum.
 
 # Implementation
 
