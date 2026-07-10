@@ -197,6 +197,39 @@ end
 end
 
 
+# Regression: for a non-Float64 `LinesearchProblem{T}`, the `solve(prob, method, α)`
+# convenience form must default `config` to `Options(T)` (not the hard-coded
+# `Options()` == `Options{Float64}`) and convert `α` to `T`.  With the former
+# `Options{Float64}` default the inner `Linesearch{T}` constructor (which requires
+# `config::Options{T}`) failed for `T ≠ Float64`.  The `Linesearch(prob, method,
+# config)` overload is likewise pinned to `config::Options{T}`, so a mismatched
+# `Options` eltype is rejected rather than silently building a broken object.
+@testset "$(rpad("Linesearch T-consistency (config default / α promotion)", 80))" begin
+    for T ∈ (Float32, Float64)
+        prob = LinesearchProblem{T}((α, _) -> (α - 2one(T))^2, (α, _) -> 2 * (α - 2one(T)))
+
+        for method ∈ (Static(T), Backtracking(T), StrongWolfe(T), Bisection(T))
+            # no explicit config: must default to Options(T) and stay in T
+            α = solve(prob, method, one(T))
+            @test α isa T
+
+            # α given in a different precision is promoted to T
+            α₂ = solve(prob, method, 1)
+            @test α₂ isa T
+        end
+
+        # explicit matching config is accepted and preserves T
+        ls = Linesearch(prob, Backtracking(T), Options(T))
+        @test ls isa Linesearch{T}
+    end
+
+    # a config whose eltype disagrees with the problem is rejected, not silently
+    # coerced into a broken `Linesearch`
+    prob32 = LinesearchProblem{Float32}((α, _) -> (α - 2f0)^2, (α, _) -> 2f0 * (α - 2f0))
+    @test_throws MethodError Linesearch(prob32, Backtracking(Float32), Options(Float64))
+end
+
+
 @testset "$(rpad("Linesearch Conversion Tests", 80))" begin
 
     function allocate_linesearch_methods(T::DataType)
