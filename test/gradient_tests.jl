@@ -63,7 +63,7 @@ test_grad(gus, gus1, 0)
 # Regression: the default finite-difference step used to bake in the
 # Float64 machine epsilon (`8sqrt(eps())`) regardless of the working precision,
 # so a Float32 finite-difference gradient used a ~1 ulp step and produced
-# garbage.  `default_ϵ(T) = 8sqrt(eps(T))` is now precision-aware.
+# garbage.  `default_ϵ(T) = 8sqrt(eps(T))` is precision-aware.
 @testset "Float32 finite-difference gradient accuracy" begin
     F32(x) = 1 + sum(x .^ 2)
     x32 = Float32[0.3, 0.7]
@@ -105,11 +105,29 @@ end
 
 # The generic `Gradient` functor fallback (which raised a
 # home-grown "Functor not implemented." error and masked `MethodError`s) was
-# removed.  A `Gradient` subtype without a functor now yields a proper
+# removed.  A `Gradient` subtype without a functor yields a proper
 # `MethodError`, so `hasmethod`/`applicable` report the truth.
 @testset "Gradient functor fallback removed" begin
     struct UnimplementedGradient{S} <: SimpleSolvers.Gradient{S} end
     ug = UnimplementedGradient{Float64}()
     @test !hasmethod(ug, Tuple{Vector{Float64},Vector{Float64}})
     @test_throws MethodError ug(zeros(2), zeros(2))
+end
+
+# The exported `check_gradient` diagnostic writes to an `io` argument, so its
+# output is captured with `sprint` (no stdout redirection) and checked directly.
+@testset "check_gradient writes the correct diagnostics" begin
+    gvec = [1.0, -2.0, 3.0]                       # norm = √14 ≈ 3.74166
+    out = replace(sprint(check_gradient, gvec), r"[ \t]+" => " ")
+    @test occursin("norm(Gradient): 3.74166", out)
+    @test occursin("minimum(|Gradient|): 1.0", out)
+    @test occursin("maximum(|Gradient|): 3.0", out)
+    # the digits keyword is honoured
+    out3 = replace(sprint(io -> check_gradient(io, gvec; digits=3)), r"[ \t]+" => " ")
+    @test occursin("norm(Gradient): 3.742", out3)
+
+    # the convenience form without `io` writes to stdout and forwards keywords
+    # (called silently; content is covered by the `sprint` checks above)
+    @test redirect_stdout(() -> check_gradient(gvec), devnull) === nothing
+    @test redirect_stdout(() -> check_gradient(gvec; digits=3), devnull) === nothing
 end

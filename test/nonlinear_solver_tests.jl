@@ -212,7 +212,7 @@ end
 
 @testset "DogLeg at the exact root" begin
     # Starting exactly at the root, the steepest-descent (Cauchy) scaling divides
-    # by ‖J·JᵀF‖² = 0, which used to produce NaN and throw.  The guard now sets
+    # by ‖J·JᵀF‖² = 0, which used to produce NaN and throw.  The guard sets
     # the direction to zero so the convergence check reports convergence in 0–1
     # steps instead.
     Flin(y, x, p) = (y .= x)
@@ -290,11 +290,9 @@ end
 end
 
 @testset "DogLeg trust-region parameters are configurable via Options" begin
-    # The trust-region radius bounds and its shrink/expand factors are now `Options`
+    # The trust-region radius bounds and its shrink/expand factors are `Options`
     # fields (`dogleg_radius_initial`, `dogleg_radius_max`, `dogleg_radius_shrink`,
-    # `dogleg_radius_expand`), defaulting to DOGLEG_Δ_INITIAL, DOGLEG_Δ_MAX,
-    # DOGLEG_Δ_SHRINK and DOGLEG_Δ_EXPAND.  The solver reads them (rather than the
-    # constants) so problems whose natural scale differs from 1 can tune the region.
+    # `dogleg_radius_expand`), so problems whose natural scale differs from 1 can tune the region.
     Flin(y, x, p) = (y .= x)
     s = DogLegSolver([5.0, 5.0], Flin, similar([5.0, 5.0]);
                      dogleg_radius_initial=0.5, dogleg_radius_max=4.0,
@@ -328,7 +326,7 @@ end
     # Newton step lands at x = -1, outside the domain (the NaN-returning log
     # mimics e.g. NaNMath.log or a table lookup).  The former NaN recovery
     # rescaled d₁ and d₂ *independently*, destroying the ‖d₁‖ ≤ ‖d₂‖ relation
-    # the dogleg interpolation assumes; a NaN trial merit is now
+    # the dogleg interpolation assumes; a NaN trial merit is
     # rejected by shrinking Δ, keeping the dogleg path intact (and never
     # reaching the ρ update, where NaN comparisons would spin the loop forever
     # at constant Δ).
@@ -360,7 +358,7 @@ end
     # solve spun to max_iterations with no progress and no failure signal.  This is
     # reachable in quasi-Newton mode (refactorize > 1), where a *stale* Jacobian's
     # steepest-descent direction need not reduce ‖F‖².  A step that enters with a
-    # collapsed radius now resets Δ and forces a fresh Jacobian, so it makes
+    # collapsed radius resets Δ and forces a fresh Jacobian, so it makes
     # progress instead of freezing.
     Fnl(y, x, p) = (y .= [x[1]^2 - 2, x[2]^2 - 3])   # root (√2, √3)
     for T in (Float64, Float32)
@@ -424,7 +422,7 @@ end
 
     # The solver must refuse to proceed on this pathological problem.  The finite
     # difference Jacobian at x = 0 is the zero matrix, which is singular: the LU
-    # solver now throws a `SingularException` instead of silently returning
+    # solver throws a `SingularException` instead of silently returning
     # NaN.  The autodiff Jacobian produces NaN entries, which is caught as a
     # `NonlinearSolverException` (NaN in the direction vector).
     @test_throws SingularException solve!(x₁, nl₁)
@@ -493,10 +491,19 @@ end
     y = [3.0]
     s = NewtonSolver(x, y; F=f!)
     solve!(x, s)   # populate the cached Jacobian matrix
-    # both accept a solver and dispatch to the matrix methods without throwing
-    # a `MethodError` (the `Jacobian` object is callable and forwards to `jacobian`)
-    # @test check_jacobian(s) === nothing
-    # @test print_jacobian(s) === nothing
+    Jm = jacobianmatrix(s)
+    # the solver forms forward to the `::AbstractMatrix` methods on the cached
+    # Jacobian matrix, so their captured output matches the matrix form exactly
+    # (this is the bug that was fixed: they used to hit the `Jacobian` functor).
+    @test sprint(check_jacobian, s) == sprint(check_jacobian, Jm)
+    @test sprint(print_jacobian, s) == sprint(print_jacobian, Jm)
+    # and that output is the genuine diagnostic / table (not empty, not an error)
+    @test occursin("Condition Number of Jacobian:", sprint(check_jacobian, s))
+    @test sprint(print_jacobian, s) == repr("text/plain", Jm) * "\n"
+    # the convenience solver forms without `io` write to stdout (called silently)
+    @test redirect_stdout(() -> check_jacobian(s), devnull) === nothing
+    @test redirect_stdout(() -> print_jacobian(s), devnull) === nothing
+    # dispatch sanity
     @test hasmethod(check_jacobian, Tuple{typeof(s)})
     @test hasmethod(print_jacobian, Tuple{typeof(s)})
     # the base matrix methods exist and are what the solver forms delegate to

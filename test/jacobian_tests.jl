@@ -122,7 +122,7 @@ end
 
 # Regression: the generic backend-selecting `Jacobian` constructors used to
 # forward to a nonexistent `Jacobian{T}(F, nx, ny)` method and always threw. They
-# now dispatch to `JacobianAutodiff` / `JacobianFiniteDifferences` via `mode`.
+# dispatch to `JacobianAutodiff` / `JacobianFiniteDifferences` via `mode`.
 @testset "Generic Jacobian backend selection" begin
     T = Float64
     F!(f::AbstractVector, x::AbstractVector, params) = (f .= x .^ 2; f)
@@ -155,7 +155,7 @@ end
 # Regression: the finite-difference Jacobian functor used to iterate its row
 # loop over `eachindex(x)` (input indices) instead of the output indices. For a
 # non-square Jacobian this silently left rows unwritten (`ny > nx`) or threw a
-# `BoundsError` (`ny < nx`).  Now it loops over `eachindex(jac.f1)` (outputs).
+# `BoundsError` (`ny < nx`).  It loops over `eachindex(jac.f1)` (outputs).
 @testset "Finite-difference non-square Jacobians" begin
     T = Float64
 
@@ -189,7 +189,7 @@ end
 # Copilot review finding on PR #161: the JacobianAutodiff signature check used
 # `hasmethod(F, Tuple{typeof(y), typeof(x), Any})`, which only matches methods
 # accepting *arbitrary* params — a valid `F(y, x, params::MyParams)` with a
-# concretely typed params argument was spuriously rejected.  The check now uses
+# concretely typed params argument was spuriously rejected.  The check uses
 # `methods` (type intersection), which accepts any 3-argument form matching
 # (y, x) while still rejecting functions without a params argument.
 struct JacTestParams end
@@ -206,4 +206,28 @@ struct JacTestParams end
     # a function without a params argument is still rejected with a clear error
     F2arg!(y, x) = (y .= x .^ 2)
     @test_throws ErrorException JacobianAutodiff(F2arg!, rand(2), rand(2))
+end
+
+# The exported `check_jacobian` / `print_jacobian` diagnostics (matrix forms)
+# write to an `io` argument, so their output is captured with `sprint` and checked.
+@testset "check_jacobian / print_jacobian (matrix forms) write correct output" begin
+    J = [1.0 √2.0; √2.0 3.0]                      # cond = 7+4√3 ≈ 13.9282, det = 1
+    out = replace(sprint(check_jacobian, J), r"[ \t]+" => " ")
+    @test occursin("Condition Number of Jacobian: 13.9282", out)
+    @test occursin("Determinant of Jacobian: 1.0", out)
+    @test occursin("minimum(|Jacobian|): 1.0", out)
+    @test occursin("maximum(|Jacobian|): 3.0", out)
+    # the digits keyword is honoured
+    out2 = replace(sprint(io -> check_jacobian(io, J; digits=2)), r"[ \t]+" => " ")
+    @test occursin("Condition Number of Jacobian: 13.93", out2)
+
+    # print_jacobian reproduces the text/plain table exactly (aligned, with header)
+    @test sprint(print_jacobian, J) == repr("text/plain", J) * "\n"
+    @test occursin("Matrix{Float64}", sprint(print_jacobian, J))
+
+    # the convenience forms without `io` write to stdout and forward keywords
+    # (called silently; content is covered by the `sprint` checks above)
+    @test redirect_stdout(() -> check_jacobian(J), devnull) === nothing
+    @test redirect_stdout(() -> check_jacobian(J; digits=2), devnull) === nothing
+    @test redirect_stdout(() -> print_jacobian(J), devnull) === nothing
 end

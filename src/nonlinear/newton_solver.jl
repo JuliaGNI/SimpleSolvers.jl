@@ -170,8 +170,11 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER, kwargs...)
 
 
-# check_jacobian / print_jacobian operate on the Jacobian matrix, not the Jacobian functor
-check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobianmatrix(s))
+# check_jacobian / print_jacobian operate on the Jacobian matrix, not the Jacobian
+# functor.  An optional leading `io` argument is forwarded through (default stdout).
+check_jacobian(io::IO, s::Union{NewtonSolver,QuasiNewtonSolver}; kwargs...) = check_jacobian(io, jacobianmatrix(s); kwargs...)
+check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}; kwargs...) = check_jacobian(jacobianmatrix(s); kwargs...)
+print_jacobian(io::IO, s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(io, jacobianmatrix(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobianmatrix(s))
 
 NonlinearSolver(method::Newton, args...; kwargs...) = NewtonSolver(args...; refactorize=method.refactorize, kwargs...)

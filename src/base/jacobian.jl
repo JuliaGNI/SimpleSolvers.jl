@@ -21,9 +21,11 @@ Examples include:
 abstract type Jacobian{T} end
 
 """
-    check_jacobian(J)
+    check_jacobian([io], J)
 
 Check the condition number, determinant, max and min value of the Jacobian `J`.
+
+Output is written to `io` (defaulting to `stdout`).
 
 !!! info
     Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
@@ -38,26 +40,32 @@ minimum(|Jacobian|):          1.0
 maximum(|Jacobian|):          3.0
 ```
 """
-function check_jacobian(J::AbstractMatrix; digits=5)
-    println("Condition Number of Jacobian: ", round(cond(J); digits=digits))
-    println("Determinant of Jacobian:      ", round(det(J); digits=digits))
-    println("minimum(|Jacobian|):          ", round(minimum(abs.(J)); digits=digits))
-    println("maximum(|Jacobian|):          ", round(maximum(abs.(J)); digits=digits))
-    println()
+function check_jacobian(io::IO, J::AbstractMatrix; digits=5)
+    println(io, "Condition Number of Jacobian: ", round(cond(J); digits=digits))
+    println(io, "Determinant of Jacobian:      ", round(det(J); digits=digits))
+    println(io, "minimum(|Jacobian|):          ", round(minimum(abs.(J)); digits=digits))
+    println(io, "maximum(|Jacobian|):          ", round(maximum(abs.(J)); digits=digits))
+    println(io)
 end
 
-"""
-    print_jacobian(J)
+check_jacobian(J::AbstractMatrix; kwargs...) = check_jacobian(stdout, J; kwargs...)
 
-Display the Jacobian `J`.
+"""
+    print_jacobian([io], J)
+
+Display the Jacobian `J` as an aligned `text/plain` table.
+
+Output is written to `io` (defaulting to `stdout`).
 
 !!! info
     Here the Jacobian `J` is a matrix. It is not a [`Jacobian`](@ref) object.
 """
-function print_jacobian(J::AbstractMatrix)
-    display(J)
-    println()
+function print_jacobian(io::IO, J::AbstractMatrix)
+    show(io, MIME("text/plain"), J)
+    println(io)
 end
+
+print_jacobian(J::AbstractMatrix) = print_jacobian(stdout, J)
 
 """
     JacobianFunction <: Jacobian

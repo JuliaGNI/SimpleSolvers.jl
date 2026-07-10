@@ -44,9 +44,11 @@ function (grad::Gradient{T})(x::AbstractVector{T}) where {T}
 end
 
 """
-    check_gradient(g)
+    check_gradient([io], g)
 
 Check norm, maximum value and minimum value of a vector.
+
+Output is written to `io` (defaulting to `stdout`).
 
 # Examples
 
@@ -59,12 +61,14 @@ minimum(|Gradient|):          0.9
 maximum(|Gradient|):          3.0
 ```
 """
-function check_gradient(g::AbstractVector; digits::Integer=5)
-    println("norm(Gradient):               ", round(norm(g); digits=digits))
-    println("minimum(|Gradient|):          ", round(minimum(abs.(g)); digits=digits))
-    println("maximum(|Gradient|):          ", round(maximum(abs.(g)); digits=digits))
-    println()
+function check_gradient(io::IO, g::AbstractVector; digits::Integer=5)
+    println(io, "norm(Gradient):               ", round(norm(g); digits=digits))
+    println(io, "minimum(|Gradient|):          ", round(minimum(abs.(g)); digits=digits))
+    println(io, "maximum(|Gradient|):          ", round(maximum(abs.(g)); digits=digits))
+    println(io)
 end
+
+check_gradient(g::AbstractVector; kwargs...) = check_gradient(stdout, g; kwargs...)
 
 # do we need this?
 # function print_gradient(g::AbstractVector)
