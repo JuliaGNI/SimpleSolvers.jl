@@ -554,6 +554,40 @@ end
     end
 end
 
+@testset "DogLeg does not commit a merit-increasing step on radius underflow" begin
+    # Reachable in quasi-Newton mode: a stale Jacobian can make both dogleg legs ascend the
+    # merit ‖F‖², so every trust-region trial is rejected and Δ underflows without an
+    # acceptable step. The last (smallest-Δ) trial then *increases* the merit; committing it
+    # would violate monotonicity. The step must instead leave the iterate unchanged.
+    Ftrue(y, x, p) = (y .= [x[1]^2 - 2, x[2]^2 - 3])
+    x0 = [3.0, 3.0]
+    s = DogLegSolver(copy(x0), Ftrue, similar(x0); refactorize=100, verbosity=0)  # won't refactor after step 1
+    initialize!(s, x0)
+
+    # Prime a stale, sign-flipped Jacobian J = -J_true(x0): then d₁ = -Jᵀ F and d₂ = J⁻¹(-F)
+    # both point *up* the merit, so the model (built from the stale J) predicts a decrease
+    # while the actual merit rises — every trial is rejected (ρ < 0).
+    Jstale = [-2*x0[1] 0.0; 0.0 -2*x0[2]]
+    jacobianmatrix(cache(s)) .= Jstale
+    SimpleSolvers.factorize!(SimpleSolvers.linearsolver(s), Jstale)
+
+    y = similar(x0)
+    Ftrue(y, x0, NullParameters())
+    state = NonlinearSolverState(x0, y)
+    initialize!(state, x0, y)
+    state.iterations = 5                          # mod(5,100)≠0 & >1 ⇒ directions! keeps the stale J
+    SimpleSolvers.trust_radius!(cache(s), 1.0)    # > eps ⇒ the shrink loop runs to underflow
+
+    r₀ = SimpleSolvers.l2norm(value(state))
+    x = copy(x0)
+    solver_step!(x, s, state, NullParameters())
+
+    yₙ = similar(x)
+    Ftrue(yₙ, x, NullParameters())
+    @test x == x0                            # rejected underflow step leaves the iterate unchanged
+    @test SimpleSolvers.l2norm(yₙ) ≤ r₀      # ...so the merit is not increased
+end
+
 @testset "PicardSolver rejects a linesearch keyword" begin
     # The Picard solver_step! is a fixed-point iteration and consults no line
     # search; a `linesearch` keyword used to be accepted and silently ignored.

@@ -144,7 +144,15 @@ descent side). Plus minor cleanups: a dead assignment removed from `bisection`, 
 the `triple_point_finder` docstring corrected to state its actual (non-strict on the
 left) bracket guarantee.
 
-Second review pass (six further correctness fixes):
+Second review pass (seven further correctness fixes):
+- `DogLegSolver` no longer moves the iterate to a worse point when the trust-region radius
+  underflows without an acceptable step. On underflow it committed the last (rejected) trial
+  as long as its merit was finite — even if that trial *increased* `‖F‖²` — violating
+  monotonicity (reachable in quasi-Newton mode where a stale Jacobian's dogleg legs ascend
+  the merit). It now commits the last trial only if it actually decreased the merit,
+  otherwise the iterate is left unchanged (a stall the residual-gated test reports as
+  non-converged). The step magnitude at underflow is `O(eps)`, so the practical effect is
+  small, but the monotonicity guarantee now holds.
 - `PicardSolver`'s residual-monotonicity damping loop no longer (a) re-evaluates `F` at the
   full step `α = 1` — that residual is reused from the NaN safeguard, saving one `F`
   evaluation per Picard step — nor (b) commits an *unchecked* step. The loop was bounded by

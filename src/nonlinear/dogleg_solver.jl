@@ -261,12 +261,14 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     trust_radius!(cache(s), Δ)      # carry the updated radius to the next step
 
     if !accepted
-        # The trust-region radius underflowed without an acceptable step.  Take the
-        # last (smallest-Δ) trial — unless its merit is undefined (NaN), in which
-        # case keep the current iterate: a stalled step, which the residual-gated
-        # convergence test reports as non-converged.
+        # The trust-region radius underflowed without an acceptable step.  Commit the last
+        # (smallest-Δ) trial only if it actually reduced the merit; a trial that is undefined
+        # (NaN) or did not decrease ‖F‖² must not move the iterate (Nocedal & Wright keep xₖ
+        # on a rejected step).  The resulting stalled step is reported as non-converged by
+        # the residual-gated convergence test.
         verbosity(config(s)) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without an acceptable step (iterations: $(iteration_number(state)))."
-        any(isnan, value(cache(s))) || (x .= solution(cache(s)))
+        φ_last = L2norm(value(cache(s)))
+        (isfinite(φ_last) && φ_last < φ₀) && (x .= solution(cache(s)))
     end
 
     x
