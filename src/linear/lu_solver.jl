@@ -77,12 +77,19 @@ end
 """
     lucache_eltype(T)
 
-The element type used by the [`LUSolverCache`](@ref) for an input matrix of
-element type `T`.  Integer (and other non-fractional) inputs are promoted to a
-type that supports division (mirroring `LinearAlgebra.lutype`), so that e.g.
-`LinearSolver(LU(), [1 2; 3 4])` works instead of failing in `factorize!`.
+The element type used by the [`LUSolverCache`](@ref) for an input matrix of element type
+`T`.  Linear solves are only supported for floating-point problems — real (`AbstractFloat`)
+or complex (`Complex{<:AbstractFloat}`) — so any other element type (e.g. an integer or
+rational matrix) is rejected here with a clear error rather than silently promoted.  For a
+supported type the cache uses `T` unchanged.
 """
-lucache_eltype(::Type{T}) where {T} = typeof(oneunit(T) / oneunit(T))
+function lucache_eltype(::Type{T}) where {T}
+    T <: AbstractFloat || T <: Complex{<:AbstractFloat} ||
+        throw(ArgumentError("LinearSolver only supports floating-point element types " *
+                            "(AbstractFloat or Complex{<:AbstractFloat}); got $T. " *
+                            "Convert the problem to a floating-point type first, e.g. `float.(A)`."))
+    T
+end
 
 """
 Threshold for the maximum size a static matrix should have. See [`_static`](@ref).

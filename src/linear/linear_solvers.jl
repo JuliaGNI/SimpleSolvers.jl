@@ -42,7 +42,7 @@ Return the cache of the [`LinearSolver`](@ref).
 For the default `LU()`, a small matrix (leading dimension ≤ [`N_STATIC_THRESHOLD`](@ref)) is stored as a mutable static matrix (`MMatrix`):
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-julia> ls = LinearSolver(LU(), [1 2; 3 4]);
+julia> ls = LinearSolver(LU(), [1.0 2.0; 3.0 4.0]);
 
 julia> cache(ls)
 SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{2, 2, Float64, 4}}([1.0 2.0; 3.0 4.0], [0, 0], [0, 0], 0)
@@ -51,7 +51,7 @@ SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{2, 2, Float64, 4}}
 Passing `static=false` forces a plain `Matrix` cache regardless of size:
 
 ```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: cache)
-julia> ls = LinearSolver(LU(; static=false), [1 2; 3 4]);
+julia> ls = LinearSolver(LU(; static=false), [1.0 2.0; 3.0 4.0]);
 
 julia> cache(ls)
 SimpleSolvers.LUSolverCache{Float64, Matrix{Float64}}([1.0 2.0; 3.0 4.0], [0, 0], [0, 0], 0)

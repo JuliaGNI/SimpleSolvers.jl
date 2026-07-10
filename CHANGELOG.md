@@ -144,7 +144,17 @@ descent side). Plus minor cleanups: a dead assignment removed from `bisection`, 
 the `triple_point_finder` docstring corrected to state its actual (non-strict on the
 left) bracket guarantee.
 
-Second review pass (four further correctness fixes):
+Second review pass (five further correctness fixes):
+- `LinearSolver`/`LU` now **restrict the element type to floating-point** — real
+  (`AbstractFloat`) or complex (`Complex{<:AbstractFloat}`). A non-float input (integer,
+  rational, …) is rejected at construction with a clear `ArgumentError` instead of being
+  silently promoted to `Float64`. Previously an integer matrix was promoted, but the
+  promoted solver was only partially usable (`factorize!`/`ldiv!`/`solve!` were locked to
+  the promoted type, so reusing it with the original integer arguments threw a `MethodError`
+  or hit the `ldiv! not implemented` stub). Since the package only ever solves real/complex
+  float problems, rejecting non-float input up front is clearer than promoting. ⚠ Breaking:
+  `LinearSolver(LU(), A)` for an integer/rational `A` now errors; convert with `float.(A)`
+  (or `complex(float.(A))`) first.
 - Convergence assessment now uses the standard **`atol + rtol·‖F₀‖` residual test**. The
   successive-change criteria were gated on a fixed *absolute* residual `rfₐ ≤ g_restol`
   (`≈ √eps`), so a well-scaled solve whose residual floors at a large absolute value

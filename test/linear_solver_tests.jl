@@ -111,17 +111,17 @@ end
     @test v ≈ xref atol = 1e-10
 end
 
-# Regression: an integer input matrix used to throw in `factorize!`
-# (no eltype promotion in the cache).  The cache promotes the element type
-# to a fractional type (like `LinearAlgebra.lutype`), so factorization and
-# solving work.
-@testset "LU integer matrix promotes eltype" begin
-    ls = LinearSolver(LU(), [1 2; 3 4])   # construction promotes Int → Float64
-    @test eltype(cache(ls).A) == Float64
-    factorize!(ls)                        # factorize the (promoted) stored matrix
-    x = zeros(2)
-    ldiv!(x, ls, [1.0, 1.0])
-    @test [1.0 2.0; 3.0 4.0] * x ≈ [1.0, 1.0] atol = 1e-12
+# LinearSolvers only support floating-point problems — real (`AbstractFloat`) or complex
+# (`Complex{<:AbstractFloat}`). A non-float input matrix (integer, rational, …) is rejected
+# at construction with a clear error rather than being silently promoted.
+@testset "LU restricts to floating-point element types" begin
+    @test_throws ArgumentError LinearSolver(LU(), [1 2; 3 4])                 # Int
+    @test_throws ArgumentError LinearSolver(LU(), [1//1 2//1; 3//1 4//1])     # Rational
+
+    # real and complex float element types are accepted, and the cache keeps the type
+    @test eltype(cache(LinearSolver(LU(), [1.0 2.0; 3.0 4.0])).A) == Float64
+    @test eltype(cache(LinearSolver(LU(), Float32[1 2; 3 4])).A) == Float32
+    @test eltype(cache(LinearSolver(LU(), ComplexF64[1 2; 3 4])).A) == ComplexF64
 end
 
 # The default `LU()` cache matrix type is chosen by size via `_static(A)`: a matrix
