@@ -72,7 +72,7 @@ declare convergence: a stalled step (e.g. an artificially tiny line-search step)
 makes the successive residuals `rxₛ` and `rfₛ` vanish even when the absolute
 residual `rfₐ` is large.  We therefore require the absolute residual to be small
 (`rfₐ ≤ config.g_restol`) *in addition* to the successive-change criterion
-before reporting convergence (see `bugs.md` §3). Concretely:
+before reporting convergence. Concretely:
 
 - `x_converged`: `rxₛ ≤ norm(solution(state)) * config.x_suctol` **and** `rfₐ ≤ config.g_restol`,
 - `f_converged`: (`rfₛ ≤ norm(value(state)) * config.f_suctol` **and** `rfₐ ≤ config.g_restol`) **or** `rfₐ ≤ config.f_abstol`,

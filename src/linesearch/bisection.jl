@@ -127,7 +127,7 @@ function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullPar
 end
 
 function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
-    # Design note (Phase 5, resolving the former "use α" TODO): the bracket is
+    # Design note: the bracket is
     # anchored at α = 0 rather than at the caller's α.  Starting `bracket_minimum`
     # at α is unsafe — the merit need not be decreasing there and the search could
     # wander to a negative (infeasible) step — and using α as the bracketing step

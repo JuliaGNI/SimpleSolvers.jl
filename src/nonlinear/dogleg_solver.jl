@@ -162,7 +162,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         # An undefined merit (`F` evaluated outside its domain, e.g. `log`/`sqrt`
         # of a negative trial iterate) is treated exactly like a rejected step:
         # shrink the radius and retry with a shorter step along the *same* dogleg
-        # path.  (Rescaling d₁ or d₂ themselves — the pre-Phase-5 approach — would
+        # path.  (Rescaling d₁ or d₂ themselves would
         # destroy the ‖d₁‖ ≤ ‖d₂‖ relation the dogleg interpolation assumes; a NaN
         # merit must also not reach the ρ update below, where every comparison
         # with NaN is false and the loop would spin forever at constant Δ.)

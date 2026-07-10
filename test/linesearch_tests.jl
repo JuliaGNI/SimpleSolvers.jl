@@ -47,13 +47,13 @@ end
     @test bracket_minimum(x -> x^2, 0.0) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
     @test bracket_minimum(x -> (x - 1)^2, 0.0) == (0.64, 2.56)
 
-    # §2.3 / 2.5: bracket_minimum must return an interval that actually contains
+    # bracket_minimum must return an interval that actually contains
     # the minimum (the early-exit path must not bracket a maximum).
     lo, hi = bracket_minimum(x -> (x - 1)^2, 0.0)
     @test lo < 1.0 < hi
 end
 
-@testset "$(rpad("triple_point_finder (§2.3 / 2.5)", 80))" begin
+@testset "$(rpad("triple_point_finder", 80))" begin
     # An immediate return (f(x₁ + 2δ) > f(x₁) on the first iteration) must not
     # produce a degenerate triple with two identical points, which would make the
     # downstream quadratic fit singular.  Here f has its minimum exactly at
@@ -102,7 +102,7 @@ end
 
 end
 
-@testset "$(rpad("Backtracking stall (§1.3 / 2.1)", 80))" begin
+@testset "$(rpad("Backtracking stall", 80))" begin
     # f(α) = (α - 100)² starting at α = 1: shrinking α makes the curvature
     # condition impossible to satisfy, so the old shrink-only loop (which
     # required both Wolfe conditions) ran all iterations and silently returned a
@@ -135,7 +135,7 @@ end
 end
 
 
-@testset "$(rpad("Quadratic defaults (§2.4 / 2.6)", 80))" begin
+@testset "$(rpad("Quadratic defaults", 80))" begin
     # Quadratic(T, ::SolverMethod) used to square ε, s and s_reduction (an
     # accidental `^2`), disagreeing with the keyword constructor and pushing ε
     # below machine epsilon.  It now matches the keyword constructor defaults and
@@ -148,7 +148,7 @@ end
         @test q.s_reduction == T(SimpleSolvers.DEFAULT_s_REDUCTION)
     end
 
-    # §5: `default_precision` used to error for any float type other than
+    # `default_precision` used to error for any float type other than
     # Float32/Float64 although `8eps(T)` is generic; it is now defined for all
     # `AbstractFloat`s.
     @test SimpleSolvers.default_precision(Float16) == 8eps(Float16)
@@ -224,7 +224,7 @@ end
     convert_linesearches_test(Float32, Float64)
     convert_linesearches_test(Float64, Float32)
 
-    # §1.5 regression: the former `Base.convert(::Type, ::LinesearchMethod)`
+    # the former `Base.convert(::Type, ::LinesearchMethod)`
     # catch-all was ambiguous with Base and violated the `convert` contract.
     # `convert` on a linesearch method now falls back to Base's default behaviour
     # and no longer throws an ambiguity error.
@@ -238,7 +238,7 @@ end
 end
 
 
-@testset "$(rpad("Broken convenience entry points (§1.8)", 80))" begin
+@testset "$(rpad("Broken convenience entry points", 80))" begin
     x₀ = -3.0
     ls_problem = make_linesearch_problem(x₀)
 
@@ -262,7 +262,7 @@ end
 end
 
 
-@testset "$(rpad("Mixed-precision compute_new_iterate! (§2.4)", 80))" begin
+@testset "$(rpad("Mixed-precision compute_new_iterate!", 80))" begin
     # backtracking_condition.jl:42 — the mixed-precision 3-arg `compute_new_iterate!`
     # used to call the non-mutating `compute_new_iterate` and discard the result,
     # so the array argument was never updated.  It now mutates in place.
@@ -273,20 +273,20 @@ end
 end
 
 
-@testset "$(rpad("Phase 3 type-stability fixes", 80))" begin
-    # 3.3 — `Bisection(::Type{T}=Float64)` is now inferable (the old
+@testset "$(rpad("Type-stability fixes", 80))" begin
+    # `Bisection(::Type{T}=Float64)` is now inferable (the old
     # `Bisection(T::DataType=Float64)` returned `Bisection{<:Any}`).
     @test (@inferred Bisection()) === Bisection{Float64}()
     @test (@inferred Bisection(Float32)) === Bisection{Float32}()
 
-    # 3.3 — `bisection` promotes integer endpoints to floating point on entry
+    # `bisection` promotes integer endpoints to floating point on entry
     # (previously `α` switched type mid-loop and `Options(Int)` was undefined).
     fint(α, _) = α - 2.0
     r = bisection(fint, 0, 4)
     @test r ≈ 2.0 atol = 1e-6
     @test r isa AbstractFloat
 
-    # 3.3 — `CurvatureCondition` encodes the mode in the type (via `Val`) so it is
+    # `CurvatureCondition` encodes the mode in the type (via `Val`) so it is
     # inference-stable, validates `c ∈ (0, 1)`, and the strong condition uses `≤`.
     @test CurvatureCondition(0.9, -1.0, sin, Val(:Strong)) isa CurvatureCondition{Float64,typeof(sin),:Strong}
     @test CurvatureCondition(0.9, -1.0, sin) isa CurvatureCondition{Float64,typeof(sin),:Standard}
@@ -299,7 +299,7 @@ end
     ccn = CurvatureCondition(0.9, -1.0, α -> -0.5, Val(:Standard))
     @test ccn(0.0)                                                   # -0.5 ≥ -0.9
 
-    # 3.4 — `Options` tolerance keywords accept any `::Real` (integers, rationals),
+    # `Options` tolerance keywords accept any `::Real` (integers, rationals),
     # not just `AbstractFloat`.
     @test Options(Float64; x_abstol=0) isa Options
     @test Options(Float64; f_abstol=1 // 100) isa Options
@@ -307,7 +307,7 @@ end
 end
 
 
-@testset "$(rpad("Phase 4.3 bisection hardening", 80))" begin
+@testset "$(rpad("Bisection hardening", 80))" begin
     # A genuine sign-changing bracket still bisects to the root.
     froot(α, _) = α - 1.0
     @test bisection(froot, 0.0, 2.0) ≈ 1.0 atol = 1e-6
@@ -330,7 +330,7 @@ end
     @test 0.0 ≤ αbest ≤ 1.0
 end
 
-@testset "$(rpad("Phase 6: bisection interval/config disambiguation", 80))" begin
+@testset "$(rpad("bisection interval/config disambiguation", 80))" begin
     # `bisection(f, αmin, αmax, config::Options)` used to be ambiguous with the
     # single-`α` convenience form (both matched `(f, ::T, ::T, ::Options)`); Aqua
     # flagged it. A disambiguating method now routes it to the interval form with
@@ -341,7 +341,7 @@ end
     @test bisection(froot, 0.0, 2.0, cfg) == bisection(froot, 0.0, 2.0, NullParameters(), cfg)
 end
 
-@testset "$(rpad("Phase 5: StrongWolfe line search (bracket + zoom)", 80))" begin
+@testset "$(rpad("StrongWolfe line search (bracket + zoom)", 80))" begin
     # For f(x) = x² − 1 with the Newton direction δx = −g/2 the line minimiser is
     # at α = 1 (φ'(1) = 0), so the strong Wolfe conditions are met exactly there.
     prob = make_linesearch_problem(-3.0)
@@ -382,10 +382,10 @@ end
     @test solve(ls_asc, 0.7) == 0.7
 end
 
-@testset "$(rpad("Phase 5: bracketing line searches are α₀-robust (§5 TODO resolved)", 80))" begin
+@testset "$(rpad("bracketing line searches are α₀-robust", 80))" begin
     # The three former TODO sites asked whether the bracketing line searches
     # (Bisection, Quadratic, BierlaireQuadratic) should start from the caller's α₀
-    # instead of α = 0.  Phase 5 resolves this as a *design decision*: they keep the
+    # instead of α = 0.  This is resolved as a *design decision*: they keep the
     # α = 0 anchor (the only point where a descent direction is guaranteed
     # decreasing, which one-sided rightward bracketing requires) with the method's
     # tuned step scale.  The α₀ argument is accepted but does not change the anchor
@@ -417,12 +417,12 @@ end
     @test BierlaireQuadratic() isa BierlaireQuadratic    # defaults are valid
 end
 
-# §5 leftovers (2026-07-10): `bracket_minimum_with_fixed_point` now returns the
+# Additional fixes (2026-07-10): `bracket_minimum_with_fixed_point` now returns the
 # merit values at the bracket endpoints alongside the bracket — they are computed
 # during bracketing anyway, so the Quadratic line search no longer re-evaluates
 # them.  Both quadratic line searches iterate instead of recursing, which for
 # BierlaireQuadratic also stops fa/fb/fc from being recomputed at every level.
-@testset "$(rpad("bracket_minimum_with_fixed_point returns endpoint values (§5)", 80))" begin
+@testset "$(rpad("bracket_minimum_with_fixed_point returns endpoint values", 80))" begin
     f(x) = (x - 1)^2
     a, b, fa, fb = SimpleSolvers.bracket_minimum_with_fixed_point(f, 0.0, 0.01)
     @test a < 1.0 < b                      # brackets the minimum
@@ -437,7 +437,7 @@ end
     @test fa2 == g(a2) && fb2 == g(b2)
 end
 
-@testset "$(rpad("Quadratic searches: merit-evaluation canary (§5)", 80))" begin
+@testset "$(rpad("Quadratic searches: merit-evaluation canary", 80))" begin
     # Deterministic evaluation counts on an exactly quadratic merit; measured
     # 13 (Quadratic) and 16 (Bierlaire) after removing the redundant endpoint
     # re-evaluations / per-recursion recomputation.  The bounds leave headroom

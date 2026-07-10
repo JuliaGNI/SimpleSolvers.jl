@@ -9,7 +9,7 @@ function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache:
     # *shared* cache (`solution`/`value`/`jacobianmatrix`).  Those buffers are read
     # by the solver *after* the line search returns (e.g. the next `direction!`
     # step and the convergence check), so overwriting them at every trial `α` was
-    # an aliasing hazard (bugs.md §3).  The line search now only *reads* the
+    # an aliasing hazard.  The line search now only *reads* the
     # current direction from the shared cache and the current iterate from
     # `params.x`; every write goes to a buffer owned by the closures.
     xₜ = zero(solution(cache))

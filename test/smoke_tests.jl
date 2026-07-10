@@ -1,10 +1,9 @@
 # Smoke tests: construct every exported type with reasonable arguments.
 #
 # The point of this file is coverage of the *public constructors*, not numerical
-# correctness — that is what would have caught the dead-on-arrival constructors
-# reported in the 2026-07-09 review (§1.2 `LUSolverLAPACK`, §1.6 generic
-# `Jacobian`).  All constructors that were broken at the time of the review have
-# been fixed (Phase 1); every check below is a plain `@test`.
+# correctness — that is what would have caught the dead-on-arrival
+# `LUSolverLAPACK` and generic `Jacobian` constructors.  All constructors that
+# were once broken have been fixed; every check below is a plain `@test`.
 
 using SimpleSolvers
 using Test
@@ -31,7 +30,7 @@ const yvec = T[1.0, 2.0, 3.0]
     @test SolverState isa Function   # GeometricBase state constructor, not a type
     @test isabstracttype(NonlinearSolverMethod)
     @test isabstracttype(LinesearchMethod)
-    # Phase 5: LinesearchMethod is now a direct subtype of SolverMethod (the former
+    # LinesearchMethod is now a direct subtype of SolverMethod (the former
     # `NonlinearMethod` supertype was removed — a line search is not itself a
     # nonlinear-solver method).
     @test LinesearchMethod <: SolverMethod
@@ -55,7 +54,7 @@ end
     @test !isdefined(SimpleSolvers, :PicardMethod)
     @test DogLeg() isa DogLeg
 
-    # Phase 3.3 / §2.6: `Newton{true}` is now constructable by name, with an
+    # `Newton{true}` is now constructable by name, with an
     # optional `refactorize` argument (previously only `Newton()` and
     # `Newton{false}(...)` existed, so `Newton{true}(1)` threw).
     @test Newton() === Newton{true}(1)
@@ -86,7 +85,7 @@ end
     @test JacobianFiniteDifferences{T}(F_vec!, n, n) isa JacobianFiniteDifferences
     @test JacobianFunction{T}(F_vec!, J_vec!) isa JacobianFunction
 
-    # generic backend-selecting constructors (§1.6)
+    # generic backend-selecting constructors
     @test Jacobian{T}(F_vec!, n) isa Jacobian
     @test Jacobian(F_vec!, xvec) isa Jacobian
     @test Jacobian(F_vec!, xvec, xvec) isa Jacobian

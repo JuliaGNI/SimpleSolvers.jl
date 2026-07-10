@@ -120,7 +120,7 @@ end
 end
 
 
-# §1.6 regression: the generic backend-selecting `Jacobian` constructors used to
+# Regression: the generic backend-selecting `Jacobian` constructors used to
 # forward to a nonexistent `Jacobian{T}(F, nx, ny)` method and always threw. They
 # now dispatch to `JacobianAutodiff` / `JacobianFiniteDifferences` via `mode`.
 @testset "Generic Jacobian backend selection" begin
@@ -152,11 +152,11 @@ end
 end
 
 
-# §2.2 regression: the finite-difference Jacobian functor used to iterate its row
+# Regression: the finite-difference Jacobian functor used to iterate its row
 # loop over `eachindex(x)` (input indices) instead of the output indices. For a
 # non-square Jacobian this silently left rows unwritten (`ny > nx`) or threw a
 # `BoundsError` (`ny < nx`).  Now it loops over `eachindex(jac.f1)` (outputs).
-@testset "Finite-difference non-square Jacobians (§2.2)" begin
+@testset "Finite-difference non-square Jacobians" begin
     T = Float64
 
     # 2×3 Jacobian (ny = 2 < nx = 3)

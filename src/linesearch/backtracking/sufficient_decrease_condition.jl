@@ -1,6 +1,6 @@
 # The value fields carry a `₀` subscript (value/derivative at the base point
 # α = 0) so they do not differ from the callable `F` only by letter case
-# (bugs.md §5: the former `f` vs `F` was an easy silent typo).
+# (a former `f` vs `F` naming was an easy silent typo).
 @doc raw"""
     SufficientDecreaseCondition <: BacktrackingCondition
 

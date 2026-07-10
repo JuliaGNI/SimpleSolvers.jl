@@ -4,7 +4,7 @@ using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, 
 using StaticArrays: SMatrix, MMatrix
 using Test
 
-# §1.4 regression: `LinearProblem` must accept a non-square `A` (the RHS length
+# Regression: `LinearProblem` must accept a non-square `A` (the RHS length
 # matches the number of rows `size(A, 1)`, not the columns). Previously the inner
 # constructor asserted `length(y) == size(A, 2)`, so `LinearProblem(A)` threw for
 # every non-square `A`, contradicting `LinearProblem{T}(n, m)`.
@@ -78,9 +78,9 @@ test_lu_solver(LU(; static=false), A, b, x)
 test_lu_solver(LU(; static=true), A, b, x)
 
 
-# §2.5 regression: a singular matrix used to leave `cache.info` set but unchecked,
+# Regression: a singular matrix used to leave `cache.info` set but unchecked,
 # so `ldiv!` silently produced NaN/Inf.  It now throws a `SingularException`.
-@testset "LU singular matrix throws (§2.5)" begin
+@testset "LU singular matrix throws" begin
     Asing = [1.0 2.0; 2.0 4.0]   # rank 1 → singular
     bsing = [1.0, 2.0]
     ls = LinearSolver(LU(), Asing)
@@ -98,9 +98,9 @@ test_lu_solver(LU(; static=true), A, b, x)
     @test Aok * xok ≈ [1.0, 0.0] atol = 1e-12
 end
 
-# §2.5 regression: `ldiv!(x, lsolver, b)` used to corrupt the result when `x === b`
+# Regression: `ldiv!(x, lsolver, b)` used to corrupt the result when `x === b`
 # because the permutation gather read entries it had already overwritten.
-@testset "LU ldiv! with aliased x === b (§2.5)" begin
+@testset "LU ldiv! with aliased x === b" begin
     Aa = [4.0 5.0 -2.0; 7.0 -1.0 2.0; 3.0 1.0 4.0]
     ba = [-14.0, 42.0, 28.0]
     xref = [4.0, -4.0, 5.0]
@@ -111,11 +111,11 @@ end
     @test v ≈ xref atol = 1e-10
 end
 
-# §1.7 / 2.5 regression: an integer input matrix used to throw in `factorize!`
+# Regression: an integer input matrix used to throw in `factorize!`
 # (no eltype promotion in the cache).  The cache now promotes the element type
 # to a fractional type (like `LinearAlgebra.lutype`), so factorization and
 # solving work.
-@testset "LU integer matrix promotes eltype (§1.7)" begin
+@testset "LU integer matrix promotes eltype" begin
     ls = LinearSolver(LU(), [1 2; 3 4])   # construction promotes Int → Float64
     @test eltype(cache(ls).A) == Float64
     factorize!(ls)                        # factorize the (promoted) stored matrix
@@ -124,13 +124,13 @@ end
     @test [1.0 2.0; 3.0 4.0] * x ≈ [1.0, 1.0] atol = 1e-12
 end
 
-# Phase 3.2 regression (§4): the cache matrix type used to be chosen by a runtime
+# Regression: the cache matrix type used to be chosen by a runtime
 # `_static(A)` size threshold and a runtime `MMatrix{size(A)...}` build, so
 # `LinearSolverCache(LU(), A)` was not inferable.  The default path now dispatches
 # on whether the input is a `StaticArray`: a plain `AbstractMatrix` yields a plain
 # `Matrix` cache and a `StaticArray` yields a mutable static (`MMatrix`) cache —
 # both fully inferable.
-@testset "LU cache type is chosen by dispatch and inferable (§4)" begin
+@testset "LU cache type is chosen by dispatch and inferable" begin
     Adyn = [4.0 5.0 -2.0; 7.0 -1.0 2.0; 3.0 1.0 4.0]
 
     cdyn = @inferred LinearSolverCache(LU(), Adyn)
@@ -150,27 +150,27 @@ end
     @test cache(LinearSolver(LU(; static=false), Adyn)).A isa Matrix
 end
 
-# Phase 4.1 (§5): the dead `pivots` field was removed from `LUSolverCache`
+# The dead `pivots` field was removed from `LUSolverCache`
 # (`factorize!`/`ldiv!` use `perms`); the cache now has exactly three fields.
-@testset "LUSolverCache has no dead pivots field (Phase 4.1)" begin
+@testset "LUSolverCache has no dead pivots field" begin
     ls = LinearSolver(LU(), [1.0 2.0; 3.0 4.0])
     @test !hasproperty(cache(ls), :pivots)
     @test fieldnames(typeof(cache(ls))) == (:A, :perms, :info)
 end
 
-# Phase 4.5 (§5): `find_maximum_value` was renamed to `pivot_index` (internal,
+# `find_maximum_value` was renamed to `pivot_index` (internal,
 # unexported) and returns the index of the largest-|·| entry from `k` onward.
-@testset "pivot_index returns index of largest |entry| (Phase 4.5)" begin
+@testset "pivot_index returns index of largest |entry|" begin
     @test !isdefined(SimpleSolvers, :find_maximum_value)
     v = [0.1, -3.0, 2.0, -0.5]
     @test pivot_index(v, 1) == 2      # |-3| is the largest overall
     @test pivot_index(v, 3) == 3      # from index 3 on, |2| is the largest
 end
 
-# Phase 4.4 (§5): `solve!(x, lsolver, A, b)` copies `A` straight into the existing
+# `solve!(x, lsolver, A, b)` copies `A` straight into the existing
 # cache instead of allocating a throwaway `LinearProblem`; the result must still
 # match the direct solve.
-@testset "solve!(x, lsolver, A, b) copies into cache (Phase 4.4)" begin
+@testset "solve!(x, lsolver, A, b) copies into cache" begin
     A = [1.0 2.0 3.0; 5.0 7.0 11.0; 13.0 17.0 19.0]
     b = [1.0, 2.0, 3.0]
     lsolver = LinearSolver(LU(), zeros(3))
@@ -179,10 +179,10 @@ end
     @test A * x ≈ b atol = 1e-10
 end
 
-# Phase 4.5 (§5): the `alloc_*` helpers initialize with `NaN`, which only floating
+# The `alloc_*` helpers initialize with `NaN`, which only floating
 # point (and complex-of-float) element types support.  An integer input now
 # raises a clear error rather than a cryptic `InexactError` deep in setup.
-@testset "alloc_* rejects non-NaN-capable eltypes (Phase 4.5)" begin
+@testset "alloc_* rejects non-NaN-capable eltypes" begin
     @test all(isnan, alloc_x([1.0, 2.0]))
     @test all(isnan, alloc_g([1.0, 2.0]))
     @test isnan(alloc_x(1.0))

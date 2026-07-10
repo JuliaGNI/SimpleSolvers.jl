@@ -1,4 +1,4 @@
-# JET.jl static analysis (Phase 0.4, optional / allowed-to-warn).
+# JET.jl static analysis (optional / allowed-to-warn).
 #
 # `report_package` surfaces potential runtime errors detected statically.  This
 # set only reports and is not allowed to fail the suite — it is a diagnostic aid.

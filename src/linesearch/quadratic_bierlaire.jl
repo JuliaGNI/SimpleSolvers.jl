@@ -76,8 +76,8 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params,
     fa = f(a)
     fb = f(b)
     fc = f(c)
-    # Iterate rather than recurse (bugs.md §5): the depth is bounded by the
-    # iteration maximum either way, but a loop keeps the stack flat and lets the
+    # Iterate rather than recurse: the depth is bounded by the iteration
+    # maximum either way, but a loop keeps the stack flat and lets the
     # triple (a, b, c) and its values persist across rounds.
     for _ in iteration_number:(max_number_of_quadratic_linesearch_iterations(T) - 1)
         # The denominator vanishes when the three points are (nearly) collinear, i.e.
@@ -124,7 +124,7 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params, iterati
 end
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
-    # Design note (Phase 5, resolving the former "use α₀" TODO): `triple_point_finder`
+    # Design note: `triple_point_finder`
     # requires the merit to be decreasing at its starting point and only searches to
     # the right, so the bracket must start at α = 0 (where φ'(0) < 0 for a descent
     # direction), not at the caller's α₀ — starting at α₀ errors whenever the optimal

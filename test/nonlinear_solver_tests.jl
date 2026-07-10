@@ -9,7 +9,7 @@ using ForwardDiff
 using LinearAlgebra: SingularException
 Random.seed!(1234)
 
-@testset "Stagnation is not reported as convergence (§3 / 2.2)" begin
+@testset "Stagnation is not reported as convergence" begin
     config = Options()
 
     # A stalled step: x and y do not change between iterations (rxₛ = rfₛ = 0)
@@ -77,7 +77,7 @@ for T ∈ (Float64, Float32)
         (NewtonSolver, (linesearch=Static(T),), 2),
         (NewtonSolver, (linesearch=Backtracking(T),), 2),
         (NewtonSolver, (linesearch=Bisection(T),), 2),
-        # §2.4 / 2.6: `Quadratic(T, ::SolverMethod)` no longer squares its defaults.
+        # `Quadratic(T, ::SolverMethod)` no longer squares its defaults.
         # The former ε² was below machine epsilon, so the line search never met its
         # internal convergence test and over-refined to artificial (≈0 eps)
         # precision.  With the corrected ε = default_precision(T) the line search
@@ -85,14 +85,14 @@ for T ∈ (Float64, Float32)
         # (≈2.5 eps in Float64, ≈17 eps in Float32); hence the looser tolfac here.
         (NewtonSolver, (linesearch=Quadratic(T, Newton()),), 32),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
-        # Phase 5: the strong-Wolfe (bracket + zoom) line search.
+        # The strong-Wolfe (bracket + zoom) line search.
         (NewtonSolver, (linesearch=StrongWolfe(T),), 2),
         (QuasiNewtonSolver, (linesearch=Static(T),), 2),
         (QuasiNewtonSolver, (linesearch=Backtracking(T),), 2),
         (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
         (QuasiNewtonSolver, (linesearch=Quadratic(T, Newton()),), 32),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
-        # Phase 5: PicardSolver is now a (residual-safeguarded) fixed-point
+        # PicardSolver is now a (residual-safeguarded) fixed-point
         # iteration and no longer runs a derivative-based line search, so it takes
         # no `linesearch` keyword here.
         (PicardSolver, (), 8),
@@ -181,7 +181,7 @@ for T ∈ (Float64, Float32)
 end
 
 
-@testset "DogLeg at the exact root (§2.1)" begin
+@testset "DogLeg at the exact root" begin
     # Starting exactly at the root, the steepest-descent (Cauchy) scaling divides
     # by ‖J·JᵀF‖² = 0, which used to produce NaN and throw.  The guard now sets
     # the direction to zero so the convergence check reports convergence in 0–1
@@ -197,7 +197,7 @@ end
     end
 end
 
-@testset "Phase 5: PicardSolver is a residual-safeguarded fixed-point iteration (§3)" begin
+@testset "PicardSolver is a residual-safeguarded fixed-point iteration" begin
     # A genuine contraction: F(x) = x - cos(x) has the fixed point x = cos(x) (the
     # Dottie number ≈ 0.7390851332151607); the fixed-point iteration x ← cos(x)
     # converges.  Picard takes no derivative-based line search (the residual
@@ -225,7 +225,7 @@ end
     @test isapprox(x[1], 1.0; atol=1e-6)
 end
 
-@testset "Phase 5: DogLeg ρ-based trust region grows on good steps and carries Δ (2.3d)" begin
+@testset "DogLeg ρ-based trust region grows on good steps and carries Δ" begin
     # With the full ρ-based radius update (N&W Alg. 4.1) the trust radius is carried
     # across outer steps and *expanded* on good steps that sit on the boundary —
     # the old code reset Δ to INITIAL_Δ every step and could only shrink it.
@@ -260,12 +260,12 @@ end
     @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
 end
 
-@testset "DogLeg treats an undefined (NaN) trial merit as a rejected step (§2.1)" begin
+@testset "DogLeg treats an undefined (NaN) trial merit as a rejected step" begin
     # F(x) = log(x) + 2 has its root at exp(-2) ≈ 0.135; from x₀ = 1 the full
     # Newton step lands at x = -1, outside the domain (the NaN-returning log
     # mimics e.g. NaNMath.log or a table lookup).  The former NaN recovery
     # rescaled d₁ and d₂ *independently*, destroying the ‖d₁‖ ≤ ‖d₂‖ relation
-    # the dogleg interpolation assumes (bugs.md §2.1); a NaN trial merit is now
+    # the dogleg interpolation assumes; a NaN trial merit is now
     # rejected by shrinking Δ, keeping the dogleg path intact (and never
     # reaching the ρ update, where NaN comparisons would spin the loop forever
     # at constant Δ).
@@ -321,7 +321,7 @@ end
 
     # The solver must refuse to proceed on this pathological problem.  The finite
     # difference Jacobian at x = 0 is the zero matrix, which is singular: the LU
-    # solver now throws a `SingularException` (§2.5) instead of silently returning
+    # solver now throws a `SingularException` instead of silently returning
     # NaN.  The autodiff Jacobian produces NaN entries, which is caught as a
     # `NonlinearSolverException` (NaN in the direction vector).
     @test_throws SingularException solve!(x₁, nl₁)
@@ -329,7 +329,7 @@ end
 
 end
 
-@testset "Phase 5: line search does not overwrite the shared solver cache (§3)" begin
+@testset "line search does not overwrite the shared solver cache" begin
     # The line search closures must use private scratch buffers, so evaluating the
     # line search problem at a trial α ≠ 0 leaves the solver's shared cache
     # (`solution`/`value`/`jacobianmatrix`) untouched — these are read by the solver
@@ -365,7 +365,7 @@ end
     @test solution(cache(nl)) == x_before
 end
 
-@testset "Phase 4.2 error-swallowing fallbacks removed" begin
+@testset "error-swallowing fallbacks removed" begin
     # The catch-all `initialize!(x...)` (which swallowed MethodErrors behind a
     # generic "not defined" message) was deleted.
     @test !hasmethod(initialize!, Tuple{Int})
@@ -448,13 +448,13 @@ end
         root(::Type{T}) where {T} = zeros(T, 2)
         tol(::Type{T}) where {T} = T == Float64 ? eps(T) : eps(T)
 
-        # NewtonSolver: with the Phase 2 fixes this now converges on the Powell
+        # NewtonSolver: this now converges on the Powell
         # problem.  Previously it *stagnated* at x ≈ [1.108, 0] and that stalled
-        # iterate was falsely reported as converged (bugs.md §3): the backtracking
-        # line search shrank α to a denormal (§1.3) and the successive-change
+        # iterate was falsely reported as converged: the backtracking
+        # line search shrank α to a denormal and the successive-change
         # convergence criteria treated the resulting zero step as convergence.
-        # Fixing the backtracking stall (2.1) and requiring a small residual for
-        # convergence (2.2) lets Newton escape the stagnation point and reach the
+        # Fixing the backtracking stall and requiring a small residual for
+        # convergence lets Newton escape the stagnation point and reach the
         # true root.
 
         x0 = ics(T)
@@ -464,11 +464,11 @@ end
         solve!(x0, solver)
         @test ≈(x0, _root; atol=tol(T))
 
-        # PicardSolver cannot solve this problem, but for a principled reason: since
-        # Phase 5 it is a proper (residual-safeguarded) fixed-point iteration
+        # PicardSolver cannot solve this problem, but for a principled reason: it is a
+        # proper (residual-safeguarded) fixed-point iteration
         # x ← x + α(-F(x)), and the Powell map is not a contraction here, so it stalls
         # at a non-root instead of converging.  Crucially it does *not* diverge to NaN
-        # or falsely report convergence (Phase 2 residual gate) — it simply runs out of
+        # or falsely report convergence (residual gate) — it simply runs out of
         # iterations, so the equality assertion below fails as expected.
         x0 = ics(T)
         solver = PicardSolver(x0, F, copy(x0))

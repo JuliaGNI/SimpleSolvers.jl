@@ -60,11 +60,11 @@ test_grad(gad, gad1, 0)
 test_grad(gfd, gfd1, 0)
 test_grad(gus, gus1, 0)
 
-# §2.2 regression: the default finite-difference step used to bake in the
+# Regression: the default finite-difference step used to bake in the
 # Float64 machine epsilon (`8sqrt(eps())`) regardless of the working precision,
 # so a Float32 finite-difference gradient used a ~1 ulp step and produced
 # garbage.  `default_ϵ(T) = 8sqrt(eps(T))` is now precision-aware.
-@testset "Float32 finite-difference gradient accuracy (§2.2)" begin
+@testset "Float32 finite-difference gradient accuracy" begin
     F32(x) = 1 + sum(x .^ 2)
     x32 = Float32[0.3, 0.7]
     g32 = 2x32
@@ -79,12 +79,12 @@ test_grad(gus, gus1, 0)
     end
 end
 
-# Phase 3.3 regression (§2.6): the `GradientFunction` functor used to require both
+# Regression: the `GradientFunction` functor used to require both
 # arguments to have the *identical* concrete type (`g::VT, x::VT`), so a
 # `Vector`/`SubArray` pair (same eltype, different container) hit the misleading
 # "Functor not implemented." fallback.  The arguments are now two independent
 # `AbstractVector{T}`.
-@testset "GradientFunction accepts independent container types (§2.6)" begin
+@testset "GradientFunction accepts independent container types" begin
     # a derivative closure that accepts any AbstractVector (the fix is that the
     # SimpleSolvers functor no longer forces g and x to the *same* concrete type)
     ∇g!(g::AbstractVector, x::AbstractVector) = (g .= 2 .* x; g)
@@ -97,9 +97,9 @@ end
     @test gv ≈ 2 .* collect(xsub)
 end
 
-# Phase 3.3 regression: `GradientFiniteDifferences{T}` used to restrict `nx::Int`,
+# Regression: `GradientFiniteDifferences{T}` used to restrict `nx::Int`,
 # while its siblings accept any `::Integer`.
-@testset "GradientFiniteDifferences{T} accepts any Integer nx (§5)" begin
+@testset "GradientFiniteDifferences{T} accepts any Integer nx" begin
     ∇int = GradientFiniteDifferences{Float64}(F, Int32(2))
     @test ∇int isa GradientFiniteDifferences
     gg = zeros(2)
@@ -107,11 +107,11 @@ end
     @test gg ≈ 2x atol = 1e-6
 end
 
-# Phase 4.2 (§5): the generic `Gradient` functor fallback (which raised a
+# The generic `Gradient` functor fallback (which raised a
 # home-grown "Functor not implemented." error and masked `MethodError`s) was
 # removed.  A `Gradient` subtype without a functor now yields a proper
 # `MethodError`, so `hasmethod`/`applicable` report the truth.
-@testset "Gradient functor fallback removed (Phase 4.2)" begin
+@testset "Gradient functor fallback removed" begin
     struct UnimplementedGradient{S} <: SimpleSolvers.Gradient{S} end
     ug = UnimplementedGradient{Float64}()
     @test !hasmethod(ug, Tuple{Vector{Float64},Vector{Float64}})

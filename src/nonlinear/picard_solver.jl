@@ -84,14 +84,14 @@ Unlike a Newton/Gauss-Newton step, the Picard direction ``d = -F(x)`` is **not**
 in general a descent direction for the merit ``\varphi = \|F\|^2``, so applying the
 derivative-based (Wolfe) line search used by the other [`NonlinearSolver`](@ref)s is
 inappropriate (a directional derivative that is not negative makes the sufficient-
-decrease/curvature tests meaningless; bugs.md §3).
+decrease/curvature tests meaningless).
 
 Instead the step is *damped* by a **residual-monotonicity backtracking**: starting
 from the full fixed-point step ``\alpha = 1`` the step is halved until the residual
 norm does not increase, ``\|F(x + \alpha d)\| \le \|F(x)\|``.  This safeguard uses
 only function values and makes no descent assumption.  If no positive ``\alpha``
 reduces the residual (the fixed-point map is locally expanding), the smallest trial
-step is taken and the convergence test — which since Phase 2 requires a small
+step is taken and the convergence test — which requires a small
 *residual*, not merely a small step — correctly reports non-convergence instead of
 a false positive.
 """

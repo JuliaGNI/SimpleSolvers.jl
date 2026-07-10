@@ -61,7 +61,7 @@ end
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
-    # Design note (Phase 5, resolving the former "use α₀" TODO): the caller's α₀ is
+    # Design note: the caller's α₀ is
     # deliberately *not* used as the bracket start.  `bracket_minimum_with_fixed_point`
     # holds its left endpoint fixed and only expands to the right, so it must start
     # where the merit is guaranteed to be decreasing — α = 0 (φ'(0) < 0 for a
@@ -72,8 +72,8 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
     α = zero(T)
     s = method(ls).s
 
-    # Iterate rather than recurse (bugs.md §5): the depth is bounded by the
-    # iteration maximum either way, but a loop keeps the stack flat and lets
+    # Iterate rather than recurse: the depth is bounded by the iteration
+    # maximum either way, but a loop keeps the stack flat and lets
     # the state updates (α, s) read as what they are.
     for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
         # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - a) + p₂(α - a)².
