@@ -1194,3 +1194,33 @@ reports individually with `JET.print_report_message`; this is why
   since they only *construct* types — they never *call* these methods). JET now
   reports 11 (Groups A+B only). **Why the smoke tests missed it:** they assert
   `X(...) isa X`, never exercise exported free functions like these accessors.
+
+---
+
+# Assistant session (2026-07-10, solver-method file reorganization)
+
+Pure source-file reorganization on `bugfixes`, no API or behavioral change; full
+`Pkg.test()` passes (492 tests).
+
+## Split `src/base/methods.jl` into the solver files that use its types
+
+`src/base/methods.jl` collected all the `NonlinearSolverMethod` types in one place,
+detached from the solvers built on them. Removed the file and moved each definition
+next to its solver:
+- `NonlinearSolverMethod` (abstract supertype) → top of `nonlinear/nonlinear_solver.jl`
+  (before the `NonlinearSolver` struct, which bounds `MT<:NonlinearSolverMethod`).
+- `Newton`/`QuasiNewton` + the `DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER` const → top of
+  `nonlinear/newton_solver.jl` (before the `NewtonSolver`/`QuasiNewtonSolver` `const`
+  aliases that reference `Newton{true}`/`QuasiNewton`).
+- `Picard` → top of `nonlinear/picard_solver.jl` (before `const PicardSolver`).
+- `DogLeg` → `nonlinear/dogleg_solver.jl` (just before `const DogLegSolver`).
+- Dropped `include("nonlinear/methods.jl")` from `SimpleSolvers.jl`.
+
+**Ordering rationale:** `nonlinear_solver.jl` (supertype) is `include`d before the
+three concrete-method files that subtype it, and each type is placed ahead of its
+first *parse-time* use in its file (struct type bound, `const` alias, dispatch
+signature). Cross-file default-value uses like `method=Newton()` in the
+`NonlinearSolver` inner constructor are runtime, so they don't constrain include
+order. `dogleg_cache.jl` (included before `dogleg_solver.jl`) only says "Newton
+direction" in a docstring — no `DogLeg` dependency — so relocating `DogLeg` was safe.
+Verified `using SimpleSolvers` loads and all four types construct.

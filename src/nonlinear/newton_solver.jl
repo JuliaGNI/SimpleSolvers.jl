@@ -1,4 +1,43 @@
 """
+    Newton <: NonlinearSolverMethod
+
+# Constructors
+
+```jldoctest; setup = :(using SimpleSolvers)
+Newton()
+
+# output
+
+Newton{true}(1)
+```
+
+```jldoctest; setup = :(using SimpleSolvers)
+QuasiNewton()
+
+# output
+
+QuasiNewton(5)
+```
+!!! info
+    The *refactorize* parameter determines how often the Jacobian is refactored. This is the difference between the [`NewtonSolver`](@ref) and [`QuasiNewtonSolver`](@ref).
+"""
+struct Newton{QT} <: NonlinearSolverMethod
+    refactorize::Int
+
+    Newton{true}(refactorize::Integer=1) = new{true}(refactorize)
+    Newton{false}(refactorize::Integer=DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER) = new{false}(refactorize)
+end
+
+Newton() = Newton{true}()
+
+"""
+The default number of iterations before the [`Jacobian`](@ref) is refactored in the [`QuasiNewtonSolver`](@ref)
+"""
+const DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER = 5
+
+const QuasiNewton = Newton{false}
+
+"""
     NewtonSolver
 
 A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = NonlinearSolver{T,Newton{true}}`.

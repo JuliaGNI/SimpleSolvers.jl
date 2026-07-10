@@ -29,8 +29,6 @@ export NonlinearSolverMethod, Picard, LinesearchMethod
 
 export Newton, QuasiNewton
 
-include("base/methods.jl")
-
 export Gradient,
     GradientAutodiff,
     GradientFiniteDifferences,

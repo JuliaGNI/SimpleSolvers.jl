@@ -85,3 +85,13 @@ systems now throw `SingularException` instead of returning NaN;
 default 5); `DogLegSolver(x, y; F=…)` follows the same friendly `F=missing`
 pattern as the other solvers; and numerous broken convenience entry points and
 docstrings.
+
+### Internal
+
+- Source-file reorganization (no API or behavioral change): the solver-method type
+  definitions were moved out of the standalone `src/base/methods.jl` (file removed) to
+  live alongside the solvers that consume them — the `NonlinearSolverMethod` supertype
+  in `nonlinear_solver.jl`, `Newton`/`QuasiNewton` (and the
+  `DEFAULT_ITERATIONS_QUASI_NEWTON_SOLVER` constant) in `newton_solver.jl`, `Picard` in
+  `picard_solver.jl`, and `DogLeg` in `dogleg_solver.jl`. The exported names and their
+  behavior are unchanged.

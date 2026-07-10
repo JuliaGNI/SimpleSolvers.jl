@@ -1,4 +1,17 @@
 """
+    NonlinearSolverMethod <: SolverMethod
+
+A supertype collecting all nonlinear *solver* methods, i.e. [`Newton`](@ref),
+[`Picard`](@ref) and [`DogLeg`](@ref).
+
+Compare this with [`LinesearchMethod`](@ref): both are subtypes of `SolverMethod`,
+but a `LinesearchMethod` describes a one-dimensional line search (used *inside* a
+solver step) whereas a `NonlinearSolverMethod` describes the outer nonlinear
+iteration itself.
+"""
+abstract type NonlinearSolverMethod <: SolverMethod end
+
+"""
     NonlinearSolver
 
 A `struct` that comprises *Newton solvers* (see [`Newton`](@ref)), the *Picard solver* (also known as fixed-point iteration; see [`Picard`](@ref)) and the *Dogleg solver* (see [`DogLeg`](@ref)).

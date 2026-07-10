@@ -14,6 +14,23 @@ const DOGLEG_ρ_HIGH = 0.75
 const DOGLEG_η = 1E-4
 
 """
+    DogLeg(refactorize=1)
+
+*Powell's dogleg method* [powell1970new](@cite).
+
+Like [`Newton`](@ref), the `refactorize` parameter determines after how many
+steps the [`Jacobian`](@ref) is re-evaluated and refactored (see [`factorize!`](@ref)).
+The default `refactorize = 1` re-evaluates and refactorizes the Jacobian on every step;
+`refactorize > 1` reuses the Jacobian (and its factorization) in between, giving a
+quasi-Newton-style dogleg method.
+"""
+struct DogLeg <: NonlinearSolverMethod
+    refactorize::Int
+
+    DogLeg(refactorize::Integer=1) = new(refactorize)
+end
+
+"""
     DogLegSolver
 
 The [`NonlinearSolver`](@ref) for the [`DogLeg`](@ref) method.

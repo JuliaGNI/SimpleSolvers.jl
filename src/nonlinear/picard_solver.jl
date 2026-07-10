@@ -1,3 +1,10 @@
+"""
+    Picard <: NonlinearSolverMethod
+
+See [`PicardSolver`](@ref).
+"""
+struct Picard <: NonlinearSolverMethod end
+
 const PicardSolver{T} = NonlinearSolver{T,Picard}
 
 function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
