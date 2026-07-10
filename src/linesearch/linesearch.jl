@@ -69,6 +69,7 @@ Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Opti
 function solve(prob::LinesearchProblem{T}, method::LinesearchMethod, α, params=NullParameters(), config::Options{T}=Options(T)) where {T}
     solve(Linesearch(prob, method, config), T(α), params)
 end
+
 problem(s::Linesearch) = s.problem
 config(s::Linesearch) = s.config
 method(s::Linesearch) = s.method
@@ -83,10 +84,6 @@ The argument `params` needs to be of an appropriate form expected by the respect
 
 See [`linesearch_problem`](@ref).
 """
-function solve(::Linesearch{T,MET}, α::T, params=NullParameters()) where {T <: Real, MET<:LinesearchMethod{T}}
+function solve(::Linesearch{T,MET}, α, params=NullParameters()) where {T, MET<:LinesearchMethod{T}}
     error("Solve method missing for $(MET).")
-end
-
-function solve(prob::LinesearchProblem, method::LinesearchMethod, α::T, params=NullParameters(), config::Options=Options()) where {T <: Real}
-    solve(Linesearch(prob, method, config), α, params)
 end
