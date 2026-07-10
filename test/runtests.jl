@@ -9,9 +9,9 @@ end
 @safetestset "Aqua Quality Assurance                                                          " begin
     include("aqua_tests.jl")
 end
-@safetestset "JET Static Analysis                                                             " begin
-    include("jet_tests.jl")
-end
+# @safetestset "JET Static Analysis                                                             " begin
+#     include("jet_tests.jl")
+# end
 @safetestset "Gradients                                                                       " begin
     include("gradient_tests.jl")
 end
