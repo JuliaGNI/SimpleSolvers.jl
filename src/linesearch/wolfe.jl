@@ -81,19 +81,18 @@ end
 # sufficient-decrease condition.  We interpolate by bisection (robust, no
 # curvature assumptions) and maintain the bracket invariant.  On iteration
 # exhaustion we return αlo, which by construction satisfies sufficient decrease —
-# the method never returns a step worse than Armijo.
-function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, φ0::T, d0::T, c₁::T, c₂::T, αlo::T, αhi::T, φlo::T) where {T}
+# the method never returns a step worse than Armijo.  The two strong Wolfe
+# conditions are checked through the shared `sdc`/`cc` condition objects.
+function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseCondition{T}, cc::CurvatureCondition{T}, αlo::T, αhi::T, φlo::T) where {T}
     αj = αlo
     for _ in 1:config(ls).max_iterations
         αj = (αlo + αhi) / 2
         φj = φ(αj)
-        if φj > φ0 + c₁ * αj * d0 || φj ≥ φlo
+        if !sdc(αj) || φj ≥ φlo
             αhi = αj
         else
+            cc(αj) && return αj
             dj = dφ(αj)
-            if abs(dj) ≤ -c₂ * d0
-                return αj
-            end
             if dj * (αhi - αlo) ≥ zero(T)
                 αhi = αlo
             end
@@ -116,9 +115,23 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     c₁ = m.c₁
     c₂ = m.c₂
     αmax = m.αmax
+    prob = problem(ls)
 
-    φ(a) = value(problem(ls), a, params)
-    dφ(a) = derivative(problem(ls), a, params)
+    # One-slot memoisation of the merit φ and its derivative φ′: the bracketing /
+    # zoom logic and the composed Wolfe conditions (`sdc`/`cc`) query the same
+    # trial `α`, so caching the last evaluation avoids recomputing the (expensive)
+    # merit and derivative.  `NaN` never equals a real query, so the first call at
+    # any `α` always evaluates.
+    φα = Ref(T(NaN)); φv = Ref(T(NaN))
+    dα = Ref(T(NaN)); dv = Ref(T(NaN))
+    function φ(a)
+        a == φα[] || (φα[] = a; φv[] = value(prob, a, params))
+        φv[]
+    end
+    function dφ(a)
+        a == dα[] || (dα[] = a; dv[] = derivative(prob, a, params))
+        dv[]
+    end
 
     φ0 = φ(zero(T))
     d0 = dφ(zero(T))
@@ -129,21 +142,25 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
         return α
     end
 
+    # The strong Wolfe conditions are the Armijo (sufficient decrease) condition
+    # plus the strong curvature condition, so compose them from the shared types
+    # rather than re-deriving the inequalities here.
+    sdc = SufficientDecreaseCondition(c₁, φ0, d0, φ)
+    cc = CurvatureCondition(c₂, d0, dφ, Val(:Strong))
+
     αprev = zero(T)
     φprev = φ0
     αi = clamp(α > zero(T) ? α : one(T), eps(T), αmax)
 
     for i in 1:config(ls).max_iterations
         φi = φ(αi)
-        if φi > φ0 + c₁ * αi * d0 || (i > 1 && φi ≥ φprev)
-            return _wolfe_zoom(ls, φ, dφ, φ0, d0, c₁, c₂, αprev, αi, φprev)
+        if !sdc(αi) || (i > 1 && φi ≥ φprev)
+            return _wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)
         end
+        cc(αi) && return αi
         di = dφ(αi)
-        if abs(di) ≤ -c₂ * d0
-            return αi
-        end
         if di ≥ zero(T)
-            return _wolfe_zoom(ls, φ, dφ, φ0, d0, c₁, c₂, αi, αprev, φi)
+            return _wolfe_zoom(ls, φ, dφ, sdc, cc, αi, αprev, φi)
         end
         # ascend toward αmax; stop expanding once the cap is reached
         αi == αmax && break
