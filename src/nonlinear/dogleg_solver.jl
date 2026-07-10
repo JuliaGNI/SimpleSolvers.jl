@@ -172,6 +172,7 @@ function initialize!(s::DogLegSolver, x::AbstractVector)
     # (re)used solver starts each solve from the caller's chosen radius.
     initialize!(cache(s), x)
     trust_radius!(cache(s), config(s).dogleg_radius_initial)
+    s
 end
 
 function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::NonlinearSolverState{T}, params) where {T}
