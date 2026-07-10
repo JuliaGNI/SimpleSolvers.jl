@@ -244,6 +244,61 @@ end
     end
 end
 
+@testset "DogLeg trust radius resets on solver reuse (verification 2026-07-10)" begin
+    # `initialize!` used to reset every DogLegCache buffer *except* the carried
+    # trust radius, so a reused solver started its next solve with the radius the
+    # previous solve ended with (up to DOGLEG_Δ_MAX = 1e2) instead of INITIAL_Δ.
+    Flin(y, x, p) = (y .= x)
+    x = [5.0, 5.0]
+    s = DogLegSolver(x, Flin, similar(x))
+    solve!(x, s)
+    @test trust_radius(cache(s)) > INITIAL_Δ    # the first solve expanded Δ ...
+    initialize!(s, [5.0, 5.0])
+    @test trust_radius(cache(s)) == INITIAL_Δ   # ... but a fresh solve starts over
+    x2 = [5.0, 5.0]
+    solve!(x2, s)                               # and solver reuse still converges
+    @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
+end
+
+@testset "DogLeg treats an undefined (NaN) trial merit as a rejected step (§2.1)" begin
+    # F(x) = log(x) + 2 has its root at exp(-2) ≈ 0.135; from x₀ = 1 the full
+    # Newton step lands at x = -1, outside the domain (the NaN-returning log
+    # mimics e.g. NaNMath.log or a table lookup).  The former NaN recovery
+    # rescaled d₁ and d₂ *independently*, destroying the ‖d₁‖ ≤ ‖d₂‖ relation
+    # the dogleg interpolation assumes (bugs.md §2.1); a NaN trial merit is now
+    # rejected by shrinking Δ, keeping the dogleg path intact (and never
+    # reaching the ρ update, where NaN comparisons would spin the loop forever
+    # at constant Δ).
+    nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
+    Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
+    x = [1.0]
+    s = DogLegSolver(x, Flog, similar(x))
+    initialize!(s, x)
+    y = similar(x)
+    Flog(y, x, NullParameters())
+    state = NonlinearSolverState(x, y)
+    initialize!(state, x, y)
+    SimpleSolvers.trust_radius!(cache(s), 4.0)  # puts the NaN trial x = -1 inside the region
+    solver_step!(x, s, state, NullParameters())
+    @test all(isfinite, x)                      # the NaN trial was never accepted
+    @test x[1] > 0
+    @test abs(log(x[1]) + 2) < 2.0              # the accepted step reduced the residual
+
+    # ... and a full solve on the same domain-restricted problem converges.
+    x2 = [1.0]
+    s2 = DogLegSolver(x2, Flog, similar(x2))
+    solve!(x2, s2)
+    @test isapprox(x2[1], exp(-2.0); atol=1e-8)
+end
+
+@testset "PicardSolver rejects a linesearch keyword (verification 2026-07-10)" begin
+    # The Picard solver_step! is a fixed-point iteration and consults no line
+    # search; a `linesearch` keyword used to be accepted and silently ignored.
+    Fcos(y, x, p) = (y .= x .- cos.(x))
+    x = [0.5]
+    @test_throws MethodError PicardSolver(x, Fcos, similar(x); linesearch=Bisection())
+end
+
 @testset "Check whether direction NaN test works" begin
 
     function Fnan(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
@@ -322,4 +377,33 @@ end
     s = NewtonSolver([2.0], [3.0]; F=f!)
     @test !hasmethod(solver_step!, Tuple{typeof(s)})
     @test_throws MethodError solver_step!(s)
+end
+
+# Interface-consistency fixes (verification 2026-07-10):
+# (a) the method-dispatch constructor `NonlinearSolver(method, …)` used to
+#     discard the method's `refactorize` field, so `QuasiNewtonMethod(7)`
+#     silently built a solver with the default `refactorize = 5`;
+# (b) `DogLegSolver(x, y; F)` follows the same `F=missing` + friendly-error
+#     pattern as NewtonSolver/PicardSolver (it used to raise a bare
+#     `UndefKeywordError`).
+@testset "NonlinearSolver(method, ...) honors refactorize" begin
+    Flin(y, x, p) = (y .= x)
+    x, y = ones(2), zeros(2)
+    s5 = NonlinearSolver(QuasiNewtonMethod(), x, y; F=Flin)
+    @test SimpleSolvers.method(s5).refactorize == 5
+    s7 = NonlinearSolver(QuasiNewtonMethod(7), x, y; F=Flin)
+    @test SimpleSolvers.method(s7).refactorize == 7
+    s1 = NonlinearSolver(NewtonMethod(), x, y; F=Flin)
+    @test SimpleSolvers.method(s1).refactorize == 1
+    # an explicit keyword still wins over the method's field
+    s9 = NonlinearSolver(QuasiNewtonMethod(7), x, y; F=Flin, refactorize=9)
+    @test SimpleSolvers.method(s9).refactorize == 9
+end
+
+@testset "DogLegSolver(x, y; F) convenience form" begin
+    Flin(y, x, p) = (y .= x)
+    s = DogLegSolver(ones(2), zeros(2); F=Flin)
+    @test s isa DogLegSolver
+    err = try; DogLegSolver(ones(2), zeros(2)); catch e; e; end
+    @test err isa ErrorException && occursin("provide an F", err.msg)
 end

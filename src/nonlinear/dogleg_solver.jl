@@ -135,29 +135,6 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
     any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
 
-    # The following loop checks if the RHS contains any NaNs.
-    # If so, the direction vector is reduced by a factor of NAN_FACTOR.
-    for _ in 1:config(s).nan_max_iterations
-        solution(cache(s)) .= x .+ direction₁(cache(s))
-        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        if any(isnan, value(cache(s)))
-            (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction₁ vector.")
-            direction₁(cache(s)) .*= T(config(s).nan_factor)
-        else
-            break
-        end
-    end
-    for _ in 1:config(s).nan_max_iterations
-        solution(cache(s)) .= x .+ direction₂(cache(s))
-        value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        if any(isnan, value(cache(s)))
-            (s.config.verbosity ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction₂ vector.")
-            direction₂(cache(s)) .*= T(config(s).nan_factor)
-        else
-            break
-        end
-    end
-
     # Trust-region step with a ρ-based radius update (Nocedal & Wright, Alg. 4.1).
     # The radius Δ is *carried across outer solver steps* in the cache (rather than
     # reset to a fixed value every step): a good step expands it, a poor step
@@ -177,6 +154,19 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         compute_new_iterate!(solution(cache(s)), solution(state), one(T), d)
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         φ = L2norm(value(cache(s)))
+
+        # An undefined merit (`F` evaluated outside its domain, e.g. `log`/`sqrt`
+        # of a negative trial iterate) is treated exactly like a rejected step:
+        # shrink the radius and retry with a shorter step along the *same* dogleg
+        # path.  (Rescaling d₁ or d₂ themselves — the pre-Phase-5 approach — would
+        # destroy the ‖d₁‖ ≤ ‖d₂‖ relation the dogleg interpolation assumes; a NaN
+        # merit must also not reach the ρ update below, where every comparison
+        # with NaN is false and the loop would spin forever at constant Δ.)
+        if isnan(φ)
+            verbosity(config(s)) ≥ 2 && @warn "DogLeg: undefined merit (NaN) at the trial step; shrinking the trust-region radius."
+            Δ *= T(DOGLEG_Δ_SHRINK)
+            continue
+        end
 
         # A (numerically) zero step means the model predicts no further progress:
         # accept it and let the convergence check decide.  This is the exact-root /
@@ -217,10 +207,11 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
 
     if !accepted
         # The trust-region radius underflowed without an acceptable step.  Take the
-        # last (smallest-Δ) trial; the convergence check decides whether this is an
-        # acceptable stationary point.
+        # last (smallest-Δ) trial — unless its merit is undefined (NaN), in which
+        # case keep the current iterate: a stalled step, which the residual-gated
+        # convergence test reports as non-converged.
         verbosity(config(s)) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without an acceptable step (iterations: $(iteration_number(state)))."
-        x .= solution(cache(s))
+        any(isnan, value(cache(s))) || (x .= solution(cache(s)))
     end
 
     x
@@ -250,5 +241,11 @@ function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; l
     DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
 end
 
-DogLegSolver(x::AbstractVector, y::AbstractVector; F::Callable, kwargs...) = DogLegSolver(x, F, y; kwargs...)
+# Same pattern as the NewtonSolver/PicardSolver convenience form: `F` as a
+# `missing`-defaulted keyword with a friendly error, and both vectors sharing
+# an element type.
+function DogLegSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
+    !ismissing(F) || error("You have to provide an F.")
+    DogLegSolver(x, F, y; kwargs...)
+end
 NonlinearSolver(::DogLeg, x...; kwargs...) = DogLegSolver(x...; kwargs...)

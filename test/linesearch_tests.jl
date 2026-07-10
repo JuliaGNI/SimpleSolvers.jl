@@ -147,6 +147,13 @@ end
         @test q.s == T(SimpleSolvers.DEFAULT_BRACKETING_s)
         @test q.s_reduction == T(SimpleSolvers.DEFAULT_s_REDUCTION)
     end
+
+    # §5: `default_precision` used to error for any float type other than
+    # Float32/Float64 although `8eps(T)` is generic; it is now defined for all
+    # `AbstractFloat`s.
+    @test SimpleSolvers.default_precision(Float16) == 8eps(Float16)
+    @test SimpleSolvers.default_precision(BigFloat) == 8eps(BigFloat)
+    @test BierlaireQuadratic(Float16) isa BierlaireQuadratic{Float16}
 end
 
 @testset "$(rpad("Linesearch Integration Tests", 80))" begin
@@ -395,4 +402,17 @@ end
         # α₀-independent by design
         @test all(r -> r ≈ first(results), results)
     end
+end
+
+# Interface-consistency fix (verification 2026-07-10): Quadratic and
+# BierlaireQuadratic now validate their constructor parameters, like
+# Backtracking and StrongWolfe always did.
+@testset "$(rpad("Quadratic/BierlaireQuadratic constructor validation", 80))" begin
+    @test_throws AssertionError Quadratic(Float64; ε=0.0)
+    @test_throws AssertionError Quadratic(Float64; s=-1.0)
+    @test_throws AssertionError Quadratic(Float64; s_reduction=1.5)
+    @test_throws AssertionError BierlaireQuadratic(Float64; ε=0.0)
+    @test_throws AssertionError BierlaireQuadratic(Float64; ξ=-1.0)
+    @test Quadratic() isa Quadratic                      # defaults are valid
+    @test BierlaireQuadratic() isa BierlaireQuadratic    # defaults are valid
 end

@@ -8,9 +8,7 @@ Objects of type [`LinearSolver`](@ref) are used to solve [`LinearProblem`](@ref)
 
 is satisfied. 
 
-A linear system can be called with[^1]:
-
-[^1]: Note that we also have to *update* the [`LinearProblem`](@ref).
+A linear system can be created with:
 
 ```@example linear_system
 using SimpleSolvers
@@ -18,7 +16,6 @@ using SimpleSolvers
 A = [(0. + 1e-6) 1. 2.; 3. 4. 5.; 6. 7. 8.]
 y = [1., 2., 3.]
 ls = LinearProblem(A, y)
-update!(ls, A, y)
 nothing # hide
 ```
 
@@ -49,7 +46,6 @@ We now do the same in single precision:
 Aˢ = Float32.(A)
 yˢ = Float32.(y)
 lsˢ = LinearProblem(Aˢ, yˢ)
-update!(lsˢ, Aˢ, yˢ)
 y² = solve(lu, lsˢ)
 ```
 

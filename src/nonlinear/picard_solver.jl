@@ -15,9 +15,12 @@ end
 
 # Keywords
 - `DF!`: the Jacobian of `F`,
-- `linesearch`: the linesearch algorithm to use, defaults to [`Backtracking`](@ref),
 - `jacobian`: the Jacobian of `F`, defaults to [`JacobianAutodiff`](@ref),
 - `options_kwargs`: see [`Options`](@ref).
+
+Note that the Picard [`solver_step!`](@ref) is a residual-safeguarded *fixed-point
+iteration* and uses no line search, so — unlike the other solvers — no `linesearch`
+keyword is accepted (passing one is an error rather than being silently ignored).
 
 # Examples
 
@@ -38,11 +41,15 @@ solve!(x, s, state)
  0.0
 ```
 """
-function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, linesearch=Backtracking(T), jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, jacobian=JacobianAutodiff(F, x, y), kwargs...) where {T,AT<:AbstractVector{T}}
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = ismissing(DF!) ? jacobian : JacobianFunction{T}(F, DF!)
     cache = NonlinearSolverCache(x, y)
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
+    # The Picard `solver_step!` never consults a line search; the (structurally
+    # mandatory) `linesearch` field is filled with a trivial `Static` step.  A
+    # `linesearch` keyword is deliberately not accepted — it would be silently
+    # ignored (any stray keyword falls through to `Options` and errors there).
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)))
     PicardSolver(x, nlp, ls, cache; jacobian=jacobian, kwargs...)
 end
 

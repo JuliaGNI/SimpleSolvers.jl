@@ -192,3 +192,42 @@ end
     @test_throws ErrorException alloc_j([1, 2], [1, 2])
     @test_throws ErrorException alloc_x(1)
 end
+
+# Interface-consistency fixes (verification 2026-07-10):
+# (a) `LinearProblem(A, y)` now stores copies of its arguments (it used to
+#     NaN-initialize both, so a freshly constructed problem was unusable without
+#     an extra `update!`);
+# (b) `solve(::LinearSolver, …)` exists as the non-mutating counterpart of
+#     `solve!` (it used to be a `MethodError`, while `solve(::LU, …)` worked);
+# (c) `solve!(x, lsolver, b)` — documented all along — now has an LU
+#     implementation that solves against the stored factorization (it used to
+#     always throw the generic "no method implemented" error).
+@testset "Linear solver interface consistency" begin
+    A = [4.0 1.0; 1.0 3.0]
+    b = [1.0, 2.0]
+    xref = A \ b
+
+    # (a) constructor keeps values; copies, not aliases
+    lp = LinearProblem(A, b)
+    @test matrix(lp) == A
+    @test SimpleSolvers.rhs(lp) == b
+    @test matrix(lp) !== A && SimpleSolvers.rhs(lp) !== b
+    A[1, 1] = 99.0
+    @test matrix(lp)[1, 1] == 4.0        # a copy, unaffected by caller mutation
+    A[1, 1] = 4.0
+
+    # (a) a freshly constructed problem solves without update!
+    @test solve(LU(), LinearProblem(A, b)) ≈ xref
+    @test solve(LU(), A, b) ≈ xref
+
+    # (b) non-mutating solve through a prebuilt LinearSolver
+    lsolver = LinearSolver(LU(), A)
+    @test solve(lsolver, LinearProblem(A, b)) ≈ xref
+    @test solve(lsolver, A, b) ≈ xref
+
+    # (c) solve! / solve with a bare RHS against the stored factorization
+    factorize!(lsolver, A)
+    x = zeros(2)
+    @test solve!(x, lsolver, b) ≈ xref
+    @test solve(lsolver, b) ≈ xref
+end

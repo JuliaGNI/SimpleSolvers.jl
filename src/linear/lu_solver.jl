@@ -33,11 +33,10 @@ Note that if we do not supply an explicit keyword `static`, the corresponding fi
 
 We use the `LU` together with [`solve`](@ref) to solve a linear system:
 
-```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv, update!; Random.seed!(123))
+```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv; Random.seed!(123))
 A = [1. 2. 3.; 5. 7. 11.; 13. 17. 19.]
 v = rand(3)
 ls = LinearProblem(A, v)
-update!(ls, A, v)
 
 lu = LU()
 
@@ -123,6 +122,12 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::Abstr
     solution
 end
 
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
+    # Solve against the factorization already stored in the cache (see
+    # `factorize!`) — no new factorization is performed.
+    ldiv!(solution, lsolver, b)
+end
+
 function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
     x = alloc_x(@view cache(lsolver).A[1, :])
     solve!(x, lsolver, args...)
@@ -165,9 +170,8 @@ julia> solve(LU(), A, b)
 Compare this to [`solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)`](@ref).
 """
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)
-    ls = LinearProblem(A, b)
-    update!(ls, A, b)
-    solve(lu, ls)
+    # `LinearProblem(A, b)` stores copies of `A` and `b`, so no `update!` is needed.
+    solve(lu, LinearProblem(A, b))
 end
 
 """

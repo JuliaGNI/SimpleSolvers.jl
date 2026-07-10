@@ -30,7 +30,6 @@ true
 - `refactorize::Int`: determines after how many steps the Jacobian is updated and refactored (see [`factorize!`](@ref)). If we have `refactorize > 1`, then we speak of a [`QuasiNewtonSolver`](@ref),
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
-- `status::`[`NonlinearSolverStatus`](@ref):
 """
 const NewtonSolver{T} = NonlinearSolver{T,NewtonMethod{true}}
 const QuasiNewtonSolver{T} = NonlinearSolver{T,QuasiNewtonMethod}
@@ -137,5 +136,9 @@ QuasiNewtonSolver(args...; kwargs...) = NewtonSolver(args...; refactorize=DEFAUL
 check_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = check_jacobian(jacobian(s))
 print_jacobian(s::Union{NewtonSolver,QuasiNewtonSolver}) = print_jacobian(jacobian(s))
 
-NonlinearSolver(method::NewtonMethod, args...; kwargs...) = NewtonSolver(args...; kwargs...)
-NonlinearSolver(method::QuasiNewtonMethod, args...; kwargs...) = QuasiNewtonSolver(args...; kwargs...)
+# Honor the method's `refactorize` field (this covers `QuasiNewtonMethod` =
+# `NewtonMethod{false}` as well).  It used to be discarded, so e.g.
+# `NonlinearSolver(QuasiNewtonMethod(7), x, y; F=…)` silently built a solver with
+# the default `refactorize = 5`.  An explicit `refactorize` keyword still wins
+# (the splatted kwargs override the earlier keyword).
+NonlinearSolver(method::NewtonMethod, args...; kwargs...) = NewtonSolver(args...; refactorize=method.refactorize, kwargs...)

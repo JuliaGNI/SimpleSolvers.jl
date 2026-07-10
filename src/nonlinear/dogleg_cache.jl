@@ -83,5 +83,10 @@ function initialize!(cache::DogLegCache{T}, ::AbstractVector{T}) where {T}
 
     jacobianmatrix(cache) .= T(NaN)
 
+    # Reset the trust-region radius: it is carried *across solver steps within one
+    # solve*, but a fresh solve (solver reuse) must not inherit the radius the
+    # previous solve ended with.
+    trust_radius!(cache, T(INITIAL_Δ))
+
     cache
 end

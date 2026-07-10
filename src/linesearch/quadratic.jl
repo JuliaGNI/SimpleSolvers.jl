@@ -45,6 +45,9 @@ struct Quadratic{T} <: LinesearchMethod{T}
     s_reduction::T
 
     function Quadratic{T}(ε::T, s::T, s_reduction::T) where {T}
+        @assert ε > 0 "Precision ε must be positive."
+        @assert s > 0 "Bracketing step s must be positive."
+        @assert 0 < s_reduction < 1 "Bracketing step reduction factor must satisfy 0 < s_reduction < 1."
         new{T}(ε, s, s_reduction)
     end
 end
@@ -60,7 +63,9 @@ end
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_iterations::Integer) where {T}
-    number_of_iterations ≤ max_number_of_quadratic_linesearch_iterations(T) || return α₀
+    # `number_of_iterations` starts at 0, so `<` allows exactly `max` interpolation
+    # steps (`≤` allowed max + 1).
+    number_of_iterations < max_number_of_quadratic_linesearch_iterations(T) || return α₀
 
     # determine coefficients p₀ and p₁ of polynomial p(α) = p₀ + p₁(α - α₀) + p₂(α - α₀)²
     a, b = bracket_minimum_with_fixed_point(problem(ls), params, α₀, s)
@@ -89,7 +94,10 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params, s::T, number_of_
     # and finiteness rather than on a magnitude threshold.)
     denom = 2 * (y₁ - y₀ - d₀ * (b - a))
     αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
-    isfinite(αₜ) || (αₜ = (a + b) / 2)
+    # The minimum of the merit lies inside the bracket [a, b]; a fitted minimizer
+    # outside it (or a non-finite one) means the quadratic model is not to be
+    # trusted — bisect the bracket instead.
+    (isfinite(αₜ) && a ≤ αₜ ≤ b) || (αₜ = (a + b) / 2)
 
     (l2norm(αₜ - α₀) < method(ls).ε) && return αₜ
 

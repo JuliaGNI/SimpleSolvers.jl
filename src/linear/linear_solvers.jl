@@ -146,8 +146,22 @@ Solve the linear system described by:
 ```
 and store it in `x`. Here ``A`` and ``b`` are provided as an input arguments.
 
-Comapre this to [`solve(::LinearSolver, ::AbstractVector)`](@ref).
+Compare this to [`solve(::LinearSolver, ::AbstractVector)`](@ref).
 """
 function solve!(::AbstractVector, ::LinearSolver, ::AbstractMatrix, ::AbstractVector)
     error("No method for solve! implemented for this combination of input arguments.")
 end
+
+"""
+    solve(ls::LinearSolver, args...)
+
+Counterpart of [`solve!`](@ref) for a prebuilt [`LinearSolver`](@ref): allocates
+(and returns) a fresh solution vector instead of writing into a caller-supplied
+one.  Note that the solver's *cache* is still updated in place (the
+factorization is computed there).
+
+Accepts the same trailing arguments as `solve!(ls, args...)`: a
+[`LinearProblem`](@ref), a matrix-vector pair `A, b`, or a bare right-hand side
+`b` (the latter uses the factorization already stored in `ls`).
+"""
+solve(ls::LinearSolver, args...) = solve!(ls, args...)

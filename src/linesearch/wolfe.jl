@@ -155,6 +155,6 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     # No point satisfying the strong Wolfe conditions was bracketed (e.g. φ keeps
     # decreasing up to αmax).  Return the last strictly-positive trial step, which
     # satisfies sufficient decrease; never return the zero step silently.
-    config(ls).verbosity ≥ 1 && @warn "StrongWolfe: no strong-Wolfe step found within [$(zero(T)), $(αmax)]; returning α = $(αi)."
+    config(ls).verbosity ≥ 1 && @warn "StrongWolfe: no step satisfying the strong Wolfe conditions found within (0, $(αmax)]; returning the last sufficient-decrease step α = $(αi)."
     αi
 end

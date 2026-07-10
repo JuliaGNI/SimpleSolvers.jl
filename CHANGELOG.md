@@ -42,15 +42,29 @@ signature are not enumerated here.)
   refactorizes every step, so the option was meaningless). DogLeg now uses a carried,
   ρ-based trust-region radius (N&W Alg. 4.1; new `DogLegCache` `trust_radius[!]`
   accessors) and `solver_step!(::DogLegSolver)` no longer takes a `Δ` keyword.
-- `PicardSolver` is now a residual-safeguarded fixed-point iteration and ignores any
-  `linesearch` keyword (`d = −F` is not a descent direction for the `‖F‖²` merit).
+- `PicardSolver` is now a residual-safeguarded fixed-point iteration and no longer
+  accepts a `linesearch` keyword (`d = −F` is not a descent direction for the `‖F‖²`
+  merit, so a line search would be silently ignored; passing one is now an error).
 - `alloc_x`/`alloc_g`/`alloc_h`/`alloc_j` reject non-floating-point element types with
   a clear error instead of a cryptic `InexactError`.
+- `LinearProblem(A, y)` now stores *copies* of `A` and `y`, so the problem is usable
+  right after construction. (It used to NaN-initialize both, silently discarding the
+  arguments' values until an explicit `update!`.) The size-only constructors still
+  allocate with `NaN`s.
+- `Quadratic` and `BierlaireQuadratic` now validate their constructor parameters
+  (like `Backtracking` and `StrongWolfe`); invalid values (e.g. `ε ≤ 0`,
+  `s_reduction ≥ 1`) raise an `AssertionError` instead of being accepted.
 
 ### Added
 
 - `StrongWolfe` line search (Nocedal & Wright Alg. 3.5/3.6, bracket + zoom): the only
   line search that genuinely enforces the strong curvature condition.
+- `solve(ls::LinearSolver, args...)`: allocating counterpart of `solve!` for a
+  prebuilt `LinearSolver` (previously only `solve(::LU, …)` existed, so a
+  pre-factorized solver could not be used through `solve`).
+- An LU implementation of the (long-documented) `solve!(x, lsolver, b)` form that
+  solves against the stored factorization; it used to unconditionally throw
+  "no method implemented".
 - Aqua.jl, JET.jl, and construct-every-export smoke tests as CI quality gates.
 
 ### Fixed (highlights)
@@ -58,7 +72,14 @@ signature are not enumerated here.)
 See `bugs.md` for the full list. Notable correctness fixes: backtracking no longer
 stalls to a denormal when enforcing the curvature condition; stagnation is no longer
 reported as convergence (residual-gated criteria); the DogLeg cluster (verbosity-gated
-termination, wrong directional derivative, stationary-point NaN, unbounded recursion);
-non-square finite-difference Jacobians; precision-aware FD step `8√eps(T)`; singular
-linear systems now throw `SingularException` instead of returning NaN; and numerous
-broken convenience entry points and docstrings.
+termination, wrong directional derivative, stationary-point NaN, unbounded recursion,
+trust radius now reset on solver reuse, undefined (NaN) trial merits rejected by
+shrinking the radius instead of rescaling the dogleg directions); non-square
+finite-difference Jacobians; precision-aware FD step `8√eps(T)`; singular linear
+systems now throw `SingularException` instead of returning NaN;
+`default_precision(T)` is now defined for all `AbstractFloat`s (used to error for
+`Float16`/`BigFloat`); `NonlinearSolver(QuasiNewtonMethod(n), …)` now honors `n`
+(the method's `refactorize` field used to be silently discarded in favor of the
+default 5); `DogLegSolver(x, y; F=…)` follows the same friendly `F=missing`
+pattern as the other solvers; and numerous broken convenience entry points and
+docstrings.

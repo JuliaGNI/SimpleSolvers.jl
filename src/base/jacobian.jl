@@ -161,8 +161,8 @@ A `struct` that realizes [`Jacobian`](@ref) by using finite differences.
 The `struct` stores:
 - `F`: a function that has to be differentiated.
 - `ϵ`: small constant on whose basis the finite differences are computed.
-- `f1`: ``f`` evaluated at ``x - (1 + x_j)\epsilon\cdot{}x_j`` for all ``j``.
-- `f2`: ``f`` evaluated at ``x + (1 + x_j)\epsilon\cdot{}x_j`` for all ``j``.
+- `f1`: ``f`` evaluated at ``x - \epsilon_j e_j`` with ``\epsilon_j = \epsilon|x_j| + \epsilon`` for all ``j``.
+- `f2`: ``f`` evaluated at ``x + \epsilon_j e_j`` with ``\epsilon_j = \epsilon|x_j| + \epsilon`` for all ``j``.
 - `e`: auxiliary vector used for computing finite differences. It's of the form ``e_1 = \begin{bmatrix} 1 & 0 & \cdots & 0 \end{bmatrix}^T``.
 - `tx`: auxiliary vector used for computing finite differences. It stores the offset in the `x` vector.
 

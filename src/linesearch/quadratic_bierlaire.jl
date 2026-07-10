@@ -19,23 +19,10 @@ julia> default_precision(Float32)
 
 ```jldoctest; setup = :(using SimpleSolvers: default_precision)
 julia> default_precision(Float16)
-ERROR: No default precision defined for Float16.
-[...]
+Float16(0.007812)
 ```
 """
-function default_precision end
-
-function default_precision(::Type{Float32})
-    8eps(Float32)
-end
-
-function default_precision(::Type{Float64})
-    8eps(Float64)
-end
-
-function default_precision(::Type{T}) where {T<:AbstractFloat}
-    error("No default precision defined for $(T).")
-end
+default_precision(::Type{T}) where {T<:AbstractFloat} = 8eps(T)
 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
@@ -63,6 +50,8 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ξ::T
 
     function BierlaireQuadratic{T}(ε::T, ξ::T) where {T}
+        @assert ε > 0 "Precision ε must be positive."
+        @assert ξ > 0 "Derivative threshold ξ must be positive."
         new{T}(ε, ξ)
     end
 end
@@ -78,8 +67,8 @@ BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
 function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, iteration_number::Integer) where {T}
     f = x -> problem(ls).F(x, params)
-    (iteration_number != max_number_of_quadratic_linesearch_iterations(T)) ||
-        ((ls.config.verbosity >= 2 && @warn "Maximum number of iterations was reached."); return b)
+    (iteration_number < max_number_of_quadratic_linesearch_iterations(T)) ||
+        ((config(ls).verbosity ≥ 2 && @warn "Maximum number of iterations was reached."); return b)
     # The denominator vanishes when the three points are (nearly) collinear, i.e.
     # the quadratic fit is degenerate and χ becomes Inf/NaN or falls outside the
     # bracket.  Guard on the *result* (finite and inside [a, c]) rather than a

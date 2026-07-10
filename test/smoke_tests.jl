@@ -3,8 +3,8 @@
 # The point of this file is coverage of the *public constructors*, not numerical
 # correctness — that is what would have caught the dead-on-arrival constructors
 # reported in the 2026-07-09 review (§1.2 `LUSolverLAPACK`, §1.6 generic
-# `Jacobian`).  Constructors that are currently broken are marked `@test_broken`
-# and are to be flipped to `@test` once the corresponding Phase 1 fix lands.
+# `Jacobian`).  All constructors that were broken at the time of the review have
+# been fixed (Phase 1); every check below is a plain `@test`.
 
 using SimpleSolvers
 using Test
