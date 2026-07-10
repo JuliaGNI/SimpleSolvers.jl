@@ -3,7 +3,7 @@ using SafeTestsets
 # @safetestset "Print Statements                                                                " begin
 #     include("check_print_statements.jl")
 # end
-@safetestset "Smoke Tests (construct every exported type)                                      " begin
+@safetestset "Smoke Tests (construct every exported type)                                     " begin
     include("smoke_tests.jl")
 end
 @safetestset "Aqua Quality Assurance                                                          " begin

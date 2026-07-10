@@ -30,7 +30,7 @@ function test_various_nonlinearproblems(A::AbstractMatrix{T}, b::AbstractVector{
 
     @test value!(zero(x), sys₁, x, params) ≈ value!(zero(x), sys₂, x, params) ≈ F(zero(x), x, params)
     @test jacobian!(zero(A₁), sys₂, x, params) ≈ jacobian!(zero(A₁), sys₂, x, params) ≈ jacobian!(zero(A₁), sys₂, x, params)
-    @test_throws "NonlinearSystem does not contain Jacobian." jacobian!(zero(A₁), sys₁, x, params)
+    @test_throws "NonlinearProblem does not contain Jacobian." jacobian!(zero(A₁), sys₁, x, params)
 end
 
 for (A, b) in ((A₁, b₁), (A₂, b₂))
