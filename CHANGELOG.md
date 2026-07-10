@@ -60,10 +60,11 @@ signature are not enumerated here.)
   its default is unaffected; `PicardSolver` takes no line search.)
 - `CurvatureCondition`'s `mode` is now a positional `Val{:Standard}()`/`Val{:Strong}()`
   argument (was a runtime `mode::Symbol` keyword) — inference-stable.
-- `DogLegSolver(x, F, y; …)` no longer accepts a `refactorize` keyword (DogLeg
-  refactorizes every step, so the option was meaningless). DogLeg now uses a carried,
-  ρ-based trust-region radius (N&W Alg. 4.1; new `DogLegCache` `trust_radius[!]`
-  accessors) and `solver_step!(::DogLegSolver)` no longer takes a `Δ` keyword.
+- `DogLegSolver` now uses a carried, ρ-based trust-region radius (N&W Alg. 4.1; new
+  `DogLegCache` `trust_radius[!]` accessors) and `solver_step!(::DogLegSolver)` no
+  longer takes a `Δ` keyword. (Like `Newton`, DogLeg still accepts a `refactorize`
+  keyword, `refactorize > 1` reusing the Jacobian and its factorization between steps
+  for a quasi-Newton-style dogleg method.)
 - `DogLegSolver` no longer accepts a `linesearch` keyword. DogLeg is a trust-region
   method: its `solver_step!` sets the step length via the trust-region radius and never
   consults a line search, so the keyword was silently ignored (and the inherited
