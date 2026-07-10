@@ -77,26 +77,25 @@ for T ∈ (Float64, Float32)
         (NewtonSolver, (linesearch=Static(T),), 2),
         (NewtonSolver, (linesearch=Backtracking(T),), 2),
         (NewtonSolver, (linesearch=Bisection(T),), 2),
-        # `Quadratic(T, ::SolverMethod)` no longer squares its defaults.
-        # The former ε² was below machine epsilon, so the line search never met its
-        # internal convergence test and over-refined to artificial (≈0 eps)
-        # precision.  With the corrected ε = default_precision(T) the line search
-        # converges to its designed precision, which caps the attainable accuracy
-        # (≈2.5 eps in Float64, ≈17 eps in Float32); hence the looser tolfac here.
-        (NewtonSolver, (linesearch=Quadratic(T, Newton()),), 32),
+        (NewtonSolver, (linesearch=Quadratic(T),), 32),
         (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
-        # The strong-Wolfe (bracket + zoom) line search.
         (NewtonSolver, (linesearch=StrongWolfe(T),), 2),
         (QuasiNewtonSolver, (linesearch=Static(T),), 2),
         (QuasiNewtonSolver, (linesearch=Backtracking(T),), 2),
         (QuasiNewtonSolver, (linesearch=Bisection(T),), 2),
-        (QuasiNewtonSolver, (linesearch=Quadratic(T, Newton()),), 32),
+        (QuasiNewtonSolver, (linesearch=Quadratic(T),), 32),
         (QuasiNewtonSolver, (linesearch=BierlaireQuadratic(T),), 8),
-        # PicardSolver is now a (residual-safeguarded) fixed-point
-        # iteration and no longer runs a derivative-based line search, so it takes
+        (QuasiNewtonSolver, (linesearch=StrongWolfe(T),), 2),
+        (DogLegSolver, (linesearch=Static(T),), 2),
+        (DogLegSolver, (linesearch=Backtracking(T),), 2),
+        (DogLegSolver, (linesearch=Bisection(T),), 2),
+        (DogLegSolver, (linesearch=Quadratic(T),), 2),
+        (DogLegSolver, (linesearch=BierlaireQuadratic(T),), 2),
+        (DogLegSolver, (linesearch=StrongWolfe(T),), 2),
+        # PicardSolver is a (residual-safeguarded) fixed-point iteration
+        # and does not run a derivative-based line search, so it takes
         # no `linesearch` keyword here.
         (PicardSolver, (), 8),
-        (DogLegSolver, (), 1),
     )
 
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
