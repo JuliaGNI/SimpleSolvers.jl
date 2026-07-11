@@ -105,7 +105,7 @@ end
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=StrongWolfe(T), jacobian=missing, refactorize=1, kwargs...) where {T}
+function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, refactorize=1, kwargs...) where {T}
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)
