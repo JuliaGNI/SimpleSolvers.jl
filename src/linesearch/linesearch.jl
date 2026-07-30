@@ -12,6 +12,38 @@ It is a subtype of `SolverMethod` (imported from `GeometricBase`) — line searc
 are one-dimensional subproblems used *inside* nonlinear solvers and
 optimizers, so (unlike a [`NonlinearSolverMethod`](@ref)) a `LinesearchMethod` is
 not itself a nonlinear-solver method.
+
+# The line search contract
+
+Every method reached through [`solve`](@ref) or [`solve_with_status`](@ref) guarantees:
+
+1. **It never throws.** A situation it cannot handle is *reported*, never raised — a line
+   search must not abort the enclosing solve. Bracketing helpers signal failure with `nothing`
+   (see [`bracket_minimum`](@ref), [`triple_point_finder`](@ref)) and the method maps that onto
+   a [`LinesearchOutcome`](@ref).
+2. **It returns ``\\alpha > 0``.** Never the ``\\alpha = 0`` anchor, which would freeze the
+   outer iterate (`x .+= 0 .* d`), and never a negative step: ``\\alpha`` scales a direction
+   that has already been chosen, so its sign is not the line search's to decide.
+3. **It reports through [`linesearch_warnings`](@ref) only** — one message site and one
+   verbosity policy for all methods (genuine failure at `verbosity ≥ 1`, rate limited; the
+   benign round-off-floor and stationary outcomes at `≥ 2`).
+4. **A non-finite or ascending anchor is reported, not assumed away** — see
+   [`check_anchor`](@ref).
+5. **It terminates in a bounded number of merit evaluations, independently of the merit's
+   scale.** Multiplying ``\\varphi`` by a constant must not change the cost.
+
+# The two families
+
+What is *not* standardised is the meaning of the input ``\\alpha`` and what each method
+guarantees about the step, because there are two distinct kinds:
+
+- **Condition-satisfying, ``\\alpha``-relative** — [`Backtracking`](@ref),
+  [`StrongWolfe`](@ref) and trivially [`Static`](@ref): "given the trial step ``\\alpha``,
+  return a step satisfying a decrease condition". The result depends on the input ``\\alpha``.
+- **Minimising, ``\\alpha``-independent** — [`Bisection`](@ref), [`Quadratic`](@ref) and
+  [`BierlaireQuadratic`](@ref): "approximate the minimiser of ``\\varphi`` along the
+  direction". The input ``\\alpha`` only seeds the bracketing (see issue #164), and no Wolfe
+  condition is checked.
 """
 abstract type LinesearchMethod{T} <: SolverMethod end
 

@@ -48,7 +48,48 @@ end
 
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
-function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
+"""
+    solve(ls::Linesearch{T,<:Quadratic}, α, params)
+
+Fit successive quadratics to approximate the line minimiser, report the outcome through
+[`linesearch_warnings`](@ref) and return the step length. See [`Quadratic`](@ref) and
+[`solve_with_status`](@ref).
+"""
+function solve(ls::Linesearch{T,<:Quadratic}, α::T, params=NullParameters()) where {T}
+    status = solve_with_status(ls, α, params)
+    linesearch_warnings(status, ls, params)
+    steplength(status)
+end
+
+function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
+    φ₀ = value(problem(ls), zero(T), params)
+    d₀anchor = derivative(problem(ls), zero(T), params)
+
+    anchor = check_anchor(φ₀, d₀anchor, α₀)
+    isnothing(anchor) || return anchor
+
+    τ = armijo_tolerance(φ₀, T(DEFAULT_ARMIJO_τ_ULPS))
+    αres = _quadratic_search(ls, α₀, params)
+
+    # `bracket_minimum_with_fixed_point` flips direction when the merit rises to the right of
+    # the bracketing *start* — which is α₀, not 0 — so even a decreasing anchor can yield a
+    # bracket, and hence a minimiser, left of zero once α₀ overshoots. A negative step is not a
+    # meaningful step length along a direction (see the α > 0 contract), so retry once from the
+    # α = 0 anchor, which `check_anchor` has established is decreasing.
+    if isnothing(αres) || αres ≤ zero(T)
+        αres = _quadratic_search(ls, zero(T), params)
+    end
+    isnothing(αres) && return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, 0, φ₀, d₀anchor, φ₀, τ, zero(T))
+    αres > zero(T) || return LinesearchStatus{T}(α₀, LINESEARCH_NO_DESCENT, 0, φ₀, d₀anchor, φ₀, τ, zero(T))
+
+    φres = value(problem(ls), αres, params)
+    LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
+        0, φ₀, d₀anchor, φres, τ, zero(T))
+end
+
+# The quadratic-fit iteration itself. Returns `nothing` if the merit cannot be bracketed.
+# Private: `solve`/`solve_with_status` is the public entry point.
+function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params) where {T}
     # Start the bracketing at the caller's α₀ when it lies on the descent side
     # (φ′(α₀) < 0, so the minimiser is to its right); otherwise keep the α = 0 anchor,
     # where a descent direction is guaranteed decreasing. `bracket_minimum_with_fixed_point`
@@ -61,7 +102,10 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
         # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
         # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
         # from the bracketing, so no re-evaluation is needed here.
-        a, b, y₀, y₁ = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
+        bracket = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
+        # `nothing` means the merit could not be bracketed from here (see `bracket_minimum`).
+        isnothing(bracket) && return nothing
+        a, b, y₀, y₁ = bracket
         d₀ = derivative(problem(ls), a, params)
         # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
         # (not the loop's start `α`), which differ when the bracketer flipped because

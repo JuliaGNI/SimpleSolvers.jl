@@ -47,6 +47,17 @@ So the algorithm checks in each step where the sign change occurred and moves th
     only at high verbosity.
 """
 function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
+    α, converged = _bisection_core(f, αmin, αmax, params, config)
+    converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α).")
+    α
+end
+
+# The bisection loop, returning `(α, converged)` so a caller can report non-convergence itself
+# instead of having this function log it. The `Bisection` *line search* needs that: it reports
+# through `linesearch_warnings` like every other line search, so a message emitted from here
+# would duplicate it and bypass the shared verbosity policy. The public `bisection` above keeps
+# warning, since it is also used standalone as a root finder.
+function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Options) where {T<:Number}
     R = float(T)
     α₀ = R(αmin)
     α₁ = R(αmax)
@@ -63,7 +74,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
 
     if y₀ * y₁ > zero(y₀)
         config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
-        return abs(y₀) ≤ abs(y₁) ? α₀ : α₁
+        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), true
     end
 
     converged = false
@@ -91,9 +102,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
         end
     end
 
-    converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α).")
-
-    α
+    α, converged
 end
 
 function bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
@@ -136,25 +145,67 @@ Bisection(::Type{T}=Float64) where {T} = Bisection{T}()
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
 
-function solve(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params=NullParameters()) where {T}
-    bisection(problem(ls).D, α₀, α₁, params, config(ls))
+# Bisect the derivative on a known bracket. Private: `solve`/`solve_with_status` is the public
+# entry point (this used to be a `solve` overload, which made the public name ambiguous).
+_bisect_on(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params) where {T} =
+    _bisection_core(problem(ls).D, α₀, α₁, params, config(ls))
+
+"""
+    solve(ls::Linesearch{T,<:Bisection}, α, params)
+
+Bisect the derivative of the merit to approximate the line minimiser, report the outcome
+through [`linesearch_warnings`](@ref) and return the step length. See [`Bisection`](@ref) and
+[`solve_with_status`](@ref).
+"""
+function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
+    status = solve_with_status(ls, α, params)
+    linesearch_warnings(status, ls, params)
+    steplength(status)
 end
 
-function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
+function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
     prob = problem(ls)
+    φ₀ = value(prob, zero(T), params)
+    d₀ = derivative(prob, zero(T), params)
 
-    # Lower-anchor the bracket at α = 0, where a genuine descent direction has a
-    # decreasing merit (φ′(0) < 0). Probe the caller's trial step α (one extra
-    # derivative evaluation) to decide how to fold it in; see the docstring and #164.
-    if α > zero(T) && derivative(prob, zero(T), params) < zero(T) && derivative(prob, α, params) ≥ zero(T)
+    anchor = check_anchor(φ₀, d₀, α)
+    isnothing(anchor) || return anchor
+
+    τ = armijo_tolerance(φ₀, T(DEFAULT_ARMIJO_τ_ULPS))
+
+    # Lower-anchor the bracket at α = 0, where a genuine descent direction has a decreasing
+    # merit (φ′(0) < 0, now guaranteed by `check_anchor`). Probe the caller's trial step α (one
+    # extra derivative evaluation) to decide how to fold it in; see the docstring and #164.
+    αres, converged = if α > zero(T) && derivative(prob, α, params) ≥ zero(T)
         # α overshot the minimum: [0, α] already brackets the stationary point.
-        return solve(ls, zero(T), α, params)
+        _bisect_on(ls, zero(T), α, params)
+    else
+        # α is on the descent side: grow the bracket from 0, seeding the step scale from |α|
+        # (clamped) instead of the fixed default.
+        s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
+        bracket = bracket_minimum(prob, params, zero(T), s)
+        # `bracket_minimum` returns `nothing` when it cannot bracket a minimum; there is then no
+        # interval to bisect and no resolvable improvement to be had.
+        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_FLOOR, 0, φ₀, d₀, φ₀, τ, zero(T))
+        _bisect_on(ls, bracket..., params)
     end
+    # Non-convergence of the bisection is reported through the status rather than logged here,
+    # so that `linesearch_warnings` remains the only place a line search emits messages.
+    converged || return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
 
-    # α is on the descent side (or not a descent step / α ≤ 0): grow the bracket from
-    # 0, seeding the step scale from |α| (clamped) instead of the fixed default.
-    s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
-    solve(ls, bracket_minimum(prob, params, zero(T), s)..., params)
+    # `bracket_minimum` flips direction when the merit rises to the right of its start, so the
+    # bracket — and hence the bisected result — can lie left of zero. A negative step is not a
+    # meaningful step length along a direction (see the α > 0 contract), so retry once from the
+    # α = 0 anchor, which `check_anchor` has established is decreasing.
+    if αres ≤ zero(T)
+        bracket = bracket_minimum(prob, params, zero(T), T(DEFAULT_BRACKETING_s))
+        isnothing(bracket) || (αres, _ = _bisect_on(ls, bracket..., params))
+    end
+    αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_NO_DESCENT, 0, φ₀, d₀, φ₀, τ, zero(T))
+
+    φres = value(prob, αres, params)
+    LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
+        0, φ₀, d₀, φres, τ, zero(T))
 end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")

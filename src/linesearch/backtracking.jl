@@ -262,17 +262,10 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     φ₀ = f(zero(T))
     d₀ = d(zero(T))
 
-    # No α can satisfy the SufficientDecreaseCondition unless the merit is finite and
-    # actually decreasing at the anchor, so report that instead of shrinking α fifty times to
-    # find out. Like `StrongWolfe`, hand the caller's trial step back rather than a step that
-    # was never accepted (and never the α = 0 anchor, which would freeze the outer iterate).
-    if !isfinite(φ₀) || !isfinite(d₀) || d₀ > zero(T)
-        return LinesearchStatus{T}(α, LINESEARCH_NO_DESCENT, 0, φ₀, d₀, φ₀, zero(T), zero(T))
-    elseif iszero(d₀)
-        # A stationary anchor. For the ‖F‖² merit of a nonlinear solver this is the exact
-        # root (F = 0 ⇒ φ'(0) = 0 and the direction vanishes), so every α is equivalent.
-        return LinesearchStatus{T}(α, LINESEARCH_STATIONARY, 0, φ₀, d₀, φ₀, zero(T), zero(T))
-    end
+    # No α can satisfy the SufficientDecreaseCondition unless the merit is finite and actually
+    # decreasing at the anchor, so report that instead of shrinking α fifty times to find out.
+    anchor = check_anchor(φ₀, d₀, α)
+    isnothing(anchor) || return anchor
 
     τ = armijo_tolerance(φ₀, m.τ_ulps)
     αmin = backtracking_αmin(m.c₁, d₀, τ)

@@ -86,6 +86,10 @@ just to the *left* of `a` (at `a - s`). This early exit is only valid for the
 [`BracketRootCriterion`](@ref), where it corresponds to a sign change in
 `(a - s, b)`. For the [`BracketMinimumCriterion`](@ref) it would instead bracket a
 maximum rather than a minimum, so it is deliberately skipped.
+
+Returns `nothing` when no bracket is found within `nmax` steps. A line search must be able to
+report an unbracketable merit rather than abort the enclosing solve, so this is a `nothing`
+rather than an error; see [`bracket_minimum`](@ref).
 """
 function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
@@ -109,7 +113,7 @@ function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRAC
         yb = yc
         s *= k
     end
-    error("Unable to bracket f starting at x = $x.")
+    nothing
 end
 
 @doc raw"""
@@ -158,8 +162,13 @@ b \gets & c, \\
 s \gets & sk,
 \end{aligned}
 ```
-and the algorithm is continued. If we have not found a sign change after ``n_\mathrm{max}`` iterations (see [`DEFAULT_BRACKETING_nmax`](@ref)) the algorithm is terminated and returns an error.
+and the algorithm is continued. If we have not found a bracket after ``n_\mathrm{max}`` iterations (see [`DEFAULT_BRACKETING_nmax`](@ref)) the algorithm terminates and returns `nothing`.
 The interval that is returned by `bracket_minimum` is then typically used as a starting point for [`bisection`](@ref).
+
+!!! warning "Returns `nothing` on failure"
+    A line search must be able to *report* a merit it cannot bracket rather than abort the
+    enclosing solve, so an unbracketable `f` yields `nothing` rather than an error. Callers must
+    handle it — see [`solve_with_status`](@ref) and [`LinesearchOutcome`](@ref).
 
 !!! info
     The function [`bracket_root`](@ref) is equivalent to `bracket_minimum` with the only difference that the criterion we check for is:
@@ -221,6 +230,9 @@ Returns the bracket *together with the function values at its endpoints*,
 `(a, b, f(a), f(b))` with `a < b`.  The values are already computed during
 bracketing, so the caller (the [`Quadratic`](@ref) line search) does not have
 to re-evaluate `f` at the endpoints.
+
+Returns `nothing` if no bracket is found within `nmax` steps — a line search must be able to
+report an unbracketable merit rather than abort the enclosing solve.
 """
 function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
     a = x
@@ -257,7 +269,7 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
         s *= k
     end
 
-    error("Unable to bracket f starting at x = $x.")
+    nothing
 end
 
 function bracket_minimum_with_fixed_point(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}

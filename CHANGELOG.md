@@ -43,8 +43,8 @@ better the initial guess is.
   `LINESEARCH_UNKNOWN`), `solve_with_status`, `issufficient` and `isfloor`. `solve_with_status`
   returns the step length *plus* why the search stopped, which the step length alone cannot
   express — a tiny `α` may be the right answer or all that is left after the merit turned out
-  to be irreducible. Only `Backtracking` reports a genuine outcome; a generic fallback returns
-  `LINESEARCH_UNKNOWN` for the other five methods, so the entry point is uniform.
+  to be irreducible. All six built-in methods report a genuine outcome (see the contract section
+  below); the generic `LINESEARCH_UNKNOWN` fallback remains for user-defined methods.
   `SimpleSolvers.linesearch_warnings` is now the single place a line search emits messages.
 - `Backtracking` gained a `τ_ulps` keyword (default 4): the round-off allowance
   `τ = τ_ulps·ulp(φ(0))` added to the sufficient decrease condition, from which the smallest
@@ -101,15 +101,12 @@ better the initial guess is.
   This is the one place where the split *is* observable, and it is an improvement. Their budget
   rises from 20 to 60 (`Float64`) and from 5 to 31/18 (`Float32`/`Float16`), which lets them
   resolve the one-dimensional subproblem further. Measured over 300 random starting points on
-  the `exp(x)(x³ − 5x² + 2x) + 2` root-finding fixture, with `BierlaireQuadratic` as the
-  `NewtonSolver` line search, the 95th-percentile distance from the root drops from 1.9e6 to
-  9.7e3 `eps` with a fresh Jacobian and from 6.0e6 to 8.5e4 `eps` with `refactorize = 5`
-  (median 8599 → 1.0 `eps`), and three starting points that used to throw in
-  `triple_point_finder` no longer do. `Quadratic` improves too (95th percentile 9 → 2 and
-  55 → 17 `eps`). The improvement is distributional rather than uniform: a minority of starting
-  points end up slightly further from the root because the outer iteration now meets its
-  convergence test one step earlier, which is why the `BierlaireQuadratic` rows of
-  `test/nonlinear_solver_tests.jl` carry a looser fixture tolerance.
+  the `exp(x)(x³ − 5x² + 2x) + 2` root-finding fixture with `BierlaireQuadratic` as the
+  `NewtonSolver` line search, the `Float64` 95th-percentile distance from the root drops from
+  1.9e6 to 0.5 `eps` with a fresh Jacobian and from 6.0e6 to 1.6 `eps` with `refactorize = 5`
+  (median 8599 → 0.50). Note that most of that gain comes from fixing the single-point stall
+  described below, not from the budget itself: the intermediate figures (9.7e3 and 8.5e4 `eps`)
+  were solves hitting the raised cap through the stall.
 - **A stagnating solve now stops after `max_stalls` steps instead of running to
   `max_iterations`.** A step is *stalled* when it did not move the iterate while the residual is
   not small — the exact logical complement of the existing `x_converged` gate, so stagnation
@@ -137,8 +134,95 @@ better the initial guess is.
 - Passing `linesearch = …` to `PicardSolver`/`DogLegSolver` is still an error, but now raises a
   `MethodError` rather than an `Options` error.
 
+### The line-search contract (standardised across all six methods)
+
+Investigating a crash in `BierlaireQuadratic` (below) showed the six line searches differing
+along eight independent axes — only some of them principled. Every method reached through
+`solve`/`solve_with_status` now guarantees:
+
+1. **It never throws.** A situation it cannot handle is *reported*, never raised: a line search
+   must not abort the enclosing solve. `triple_point_finder`, `bracket_minimum` and
+   `bracket_minimum_with_fixed_point` return `nothing` instead of calling `error(...)` (four
+   sites), and each method maps that onto a `LinesearchOutcome`.
+2. **It returns `α > 0`.** Never the `α = 0` anchor (which freezes the outer iterate) and never a
+   negative step. `Quadratic` and `Bisection` used to return negative steps — measured at up to
+   `α = -3` for `Bisection`, in 49 of ~3750 calls with `refactorize = 5` — because both inherit a
+   direction flip from `bracket_minimum`. That was emergent rather than designed: `α` scales a
+   direction that has already been chosen, an ascending anchor arises *only* from a stale Jacobian
+   (zero occurrences with `refactorize = 1` over 3727 calls), and the correct response to
+   staleness is to refresh the Jacobian, which `maybe_refactorize!` already does. The flip stays
+   in `bracket_minimum` itself, which is a general-purpose minimum bracketer; only the line-search
+   layer restricts it. Verified: 0 negative steps in ~45 000 calls, down from 49.
+3. **All six implement `solve_with_status`; `solve` is a thin wrapper.** Previously only
+   `Backtracking` did, which meant `solver_step!`'s `isfloor(lsstatus) && flag_stall!(state)` was
+   dead code for five of six methods — stall detection now works whatever line search is chosen.
+   This also collapses six inline warning sites into `linesearch_warnings`, giving one message
+   site and one verbosity policy (`Bisection` warned at `≥ 1` where `BierlaireQuadratic` warned at
+   `≥ 2` for the same class of event).
+4. **A non-finite or ascending anchor is reported, not assumed away** — the new (unexported)
+   `check_anchor` is the single definition of that policy, used by every method. This closes an
+   `AssertionError` in `StrongWolfe`: a `NaN` derivative is not `≥ zero(T)`, so it slipped past
+   the descent check into `SufficientDecreaseCondition`'s `@assert !isnan(d₀)` and aborted the
+   solve. `StrongWolfe` could also return `α = 0` from its zoom phase, despite a comment claiming
+   otherwise.
+5. **Cost is bounded independently of the merit's scale.**
+
+Deliberately *not* standardised: the meaning of the input `α` and what each method guarantees
+about the step, because there are two families — condition-satisfying and `α`-relative
+(`Backtracking`, `StrongWolfe`, `Static`) versus minimising and `α`-independent (`Bisection`,
+`Quadratic`, `BierlaireQuadratic`, which check no Wolfe condition). Documented on
+`LinesearchMethod`.
+
+`LINESEARCH_DECREASED` is documented as "the merit decreased by more than `τ`" rather than
+"satisfies the `SufficientDecreaseCondition`", since the minimising searches never test one.
+
+### Fixed: `BierlaireQuadratic` could abort a solve, or stall until its budget ran out
+
+**The crash.** `triple_point_finder` raised
+`The function f must be decreasing at 0.0` — 3 of 300 random starts — aborting the whole solve.
+Two distinct causes, both measured: an **ascent anchor** (`φ′(0) = +2.06e-15` for `Float64`,
+`+1.10e-02` for `Float32`, both with `refactorize = 5`), because the entry point never checked
+`φ′(0)` while claiming in a comment that the `α = 0` anchor was "guaranteed decreasing"; and a
+**merit flat to round-off** (`φ(δ) − φ(0) = 0` exactly, `Float32`, `refactorize = 1`). The
+response was wrong for both: halving `δ` five times and then erroring. Halving answers an
+*overshoot*; for an ascent direction nothing helps, and for a round-off-limited probe a smaller
+`δ` is strictly less informative. `triple_point_finder` now halves only when the rise exceeds
+`4 eps(f(x₀))`, so a flat merit costs 2 evaluations instead of 12 followed by a throw.
+
+**The stall.** `φ(α) = c·(α−1)²` cost 15 / **70** / 14 merit evaluations at `c` = 1 / 1e-6 /
+1e-12 — a 5× swing from a pure rescaling, with the middle case exhausting its budget. It was
+stuck on a single point, evaluating `α = 0.99999999999999911` thirty-plus times in a row: when
+`χ` lands on `b`, both branch tests are false, so the triple becomes `c ← b` with `b` unchanged,
+the next fit is degenerate, and the `(a+c)/2` fallback plus the anti-stalling shift map back onto
+`b` while `c − a` never shrinks. `shift_χ_to_avoid_stalling` exists to prevent exactly this and
+does not. The fit now bisects the wider sub-interval whenever `χ` coincides with a bracket point,
+making `c − a` contract strictly every iteration. Cost is now 15/16/16/15/15 across merit scales
+`1e-12 … 1e12`, and no `α` is evaluated more than twice.
+
+This was also the cause of the poor accuracy that the previous entry attributed to the raised
+iteration budget: those solves were hitting the cap, not converging poorly. Over 300 random
+starts the `Float64` 95th-percentile distance to the root improves from **9.7e3 to 0.5 `eps`**
+with a fresh Jacobian and from **8.5e4 to 1.6 `eps`** with `refactorize = 5` (median 8599 → 0.50),
+so the `tolfac` on the two `BierlaireQuadratic` fixture rows is back to the 2 `eps` every other
+method meets.
+
+The merit-space comparisons in the `BierlaireQuadratic` termination test now use the shared
+round-off allowance `τ = armijo_tolerance(φ₀, τ_ulps)` instead of `ε`. One absolute constant used
+to govern three incommensurable quantities — a bracket width in `α` and two merit differences.
+This is correctness-neutral (the returned `α` was already scale-invariant, and the `α`-space width
+term is the binding one); it removes a latent hazard rather than fixing observed behaviour.
+
+Internal `solve` overloads that were algorithm steps rather than entry points
+(`solve(ls, a, b, c, params, n)`, `solve(ls, α₀, params, n)`, `solve(ls, α₀, α₁, params)`) are now
+private helpers, so `solve`/`solve_with_status` is unambiguously the public entry point.
+
 ### Changed (breaking)
 
+- `Quadratic` and `Bisection` no longer return negative steps; an ascending anchor is reported as
+  `LINESEARCH_NO_DESCENT` instead. The test that pinned the old behaviour asserted
+  `solve(ls, 0.0) ≈ -1.0`.
+- `triple_point_finder`, `bracket_minimum` and `bracket_minimum_with_fixed_point` return
+  `Union{Nothing,…}`. `bracket_minimum` is exported; the other two are not.
 - `assess_convergence` returns a **4-tuple** `(x_converged, f_converged, f_increased, stalled)`.
   Existing `a, b, _ = assess_convergence(…)` destructurings keep working unchanged.
 - `NonlinearSolverStatus` gained the fields `stalls::Int` and `stalled::Bool`;

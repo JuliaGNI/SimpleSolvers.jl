@@ -29,6 +29,14 @@ function solve(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where
     method(ls).α
 end
 
+# `Static` ignores the caller's trial step and cannot fail, so it has nothing to report; the
+# outcome is `LINESEARCH_UNKNOWN` rather than `LINESEARCH_DECREASED` because no merit is ever
+# evaluated and hence no decrease has been established. It implements `solve_with_status`
+# anyway so that every built-in method goes through the same entry point (see
+# `solve_with_status`).
+solve_with_status(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T} =
+    LinesearchStatus(method(ls).α, LINESEARCH_UNKNOWN)
+
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 
 function change_precision(::Type{T}, method::Static) where {T}

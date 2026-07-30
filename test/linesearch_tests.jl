@@ -262,16 +262,28 @@ end
     st = solve_with_status(Linesearch(noise, Backtracking(; τ_ulps=0.0); verbosity=0), 1.0)
     @test steplength(st) ≤ eps(1.0)
 
-    # the generic fallback makes `solve_with_status` usable for every LinesearchMethod
+    # Every built-in method reports a real outcome now, so none of them relies on the generic
+    # `LINESEARCH_UNKNOWN` fallback any more.  `Static` is the exception by nature: it ignores
+    # the caller's step and never evaluates the merit, so it has established nothing.
     prob = LinesearchProblem{Float64}((α, _) -> (α - 0.7)^2, (α, _) -> 2 * (α - 0.7))
-    for m in (Static(), Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe())
+    for m in (Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe(), Backtracking())
         ls = Linesearch(prob, m; verbosity=0)
         st = solve_with_status(ls, 1.0)
-        @test outcome(st) == LINESEARCH_UNKNOWN
-        @test steplength(st) == solve(ls, 1.0)
-        @test !issufficient(st)
+        @test outcome(st) == LINESEARCH_DECREASED
+        @test issufficient(st)
         @test !isfloor(st)
+        @test steplength(st) == solve(ls, 1.0)
     end
+
+    lstatic = Linesearch(prob, Static(); verbosity=0)
+    ststatic = solve_with_status(lstatic, 1.0)
+    @test outcome(ststatic) == LINESEARCH_UNKNOWN
+    @test !issufficient(ststatic)
+    @test !isfloor(ststatic)
+    @test steplength(ststatic) == solve(lstatic, 1.0)
+
+    # The generic `solve_with_status` fallback is kept for user-defined `LinesearchMethod`s
+    # (it reports `LINESEARCH_UNKNOWN`), but no built-in method dispatches to it any more.
 end
 
 @testset "$(rpad("with_config replaces the Options and keeps problem and method", 80))" begin
@@ -611,15 +623,30 @@ end
     end
 end
 
-@testset "$(rpad("Quadratic returns the tested bracket point (non-descent start)", 80))" begin
-    # When the start is not on the descent side, `bracket_minimum_with_fixed_point`
-    # flips and the bracket's left endpoint `a` (where the derivative is tested and
-    # the early-return fires) differs from the loop's start `α`.  The Quadratic search
-    # must return `a`, not `α`.  Here φ(α) = (α + 1)² is increasing at the α = 0 anchor
-    # (φ'(0) = 2 > 0) with its minimiser at α = -1.
+@testset "$(rpad("Quadratic returns the tested bracket point, and never a negative step", 80))" begin
+    # φ(α) = (α + 1)² is *increasing* at the α = 0 anchor (φ'(0) = 2 > 0) with its minimiser at
+    # α = -1.  `bracket_minimum_with_fixed_point` handles that by flipping direction, so this
+    # search used to return α ≈ -1 — a step *against* the direction.  That is meaningless as a
+    # step length (α scales a direction that is already chosen), and measured on a Newton solve
+    # the capability was emergent rather than designed: it arises only from a stale Jacobian, it
+    # was inherited from whichever bracketer each method happened to call, and `Bisection`
+    # produced steps as large as α = -3.  The α > 0 contract now applies to every method, so an
+    # ascent anchor is reported instead.
     prob = LinesearchProblem{Float64}((a, _) -> (a + 1.0)^2, (a, _) -> 2.0 * (a + 1.0))
-    ls = Linesearch(prob, Quadratic(); x_abstol=0.0)
-    @test solve(ls, 0.0) ≈ -1.0 atol = ∛(2eps())
+    ls = Linesearch(prob, Quadratic(); x_abstol=0.0, verbosity=0)
+    st = solve_with_status(ls, 0.0)
+    @test outcome(st) == LINESEARCH_NO_DESCENT
+    @test steplength(st) > 0.0
+    @test solve(ls, 0.0) == steplength(st)
+
+    # The original point of this test survives on a *descent* anchor: the bracket's left
+    # endpoint `a`, where the derivative is tested and the near-stationary early return fires,
+    # differs from the loop's start `α`, and it is `a` that must be returned.  Here the
+    # minimiser sits at α = +1.
+    descent = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> 2.0 * (a - 1.0))
+    lsd = Linesearch(descent, Quadratic(); x_abstol=0.0, verbosity=0)
+    @test solve(lsd, 0.0) ≈ 1.0 atol = ∛(2eps())
+    @test solve(lsd, 2.0) ≈ 1.0 atol = ∛(2eps())   # α₀ past the minimiser still lands on it
 end
 
 # Quadratic and BierlaireQuadratic validate their constructor parameters, like
@@ -691,4 +718,118 @@ end
     # ... and so does a non-descent direction
     up = LinesearchProblem{Float64}((α, _) -> α + 1.0, (α, _) -> 1.0)
     @test_logs (:warn, r"not a descent direction") match_mode = :any solve(Linesearch(up, Backtracking()), 1.0)
+end
+
+@testset "$(rpad("bracketing helpers report failure instead of throwing", 80))" begin
+    # A merit that is flat to round-off: `1.0 + 1e-20x` computes to exactly 1.0 for every small
+    # x, so no probe can find a decrease.  This used to halve δ five times and then throw,
+    # aborting the enclosing solve — and halving is precisely the wrong response, since a
+    # smaller probe is strictly *less* informative than the one that already failed.
+    n = Ref(0)
+    flat = x -> (n[] += 1; 1.0 + 1e-20 * x)
+    n[] = 0
+    @test triple_point_finder(flat, 0.0) === nothing
+    @test n[] == 2                       # the anchor and one probe; was 12 followed by a throw
+
+    # a strictly increasing merit, and one with no minimum to the right, likewise report
+    @test triple_point_finder(x -> x + 1.0, 0.0) === nothing
+    @test triple_point_finder(x -> -x, 0.0) === nothing
+
+    # ... while a genuine overshoot still gets the δ-halving retry it needs
+    @test triple_point_finder(x -> (x - 0.001)^2, 0.0) !== nothing
+
+    # the success path is unchanged
+    a, b, c = triple_point_finder(x -> x^2, -1.0)
+    @test a < b < c
+
+    # the sibling bracketers report `nothing` on exhaustion rather than erroring
+    @test bracket_minimum(x -> -x, 0.0; nmax=3) === nothing
+    @test SimpleSolvers.bracket_minimum_with_fixed_point(x -> -x, 0.0, 0.01, 2.0, 3) === nothing
+    @test bracket_minimum(x -> (x - 1)^2, 0.0) !== nothing
+end
+
+@testset "$(rpad("check_anchor", 80))" begin
+    @test outcome(SimpleSolvers.check_anchor(NaN, -1.0, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(1.0, NaN, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(Inf, -1.0, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(1.0, 2.0, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(1.0, 0.0, 0.7)) == LINESEARCH_STATIONARY
+    @test SimpleSolvers.check_anchor(1.0, -2.0, 0.7) === nothing   # healthy anchor: proceed
+
+    # the caller's trial step is handed back, and a non-positive one is replaced by the unit
+    # step so that the α > 0 guarantee holds regardless of what the caller passed
+    @test steplength(SimpleSolvers.check_anchor(1.0, 2.0, 0.7)) == 0.7
+    @test steplength(SimpleSolvers.check_anchor(1.0, 2.0, 0.0)) == 1.0
+    @test steplength(SimpleSolvers.check_anchor(1.0, 2.0, -3.0)) == 1.0
+end
+
+@testset "$(rpad("the line search contract holds for every method", 80))" begin
+    # One loop over every method × every pathological anchor.  This is the test that keeps the
+    # contract standardised: none of these may throw, and none may return α ≤ 0.
+    pathological = (
+        ("NaN merit", (α, _) -> NaN, (α, _) -> NaN),
+        ("NaN derivative", (α, _) -> 1.0 - α, (α, _) -> NaN),
+        ("Inf merit", (α, _) -> Inf, (α, _) -> -1.0),
+        ("ascent anchor", (α, _) -> α + 1.0, (α, _) -> 1.0),
+        ("stationary anchor", (α, _) -> -1.0, (α, _) -> 0.0),
+        ("flat to round-off", (α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0),
+        ("minimiser at α < 0", (α, _) -> (α + 1.0)^2, (α, _) -> 2.0 * (α + 1.0)),
+        ("slope contradicts values", (α, _) -> 1.0 + α, (α, _) -> -2.0),
+    )
+    for m in (Static(), Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        for (nm, f, d) in pathological
+            ls = Linesearch(LinesearchProblem{Float64}(f, d), m; verbosity=0)
+            st = @test_nowarn solve_with_status(ls, 1.0)
+            @test st isa LinesearchStatus
+            @test steplength(st) > 0.0            # the α > 0 guarantee
+            @test isfinite(steplength(st))
+            @test solve(ls, 1.0) == steplength(st)  # `solve` is a thin wrapper
+        end
+    end
+end
+
+@testset "$(rpad("StrongWolfe reports a non-finite anchor instead of asserting", 80))" begin
+    # A `NaN` derivative is not `≥ zero(T)`, so it used to slip past StrongWolfe's descent check
+    # and trip `SufficientDecreaseCondition`'s `@assert !isnan(d₀)`, throwing an `AssertionError`
+    # out of the enclosing solve.  It now matches `Backtracking` on the same problems.
+    for (f, d) in (((α, _) -> NaN, (α, _) -> NaN), ((α, _) -> 1.0 - α, (α, _) -> NaN))
+        prob = LinesearchProblem{Float64}(f, d)
+        sw = solve_with_status(Linesearch(prob, StrongWolfe(); verbosity=0), 0.7)
+        bt = solve_with_status(Linesearch(prob, Backtracking(); verbosity=0), 0.7)
+        @test outcome(sw) == outcome(bt) == LINESEARCH_NO_DESCENT
+        @test steplength(sw) == steplength(bt) == 0.7
+    end
+end
+
+@testset "$(rpad("cost is independent of the merit's scale", 80))" begin
+    # φ(α) = c·(α-1)² has its minimiser at α = 1 for every c > 0, so neither the returned step
+    # nor the number of merit evaluations may depend on c.  `BierlaireQuadratic` used to cost 15
+    # / 70 / 14 evaluations at c = 1 / 1e-6 / 1e-12: at c = 1e-6 it stalled on a single point
+    # (evaluating α = 0.99999999999999911 thirty-plus times in a row) and ran out its budget.
+    for m in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        αs = Float64[]
+        counts = Int[]
+        for c in (1e-12, 1e-6, 1.0, 1e6, 1e12)
+            n = Ref(0)
+            prob = LinesearchProblem{Float64}((α, _) -> (n[] += 1; c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
+            push!(αs, solve(Linesearch(prob, m; verbosity=0), 0.5))
+            push!(counts, n[])
+        end
+        @test all(≈(first(αs)), αs)                        # same step at every scale
+        @test maximum(counts) - minimum(counts) ≤ 2        # and essentially the same cost
+        @test maximum(counts) ≤ 25
+    end
+end
+
+@testset "$(rpad("BierlaireQuadratic contracts its bracket every iteration", 80))" begin
+    # The no-stall canary for the scale at which it used to spin: no single α may be evaluated
+    # more than a couple of times.
+    for c in (1.0, 1e-6)
+        αs = Float64[]
+        prob = LinesearchProblem{Float64}((α, _) -> (push!(αs, α); c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
+        α = solve(Linesearch(prob, BierlaireQuadratic(); verbosity=0), 0.5)
+        @test α ≈ 1.0 atol = 1e-8
+        @test maximum(count(==(u), αs) for u in unique(αs)) ≤ 3
+        @test length(αs) ≤ 25
+    end
 end

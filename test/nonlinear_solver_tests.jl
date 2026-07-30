@@ -6,6 +6,8 @@ using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value,
 using SimpleSolvers: trust_radius, DOGLEG_Δ_INITIAL
 using SimpleSolvers: config, linesearch, stall_number, record_stall!, flag_stall!,
     stalled_step, residual_small, iterate_settled, initial_residual
+using SimpleSolvers: compute_new_iterate!, increase_iteration_number!, Bisection, Quadratic,
+    StrongWolfe, Backtracking, steplength, solve_with_status
 using Test
 using Random
 using ForwardDiff
@@ -177,22 +179,20 @@ for T ∈ (Float64, Float32)
         (NewtonSolver, (linesearch=Backtracking(T),), 2),
         (NewtonSolver, (linesearch=Bisection(T),), 2),
         (NewtonSolver, (linesearch=Quadratic(T),), 32),
-        # `tolfac = 64` for the two BierlaireQuadratic rows: since these searches are bounded by
-        # `linesearch_max_iterations` (60 for Float64) rather than their former private cap of
-        # 20, they resolve the one-dimensional subproblem further, and on *this* seeded starting
-        # point (x₀ = 0.32597672886359486) the outer Newton iteration then meets its convergence
-        # test one step earlier, at 44 eps from the root instead of 0.  Over 300 random starts
-        # the change is a clear improvement, which is why the looser fixture tolerance is the
-        # right trade: for Float64 the 95th-percentile error drops from 1.9e6 to 9.7e3 eps with
-        # a fresh Jacobian and from 6.0e6 to 8.5e4 eps with `refactorize = 5` (median 8599 →
-        # 1.0), and three starts that used to throw in `triple_point_finder` no longer do.
-        (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 64),
+        # These rows briefly carried `tolfac = 64`, when folding the quadratic searches into
+        # `linesearch_max_iterations` cost this seeded start (x₀ = 0.32597672886359486) accuracy.
+        # Fixing the single-point stall in the fit removed the cause — those large errors were
+        # solves hitting the iteration cap, not converging poorly — so the tolerance is back to
+        # the 2 eps every other method meets.  Measured over 300 random starts, the Float64
+        # 95th-percentile error is now 0.5 eps with a fresh Jacobian and 1.6 eps with
+        # `refactorize = 5` (median 0.50), against 9.7e3 and 8.5e4 eps before.
+        (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
         (NewtonSolver, (linesearch=StrongWolfe(T),), 2),
         (NewtonSolver, (linesearch=Static(T), refactorize=5), 2),
         (NewtonSolver, (linesearch=Backtracking(T), refactorize=5), 2),
         (NewtonSolver, (linesearch=Bisection(T), refactorize=5), 2),
         (NewtonSolver, (linesearch=Quadratic(T), refactorize=5), 32),
-        (NewtonSolver, (linesearch=BierlaireQuadratic(T), refactorize=5), 64),  # see above
+        (NewtonSolver, (linesearch=BierlaireQuadratic(T), refactorize=5), 2),  # see above
         (NewtonSolver, (linesearch=StrongWolfe(T), refactorize=5), 2),
         # DogLegSolver is a trust-region method: it sets the step length via the
         # trust-region radius, not a line search, so it takes no `linesearch`
@@ -965,4 +965,107 @@ end
     n[] = 0
     solver_step!(x3, s3, state3, NullParameters())
     @test n[] == 6
+end
+
+@testset "$(rpad("no line search returns α ≤ 0 during a Newton solve", 80))" begin
+    # `Bisection` and `Quadratic` inherit a direction flip from `bracket_minimum`, which used to
+    # let them return a *negative* step inside a Newton solve — measured at up to α = -3 for
+    # Bisection (49 of ~3750 line-search calls with refactorize = 5).  A negative α steps against
+    # a direction that has already been chosen, so the α > 0 contract now forbids it.  Driving
+    # the solver loop by hand is the only way to observe every α the line search returns.
+    fscalar(x::T) where {T<:Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
+    Fls!(y, x, params) = y .= fscalar.(x)
+
+    Random.seed!(4321)
+    for lsmethod in (Bisection, Quadratic, BierlaireQuadratic, Backtracking, StrongWolfe)
+        for refac in (1, 5)
+            for _ in 1:20
+                x = rand(1)
+                nl = NewtonSolver(x, similar(x); F=Fls!, linesearch=lsmethod(Float64),
+                    verbosity=0, refactorize=refac)
+                SimpleSolvers.initialize!(nl, x)
+                state = NonlinearSolverState(x)
+                SimpleSolvers.initialize!(state, x, [fscalar(x[1])])
+                for it in 1:12
+                    SimpleSolvers.increase_iteration_number!(state)
+                    direction!(nl, x, NullParameters(), it)
+                    any(isnan, direction(cache(nl))) && break
+                    α = solve(SimpleSolvers.linesearch(nl), 1.0, (x=x, parameters=NullParameters()))
+                    @test α > 0.0
+                    compute_new_iterate!(x, α, direction(cache(nl)))
+                end
+            end
+        end
+    end
+end
+
+@testset "$(rpad("BierlaireQuadratic no longer aborts a solve", 80))" begin
+    # The exact starting points measured to throw
+    # `ERROR: The function f must be decreasing at 0.0` out of `triple_point_finder`, which
+    # aborted the whole solve.  Two distinct causes: an ascent anchor from a stale Jacobian
+    # (refactorize = 5) and a merit flat to round-off (Float32, refactorize = 1).
+    #
+    # What must hold for *every* one of them is that the bracketing failure is reported rather
+    # than raised.  Two of the Float32 quasi-Newton starts still fail — but through the
+    # pre-existing, legitimate channel of a direction vector that goes `NaN`/`Inf` under a stale
+    # Jacobian, which `solver_step!` raises deliberately and which this change does not touch.
+    fscalar(x::T) where {T<:Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
+    Fb!(y, x, params) = y .= fscalar.(x)
+    roots = (-4.735035753706987262178160540350200552633, -0.6737697823920028217727631890832279199433,
+        0.7613128434711647120463439168731683731732, 4.560440205363600153577140702025401006278)
+
+    fixtures = ((Float64, 5, 0.1440401297), (Float64, 5, 0.2834847806), (Float64, 5, 0.2831226663),
+                (Float32, 1, 0.2834847867), (Float32, 1, 0.2831226587),
+                (Float32, 5, 0.2834847867), (Float32, 5, 0.2831226587))
+
+    for (T, refac, x₀) in fixtures
+        x = T[x₀]
+        nl = NewtonSolver(x, similar(x); F=Fb!, linesearch=BierlaireQuadratic(T),
+            verbosity=0, refactorize=refac)
+        state = SolverState(nl)
+        # The bracketing error must be gone.  A `NonlinearSolverException` (NaN direction) is a
+        # different, legitimate failure and is allowed through.
+        try
+            solve!(x, nl, state)
+        catch e
+            @test e isa NonlinearSolverException
+            @test !(e isa ErrorException && occursin("must be decreasing", e.msg))
+            continue
+        end
+        @test iteration_number(state) ≤ config(nl).max_iterations
+    end
+
+    # The five starts that are genuinely solvable now converge — including
+    # x₀ = 0.1440401297, which was expected to be unreachable.
+    for (T, refac, x₀) in ((Float64, 5, 0.1440401297), (Float64, 5, 0.2834847806),
+                           (Float64, 5, 0.2831226663), (Float32, 1, 0.2834847867),
+                           (Float32, 1, 0.2831226587))
+        x = T[x₀]
+        nl = NewtonSolver(x, similar(x); F=Fb!, linesearch=BierlaireQuadratic(T),
+            verbosity=0, refactorize=refac)
+        state = SolverState(nl)
+        solve!(x, nl, state)
+        @test isconverged(status(nl, state))
+        @test minimum(abs(Float64(x[1]) - r) for r in roots) < 1e-5
+    end
+
+    # And `triple_point_finder` itself never raises for any of them: the situation is reported
+    # through the status instead.
+    for (T, refac, x₀) in fixtures
+        x = T[x₀]
+        nl = NewtonSolver(x, similar(x); F=Fb!, linesearch=BierlaireQuadratic(T),
+            verbosity=0, refactorize=refac)
+        SimpleSolvers.initialize!(nl, x)
+        state = NonlinearSolverState(x)
+        SimpleSolvers.initialize!(state, x, T[fscalar(x₀)])
+        for it in 1:8
+            increase_iteration_number!(state)
+            direction!(nl, x, NullParameters(), it)
+            any(!isfinite, direction(cache(nl))) && break
+            st = SimpleSolvers.solve_with_status(linesearch(nl), one(T), (x=x, parameters=NullParameters()))
+            @test steplength(st) > zero(T)
+            compute_new_iterate!(x, steplength(st), direction(cache(nl)))
+            any(!isfinite, x) && break
+        end
+    end
 end

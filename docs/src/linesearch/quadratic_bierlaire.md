@@ -27,6 +27,16 @@ fˡˢ(alpha) = ls_obj.F(alpha, params)
 nothing # hide
 ```
 
+!!! warning "Requires a decreasing anchor"
+    The three points are produced by [`SimpleSolvers.triple_point_finder`](@ref), which searches
+    *rightward only* and therefore needs the merit to be decreasing at its start. Unlike
+    [`bracket_minimum`](@ref) — used by [`Quadratic`](@ref) and [`Bisection`](@ref) — it cannot
+    recover by flipping direction. `BierlaireQuadratic` therefore validates the ``\alpha = 0``
+    anchor up front with [`SimpleSolvers.check_anchor`](@ref): an ascending or non-finite anchor
+    is *reported* (as `LINESEARCH_NO_DESCENT`) and the caller's step returned, rather than handed
+    to a bracketer that cannot succeed. An ascending anchor is not exotic — it is what a stale
+    Jacobian produces under `refactorize > 1`. See the contract on [`LinesearchMethod`](@ref).
+
 For the Bierlaire quadratic line search we need three points: ``a``, ``b`` and ``c``:
 
 ```@example bierlaire
@@ -61,7 +71,7 @@ nothing # hide
 
 In the figure above we already plotted three points ``a``, ``b`` and ``c`` on whose basis a second-order polynomial will be built that should approximate ``f^\mathrm{ls}``.[^1] The polynomial is built with the ansatz:
 
-[^1]: These points further need to satisfy ``f^\mathrm{ls}(a) > f^\mathrm{ls}(b) < f^\mathrm{ls}(c)``.
+[^1]: These points further need to satisfy ``f^\mathrm{ls}(a) \geq f^\mathrm{ls}(b) < f^\mathrm{ls}(c)``. Note that the left inequality is *non-strict*: while descending, consecutive samples may tie on a plateau, and for a flat-bottomed merit a strict ``f^\mathrm{ls}(a) > f^\mathrm{ls}(b)`` is unattainable. This matches the guarantee documented by [`SimpleSolvers.triple_point_finder`](@ref), which produces the points.
 
 ```math
 p(\alpha) = \beta_1(\alpha - a)(x - b) + \beta_2(\alpha - a) + \beta_3(\alpha - b),
@@ -217,3 +227,13 @@ save("f_ls_bierlaire6_dark.png", fig)
 
 !!! info
     After having computed ``\chi`` we further either shift it to the left or right depending on whether ``(c - b)`` or ``(b - a)`` is bigger respectively. The shift is made by either adding or subtracting the constant ``\varepsilon``.
+
+!!! info "Guaranteed contraction"
+    That shift alone does not guarantee progress. If ``\chi`` coincides with a bracket point the
+    triple update cannot narrow ``[a, c]``: for ``\chi = b`` both branch tests are false (it is
+    the same point, so the merit values are identical), the bracket collapses to ``c = b``, the
+    next fit is degenerate, and the bisection fallback plus the shift map straight back onto
+    ``b`` — an iteration that never contracts and so never satisfies the termination test. The
+    implementation therefore bisects the wider sub-interval whenever ``\chi`` lands on ``a``,
+    ``b`` or ``c``, which makes ``c - a`` decrease strictly every iteration and bounds the search
+    at ``O(\log_2((c-a)/\varepsilon))`` steps regardless of the merit's magnitude.

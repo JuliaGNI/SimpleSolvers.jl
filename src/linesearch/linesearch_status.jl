@@ -4,9 +4,12 @@
 Why a [`LinesearchMethod`](@ref) stopped. Stored in a [`LinesearchStatus`](@ref), which is
 returned by [`solve_with_status`](@ref).
 
-- `LINESEARCH_DECREASED`: a step satisfying the [`SufficientDecreaseCondition`](@ref) with a
-  *genuine* decrease (more than the round-off allowance ``\tau``) was found. This is the only
-  outcome that reports progress.
+- `LINESEARCH_DECREASED`: a step was found that decreased the merit by more than the round-off
+  allowance ``\tau``. This is the only outcome that reports progress. Note what it does *not*
+  claim: [`Backtracking`](@ref) and [`StrongWolfe`](@ref) additionally verify their Wolfe
+  condition before returning, whereas the minimising searches ([`Bisection`](@ref),
+  [`Quadratic`](@ref), [`BierlaireQuadratic`](@ref)) approximate the line minimiser and never
+  test one. The common guarantee across all of them is the ``\tau``-exceeding decrease.
 - `LINESEARCH_FLOOR`: the merit has reached its round-off floor — no trial step changes it by
   more than ``\tau``, so *no* line search can make progress here. The returned step is the
   smallest informative one. This is not an error and is only reported at `verbosity ≥ 2`: it is
@@ -123,6 +126,42 @@ isfloor(status::LinesearchStatus) = outcome(status) === LINESEARCH_FLOOR
 Base.show(io::IO, s::LinesearchStatus) = print(io,
     "LinesearchStatus: α = $(s.α), $(s.outcome) after $(s.trials) trial step(s) ",
     "(φ(0) = $(s.φ₀), φ(α) = $(s.φ), φ'(0) = $(s.d₀), τ = $(s.τ), αmin = $(s.αmin)).")
+
+@doc raw"""
+    check_anchor(φ₀, d₀, α)
+
+Validate the ``\alpha = 0`` anchor of a line search problem. Return a
+[`LinesearchStatus`](@ref) that the caller should return *immediately*, or `nothing` if the
+anchor is usable and the search may proceed.
+
+This is the one definition of the anchor policy shared by every [`LinesearchMethod`](@ref):
+
+- ``\varphi(0)`` or ``\varphi'(0)`` not finite, or ``\varphi'(0) > 0``, gives
+  `LINESEARCH_NO_DESCENT`: no ``\alpha`` can decrease the merit along this direction, so
+  shrinking or bracketing would only spend merit evaluations to discover that. The caller's
+  trial step `α` is handed back — never the ``\alpha = 0`` anchor, which would freeze the outer
+  iterate (`x .+= 0 .* d`).
+- ``\varphi'(0) = 0`` gives `LINESEARCH_STATIONARY`. For the ``\|F\|^2`` merit of a
+  [`NonlinearSolver`](@ref) this *is* the exact root (``F = 0 \Rightarrow \varphi'(0) = 0`` and
+  the direction vanishes), so it is benign and every ``\alpha`` is equivalent.
+
+An ascent anchor arises in practice when the direction did not come from an exact, freshly
+factorized Newton solve — a stale [`Jacobian`](@ref) under `refactorize > 1`, a nonzero
+`regularization_factor`, or an inexact linear solve. The correct response is to refresh the
+Jacobian (see [`maybe_refactorize!`](@ref)), which is why the line search reports the situation
+instead of trying to salvage a step from it.
+"""
+function check_anchor(φ₀::T, d₀::T, α::T) where {T}
+    # A non-positive trial step is not a step the caller can be handed back, so substitute the
+    # unit step — the same convention `StrongWolfe` uses for its initial trial. This is what
+    # makes the α > 0 guarantee hold even when the caller passes α ≤ 0.
+    αout = α > zero(T) ? α : one(T)
+    if !isfinite(φ₀) || !isfinite(d₀) || d₀ > zero(T)
+        LinesearchStatus{T}(αout, LINESEARCH_NO_DESCENT, 0, φ₀, d₀, φ₀, zero(T), zero(T))
+    elseif iszero(d₀)
+        LinesearchStatus{T}(αout, LINESEARCH_STATIONARY, 0, φ₀, d₀, φ₀, zero(T), zero(T))
+    end
+end
 
 """
     solve_with_status(ls, α, params=NullParameters())
