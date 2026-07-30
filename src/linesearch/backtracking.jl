@@ -44,27 +44,6 @@ We use ``c_2 = 0.9`` as default.
 const DEFAULT_WOLFE_c₂ = 0.9
 
 @doc raw"""
-    const DEFAULT_ARMIJO_τ_ULPS
-
-The number of units in the last place (ulps) of ``\varphi(0)`` by which the
-[`SufficientDecreaseCondition`](@ref) is slackened inside [`Backtracking`](@ref), i.e.
-``\tau = \mathrm{DEFAULT\_ARMIJO\_τ\_ULPS}\cdot\mathrm{ulp}(\varphi(0))`` in
-
-```math
-\varphi(\alpha) \leq \varphi(0) + c_1\alpha\varphi'(0) + \tau .
-```
-
-Its value is """ * """$(DEFAULT_ARMIJO_τ_ULPS)""" * raw""". Since the decrease demanded at
-``\alpha \approx 1`` is ``2c_1\varphi(0)``, i.e. some ``10^{-4}`` relative, ``\tau`` is
-irrelevant except in the region where the condition was previously decided by rounding
-rather than by the merit. Set `τ_ulps = 0` in [`Backtracking`](@ref) to recover the exact
-condition.
-
-See [`armijo_tolerance`](@ref) and [`backtracking_αmin`](@ref).
-"""
-const DEFAULT_ARMIJO_τ_ULPS = 4
-
-@doc raw"""
     const BACKTRACKING_SHRINK_MIN
 
 Lower bound on the factor by which a rejected step is shrunk by the interpolation in
@@ -85,7 +64,7 @@ The keys are:
 - `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": the constant ``c_1`` in the [`SufficientDecreaseCondition`](@ref) (Armijo condition). Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": an *upper bound* on the factor by which ``\alpha`` is decreased in every step until the stopping criterion is satisfied. The actual factor is chosen by interpolation and confined to ``[`` [`BACKTRACKING_SHRINK_MIN`](@ref) ``\cdot\alpha, p\alpha]``, so the trial sequence is never longer than the plain ``\alpha \gets p\alpha`` ladder.
-- `τ_ulps`=""" * string(DEFAULT_ARMIJO_τ_ULPS) * raw""": the round-off allowance of the [`SufficientDecreaseCondition`](@ref), in units in the last place of ``\varphi(0)``. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref).
+- `τ_ulps`=""" * string(DEFAULT_ARMIJO_τ_ULPS) * raw""": the round-off resolution of the merit, in units in the last place of ``\varphi(0)``. It slackens the [`SufficientDecreaseCondition`](@ref) (never past ``\varphi(0)``), fixes ``\alpha_\mathrm{min}``, and separates a genuine decrease from one within the noise. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref).
 
 # Implementation
 
@@ -101,7 +80,7 @@ finite with ``d_0 < 0`` the search is abandoned at once — no ``\alpha`` can sa
 [`SufficientDecreaseCondition`](@ref) along a direction that is not decreasing, so shrinking
 ``\alpha`` would only waste merit evaluations to find that out.
 
-Otherwise it sets the round-off allowance ``\tau`` ([`armijo_tolerance`](@ref)) and the
+Otherwise it sets the round-off resolution ``\tau`` ([`armijo_tolerance`](@ref)) and the
 smallest informative step ``\alpha_\mathrm{min}`` ([`backtracking_αmin`](@ref)), and shrinks
 the trial step by [`backtracking_interpolation`](@ref) until one of the following happens:
 1. the [`SufficientDecreaseCondition`](@ref) is satisfied — the step is accepted, and reported
@@ -122,7 +101,16 @@ honoured by shrinking alone — it is only checked afterwards to emit a warning 
 
 # Extended help
 
-[Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``c_1`` have different names such as ``\tau`` and ``c``. Note that our ``\tau`` is something else entirely (the round-off allowance above).
+[Sometimes](https://en.wikipedia.org/wiki/Backtracking_line_search) the parameters ``p`` and ``c_1`` have different names such as ``\tau`` and ``c``. Note that our ``\tau`` is something else entirely (the round-off resolution above).
+
+``\alpha_\mathrm{min}`` is a factor ``2\,`` `τ_ulps` above the step ``\alpha^*`` at which the
+condition degenerates into a test decided by rounding — *provided*
+[`backtracking_αmin`](@ref)'s upper clamp at ``\sqrt{\mathrm{eps}(T)}`` is inactive, which it is
+for a merit of ordinary steepness in double precision. Where the clamp binds (a very flat merit,
+or any merit in `Float16`) the search does trial steps below ``\alpha^*``. That is deliberate and
+harmless: the ``\min`` in the [`SufficientDecreaseCondition`](@ref) means the test there reduces
+to ``\varphi(\alpha) \leq \varphi_0``, i.e. plain monotonicity, and such an accept is reported as
+`LINESEARCH_FLOOR` rather than as a decrease.
 """
 struct Backtracking{T} <: LinesearchMethod{T}
     α₀::T
@@ -153,15 +141,6 @@ Backtracking(::Type{T}, ::SolverMethod) where {T} = Backtracking(T)
 
 
 @doc raw"""
-    armijo_tolerance(φ₀, n)
-
-The absolute round-off allowance ``\tau = n\cdot\mathrm{ulp}(\varphi_0)`` of the
-[`SufficientDecreaseCondition`](@ref), where `n` is a number of units in the last place.
-See [`DEFAULT_ARMIJO_τ_ULPS`](@ref) and [`backtracking_αmin`](@ref).
-"""
-armijo_tolerance(φ₀::T, n::T) where {T} = n * eps(φ₀)
-
-@doc raw"""
     backtracking_αmin(c₁, d₀, τ)
 
 The smallest step length for which the [`SufficientDecreaseCondition`](@ref) can still be
@@ -172,7 +151,7 @@ decided by the merit rather than by rounding:
 ```
 
 Below ``\alpha_\mathrm{min}`` the demanded decrease ``c_1\alpha|\varphi'(0)|`` is smaller than
-the round-off allowance ``\tau``, so a trial step carries no information. Writing
+the round-off resolution ``\tau``, so a trial step carries no information. Writing
 ``\tau = n\cdot\mathrm{ulp}(\varphi(0))`` (see [`armijo_tolerance`](@ref)) gives
 
 ```math
@@ -182,13 +161,24 @@ the round-off allowance ``\tau``, so a trial step carries no information. Writin
 
 where ``\alpha^*`` is the step below which ``\mathrm{fl}(\varphi(0) + c_1\alpha\varphi'(0))``
 rounds back up to ``\varphi(0)`` and the condition degenerates to
-``\varphi(\alpha) \leq \varphi(0)`` — a test that a merit sitting at its round-off floor
-passes or fails at random. Since ``n \geq 1`` the search therefore stops a factor ``2n``
-*before* entering that region, rather than being decided by it.
+``\varphi(\alpha) \leq \varphi(0)``.
 
 The result is clamped to ``[\mathrm{eps}(T), \sqrt{\mathrm{eps}(T)}]``: the lower bound is the
 historical negligible-step floor, and the upper bound makes sure that a nearly flat but
-genuine merit (very small ``|\varphi'(0)|``) is still searched.
+genuine merit (very small ``|\varphi'(0)|``) is still searched — an unclamped
+``\alpha_\mathrm{min}`` grows without bound as ``|\varphi'(0)| \to 0`` and would stop the search
+before it began.
+
+!!! note "The factor ``2n`` holds only while the upper clamp is inactive"
+    ``\alpha_\mathrm{min} = 2n\,\alpha^*`` puts the search a factor ``2n`` clear of the region
+    where the condition is decided by rounding, but the ``\sqrt{\mathrm{eps}(T)}`` clamp can pull
+    it *below* ``\alpha^*``: that happens for
+    ``|\varphi'(0)| < \mathrm{ulp}(\varphi(0)) / (2c_1\sqrt{\mathrm{eps}(T)})``, i.e. below
+    ``7\cdot10^{-5}`` for `Float64` with ``\varphi(0) = 1``, below ``1.7`` for `Float32`, and
+    essentially always for `Float16`. Trial steps below ``\alpha^*`` are then taken, and that is
+    safe rather than merely tolerated: the ``\min`` in the [`SufficientDecreaseCondition`](@ref)
+    reduces the test there to ``\varphi(\alpha) \leq \varphi(0)``, so it can accept a
+    non-increase but never an increase, and such an accept is classified `LINESEARCH_FLOOR`.
 """
 function backtracking_αmin(c₁::T, d₀::T, τ::T) where {T}
     αmin = τ / (c₁ * abs(d₀))
@@ -277,6 +267,7 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     φp = T(NaN)
     frozen = 0   # consecutive trials whose merit is bit-identical to φ(0)
     n = 0        # trial steps at which the merit was evaluated
+    reachedαmin = false  # the ladder ran down to the αmin floor rather than out of budget
 
     for _ in 1:config(ls).linesearch_max_iterations
         αₐ = α
@@ -285,10 +276,12 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
 
         # Accept as soon as the (round-off tolerant) sufficient decrease condition holds.
         # Whether that is a *genuine* decrease or merely a tie at the merit's round-off floor
-        # is decided by φₐ: only a decrease exceeding the allowance τ counts. The returned
+        # is decided by φₐ: only a decrease exceeding the resolution τ counts. The returned
         # step is the same either way, the reported outcome is not — which is precisely what
         # the former exact test could not express, since its accepts in the region below
         # α* = ulp(φ₀)/(2c₁|d₀|) were ties produced by rounding yet reported as successes.
+        # The condition itself can never accept an increase (see `SufficientDecreaseCondition`),
+        # so a `LINESEARCH_FLOOR` accept here is always a non-increasing step.
         if sdc(α, φₐ)
             oc = φₐ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR
             return LinesearchStatus{T}(α, oc, n, φ₀, d₀, φₐ, τ, αmin)
@@ -302,7 +295,10 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
         φₐ == φ₀ ? (frozen += 1) : (frozen = 0)
         frozen ≥ 2 && return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n, φ₀, d₀, φₐ, τ, αmin)
 
-        α ≤ αmin && break
+        if α ≤ αmin
+            reachedαmin = true
+            break
+        end
 
         αₙ = backtracking_interpolation(φ₀, d₀, α, φₐ, αp, φp, m.p)
         αp, φp = α, φₐ
@@ -310,13 +306,16 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     end
 
     # Nothing satisfied the sufficient decrease condition. Distinguish the two very different
-    # reasons: if the merit at the smallest informative step differs from φ(0) by no more than
-    # the round-off allowance, the merit has reached its round-off floor and *no* step can
-    # decrease it — the outer iteration is stuck no matter what the line search returns.
-    # Otherwise the merit genuinely fails to decrease even at the smallest informative step,
-    # which contradicts φ'(0) < 0.
-    capped = α > αmin  # the loop ended on the iteration budget, not on the αmin floor
-    oc = (!capped && abs(φₐ - φ₀) ≤ τ) ? LINESEARCH_FLOOR : LINESEARCH_EXHAUSTED
+    # reasons: if the ladder got all the way down to the smallest informative step and the merit
+    # there differs from φ(0) by no more than the round-off resolution, the merit has reached its
+    # round-off floor and *no* step can decrease it — the outer iteration is stuck no matter what
+    # the line search returns. Otherwise the merit genuinely fails to decrease even at the
+    # smallest informative step, which contradicts φ'(0) < 0.
+    #
+    # `reachedαmin` is tracked explicitly rather than inferred from `α > αmin`, which
+    # misclassifies the one case where the budget runs out on the very iteration that sets
+    # `α = αmin`: the ladder was then cut short, but the comparison says otherwise.
+    oc = (reachedαmin && abs(φₐ - φ₀) ≤ τ) ? LINESEARCH_FLOOR : LINESEARCH_EXHAUSTED
     LinesearchStatus{T}(αₐ, oc, n, φ₀, d₀, φₐ, τ, αmin)
 end
 

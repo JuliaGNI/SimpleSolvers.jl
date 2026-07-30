@@ -131,13 +131,30 @@ random. Shrinking ``\alpha`` cannot recover from this: below the round-off scale
 trial point stops differing from the base point altogether, and ``\varphi(\alpha)`` is
 *bit-identical* to ``\varphi(0)``.
 
-`Backtracking` therefore slackens the condition by an explicit allowance
+`Backtracking` therefore takes the round-off resolution of the merit,
 ``\tau = `` `τ_ulps` ``\cdot\,\mathrm{ulp}(\varphi(0))`` (see
-[`SimpleSolvers.armijo_tolerance`](@ref)) and stops at the smallest step that ``\tau`` can
-still resolve, ``\alpha_\mathrm{min} = \tau/(c_1|\varphi'(0)|)`` (see
+[`SimpleSolvers.armijo_tolerance`](@ref)), slackens the condition to
+
+```math
+\varphi(\alpha) \leq \min\{\varphi(0),\ \varphi(0) + c_1\alpha\varphi'(0) + \tau\},
+```
+
+and stops at the smallest step that ``\tau`` can still resolve,
+``\alpha_\mathrm{min} = \tau/(c_1|\varphi'(0)|)`` (see
 [`SimpleSolvers.backtracking_αmin`](@ref)). Because ``\alpha_\mathrm{min}`` is a factor
-``2\cdot`` `τ_ulps` above the step at which the rounding degeneracy sets in, the search never
-enters that region at all.
+``2\cdot`` `τ_ulps` above the step at which the rounding degeneracy sets in, the search stays
+clear of that region — *unless* ``\alpha_\mathrm{min}``'s upper clamp at
+``\sqrt{\mathrm{eps}(T)}`` binds, which it does for a very flat merit in double precision and for
+essentially any merit in `Float16` (the clamp is there so that a nearly flat but genuine merit is
+still searched at all).
+
+The ``\min`` against ``\varphi(0)`` is what makes those trial steps harmless. Where the
+right-hand side has degenerated, the condition reduces to plain monotonicity
+``\varphi(\alpha) \leq \varphi(0)``: it can accept a non-increase but never an increase, and such
+an accept is classified `LINESEARCH_FLOOR` rather than reported as a decrease. Without the
+``\min`` the allowance would license a step whose merit is up to ``\tau`` *above* ``\varphi(0)``
+— irrelevant at ``10^{-16}`` relative in double precision, but ``3.9\cdot10^{-3}`` in `Float16`,
+twenty times the ``2c_1`` the condition demands at ``\alpha = 1``.
 
 The situation is reported rather than hidden. [`solve_with_status`](@ref) returns a
 [`LinesearchStatus`](@ref) whose [`LinesearchOutcome`](@ref) distinguishes a step that
@@ -146,7 +163,7 @@ genuinely decreased the merit (`LINESEARCH_DECREASED`) from one accepted only be
 
 ```@example floor
 using SimpleSolvers
-using SimpleSolvers: outcome, trials, steplength
+using SimpleSolvers: outcome, trials, steplength, issufficient, isfloor
 
 # a merit that is pure round-off noise: every α > 0 lands one ulp above φ(0)
 noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)

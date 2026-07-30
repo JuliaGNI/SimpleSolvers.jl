@@ -47,17 +47,19 @@ So the algorithm checks in each step where the sign change occurred and moves th
     only at high verbosity.
 """
 function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
-    α, converged = _bisection_core(f, αmin, αmax, params, config)
+    α, converged, _ = _bisection_core(f, αmin, αmax, params, config)
     converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α).")
     α
 end
 
-# The bisection loop, returning `(α, converged)` so a caller can report non-convergence itself
-# instead of having this function log it. The `Bisection` *line search* needs that: it reports
-# through `linesearch_warnings` like every other line search, so a message emitted from here
-# would duplicate it and bypass the shared verbosity policy. The public `bisection` above keeps
+# The bisection loop, returning `(α, converged, n)` so a caller can report non-convergence
+# itself instead of having this function log it, and report the evaluation count `n` as the
+# `trials` of a `LinesearchStatus`. The `Bisection` *line search* needs both: it reports through
+# `linesearch_warnings` like every other line search, so a message emitted from here would
+# duplicate it and bypass the shared verbosity policy. The public `bisection` above keeps
 # warning, since it is also used standalone as a root finder.
 function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Options) where {T<:Number}
+    n = 0
     R = float(T)
     α₀ = R(αmin)
     α₁ = R(αmax)
@@ -70,17 +72,19 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
 
     y₀ = f(α₀, params)
     y₁ = f(α₁, params)
+    n += 2
     y = zero(y₀)
 
     if y₀ * y₁ > zero(y₀)
         config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
-        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), true
+        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), true, n
     end
 
     converged = false
     for _ in 1:config.linesearch_max_iterations
         α = (α₀ + α₁) / 2
         y = f(α, params)
+        n += 1
 
         # break if y is close to zero.
         if ≈(y, zero(y); atol=config.f_abstol)
@@ -102,7 +106,7 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
         end
     end
 
-    α, converged
+    α, converged, n
 end
 
 function bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
@@ -176,7 +180,7 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # Lower-anchor the bracket at α = 0, where a genuine descent direction has a decreasing
     # merit (φ′(0) < 0, now guaranteed by `check_anchor`). Probe the caller's trial step α (one
     # extra derivative evaluation) to decide how to fold it in; see the docstring and #164.
-    αres, converged = if α > zero(T) && derivative(prob, α, params) ≥ zero(T)
+    αres, converged, n = if α > zero(T) && derivative(prob, α, params) ≥ zero(T)
         # α overshot the minimum: [0, α] already brackets the stationary point.
         _bisect_on(ls, zero(T), α, params)
     else
@@ -184,14 +188,16 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # (clamped) instead of the fixed default.
         s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
         bracket = bracket_minimum(prob, params, zero(T), s)
-        # `bracket_minimum` returns `nothing` when it cannot bracket a minimum; there is then no
-        # interval to bisect and no resolvable improvement to be had.
-        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_FLOOR, 0, φ₀, d₀, φ₀, τ, zero(T))
+        # `bracket_minimum` returns `nothing` only when `nmax` steps found no bracket in either
+        # direction, i.e. for a merit that keeps decreasing. There is then no interval to bisect —
+        # but that is a failure to *report*, not a round-off floor: calling it a floor would make
+        # the outer iteration count a descending merit as stagnation.
+        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, φ₀, τ, zero(T))
         _bisect_on(ls, bracket..., params)
     end
     # Non-convergence of the bisection is reported through the status rather than logged here,
     # so that `linesearch_warnings` remains the only place a line search emits messages.
-    converged || return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
+    converged || return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
 
     # `bracket_minimum` flips direction when the merit rises to the right of its start, so the
     # bracket — and hence the bisected result — can lie left of zero. A negative step is not a
@@ -199,13 +205,19 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # α = 0 anchor, which `check_anchor` has established is decreasing.
     if αres ≤ zero(T)
         bracket = bracket_minimum(prob, params, zero(T), T(DEFAULT_BRACKETING_s))
-        isnothing(bracket) || (αres, _ = _bisect_on(ls, bracket..., params))
+        if !isnothing(bracket)
+            αres, _, nretry = _bisect_on(ls, bracket..., params)
+            n += nretry
+        end
     end
-    αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_NO_DESCENT, 0, φ₀, d₀, φ₀, τ, zero(T))
+    # Still non-positive: no positive step improves the merit as far as this search can tell.
+    # That is the floor, not a non-descent anchor — `check_anchor` established above that the
+    # anchor *does* descend.
+    αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
 
     φres = value(prob, αres, params)
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
-        0, φ₀, d₀, φres, τ, zero(T))
+        n, φ₀, d₀, φres, τ, zero(T))
 end
 
 Base.show(io::IO, ::Bisection) = print(io, "Bisection")

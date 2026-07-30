@@ -6,6 +6,7 @@
 # were once broken have been fixed; every check below is a plain `@test`.
 
 using SimpleSolvers
+using SimpleSolvers: issufficient, isfloor, isconverged, isstalled, status
 using Test
 
 const T = Float64

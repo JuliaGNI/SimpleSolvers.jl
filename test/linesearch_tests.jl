@@ -7,6 +7,7 @@ using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters
 using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, compute_new_iterate!, direction!, nonlinearproblem, iteration_number
 using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_finder
 using SimpleSolvers: CurvatureCondition, SufficientDecreaseCondition
+using SimpleSolvers: issufficient, isfloor
 using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, backtracking_αmin,
     backtracking_interpolation, with_config, problem, method, config
 
@@ -235,11 +236,31 @@ end
     @test !sdc(1.0)
     @test !sdc(1e-13)
 
-    # with τ = 4 ulps the decision at the degenerate α is taken by the allowance ...
+    # τ slackens the decrease that is *demanded* — a merit that misses the Armijo target by
+    # less than τ is accepted where the exact condition rejects it ...
+    target = 1.0 + 1e-4 * 0.1 * -2.0      # the right-hand side at α = 0.1, ≈ 1 - 2e-5
+    φ = α -> nextfloat(target, 2)         # misses it by 2 ulps, well inside τ = 4 ulps of φ₀
+    @test !SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ)(0.1)
+    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ; τ=4eps(1.0))(0.1)
+
+    # ... but it never licenses a step where the demanded decrease is meaningful ...
     sdcτ = SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> nextfloat(1.0); τ=4eps(1.0))
-    @test sdcτ(1e-13)
-    # ... and never licenses a step where the demanded decrease is meaningful
     @test !sdcτ(1.0)
+    # ... and, thanks to the min against φ₀, it never licenses an *increase* either, not even at
+    # the degenerate α where fl(φ₀ + c₁αd₀) has rounded back up to φ₀. The unbounded form
+    # accepted here, which is a 0.4% uphill step in Float16 (4 ulps of φ₀ = 1).
+    @test !sdcτ(1e-13)
+    @test 1.0 + 1e-4 * 1e-13 * -2.0 == 1.0     # the right-hand side really has degenerated
+    # a *non-increase* at the same α is accepted, which is what keeps the ladder from shrinking
+    # to eps once the merit has reached its round-off floor
+    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> 1.0; τ=4eps(1.0))(1e-13)
+
+    # the bound holds in the precision where it bites: 4 ulps of Float16 is 3.9e-3, twenty times
+    # the 2c₁ = 2e-4 demanded at α = 1, so an unbounded τ would accept a visible increase
+    τ16 = 4eps(Float16(1))
+    sdc16 = SufficientDecreaseCondition(Float16(1e-4), Float16(1), Float16(-2), α -> Float16(1) + τ16 / 2; τ=τ16)
+    @test !sdc16(Float16(1))
+    @test !sdc16(Float16(1e-3))
 
     @test_throws AssertionError SufficientDecreaseCondition(1e-4, 1.0, -2.0, sin; τ=-1.0)
 
@@ -728,15 +749,18 @@ end
     n = Ref(0)
     flat = x -> (n[] += 1; 1.0 + 1e-20 * x)
     n[] = 0
-    @test triple_point_finder(flat, 0.0) === nothing
+    @test triple_point_finder(flat, 0.0) === :flat
     @test n[] == 2                       # the anchor and one probe; was 12 followed by a throw
 
-    # a strictly increasing merit, and one with no minimum to the right, likewise report
-    @test triple_point_finder(x -> x + 1.0, 0.0) === nothing
-    @test triple_point_finder(x -> -x, 0.0) === nothing
+    # A strictly increasing merit, and one with no minimum to the right, likewise report rather
+    # than throw — but as `:unbracketable`, *not* `:flat`.  Both of these have a merit that
+    # varies far more than round-off, so a caller must not report them as a round-off floor: the
+    # second one is in fact descending without bound, which is the opposite of stagnation.
+    @test triple_point_finder(x -> x + 1.0, 0.0) === :unbracketable
+    @test triple_point_finder(x -> -x, 0.0) === :unbracketable
 
     # ... while a genuine overshoot still gets the δ-halving retry it needs
-    @test triple_point_finder(x -> (x - 0.001)^2, 0.0) !== nothing
+    @test triple_point_finder(x -> (x - 0.001)^2, 0.0) isa Tuple
 
     # the success path is unchanged
     a, b, c = triple_point_finder(x -> x^2, -1.0)
@@ -764,27 +788,56 @@ end
 end
 
 @testset "$(rpad("the line search contract holds for every method", 80))" begin
-    # One loop over every method × every pathological anchor.  This is the test that keeps the
-    # contract standardised: none of these may throw, and none may return α ≤ 0.
-    pathological = (
-        ("NaN merit", (α, _) -> NaN, (α, _) -> NaN),
-        ("NaN derivative", (α, _) -> 1.0 - α, (α, _) -> NaN),
-        ("Inf merit", (α, _) -> Inf, (α, _) -> -1.0),
-        ("ascent anchor", (α, _) -> α + 1.0, (α, _) -> 1.0),
-        ("stationary anchor", (α, _) -> -1.0, (α, _) -> 0.0),
-        ("flat to round-off", (α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0),
-        ("minimiser at α < 0", (α, _) -> (α + 1.0)^2, (α, _) -> 2.0 * (α + 1.0)),
-        ("slope contradicts values", (α, _) -> 1.0 + α, (α, _) -> -2.0),
-    )
-    for m in (Static(), Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
-        for (nm, f, d) in pathological
-            ls = Linesearch(LinesearchProblem{Float64}(f, d), m; verbosity=0)
-            st = @test_nowarn solve_with_status(ls, 1.0)
-            @test st isa LinesearchStatus
-            @test steplength(st) > 0.0            # the α > 0 guarantee
-            @test isfinite(steplength(st))
-            @test solve(ls, 1.0) == steplength(st)  # `solve` is a thin wrapper
+    # One loop over every element type × every method × every pathological anchor.  This is the
+    # test that keeps the contract standardised: none of these may throw, and none may return
+    # α ≤ 0.  The low-precision rows matter in their own right: `Float16` is the precision where
+    # τ = 4·ulp(φ(0)) is *larger* than the decrease the Armijo condition demands at α = 1, and
+    # where `backtracking_αmin`'s √eps clamp is always active, so it is where the bounds on the
+    # round-off allowance are load-bearing rather than decorative.
+    for T in (Float64, Float32, Float16)
+        one_T = one(T)
+        pathological = (
+            ("NaN merit", (α, _) -> T(NaN), (α, _) -> T(NaN)),
+            ("NaN derivative", (α, _) -> one_T - α, (α, _) -> T(NaN)),
+            ("Inf merit", (α, _) -> T(Inf), (α, _) -> -one_T),
+            ("ascent anchor", (α, _) -> α + one_T, (α, _) -> one_T),
+            ("stationary anchor", (α, _) -> -one_T, (α, _) -> zero(T)),
+            ("flat to round-off", (α, _) -> α > zero(α) ? nextfloat(one_T) : one_T, (α, _) -> -2one_T),
+            ("minimiser at α < 0", (α, _) -> (α + one_T)^2, (α, _) -> 2 * (α + one_T)),
+            ("slope contradicts values", (α, _) -> one_T + α, (α, _) -> -2one_T),
+        )
+        for m in (Static(T), Backtracking(T), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+            for (nm, f, d) in pathological
+                ls = Linesearch(LinesearchProblem{T}(f, d), m; verbosity=0)
+                st = @test_nowarn solve_with_status(ls, one_T)
+                @test st isa LinesearchStatus{T}
+                @test steplength(st) > zero(T)            # the α > 0 guarantee
+                @test isfinite(steplength(st))
+                @test solve(ls, one_T) == steplength(st)  # `solve` is a thin wrapper
+            end
         end
+    end
+end
+
+@testset "$(rpad("no method accepts a step that increases the merit", 80))" begin
+    # The round-off allowance τ slackens the *demanded* decrease, so it must never license a step
+    # whose merit is above φ(0). The bound is invisible in Float64 (τ/φ₀ ≈ 1e-15) and essential in
+    # Float16, where τ/φ₀ = 3.9e-3 is twenty times the 2c₁ = 2e-4 demanded at α = 1: an unbounded
+    # τ accepted α = 1 on this merit and reported it as a step.
+    for T in (Float64, Float32, Float16)
+        τ = 4 * eps(one(T))
+        # rises immediately, by less than τ — inside the unbounded allowance, outside the bounded one
+        creep = LinesearchProblem{T}((α, _) -> one(T) + (α > zero(α) ? τ / 2 : zero(T)), (α, _) -> -2one(T))
+        for m in (Backtracking(T), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+            st = solve_with_status(Linesearch(creep, m; verbosity=0), one(T))
+            @test !issufficient(st)                 # never reported as a genuine decrease
+            @test outcome(st) != LINESEARCH_DECREASED
+        end
+        # and the condition object itself rejects it at every α
+        sdc = SufficientDecreaseCondition(T(1e-4), one(T), -2one(T), α -> one(T) + τ / 2; τ=τ)
+        @test !sdc(one(T))
+        @test !sdc(T(1e-3))
+        @test !sdc(eps(T))
     end
 end
 
@@ -831,5 +884,65 @@ end
         @test α ≈ 1.0 atol = 1e-8
         @test maximum(count(==(u), αs) for u in unique(αs)) ≤ 3
         @test length(αs) ≤ 25
+    end
+end
+
+@testset "$(rpad("trials is a real evaluation count for every method", 80))" begin
+    # `trials` used to be a hardcoded 0 for Bisection/Quadratic/BierlaireQuadratic — so the
+    # round-off-floor message read "in 0 trial step(s)" — and StrongWolfe counted only its
+    # expansion loop, not its zoom phase.  What each method counts is the problem evaluations of
+    # its *own* iteration: the merit, except for `Bisection`, which drives on the derivative it
+    # bisects.  See the `trials` field of `LinesearchStatus`.
+    function counted(m)
+        nf, nd = Ref(0), Ref(0)
+        prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - 2α + 1000α^2),
+            (α, _) -> (nd[] += 1; -2.0 + 2000α))
+        st = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
+        (st, nf[], nd[])
+    end
+
+    # Backtracking and StrongWolfe drive on the merit alone, and their count is *exact*: every
+    # evaluation is either the α = 0 anchor or a counted trial.  StrongWolfe used to evaluate φ
+    # twice per trial — once directly, once inside the one-argument `sdc` — and once more when
+    # building its status, so this identity is the regression test for that fix.
+    for m in (Backtracking(), StrongWolfe())
+        st, nf, _ = counted(m)
+        @test trials(st) > 0
+        @test nf == trials(st) + 1
+    end
+
+    # The bracketing searches additionally spend evaluations inside `bracket_minimum` /
+    # `triple_point_finder`, which are not counted, so their `trials` is a lower bound on the
+    # total cost — but it is a real count of their own iteration, never zero and never inflated.
+    for m in (Quadratic(), BierlaireQuadratic())
+        st, nf, _ = counted(m)
+        @test 0 < trials(st) ≤ nf
+    end
+    let (st, _, nd) = counted(Bisection())
+        @test 0 < trials(st) ≤ nd
+    end
+end
+
+@testset "$(rpad("αmin is reported only where it means something", 80))" begin
+    # αmin is a shrinking-ladder quantity. `Backtracking` derives a real one; the bracketing and
+    # minimising searches have none, report zero, and must not name it in their messages.
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    @test solve_with_status(Linesearch(noise, Backtracking(); verbosity=0), 1.0).αmin > 0
+    for m in (StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        @test iszero(solve_with_status(Linesearch(noise, m; verbosity=0), 1.0).αmin)
+    end
+
+    # the verbosity-2 floor message names αmin for Backtracking, and reports the true trial count
+    msg = @test_logs (:warn, r"smallest informative step is αmin") match_mode = :any solve(
+        Linesearch(noise, Backtracking(); verbosity=2), 1.0)
+    @test msg isa Float64
+    # ... and the count is whatever the method really spent, which for `BierlaireQuadratic` on
+    # this merit is legitimately zero: `triple_point_finder` recognises the flat merit from the
+    # anchor and one probe, so the fit never runs. A *genuine* zero is fine; the defect was a
+    # hardcoded one, which the previous testset pins down on a merit that does iterate.
+    for m in (StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        st = solve_with_status(Linesearch(noise, m; verbosity=0), 1.0)
+        @test trials(st) ≥ 0
+        @test iszero(st.αmin)
     end
 end

@@ -30,7 +30,7 @@ See [`DEFAULT_WOLFE_c₁`](@ref) for the relevant constant
 
 The optional keyword `τ` slackens the condition by an absolute amount:
 ```math
-f(\alpha) \leq f_0 + c\alpha{}d_0 + \tau.
+f(\alpha) \leq \min\{f_0,\ f_0 + c\alpha{}d_0 + \tau\}.
 ```
 It defaults to zero, i.e. the exact condition. Without it the accept/reject decision is
 taken by *rounding alone* as soon as ``c\alpha|d_0|`` drops below one unit in the last place
@@ -38,6 +38,12 @@ of ``f_0``: the right-hand side then rounds back up to ``f_0`` and the test dege
 ``f(\alpha) \leq f_0``, which a merit that has reached its round-off floor passes or fails at
 random. See [`armijo_tolerance`](@ref) and [`backtracking_αmin`](@ref) for how
 [`Backtracking`](@ref) chooses ``\tau`` and derives a *meaningful* smallest step from it.
+
+The ``\min`` bounds the slackening: ``\tau`` may reduce the decrease that is *demanded*, but it
+never accepts a step whose merit exceeds ``f_0``. For ``d_0 < 0`` — which both callers guarantee
+via [`check_anchor`](@ref) — the ``\min`` is inactive wherever ``f_0 + c\alpha{}d_0`` is
+representably below ``f_0``, so it changes nothing in double precision; it matters at low
+precision, where ``\tau`` can exceed the demanded ``c\alpha|d_0|`` outright.
 """
 struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
     c::T
@@ -59,8 +65,16 @@ end
 # The two-argument form takes a merit value `fα = F(α)` that the caller has already
 # computed, so a backtracking loop that needs `f(α)` for its interpolation model does not
 # pay for a second (possibly very expensive) evaluation of the merit.
+#
+# The `min` against `f₀` is what keeps the round-off allowance honest. Since `d₀ < 0` (both
+# callers establish that through `check_anchor`), the model right-hand side `f₀ + cαd₀` lies
+# below `f₀` mathematically, so the `min` is a no-op and τ slackens the demanded decrease as
+# intended. It only binds where `fl(f₀ + cαd₀)` has *rounded up* to `f₀` — and there, adding τ
+# would accept a step whose merit is up to τ *above* `f₀`. That is negligible relative to the
+# demanded `2c₁f₀ ≈ 10⁻⁴` in double precision, but in `Float16` four ulps is `3.9·10⁻³`, i.e.
+# twenty times the demanded decrease, so the unbounded form licenses a visible uphill step.
 function (sdc::SufficientDecreaseCondition{T})(α::T, fα::T) where {T}
-    fα ≤ sdc.f₀ + sdc.c * α * sdc.d₀ + sdc.τ
+    fα ≤ min(sdc.f₀, sdc.f₀ + sdc.c * α * sdc.d₀ + sdc.τ)
 end
 
 function (sdc::SufficientDecreaseCondition{T})(α::T) where {T}

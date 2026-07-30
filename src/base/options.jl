@@ -73,6 +73,45 @@ function minimum_decrease_threshold(::Type{T}) where {T<:AbstractFloat}
 end
 
 @doc raw"""
+    const DEFAULT_ARMIJO_τ_ULPS
+
+The number of units in the last place (ulps) of ``\varphi(0)`` taken as the round-off
+resolution ``\tau`` of a merit function, i.e.
+``\tau = \mathrm{DEFAULT\_ARMIJO\_τ\_ULPS}\cdot\mathrm{ulp}(\varphi(0))``
+(see [`armijo_tolerance`](@ref)). Its value is """ * """$(DEFAULT_ARMIJO_τ_ULPS)""" * raw""".
+
+``\tau`` is used for three things, and it is worth keeping them apart:
+
+1. it slackens the [`SufficientDecreaseCondition`](@ref) inside [`Backtracking`](@ref) to
+   ``\varphi(\alpha) \leq \min\{\varphi(0),\ \varphi(0) + c_1\alpha\varphi'(0) + \tau\}``.
+   The ``\min`` is what keeps the allowance honest: it may reduce the decrease *demanded*, but
+   it can never license a step whose merit *exceeds* ``\varphi(0)``. Without it the condition
+   would accept an increase of up to ``\tau``, which is negligible in double precision but
+   larger than the demanded ``2c_1\varphi(0)`` in `Float16`;
+2. it fixes the smallest *informative* trial step ``\alpha_\mathrm{min}`` below which the
+   condition could only be decided by rounding (see [`backtracking_αmin`](@ref));
+3. every [`LinesearchMethod`](@ref) uses it to decide whether an accepted step's decrease was
+   genuine (`LINESEARCH_DECREASED`) or within the noise (`LINESEARCH_FLOOR`, see
+   [`LinesearchOutcome`](@ref)).
+
+Set `τ_ulps = 0` in [`Backtracking`](@ref) to recover the exact condition for (1) and (2).
+"""
+const DEFAULT_ARMIJO_τ_ULPS = 4
+
+@doc raw"""
+    armijo_tolerance(φ₀, n)
+
+The absolute round-off resolution ``\tau = n\cdot\mathrm{ulp}(\varphi_0)`` of a merit function,
+where `n` is a number of units in the last place. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref) for what
+it is used for and [`backtracking_αmin`](@ref) for the step length derived from it.
+
+This lives here rather than next to [`Backtracking`](@ref) because
+[`triple_point_finder`](@ref) needs it too, and `bracketing/` is included before
+`linesearch/`.
+"""
+armijo_tolerance(φ₀::T, n::Real) where {T} = T(n) * eps(φ₀)
+
+@doc raw"""
     linesearch_iterations(T)
 
 Determine the default number of trial steps a line search may take, i.e. the default of the
@@ -86,6 +125,12 @@ reaches the negligible-step floor after ``\lceil-\log_2\varepsilon\rceil`` halvi
 double precision, 24 in single), and a [`bisection`](@ref) needs the same count to exhaust the
 mantissa. We take that count plus a small margin; everything beyond it can only produce
 denormals.
+
+The count is derived for the default shrink factor ``p = 0.5``. A [`Backtracking`](@ref) built
+with a `p` close to 1 needs more trials in principle, though in the case that matters — a merit
+frozen at its round-off floor — the safeguarded interpolation shrinks by about a half per trial
+regardless of `p`, because the quadratic model through a frozen value has its minimiser at
+``\alpha/2``.
 
 [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) are bounded by the same field even though
 they fit a quadratic rather than shrink a step: they converge on their own `ε` tolerance long
@@ -133,10 +178,13 @@ gives up; the default of the `max_stalls` field of [`Options`](@ref). Its value 
 
 A step is stalled when it does not move the iterate while the residual is not small (see
 [`stalled_step`](@ref)), i.e. when the merit ``\|F\|^2`` cannot be reduced along the current
-direction. One stalled step is not conclusive: a quasi-Newton solver refreshes its
-[`Jacobian`](@ref) on a later step (see [`maybe_refactorize!`](@ref)) and the
-[`DogLegSolver`](@ref) resets a collapsed trust-region radius on the step *after* a rejected
-one, so both can still make progress after a frozen step. Two in a row are conclusive.
+direction. One stalled step is not conclusive, because the *next* step is guaranteed to be
+attempted under better conditions: a stall forces a fresh [`Jacobian`](@ref) immediately (see
+[`maybe_refactorize!`](@ref) and [`needs_refresh`](@ref)) rather than waiting for the next
+`refactorize` multiple, and the [`DogLegSolver`](@ref) additionally resets a collapsed
+trust-region radius. A second consecutive stall is therefore one that a freshly evaluated
+Jacobian did *not* fix, which is conclusive — and it is conclusive for every `refactorize`,
+not just `refactorize = 1`.
 
 Set `max_stalls = typemax(Int)` to restore the previous behaviour of running all the way to
 `max_iterations`.

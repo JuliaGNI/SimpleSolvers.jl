@@ -89,7 +89,11 @@ export Backtracking,
     Static,
     StrongWolfe
 
-export LinesearchStatus, LinesearchOutcome, solve_with_status, issufficient, isfloor
+# Types and enum values are exported; the predicates and accessors that go with them
+# (`steplength`, `outcome`, `trials`, `issufficient`, `isfloor`) are not, because they are
+# generic names that a package doing `using SimpleSolvers` may well want for itself. Reach them
+# as `SimpleSolvers.steplength` and friends.
+export LinesearchStatus, LinesearchOutcome, solve_with_status
 export LINESEARCH_DECREASED,
     LINESEARCH_FLOOR,
     LINESEARCH_EXHAUSTED,
@@ -112,7 +116,10 @@ include("linesearch/wolfe.jl")
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, assess_convergence
 
-export NonlinearSolverStatus, isconverged, isstalled, status
+# As above: the type is exported, `isconverged`/`isstalled`/`status` are not. `status` in
+# particular would be hostile to export — a downstream package that does `using SimpleSolvers`
+# and defines its own `status` gets a method-definition error, not a shadowing warning.
+export NonlinearSolverStatus
 
 export PicardSolver
 

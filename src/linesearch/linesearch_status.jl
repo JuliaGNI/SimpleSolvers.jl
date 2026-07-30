@@ -51,13 +51,22 @@ answer, or it may be all that is left after the merit turned out to be irreducib
 
 - `α`: the returned step length (the value [`solve`](@ref) returns),
 - `outcome::`[`LinesearchOutcome`](@ref),
-- `trials`: the number of trial steps ``\alpha > 0`` at which the merit was actually
-  evaluated — *not* the `linesearch_max_iterations` budget,
+- `trials`: the number of trial steps ``\alpha > 0`` at which the method actually evaluated the
+  problem in its own iteration — *not* the `linesearch_max_iterations` budget. That is the merit
+  for every method except [`Bisection`](@ref), which drives on the derivative it bisects.
+  Evaluations spent inside a bracketing helper ([`bracket_minimum`](@ref),
+  [`triple_point_finder`](@ref)) are not included, so for the bracketing searches this is a
+  lower bound on the total cost; for [`Backtracking`](@ref) and [`StrongWolfe`](@ref) it is
+  exact, and every merit evaluation is either the ``\alpha = 0`` anchor or a counted trial,
 - `φ₀`, `d₀`: the merit and its derivative at the anchor ``\alpha = 0``,
 - `φ`: the merit at the returned step,
-- `τ`: the round-off allowance used in the [`SufficientDecreaseCondition`](@ref),
+- `τ`: the round-off resolution of the merit (see [`armijo_tolerance`](@ref)), against which
+  every method decides whether the decrease it achieved was genuine,
 - `αmin`: the smallest step length that could still be decided by the merit rather than by
-  rounding (see [`backtracking_αmin`](@ref)).
+  rounding (see [`backtracking_αmin`](@ref)). This is a *shrinking-ladder* quantity and is
+  therefore `zero` — meaning "not applicable" — for the minimising searches
+  ([`Bisection`](@ref), [`Quadratic`](@ref), [`BierlaireQuadratic`](@ref)) and for
+  [`StrongWolfe`](@ref), which bracket rather than shrink.
 """
 struct LinesearchStatus{T}
     α::T
@@ -148,8 +157,15 @@ This is the one definition of the anchor policy shared by every [`LinesearchMeth
 An ascent anchor arises in practice when the direction did not come from an exact, freshly
 factorized Newton solve — a stale [`Jacobian`](@ref) under `refactorize > 1`, a nonzero
 `regularization_factor`, or an inexact linear solve. The correct response is to refresh the
-Jacobian (see [`maybe_refactorize!`](@ref)), which is why the line search reports the situation
-instead of trying to salvage a step from it.
+Jacobian, which is why the line search reports the situation instead of trying to salvage a step
+from it, and [`solver_step!`](@ref) acts on the report: on `LINESEARCH_NO_DESCENT` it leaves the
+iterate where it is (moving along a direction that cannot decrease the merit would only make the
+retry start from a worse point) and records a stall, which forces a fresh Jacobian on the next
+step (see [`needs_refresh`](@ref) and [`maybe_refactorize!`](@ref)) and gives up after
+`max_stalls` if that does not help.
+
+The step handed back is therefore still positive, as the contract requires — whether to *use*
+it is the caller's decision, not the line search's.
 """
 function check_anchor(φ₀::T, d₀::T, α::T) where {T}
     # A non-positive trial step is not a step the caller can be handed back, so substitute the
@@ -202,6 +218,15 @@ allows. And the remaining outcomes are rate limited with `maxlog`, because a sol
 make progress asks the line search for an impossible decrease at every one of its iterations,
 which an unconditional warning turns into thousands of identical messages.
 
+!!! warning "`maxlog` is per session, not per solve"
+    Julia keys `maxlog` on the *source location* of the `@warn`, so the caps below are
+    process-global and are **not** reset between `solve!` calls. Once a message has appeared its
+    quota is spent for the lifetime of the session, including for later solves of entirely
+    different problems. That is deliberate — a time-stepping loop calling `solve!` once per step
+    is precisely the case these caps exist for — but it does mean a genuinely new line-search
+    failure late in a long run can go unreported. Raise `verbosity` to 2 and re-run when
+    diagnosing one.
+
 Whether an irreducible merit actually *matters* is the outer iteration's call, and
 [`nonlinear_solver_warnings`](@ref) makes it: it reports stagnation once, naming the residual
 that was achieved and the tolerance that was requested.
@@ -218,11 +243,17 @@ function linesearch_warnings(status::LinesearchStatus, ls::Linesearch, params=Nu
         # iteration's call, and it makes it: `record_stall!` counts a floor only while the
         # residual is *not* small, and `nonlinear_solver_warnings` then reports it once, with
         # the achieved residual and the requested tolerance.
-        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off allowance τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it (the smallest informative step is αmin = $(status.αmin)). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
+        # `αmin` is a `Backtracking` quantity (zero means "not applicable", see `LinesearchStatus`),
+        # so the clause naming it is only included when there is a value to name.
+        αminclause = iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"
+        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(αminclause). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
     elseif outcome(status) === LINESEARCH_EXHAUSTED
+        # With `αmin = 0` — every method other than `Backtracking` — this selects the budget
+        # wording, which is correct: those searches only ever exhaust by running out of budget or
+        # by failing to bracket, never by reaching an `αmin` floor.
         reason = steplength(status) > status.αmin ?
-                 "the budget linesearch_max_iterations = $(config(ls).linesearch_max_iterations) was spent" :
-                 "the merit changed by $(status.φ - status.φ₀) at the smallest informative step αmin = $(status.αmin), which exceeds the round-off allowance τ = $(status.τ), so φ'(0) = $(status.d₀) is inconsistent with the merit (a stale or regularized Jacobian, an inexact linear solve, or a non-smooth problem)"
+                 "the budget linesearch_max_iterations = $(config(ls).linesearch_max_iterations) was spent, or the merit could not be bracketed" :
+                 "the merit changed by $(status.φ - status.φ₀) at the smallest informative step αmin = $(status.αmin), which exceeds the round-off resolution τ = $(status.τ), so φ'(0) = $(status.d₀) is inconsistent with the merit (a stale or regularized Jacobian, an inexact linear solve, or a non-smooth problem)"
         verbose ≥ 1 && @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(reason). Returning α = $(steplength(status))." maxlog = 3
     elseif outcome(status) === LINESEARCH_NO_DESCENT
         verbose ≥ 1 && @warn "$(name) line search: φ'(0) = $(status.d₀) (with φ(0) = $(status.φ₀)) is not a descent direction, so no α can satisfy the sufficient decrease condition. Returning α = $(steplength(status))." maxlog = 3

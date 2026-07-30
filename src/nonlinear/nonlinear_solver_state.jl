@@ -107,20 +107,38 @@ stall_number(state::NonlinearSolverState) = state.stalls
 """
     flag_stall!(state)
 
-Record that the line search of the current step reported that the merit cannot be decreased
-(see [`isfloor`](@ref)). The flag is OR-ed into the verdict of the next
-[`record_stall!`](@ref), which clears it again.
+Record that the line search of the current step reported that it cannot make progress along
+the current direction — either the merit is at its round-off floor ([`isfloor`](@ref)) or the
+anchor is not a descent direction at all (`LINESEARCH_NO_DESCENT`, see
+[`LinesearchOutcome`](@ref)). The flag is OR-ed into the verdict of the next
+[`record_stall!`](@ref), which clears it again, and it makes [`needs_refresh`](@ref) true for
+the next step.
 
-This is how a line search that *knows* it is at the round-off floor reports one iteration
-earlier than the step-based diagnosis of [`stalled_step`](@ref) — which remains the primary
-mechanism, since it is the only one that also covers a [`Static`](@ref) step along an
-underflowed direction, a collapsed [`DogLegSolver`](@ref) trust-region radius, and a locally
-expanding [`PicardSolver`](@ref) map.
+This is how a line search that *knows* it cannot help reports one iteration earlier than the
+step-based diagnosis of [`stalled_step`](@ref) — which remains the primary mechanism, since it
+is the only one that also covers a [`Static`](@ref) step along an underflowed direction, a
+collapsed [`DogLegSolver`](@ref) trust-region radius, and a locally expanding
+[`PicardSolver`](@ref) map.
 """
 function flag_stall!(state::NonlinearSolverState)
     state.stallflag = true
     state
 end
+
+"""
+    needs_refresh(state)
+
+`true` when the previous step made no progress, i.e. when a stall has been flagged for the
+current step ([`flag_stall!`](@ref)) or the consecutive-stall counter is nonzero
+([`stall_number`](@ref)).
+
+[`solver_step!`](@ref) passes this to [`maybe_refactorize!`](@ref) as its `stalled` keyword, so
+a quasi-Newton solver rebuilds its [`Jacobian`](@ref) immediately after a step that did not
+move the iterate instead of waiting for the next `refactorize` multiple. Both sources are
+consulted because [`record_stall!`](@ref) consumes the flag into the counter once per
+iteration, and a caller who drives [`solver_step!`](@ref) by hand may never call it.
+"""
+needs_refresh(state::NonlinearSolverState) = state.stallflag || stall_number(state) > 0
 
 """
     update!(state, x, y)

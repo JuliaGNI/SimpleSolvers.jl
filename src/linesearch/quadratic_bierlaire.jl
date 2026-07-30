@@ -65,11 +65,13 @@ end
 
 BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
-# Run the three-point quadratic fit on a known bracket `a < b < c`. Returns `(b, f(b))` — the
+# Run the three-point quadratic fit on a known bracket `a < b < c`. Returns `(b, f(b), n)` — the
 # merit value is carried by the loop anyway, so the caller can classify the outcome without a
-# further evaluation. Private: `solve`/`solve_with_status` is the public entry point.
+# further evaluation, and `n` is the number of merit evaluations, reported as the `trials` of the
+# resulting `LinesearchStatus`. Private: `solve`/`solve_with_status` is the public entry point.
 function _bierlaire_fit(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, τ::T) where {T}
-    f = x -> problem(ls).F(x, params)
+    n = 0
+    f = x -> (n += 1; problem(ls).F(x, params))
     ε = method(ls).ε
     # Evaluate f once per point and reuse: the fit, the χ comparison and the
     # termination check below all need the same values.  The triple updates carry
@@ -134,16 +136,16 @@ function _bierlaire_fit(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T
         # (α is a step-length fraction of order one). The merit differences are *not*: they
         # scale with φ(0), so they are compared against the shared round-off allowance τ
         # instead of against ε. Previously one absolute constant governed all three.
-        ((c - a) ≤ ε) && ((fa - fb) ≤ τ) && ((fc - fb) ≤ τ) && return (b, fb)
+        ((c - a) ≤ ε) && ((fa - fb) ≤ τ) && ((fc - fb) ≤ τ) && return (b, fb, n)
 
         # The bisection fallback above guarantees contraction, so a width that fails to shrink
         # means the bracket is already at the resolution of the arithmetic: nothing further can
         # be resolved and continuing would only repeat the same point.
         newwidth = c - a
-        newwidth < width || return (b, fb)
+        newwidth < width || return (b, fb, n)
         width = newwidth
     end
-    (b, fb)
+    (b, fb, n)
 end
 
 """
@@ -183,15 +185,24 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     # `check_anchor` has established is decreasing. See issue #164.
     start = (α₀ > zero(T) && derivative(prob, α₀, params) < zero(T)) ? α₀ : zero(T)
     triple = triple_point_finder(prob, params, start)
-    # `nothing` means the merit does not resolve a decrease from here (see
-    # `triple_point_finder`): no line search can improve on this point.
-    isnothing(triple) && return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, 0, φ₀, d₀, φ₀, τ, zero(T))
+    # The two failures of `triple_point_finder` mean opposite things and must not be conflated:
+    # `:flat` says the merit does not resolve a decrease from here, so no line search can improve
+    # on this point (a floor, which the outer iteration counts as a stalled step), while
+    # `:unbracketable` says there *is* a decrease that could not be bracketed — reporting that as
+    # a floor would count a descending merit as stagnation.
+    if triple isa Symbol
+        oc = triple === :flat ? LINESEARCH_FLOOR : LINESEARCH_EXHAUSTED
+        return LinesearchStatus{T}(α₀, oc, 0, φ₀, d₀, φ₀, τ, zero(T))
+    end
 
-    αres, φres = _bierlaire_fit(ls, triple..., params, τ)
-    αres > zero(T) || return LinesearchStatus{T}(α₀, LINESEARCH_NO_DESCENT, 0, φ₀, d₀, φ₀, τ, zero(T))
+    αres, φres, n = _bierlaire_fit(ls, triple..., params, τ)
+    # The fit works inside a bracket whose left end is ≥ 0, so a non-positive result means the
+    # arithmetic collapsed rather than that the anchor ascends (`check_anchor` ruled that out):
+    # no positive step improves the merit as far as this search can tell, which is the floor.
+    αres > zero(T) || return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
 
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
-        0, φ₀, d₀, φres, τ, zero(T))
+        n, φ₀, d₀, φres, τ, zero(T))
 end
 
 

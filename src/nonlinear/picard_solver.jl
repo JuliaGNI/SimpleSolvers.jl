@@ -83,7 +83,9 @@ function direction!(it::PicardSolver, x::AbstractVector, params)
     direction!(direction(cache(it)), x, it, params)
 end
 
-direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(it, x, params)
+# The `iteration` and `stalled` arguments are part of the shared `direction!` interface; a
+# Picard step has no Jacobian to refactorize, so both are ignored.
+direction!(it::PicardSolver, x::AbstractVector, params, iteration; stalled::Bool=false) = direction!(it, x, params)
 
 "Backtracking shrink factor used by the [`PicardSolver`](@ref) residual safeguard."
 const DEFAULT_PICARD_BACKTRACKING_p = 0.5

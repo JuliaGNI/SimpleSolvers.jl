@@ -134,22 +134,23 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
 end
 
 """
-    direction!(d, x, s, params, iteration)
+    direction!(d, x, s, params, iteration; stalled=false)
 
-Compute the Newton direction (for the [`NewtonSolver`](@ref)).
+Compute the Newton direction (for the [`NewtonSolver`](@ref)). `stalled` is forwarded to
+[`maybe_refactorize!`](@ref); see [`needs_refresh`](@ref).
 """
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration) where {T}
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration; stalled::Bool=false) where {T}
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    # (see `maybe_refactorize!`).
-    maybe_refactorize!(s, x, params, iteration)
+    # (see `maybe_refactorize!`), unless the previous step stalled.
+    maybe_refactorize!(s, x, params, iteration; stalled=stalled)
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
 end
 
-function direction!(s::NewtonSolver, x::AbstractVector, params, iteration)
-    direction!(direction(cache(s)), x, s, params, iteration)
+function direction!(s::NewtonSolver, x::AbstractVector, params, iteration; stalled::Bool=false)
+    direction!(direction(cache(s)), x, s, params, iteration; stalled=stalled)
 end
 
 # check_jacobian / print_jacobian operate on the Jacobian matrix, not the Jacobian

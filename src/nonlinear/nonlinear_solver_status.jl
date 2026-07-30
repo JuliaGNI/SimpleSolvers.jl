@@ -352,8 +352,13 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     # what it *did* achieve and how to make the request attainable. This replaces the former
     # pair of misleading messages (a line-search warning per iteration plus "Solver took 1000
     # iterations."), neither of which named the actual problem.
+    # `maxlog` for the same reason every line-search message has one: a caller that drives
+    # `solve!` in a loop — a time-stepping integrator, say — would otherwise get this once per
+    # step for as long as the problem stays unattainable, which is the message flood this
+    # replaced. Note that `maxlog` is keyed on the source location and so is process-global, not
+    # per solve; see `linesearch_warnings`.
     (isstalled(status, config) && config.verbosity ≥ 1) &&
-        (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖). If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this.")
+        (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖). If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this." maxlog = 3)
     (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
     (havenan(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
