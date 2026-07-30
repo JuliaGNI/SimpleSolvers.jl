@@ -2,6 +2,151 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.9.3]
+
+Robustness release for the `Backtracking` line search. Downstream packages
+(GeometricIntegrators, GeometricProblems, ChargedParticleDynamics) were flooded by
+
+```
+Backtracking line search did not satisfy the sufficient decrease condition within 1000
+iterations. Returning the last trial step α = 2.220446049250313e-16.
+```
+
+— thousands of messages per test run — and could not silence it through the public API.
+
+### The defect
+
+`2.220446049250313e-16 == eps(1.0) == 1.0·0.5^52`, so the ladder always exited via its
+`α ≤ eps` guard after ~53 trials; the "within 1000 iterations" in the message was never
+true, and neither was the implied diagnosis. The sufficient decrease condition
+`φ(α) ≤ φ(0) + c₁·α·φ'(0)` demands a decrease *proportional to* `α` with no round-off
+allowance, so once `c₁·α·|φ'(0)|` falls below one ulp of `φ(0)` — at
+`α* = eps/(4c₁) ≈ 5.55e-13` for the `‖F‖²` merit of a Newton step — the right-hand side
+rounds back up to `φ(0)` and the accept/reject decision is made by *rounding alone*. Two
+failure modes followed:
+
+- when the trial point stopped moving above `α*`, the condition "succeeded" at `α ≈ 2.3e-13`
+  purely because the frozen merit tied a rounded right-hand side. The returned step did not
+  move `x` at all, and **nothing was reported**;
+- otherwise the ladder ran to `α = eps` and emitted the warning above.
+
+Either way the outer iterate froze, the solve spun to `max_iterations`, and a second
+misleading warning (`"Solver took 1000 iterations."`) followed. The underlying user-visible
+cause is an `f_abstol` below the residual's own round-off floor — unsatisfiable, and *not*
+rescued by `f_reltol`, which is anchored at `‖F(x₀)‖` and therefore becomes *tighter* the
+better the initial guess is.
+
+### Added
+
+- `LinesearchStatus`, `LinesearchOutcome` (`LINESEARCH_DECREASED`, `LINESEARCH_FLOOR`,
+  `LINESEARCH_EXHAUSTED`, `LINESEARCH_NO_DESCENT`, `LINESEARCH_STATIONARY`,
+  `LINESEARCH_UNKNOWN`), `solve_with_status`, `issufficient` and `isfloor`. `solve_with_status`
+  returns the step length *plus* why the search stopped, which the step length alone cannot
+  express — a tiny `α` may be the right answer or all that is left after the merit turned out
+  to be irreducible. Only `Backtracking` reports a genuine outcome; a generic fallback returns
+  `LINESEARCH_UNKNOWN` for the other five methods, so the entry point is uniform.
+  `SimpleSolvers.linesearch_warnings` is now the single place a line search emits messages.
+- `Backtracking` gained a `τ_ulps` keyword (default 4): the round-off allowance
+  `τ = τ_ulps·ulp(φ(0))` added to the sufficient decrease condition, from which the smallest
+  *informative* step `αmin = τ/(c₁|φ'(0)|) = 2·τ_ulps·α*` is derived. Because `αmin` is a
+  factor `2·τ_ulps` above `α*`, the search provably never enters the region where the test is
+  decided by rounding. `τ_ulps = 0` recovers the exact condition. New (unexported)
+  `armijo_tolerance`, `backtracking_αmin`, `backtracking_interpolation`, and the constants
+  `DEFAULT_ARMIJO_τ_ULPS` and `BACKTRACKING_SHRINK_MIN`.
+- `SufficientDecreaseCondition` gained a keyword-only `τ` field (default `zero(T)`, i.e. the
+  exact former condition) and a two-argument call form `sdc(α, fα)` taking a merit value the
+  caller already computed, so a backtracking loop no longer evaluates the merit twice per
+  trial. `StrongWolfe` keeps `τ = 0`.
+- `Options` gained `linesearch_max_iterations` (default `linesearch_iterations(T)`: 60 for
+  `Float64`, 31 for `Float32`, 18 for `Float16`) and `max_stalls` (default `MAX_STALLS = 2`).
+- `SimpleSolvers.with_config(ls, config)` returns a `Linesearch` with the problem and method of
+  `ls` but different `Options`.
+- `NonlinearSolverStatus`, `isconverged`, `isstalled` and `status(solver, state)` are exported.
+  `solve!` returns `x`, not a status, so `status(solver, state)` is how a caller inspects the
+  outcome — in particular whether a solve *converged* or merely *stagnated* at the residual
+  floor. (`status` was removed from the exports in 0.9.0 as undefined; this implements it.)
+- `SimpleSolvers.residual_small`, `iterate_settled`, `stalled_step`, `record_stall!`,
+  `flag_stall!` and `stall_number`.
+
+### Changed (behavioural)
+
+- **`Backtracking` no longer decides the sufficient decrease condition by rounding.** It now
+  checks the anchor up front (a non-descent or non-finite `φ'(0)` returns the caller's `α`
+  immediately instead of shrinking 53 times to find out, consistent with `StrongWolfe`; a
+  stationary `φ'(0) = 0` is benign and reported only at `verbosity ≥ 2`), stops at `αmin`
+  rather than `eps`, detects a bit-frozen merit, and shrinks by safeguarded quadratic/cubic
+  interpolation confined to `[0.1α, p·α]` instead of a fixed factor `p`. `Backtracking.p` is
+  therefore now an *upper bound* on the shrink factor, so the trial sequence is pointwise never
+  longer than before. Warnings report the true trial count and the true reason. The
+  round-off-floor and stationary-anchor outcomes are reported only at `verbosity ≥ 2` — both are
+  the *expected* final state of a converged solve, so warning about them at the default
+  verbosity would mean warning about success (measured on GeometricProblems, gating them at
+  `verbosity ≥ 1` newly surfaced one message each on three previously-silent solves). The
+  remaining outcomes are rate-limited with `maxlog`.
+- **A line search now shares its solver's `Options`.** Every solver used to build its
+  `Linesearch` with an `Options` constructed from nothing but defaults, so
+  `NewtonSolver(…; verbosity = 0)` did *not* silence the line search (downstream packages had
+  to swallow the messages with a `NullLogger`) and a user-supplied iteration budget never
+  reached the inner ladder. `config(linesearch(s)) === config(s)` now holds for `NewtonSolver`,
+  `PicardSolver` and `DogLegSolver`, in every constructor arity.
+- **`max_iterations` no longer doubles as the line-search budget.** It bounds only the outer
+  nonlinear iteration; the `Backtracking` ladder, the `StrongWolfe` bracketing and zoom phases
+  and `bisection` are bounded by `linesearch_max_iterations`. The default therefore drops from
+  1000 to 60 for `Float64` — unobservable, since all of these loops terminate on their own
+  floor long before either bound. (`Quadratic`/`BierlaireQuadratic` keep their own
+  `max_number_of_quadratic_linesearch_iterations`: those are quadratic-*fit* counts, not shrink
+  ladders.)
+- **A stagnating solve now stops after `max_stalls` steps instead of running to
+  `max_iterations`.** A step is *stalled* when it did not move the iterate while the residual is
+  not small — the exact logical complement of the existing `x_converged` gate, so stagnation
+  and convergence are mutually exclusive by construction. This is diagnosed from the step
+  actually taken, so it also covers a `Static` step along an underflowed direction, a collapsed
+  `DogLeg` trust-region radius and a locally expanding `Picard` map; a line search that reports
+  `LINESEARCH_FLOOR` additionally flags it one iteration earlier. A counter (rather than a
+  one-shot stop) is used because `maybe_refactorize!` and `DogLegSolver` both deliberately
+  recover on the step *after* a frozen one. `max_stalls = typemax(Int)` restores the old
+  behaviour. The two misleading warnings are replaced by one message naming the achieved
+  residual, the requested tolerance and both remedies.
+- **`solve!` tests the stopping criteria before the first step.** An initial guess that already
+  satisfies them is no longer perturbed by a full solver step (Jacobian, factorization, and a
+  line search asked to improve an already-exact residual). Only the absolute branch is
+  reachable at iteration 0, so this fires exactly when `‖F(x₀)‖ ≤ f_abstol`; with the default
+  `f_abstol = 0` that means an exact root. Two consequences: with `min_iterations = 0` and
+  `f_abstol > 0` an already-satisfying guess now takes **zero** steps instead of one, and
+  `f_abstol_break` can now fire before any step. `min_iterations ≥ 1` is unaffected.
+- The line search no longer re-evaluates the merit at the `α = 0` anchor: `solver_step!` passes
+  the residual the solver has already computed as `params.φ₀`, saving one `F` evaluation per
+  solver step. A caller driving `solver_step!` by hand from a state whose `value` is stale must
+  not supply it.
+- `Base.show(::Backtracking)` includes `τ_ulps`; `Base.show(::NonlinearSolverStatus)` appends a
+  `stalls` line only when it is nonzero, so the printout of a fresh status is unchanged.
+- Passing `linesearch = …` to `PicardSolver`/`DogLegSolver` is still an error, but now raises a
+  `MethodError` rather than an `Options` error.
+
+### Changed (breaking)
+
+- `assess_convergence` returns a **4-tuple** `(x_converged, f_converged, f_increased, stalled)`.
+  Existing `a, b, _ = assess_convergence(…)` destructurings keep working unchanged.
+- `NonlinearSolverStatus` gained the fields `stalls::Int` and `stalled::Bool`;
+  `NonlinearSolverState` gained `stalls::Int` and `stallflag::Bool`. Positional construction of
+  either changes accordingly.
+- `Backtracking` gained a fifth field `τ_ulps::T`. The positional inner constructor defaults
+  it, so `Backtracking{T}(α₀, c₁, c₂, p)` still works.
+
+## [0.9.2]
+
+### Fixed
+
+- `Quadratic`: a `Float16` fix in the quadratic line search.
+
+## [0.9.1]
+
+### Changed (breaking)
+
+- The default line search of `NewtonSolver(x, F, y; …)` is `Backtracking` again, reverting the
+  change to `StrongWolfe` made in 0.9.0. Pass `linesearch=StrongWolfe(T)` to opt in to the
+  strong Wolfe conditions.
+
 ## [0.9.0]
 
 Pre-1.0 breaking release from the 2026-07 code-review remediation. The bulk is bug
@@ -58,6 +203,7 @@ signature are not enumerated here.)
   condition). Pass `linesearch=Backtracking(T)` to restore the previous behavior.
   (`DogLegSolver` is a trust-region method and does not run the stored line search, so
   its default is unaffected; `PicardSolver` takes no line search.)
+  **Reverted in 0.9.1** — the default is `Backtracking` again; see below.
 - `CurvatureCondition`'s `mode` is now a positional `Val{:Standard}()`/`Val{:Strong}()`
   argument (was a runtime `mode::Symbol` keyword) — inference-stable.
 - `DogLegSolver` now uses a carried, ρ-based trust-region radius (N&W Alg. 4.1; new

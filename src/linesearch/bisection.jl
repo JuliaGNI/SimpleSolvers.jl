@@ -33,7 +33,7 @@ and then repeat:
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated if `config.max_iterations` is reached (by default """ * """$(MAX_ITERATIONS) in [`Options`](@ref) struct); in that case a warning is emitted (at `verbosity ≥ 1`) and the best estimate found so far is returned.
+So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated if `config.linesearch_max_iterations` is reached (by default """ * """$(linesearch_iterations(Float64)) for `Float64` in the [`Options`](@ref) struct, see [`linesearch_iterations`](@ref)); in that case a warning is emitted (at `verbosity ≥ 1`) and the best estimate found so far is returned.
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
@@ -67,7 +67,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     end
 
     converged = false
-    for _ in 1:config.max_iterations
+    for _ in 1:config.linesearch_max_iterations
         α = (α₀ + α₁) / 2
         y = f(α, params)
 
@@ -91,7 +91,7 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
         end
     end
 
-    converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.max_iterations) iterations; returning best estimate α = $(α).")
+    converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α).")
 
     α
 end

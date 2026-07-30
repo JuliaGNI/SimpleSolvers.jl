@@ -72,6 +72,43 @@ function minimum_decrease_threshold(::Type{T}) where {T<:AbstractFloat}
     T(10)^-4
 end
 
+@doc raw"""
+    linesearch_iterations(T)
+
+Determine the default number of trial steps a line search may take, i.e. the default of the
+`linesearch_max_iterations` field of [`Options`](@ref).
+
+This is deliberately *not* the same quantity as `max_iterations`, which bounds the outer
+nonlinear iteration (see [`meets_stopping_criteria`](@ref)). A one-dimensional search *inside
+a single solver step* needs a budget on the order of the mantissa width, not thousands of
+trials: a [`Backtracking`](@ref) ladder ``\alpha \gets p\alpha`` starting at ``\alpha_0 = 1``
+reaches the negligible-step floor after ``\lceil-\log_2\varepsilon\rceil`` halvings (52 in
+double precision, 24 in single), and a [`bisection`](@ref) needs the same count to exhaust the
+mantissa. We take that count plus a small margin; everything beyond it can only produce
+denormals.
+
+Note that [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) are *not* bounded by this: they
+fit a quadratic rather than shrink a step, and keep their own
+`max_number_of_quadratic_linesearch_iterations`.
+
+Compare this to [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: linesearch_iterations)
+julia> linesearch_iterations(Float64)
+60
+```
+
+```jldoctest; setup = :(using SimpleSolvers: linesearch_iterations)
+julia> linesearch_iterations(Float32)
+31
+```
+"""
+function linesearch_iterations(::Type{T}) where {T<:AbstractFloat}
+    ceil(Int, -log2(eps(T))) + 8
+end
+
 const ALLOW_F_INCREASES::Bool = true
 const MIN_ITERATIONS::Int = 0
 const MAX_ITERATIONS::Int = 1_000
@@ -85,6 +122,25 @@ const VERBOSITY::Int = 1
 const NAN_MAX_ITERATIONS = 10
 const NAN_FACTOR = 0.5
 const REGULARIZATION_FACTOR = 0
+
+@doc raw"""
+    const MAX_STALLS
+
+The default number of *consecutive* stalled steps after which a [`NonlinearSolver`](@ref)
+gives up; the default of the `max_stalls` field of [`Options`](@ref). Its value is """ *
+                     """$(MAX_STALLS)""" * raw""".
+
+A step is stalled when it does not move the iterate while the residual is not small (see
+[`stalled_step`](@ref)), i.e. when the merit ``\|F\|^2`` cannot be reduced along the current
+direction. One stalled step is not conclusive: a quasi-Newton solver refreshes its
+[`Jacobian`](@ref) on a later step (see [`maybe_refactorize!`](@ref)) and the
+[`DogLegSolver`](@ref) resets a collapsed trust-region radius on the step *after* a rejected
+one, so both can still make progress after a frozen step. Two in a row are conclusive.
+
+Set `max_stalls = typemax(Int)` to restore the previous behaviour of running all the way to
+`max_iterations`.
+"""
+const MAX_STALLS::Int = 2
 
 """
     Options
@@ -108,6 +164,8 @@ Options()
           min_iterations = 0
           max_iterations = 1000
          warn_iterations = 1000
+linesearch_max_iterations = 60
+              max_stalls = 2
               show_trace = false
              store_trace = false
           extended_trace = false
@@ -139,6 +197,33 @@ Options()
     [`DOGLEG_Δ_INITIAL`](@ref), [`DOGLEG_Δ_SHRINK`](@ref), [`DOGLEG_Δ_EXPAND`](@ref) and
     [`DOGLEG_Δ_MAX`](@ref), and are ignored by the other solvers.
 
+!!! info "`max_iterations` versus `linesearch_max_iterations`"
+    `max_iterations` bounds the **outer** nonlinear iteration (see
+    [`meets_stopping_criteria`](@ref)); `linesearch_max_iterations` bounds the **inner**,
+    one-dimensional line search taken within a single solver step — the
+    [`Backtracking`](@ref) ladder, the [`StrongWolfe`](@ref) bracketing and zoom phases, and
+    [`bisection`](@ref). These used to be the same field, which meant that capping the solver
+    at `max_iterations = 50` silently also capped the ladder, and that the default of 1000 was
+    applied to a ladder which can never need more than ``\\lceil-\\log_2\\varepsilon\\rceil``
+    trials. See [`linesearch_iterations`](@ref).
+
+!!! warning "Choosing `f_abstol`"
+    `f_abstol` is an *absolute* target for ``\\|F(x)\\|``, and the default `0` (see
+    [`absolute_tolerance`](@ref)) is never met by a nonzero residual: the absolute branch of
+    [`assess_convergence`](@ref) is switched *off* by default and convergence is decided
+    entirely by the relative (`f_reltol`) and successive (`x_suctol`, `f_suctol`) branches.
+
+    Conversely, an `f_abstol` **below the round-off floor of your own residual** — the
+    cancellation level of the terms `F` sums internally, which the solver cannot see — is
+    *unsatisfiable*. The iteration then reaches that floor, stops making progress, and is
+    reported as stagnated (see `max_stalls`, [`stalled_step`](@ref) and
+    [`nonlinear_solver_warnings`](@ref)) rather than converged.
+
+    Note that `f_reltol` does **not** rescue this case: the relative gate is anchored at the
+    *initial* residual ``\\|F(x_0)\\|``, so an excellent initial guess makes it *tighter*, not
+    looser. If the stagnation warning reports an achieved `rfₐ` near your `f_abstol`, raise
+    `f_abstol` above it — an order of magnitude of headroom is usual.
+
 !!! info
     Also see [`meets_stopping_criteria`](@ref).
 """
@@ -155,6 +240,8 @@ struct Options{T}
     min_iterations::Int
     max_iterations::Int
     warn_iterations::Int
+    linesearch_max_iterations::Int
+    max_stalls::Int
     show_trace::Bool
     store_trace::Bool
     extended_trace::Bool
@@ -182,6 +269,8 @@ function Options(T=Float64;
     min_iterations::Integer=MIN_ITERATIONS,
     max_iterations::Integer=MAX_ITERATIONS,
     warn_iterations::Integer=WARN_ITERATIONS,
+    linesearch_max_iterations::Integer=linesearch_iterations(T),
+    max_stalls::Integer=MAX_STALLS,
     show_trace::Bool=SHOW_TRACE,
     store_trace::Bool=STORE_TRACE,
     extended_trace::Bool=EXTENDED_TRACE,
@@ -210,6 +299,8 @@ function Options(T=Float64;
         min_iterations,
         max_iterations,
         warn_iterations,
+        linesearch_max_iterations,
+        max_stalls,
         show_trace,
         store_trace,
         extended_trace,
@@ -245,3 +336,20 @@ f_suctol(o::Options) = o.f_suctol
 f_mindec(o::Options) = o.f_mindec
 
 verbosity(o::Options) = o.verbosity
+
+"""
+    linesearch_max_iterations(o::Options)
+
+The maximum number of trial steps a line search may take within a single solver step. See
+[`linesearch_iterations`](@ref); *not* to be confused with `max_iterations`, which bounds the
+outer nonlinear iteration.
+"""
+linesearch_max_iterations(o::Options) = o.linesearch_max_iterations
+
+"""
+    max_stalls(o::Options)
+
+The number of consecutive stalled steps after which a [`NonlinearSolver`](@ref) gives up. See
+[`MAX_STALLS`](@ref) and [`stalled_step`](@ref).
+"""
+max_stalls(o::Options) = o.max_stalls

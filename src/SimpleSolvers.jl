@@ -89,7 +89,16 @@ export Backtracking,
     Static,
     StrongWolfe
 
+export LinesearchStatus, LinesearchOutcome, solve_with_status, issufficient, isfloor
+export LINESEARCH_DECREASED,
+    LINESEARCH_FLOOR,
+    LINESEARCH_EXHAUSTED,
+    LINESEARCH_NO_DESCENT,
+    LINESEARCH_STATIONARY,
+    LINESEARCH_UNKNOWN
+
 include("linesearch/linesearch.jl")
+include("linesearch/linesearch_status.jl")
 include("linesearch/backtracking_condition.jl")
 include("linesearch/curvature_condition.jl")
 include("linesearch/sufficient_decrease_condition.jl")
@@ -102,6 +111,8 @@ include("linesearch/wolfe.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, assess_convergence
+
+export NonlinearSolverStatus, isconverged, isstalled, status
 
 export PicardSolver
 

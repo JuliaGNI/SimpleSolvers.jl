@@ -113,3 +113,55 @@ c₂ = .9
 cc = CurvatureCondition(c₂, problem.D(0., params), alpha -> problem.D(alpha, params))
 cc(αₜ)
 ```
+
+## Stagnation at the round-off floor
+
+The sufficient decrease condition demands a decrease *proportional to* ``\alpha``:
+
+```math
+\varphi(\alpha) \leq \varphi(0) + c_1\alpha\varphi'(0),
+```
+
+so once ``c_1\alpha|\varphi'(0)|`` drops below one unit in the last place of ``\varphi(0)``,
+the right-hand side rounds back up to ``\varphi(0)`` exactly and the test degenerates to
+``\varphi(\alpha) \leq \varphi(0)``. A merit that has reached its own round-off floor — think
+of ``\|F\|^2`` for a residual that is already pure rounding noise, which is the normal state
+of affairs at the end of a converged solve — then passes or fails that test essentially at
+random. Shrinking ``\alpha`` cannot recover from this: below the round-off scale of ``x`` the
+trial point stops differing from the base point altogether, and ``\varphi(\alpha)`` is
+*bit-identical* to ``\varphi(0)``.
+
+`Backtracking` therefore slackens the condition by an explicit allowance
+``\tau = `` `τ_ulps` ``\cdot\,\mathrm{ulp}(\varphi(0))`` (see
+[`SimpleSolvers.armijo_tolerance`](@ref)) and stops at the smallest step that ``\tau`` can
+still resolve, ``\alpha_\mathrm{min} = \tau/(c_1|\varphi'(0)|)`` (see
+[`SimpleSolvers.backtracking_αmin`](@ref)). Because ``\alpha_\mathrm{min}`` is a factor
+``2\cdot`` `τ_ulps` above the step at which the rounding degeneracy sets in, the search never
+enters that region at all.
+
+The situation is reported rather than hidden. [`solve_with_status`](@ref) returns a
+[`LinesearchStatus`](@ref) whose [`LinesearchOutcome`](@ref) distinguishes a step that
+genuinely decreased the merit (`LINESEARCH_DECREASED`) from one accepted only because nothing
+*can* decrease it (`LINESEARCH_FLOOR`):
+
+```@example floor
+using SimpleSolvers
+using SimpleSolvers: outcome, trials, steplength
+
+# a merit that is pure round-off noise: every α > 0 lands one ulp above φ(0)
+noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+ls = Linesearch(noise, Backtracking(); verbosity = 0)
+st = solve_with_status(ls, 1.0)
+(outcome(st), trials(st), steplength(st), st.αmin)
+```
+
+```@example floor
+isfloor(st), issufficient(st)
+```
+
+A `LINESEARCH_FLOOR` outcome is *not* an error: it says that no line search can make progress
+at this point, which is normally a statement about the problem rather than about the search.
+A [`NonlinearSolver`](@ref) treats it as a stalled step (see
+[`SimpleSolvers.stalled_step`](@ref)) and stops after `max_stalls` of them, reporting the
+residual it did achieve against the tolerance that was requested — the usual cause being an
+`f_abstol` below the residual's own round-off floor. See [`Options`](@ref).

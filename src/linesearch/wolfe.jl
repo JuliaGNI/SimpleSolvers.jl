@@ -85,7 +85,7 @@ end
 # conditions are checked through the shared `sdc`/`cc` condition objects.
 function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseCondition{T}, cc::CurvatureCondition{T}, αlo::T, αhi::T, φlo::T) where {T}
     αj = αlo
-    for _ in 1:config(ls).max_iterations
+    for _ in 1:config(ls).linesearch_max_iterations
         αj = (αlo + αhi) / 2
         φj = φ(αj)
         if !sdc(αj) || φj ≥ φlo
@@ -152,7 +152,7 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     αi = clamp(α > zero(T) ? α : one(T), eps(T), αmax)
     αvalid = αi   # last trial step that satisfied sufficient decrease
 
-    for i in 1:config(ls).max_iterations
+    for i in 1:config(ls).linesearch_max_iterations
         φi = φ(αi)
         if !sdc(αi) || (i > 1 && φi ≥ φprev)
             return _wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)

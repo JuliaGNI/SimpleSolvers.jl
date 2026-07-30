@@ -202,8 +202,15 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
 
     nan_recovery!(s, x, params)
 
-    α = solve(linesearch(s), one(T), (x=x, parameters=params))
-    compute_new_iterate!(x, α, direction(cache(s)))
+    # `params.φ₀` hands the line search the merit at the α = 0 anchor, which the solver has
+    # just evaluated at the current iterate — see `linesearch_problem`.
+    lsparams = (x=x, parameters=params, φ₀=L2norm(value(state)))
+    lsstatus = solve_with_status(linesearch(s), one(T), lsparams)
+    linesearch_warnings(lsstatus, linesearch(s), lsparams)
+    # A line search that reports the merit's round-off floor knows the iteration cannot make
+    # progress here, one iteration before the step-based diagnosis of `stalled_step` sees it.
+    isfloor(lsstatus) && flag_stall!(state)
+    compute_new_iterate!(x, steplength(lsstatus), direction(cache(s)))
 
     x
 end
@@ -219,11 +226,20 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     initialize!(s, x)
     initialize!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
 
-    while true
+    # The stopping criteria are tested *before* the first step as well. An initial guess that
+    # already satisfies them must not be perturbed by a full solver step — including a line
+    # search asked to improve an already-exact residual, which is one source of the spurious
+    # "did not satisfy the sufficient decrease condition" warnings. Only the absolute branch is
+    # reachable at iteration 0: `rxₛ` and `rfₛ` are `NaN` until the first `update!` (see
+    # `initialize!`), so this fires exactly when ‖F(x₀)‖ ≤ f_abstol — for the default
+    # `f_abstol = 0` only at an exact root. A caller who insists on at least one iteration
+    # (`min_iterations ≥ 1`) still gets one, and a `NaN` initial residual still gets a step
+    # (the `havenan` branch requires `iterations ≥ 1`).
+    while !meets_stopping_criteria(state, config(s))
         increase_iteration_number!(state)
         solver_step!(x, s, state, params)
         update!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
-        meets_stopping_criteria(state, config(s)) && break
+        record_stall!(state, config(s))
     end
 
     status = NonlinearSolverStatus(state, config(s))
@@ -232,5 +248,34 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
 
     x
 end
+
+"""
+    status(solver, state)
+
+Return the [`NonlinearSolverStatus`](@ref) for the [`NonlinearSolverState`](@ref) `state` as
+assessed with the [`Options`](@ref) of `solver`.
+
+[`solve!`](@ref) returns the solution `x` (updated in place), not a status, so this is how a
+caller inspects the *outcome* of a solve — in particular whether it converged
+([`isconverged`](@ref)) or merely stagnated at the residual floor ([`isstalled`](@ref)). The
+state is the caller's own object (it is passed to `solve!`), so nothing has to be threaded back
+out of the solve.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> x = [1.0]; s = NewtonSolver(x, similar(x); F = F, verbosity = 0);
+
+julia> state = SolverState(s);
+
+julia> solve!(x, s, state);
+
+julia> isconverged(status(s, state))
+true
+```
+"""
+status(s::NonlinearSolver, state::NonlinearSolverState) = NonlinearSolverStatus(state, config(s))
 
 solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)

@@ -67,6 +67,27 @@ Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); opt
 Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Options{T}) where {T} =
     Linesearch{T}(problem, change_precision(T, method), config)
 
+@doc raw"""
+    with_config(ls, config)
+
+Return a [`Linesearch`](@ref) with the [`LinesearchProblem`](@ref) and the
+[`LinesearchMethod`](@ref) of `ls`, but with the [`Options`](@ref) `config`.
+
+This is how a [`NonlinearSolver`](@ref) makes its line search share *its* options. A
+`Linesearch` built by `Linesearch(problem, method)` carries an `Options` of its own,
+constructed from nothing but defaults — so `verbosity` and `linesearch_max_iterations` would
+be configured twice, and `verbosity = 0` on the solver would not silence the line search.
+
+`Linesearch` is an immutable three-field wrapper, so rebuilding it is cheap: the problem (and
+hence its closures and scratch buffers) and the method are shared, not copied.
+
+The `Options` element type is pinned to the `Linesearch` element type, so a mismatched
+`config` raises a `MethodError` rather than silently producing a broken object — the same
+guarantee the three-argument [`Linesearch`](@ref) constructor gives.
+"""
+with_config(ls::Linesearch{T}, config::Options{T}) where {T} =
+    Linesearch(problem(ls), method(ls), config)
+
 function solve(prob::LinesearchProblem{T}, method::LinesearchMethod, α, params=NullParameters(), config::Options{T}=Options(T)) where {T}
     solve(Linesearch(prob, method, config), T(α), params)
 end

@@ -274,13 +274,19 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     x
 end
 
-function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    config = Options(T; options_kwargs...)
-
+function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=DogLeg(refactorize), jacobian=jacobian)
 end
 
-function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, kwargs...) where {T}
+# See the corresponding `NewtonSolver` method: the line search is rebuilt on the solver's
+# `Options` so that solver and line search cannot be configured inconsistently.
+function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
+    config = Options(T; options_kwargs...)
+    DogLegSolver(x, nlp, ls, linearsolver, with_config(linesearch, config), cache, config; jacobian=jacobian, refactorize=refactorize)
+end
+
+function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, refactorize=1, options_kwargs...) where {T}
+    config = Options(T; options_kwargs...)
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = DogLegCache(x, y)
@@ -290,8 +296,8 @@ function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; l
     # search; the (structurally mandatory) `linesearch` field is filled with a trivial
     # `Static` step.  A `linesearch` keyword is deliberately not accepted — it would be
     # silently ignored (any stray keyword falls through to `Options` and errors there).
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)))
-    DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)), config)
+    DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
 end
 
 # Same pattern as the NewtonSolver/PicardSolver convenience form: `F` as a
