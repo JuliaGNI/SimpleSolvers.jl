@@ -41,7 +41,9 @@ struct NonlinearSolver{T,MT<:NonlinearSolverMethod,NLST<:NonlinearProblem,LST<:A
     cache::CT
     config::Options{T}
 
-    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=Newton(), jacobian::JT=JacobianAutodiff(nlp.F, x), options_kwargs...) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian{T},NLST<:NonlinearProblem,LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}}
+    # No `options_kwargs...` here: the `Options` arrive ready-made as `config`, so a keyword
+    # sink would only swallow misspelled option names silently.
+    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=Newton(), jacobian::JT=JacobianAutodiff(nlp.F, x)) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian{T},NLST<:NonlinearProblem,LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}}
         new{T,MT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
     end
 end
@@ -122,18 +124,28 @@ function resolve_jacobian(F, DF!, jacobian, x::AbstractVector{T}, y) where {T}
 end
 
 """
-    maybe_refactorize!(s, x, params, iteration; force=false)
+    maybe_refactorize!(s, x, params, iteration; force=false, stalled=false)
 
 Re-evaluate the [`Jacobian`](@ref) at `x`, copy it into the [`LinearProblem`](@ref)
 (adding the diagonal `regularization_factor`), and refactorize the
 [`LinearSolver`](@ref) — but only on a refactorization step: a fresh state or the
 first step (`iteration ≤ 1`), every `refactorize` iterations (see [`Newton`](@ref)),
-or when `force`d (used by the [`DogLegSolver`](@ref) to recover from a collapsed
+when the previous step made no progress (`stalled`, see [`needs_refresh`](@ref)), or
+when `force`d (used by the [`DogLegSolver`](@ref) to recover from a collapsed
 trust-region radius). Otherwise the stale Jacobian and its factorization are reused
 (quasi-Newton). Returns the solver `s`.
+
+`stalled` is what makes the quasi-Newton mode safe to combine with `max_stalls`: a step
+that did not move the iterate would otherwise rebuild the *same* direction from the same
+stale Jacobian on the next `refactorize - 1` iterations and reproduce the same negligible
+step, so the solve would be given up on (see [`stalled_step`](@ref)) for a reason a fresh
+Jacobian could have fixed. Refreshing immediately means the second consecutive stall is
+one that a fresh Jacobian did *not* fix, which is the conclusive evidence `max_stalls = 2`
+assumes. It is also the response [`check_anchor`](@ref) prescribes for an ascent anchor,
+which is a stale-Jacobian symptom.
 """
-function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Bool=false)
-    (force || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) || return s
+function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Bool=false, stalled::Bool=false)
+    (force || stalled || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) || return s
     jacobian!(s, x, params)
     lp = linearproblem(s)
     matrix(lp) .= jacobianmatrix(s)
@@ -197,13 +209,34 @@ julia> solver_step!(x, s, state, NullParameters())
 ```
 """
 function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
-    direction!(s, x, params, iteration_number(state))
+    # A previous step that made no progress gets a freshly evaluated Jacobian rather than the
+    # stale one that produced it (see `maybe_refactorize!`).
+    direction!(s, x, params, iteration_number(state); stalled=needs_refresh(state))
     any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
 
     nan_recovery!(s, x, params)
 
-    α = solve(linesearch(s), one(T), (x=x, parameters=params))
-    compute_new_iterate!(x, α, direction(cache(s)))
+    # `params.φ₀` hands the line search the merit at the α = 0 anchor, which the solver has
+    # just evaluated at the current iterate — see `linesearch_problem`.
+    lsparams = (x=x, parameters=params, φ₀=L2norm(value(state)))
+    lsstatus = solve_with_status(linesearch(s), one(T), lsparams)
+    linesearch_warnings(lsstatus, linesearch(s), lsparams)
+
+    # A line search that reports the merit's round-off floor or a non-descent anchor knows the
+    # iteration cannot make progress along this direction, one iteration before the step-based
+    # diagnosis of `stalled_step` sees it. Recording it here forces a fresh Jacobian on the next
+    # step and gives up after `max_stalls` if that does not help.
+    nodescent = outcome(lsstatus) === LINESEARCH_NO_DESCENT
+    (isfloor(lsstatus) || nodescent) && flag_stall!(state)
+
+    # The step is not taken along a direction the line search has *rejected outright*: no α can
+    # decrease the merit along an ascent direction, so moving would only make the forced
+    # refactorization start from a worse point. (The `LINESEARCH_FLOOR` step *is* taken — it is
+    # the smallest informative one, and it is not an ascent direction.) The line search itself
+    # still returns α > 0 as its contract requires; whether to use it is the caller's call.
+    nodescent && return x
+
+    compute_new_iterate!(x, steplength(lsstatus), direction(cache(s)))
 
     x
 end
@@ -219,11 +252,20 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     initialize!(s, x)
     initialize!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
 
-    while true
+    # The stopping criteria are tested *before* the first step as well. An initial guess that
+    # already satisfies them must not be perturbed by a full solver step — including a line
+    # search asked to improve an already-exact residual, which is one source of the spurious
+    # "did not satisfy the sufficient decrease condition" warnings. Only the absolute branch is
+    # reachable at iteration 0: `rxₛ` and `rfₛ` are `NaN` until the first `update!` (see
+    # `initialize!`), so this fires exactly when ‖F(x₀)‖ ≤ f_abstol — for the default
+    # `f_abstol = 0` only at an exact root. A caller who insists on at least one iteration
+    # (`min_iterations ≥ 1`) still gets one, and a `NaN` initial residual still gets a step
+    # (the `havenan` branch requires `iterations ≥ 1`).
+    while !meets_stopping_criteria(state, config(s))
         increase_iteration_number!(state)
         solver_step!(x, s, state, params)
         update!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
-        meets_stopping_criteria(state, config(s)) && break
+        record_stall!(state, config(s))
     end
 
     status = NonlinearSolverStatus(state, config(s))
@@ -232,5 +274,34 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
 
     x
 end
+
+"""
+    status(solver, state)
+
+Return the [`NonlinearSolverStatus`](@ref) for the [`NonlinearSolverState`](@ref) `state` as
+assessed with the [`Options`](@ref) of `solver`.
+
+[`solve!`](@ref) returns the solution `x` (updated in place), not a status, so this is how a
+caller inspects the *outcome* of a solve — in particular whether it converged
+([`isconverged`](@ref)) or merely stagnated at the residual floor ([`isstalled`](@ref)). The
+state is the caller's own object (it is passed to `solve!`), so nothing has to be threaded back
+out of the solve.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged, status)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> x = [1.0]; s = NewtonSolver(x, similar(x); F = F, verbosity = 0);
+
+julia> state = SolverState(s);
+
+julia> solve!(x, s, state);
+
+julia> isconverged(status(s, state))
+true
+```
+"""
+status(s::NonlinearSolver, state::NonlinearSolverState) = NonlinearSolverStatus(state, config(s))
 
 solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)

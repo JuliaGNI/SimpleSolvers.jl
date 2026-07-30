@@ -1,18 +1,4 @@
 """
-This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) in double precision.
-
-In single precision we use [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION`](@ref).
-"""
-const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
-
-"See [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)."
-const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION = 5
-
-max_number_of_quadratic_linesearch_iterations(::Type{Float16}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION
-max_number_of_quadratic_linesearch_iterations(::Type{Float32}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION
-max_number_of_quadratic_linesearch_iterations(::Type{Float64}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH
-
-"""
 A factor by which `s` is reduced in each bracketing iteration (see [`bracket_minimum_with_fixed_point`](@ref)).
 """
 const DEFAULT_s_REDUCTION = 0.5
@@ -26,7 +12,8 @@ p(α) = p_0 + p_1(\alpha - \alpha_0) + p_2(\alpha - \alpha_0)^2.
 ```
 Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
 We do not check the [`SufficientDecreaseCondition`](@ref) here. We instead repeatedly build new quadratic polynomials until a minimum is found (to sufficient accuracy).
-The iteration may also stop after it reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
+The iteration may also stop after it reaches the maximum number of iterations, the
+`linesearch_max_iterations` field of [`Options`](@ref) (see [`linesearch_iterations`](@ref)).
 
 # Keywords
 
@@ -61,7 +48,56 @@ end
 
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
-function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
+"""
+    solve(ls::Linesearch{T,<:Quadratic}, α, params)
+
+Fit successive quadratics to approximate the line minimiser, report the outcome through
+[`linesearch_warnings`](@ref) and return the step length. See [`Quadratic`](@ref) and
+[`solve_with_status`](@ref).
+"""
+function solve(ls::Linesearch{T,<:Quadratic}, α::T, params=NullParameters()) where {T}
+    status = solve_with_status(ls, α, params)
+    linesearch_warnings(status, ls, params)
+    steplength(status)
+end
+
+function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
+    φ₀ = value(problem(ls), zero(T), params)
+    d₀ = derivative(problem(ls), zero(T), params)
+
+    anchor = check_anchor(φ₀, d₀, α₀)
+    isnothing(anchor) || return anchor
+
+    τ = armijo_tolerance(φ₀, armijo_ulps(T))
+    αres, n = _quadratic_search(ls, α₀, params)
+
+    # `bracket_minimum_with_fixed_point` flips direction when the merit rises to the right of
+    # the bracketing *start* — which is α₀, not 0 — so even a decreasing anchor can yield a
+    # bracket, and hence a minimiser, left of zero once α₀ overshoots. A negative step is not a
+    # meaningful step length along a direction (see the α > 0 contract), so retry once from the
+    # α = 0 anchor, which `check_anchor` has established is decreasing.
+    if isnothing(αres) || αres ≤ zero(T)
+        αres, nretry = _quadratic_search(ls, zero(T), params)
+        n += nretry
+    end
+    # `bracket_minimum_with_fixed_point` fails only by exhausting `nmax` in both directions, i.e.
+    # for a merit that keeps decreasing. That is a failure to *report*, not a round-off floor:
+    # reporting a floor would make the outer iteration count a descending merit as stagnation.
+    isnothing(αres) && return LinesearchStatus{T}(α₀, LINESEARCH_EXHAUSTED, n, φ₀, d₀, φ₀, τ, zero(T))
+    # Still non-positive: no positive step improves the merit as far as this search can tell,
+    # which is the floor — `check_anchor` established above that the anchor itself descends.
+    αres > zero(T) || return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
+
+    φres = value(problem(ls), αres, params)
+    LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
+        n, φ₀, d₀, φres, τ, zero(T))
+end
+
+# The quadratic-fit iteration itself. Returns `(α, n)` with `n` the number of merit evaluations,
+# or `(nothing, n)` if the merit cannot be bracketed.
+# Private: `solve`/`solve_with_status` is the public entry point.
+function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params) where {T}
+    n = 0
     # Start the bracketing at the caller's α₀ when it lies on the descent side
     # (φ′(α₀) < 0, so the minimiser is to its right); otherwise keep the α = 0 anchor,
     # where a descent direction is guaranteed decreasing. `bracket_minimum_with_fixed_point`
@@ -70,16 +106,20 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
     α = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
     s = method(ls).s
 
-    for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
+    for _ in 1:config(ls).linesearch_max_iterations
         # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
         # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
         # from the bracketing, so no re-evaluation is needed here.
-        a, b, y₀, y₁ = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
+        bracket = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
+        # `nothing` means the merit could not be bracketed from here (see `bracket_minimum`).
+        isnothing(bracket) && return (nothing, n)
+        a, b, y₀, y₁ = bracket
+        n += 2   # this round of the fit; the bracketer’s own evaluations are not counted
         d₀ = derivative(problem(ls), a, params)
         # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
         # (not the loop's start `α`), which differ when the bracketer flipped because
         # the start was not on the descent side.
-        abs(d₀) < method(ls).ε && return a
+        abs(d₀) < method(ls).ε && return (a, n)
 
         # minimizer αₜ = a - p₁ / (2p₂); guard on the fitted curvature (denom = 2p₂(b-a)²).
         # A non-positive curvature (denom ≤ 0), a non-finite αₜ, or a minimizer outside
@@ -88,13 +128,13 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
         αₜ = denom > zero(T) ? a - d₀ * (b - a)^2 / denom : (a + b) / 2
         (isfinite(αₜ) && a ≤ αₜ ≤ b) || (αₜ = (a + b) / 2)
 
-        (l2norm(αₜ - α) < method(ls).ε) && return αₜ
+        (l2norm(αₜ - α) < method(ls).ε) && return (αₜ, n)
 
         α = αₜ
         s *= method(ls).s_reduction
     end
 
-    α
+    (α, n)
 end
 
 Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")

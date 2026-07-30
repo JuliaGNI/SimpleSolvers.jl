@@ -83,15 +83,24 @@ true
 """
 const NewtonSolver{T} = NonlinearSolver{T,Newton}
 
-function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    config = Options(T; options_kwargs...)
-
+function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
     if refactorize > 1 && typeof(method(linesearch)) <: Static
-        config.verbosity ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
+        verbosity(config) ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
         refactorize = 1
     end
 
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=Newton(refactorize), jacobian=jacobian)
+end
+
+# Backwards-compatible form that builds the `Options` from keywords.  The `linesearch` handed
+# in here was built with an `Options` of its own (`Linesearch(problem, method)` defaults it) —
+# precisely the plumbing defect this chain used to have, since the solver's `verbosity` and
+# `linesearch_max_iterations` then never reached the line search.  It is therefore rebuilt on
+# the solver's `Options` (see `with_config`): its problem and method are kept, only the
+# options are replaced.
+function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
+    config = Options(T; options_kwargs...)
+    NewtonSolver(x, nlp, ls, linearsolver, with_config(linesearch, config), cache, config; jacobian=jacobian, refactorize=refactorize)
 end
 
 """
@@ -105,14 +114,18 @@ end
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 """
-function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, refactorize=1, kwargs...) where {T}
+function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, refactorize=1, options_kwargs...) where {T}
+    # The `Options` are built here, once, and shared by the solver *and* its line search, so
+    # that `NewtonSolver(…; verbosity = 0)` silences the line search too and the inner ladder
+    # is bounded by `linesearch_max_iterations` from the same place.
+    config = Options(T; options_kwargs...)
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch)
-    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, refactorize=refactorize, kwargs...)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch, config)
+    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
@@ -121,22 +134,23 @@ function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractV
 end
 
 """
-    direction!(d, x, s, params, iteration)
+    direction!(d, x, s, params, iteration; stalled=false)
 
-Compute the Newton direction (for the [`NewtonSolver`](@ref)).
+Compute the Newton direction (for the [`NewtonSolver`](@ref)). `stalled` is forwarded to
+[`maybe_refactorize!`](@ref); see [`needs_refresh`](@ref).
 """
-function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration) where {T}
+function direction!(d::AbstractVector{T}, x::AbstractVector{T}, s::NewtonSolver{T}, params, iteration; stalled::Bool=false) where {T}
     # first we update the rhs of the linearproblem
     value!(rhs(linearproblem(s)), nonlinearproblem(s), x, params)
     rhs(linearproblem(s)) .*= -1
     # for a quasi-Newton method the Jacobian isn't updated in every iteration
-    # (see `maybe_refactorize!`).
-    maybe_refactorize!(s, x, params, iteration)
+    # (see `maybe_refactorize!`), unless the previous step stalled.
+    maybe_refactorize!(s, x, params, iteration; stalled=stalled)
     ldiv!(d, linearsolver(s), rhs(linearproblem(s)))
 end
 
-function direction!(s::NewtonSolver, x::AbstractVector, params, iteration)
-    direction!(direction(cache(s)), x, s, params, iteration)
+function direction!(s::NewtonSolver, x::AbstractVector, params, iteration; stalled::Bool=false)
+    direction!(direction(cache(s)), x, s, params, iteration; stalled=stalled)
 end
 
 # check_jacobian / print_jacobian operate on the Jacobian matrix, not the Jacobian

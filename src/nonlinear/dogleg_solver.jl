@@ -86,7 +86,7 @@ where ``\mathbf{J}`` is the Jacobian matrix and ``\mathbf{r}`` is the residual v
 
 The [`DogLegSolver`](@ref) then interpolates between these two directions (this interpolation is piecewise linear).
 
-As for the (quasi-)[`NewtonSolver`](@ref), the [`Jacobian`](@ref) is only re-evaluated and refactored every `refactorize` iterations (see [`DogLeg`](@ref)), and always on a fresh state or the first step (`iteration ≤ 1`), or when `force_refactorize = true` (used by [`solver_step!`](@ref) to recover from a collapsed trust-region radius). In between, the stale Jacobian and its factorization are reused for both directions. The default `refactorize = 1` refactorizes on every step.
+As for the (quasi-)[`NewtonSolver`](@ref), the [`Jacobian`](@ref) is only re-evaluated and refactored every `refactorize` iterations (see [`DogLeg`](@ref)), and always on a fresh state or the first step (`iteration ≤ 1`), or when `force_refactorize = true` (used by [`solver_step!`](@ref) to recover from a collapsed trust-region radius, and after any step that did not move the iterate — see [`needs_refresh`](@ref)). In between, the stale Jacobian and its factorization are reused for both directions. The default `refactorize = 1` refactorizes on every step.
 """
 function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration=1; force_refactorize::Bool=false) where {T}
     # the Newton direction
@@ -184,8 +184,12 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     # again.  Without this, `while Δ > eps(T)` would never run, the iterate would
     # freeze, and the solve would silently spin to `max_iterations`.
     Δ = trust_radius(cache(s))
-    force_refresh = Δ ≤ eps(T)
-    force_refresh && (Δ = config(s).dogleg_radius_initial)
+    collapsed = Δ ≤ eps(T)
+    collapsed && (Δ = config(s).dogleg_radius_initial)
+
+    # A step that did not move the iterate for any other reason (`needs_refresh`) gets the same
+    # treatment: the Jacobian that produced the rejected step is the one to replace.
+    force_refresh = collapsed || needs_refresh(state)
 
     directions!(s, x, params, iteration_number(state); force_refactorize=force_refresh)
     any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
@@ -274,13 +278,19 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     x
 end
 
-function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT,CT}
-    config = Options(T; options_kwargs...)
-
+function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
     NonlinearSolver(x, nlp, ls, linearsolver, linesearch, cache, config; method=DogLeg(refactorize), jacobian=jacobian)
 end
 
-function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, kwargs...) where {T}
+# See the corresponding `NewtonSolver` method: the line search is rebuilt on the solver's
+# `Options` so that solver and line search cannot be configured inconsistently.
+function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
+    config = Options(T; options_kwargs...)
+    DogLegSolver(x, nlp, ls, linearsolver, with_config(linesearch, config), cache, config; jacobian=jacobian, refactorize=refactorize)
+end
+
+function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, refactorize=1, options_kwargs...) where {T}
+    config = Options(T; options_kwargs...)
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = DogLegCache(x, y)
@@ -290,8 +300,8 @@ function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; l
     # search; the (structurally mandatory) `linesearch` field is filled with a trivial
     # `Static` step.  A `linesearch` keyword is deliberately not accepted — it would be
     # silently ignored (any stray keyword falls through to `Options` and errors there).
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)))
-    DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache; jacobian=jacobian, kwargs...)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)), config)
+    DogLegSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
 end
 
 # Same pattern as the NewtonSolver/PicardSolver convenience form: `F` as a

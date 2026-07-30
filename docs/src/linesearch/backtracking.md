@@ -113,3 +113,79 @@ c₂ = .9
 cc = CurvatureCondition(c₂, problem.D(0., params), alpha -> problem.D(alpha, params))
 cc(αₜ)
 ```
+
+## Stagnation at the round-off floor
+
+The sufficient decrease condition demands a decrease *proportional to* ``\alpha``:
+
+```math
+\varphi(\alpha) \leq \varphi(0) + c_1\alpha\varphi'(0),
+```
+
+so once ``c_1\alpha|\varphi'(0)|`` drops below one unit in the last place of ``\varphi(0)``,
+the right-hand side rounds back up to ``\varphi(0)`` exactly and the test degenerates to
+``\varphi(\alpha) \leq \varphi(0)``. A merit that has reached its own round-off floor — think
+of ``\|F\|^2`` for a residual that is already pure rounding noise, which is the normal state
+of affairs at the end of a converged solve — then passes or fails that test essentially at
+random. Shrinking ``\alpha`` cannot recover from this: below the round-off scale of ``x`` the
+trial point stops differing from the base point altogether, and ``\varphi(\alpha)`` is
+*bit-identical* to ``\varphi(0)``.
+
+`Backtracking` therefore takes the round-off resolution of the merit,
+``\tau = `` `τ_ulps` ``\cdot\,\mathrm{ulp}(\varphi(0))`` (see
+[`SimpleSolvers.armijo_tolerance`](@ref)), slackens the condition to
+
+```math
+\varphi(\alpha) \leq \min\{\varphi(0),\ \varphi(0) + c_1\alpha\varphi'(0) + \tau\},
+```
+
+and stops at the smallest step that ``\tau`` can still resolve,
+``\alpha_\mathrm{min} = \tau/(c_1|\varphi'(0)|)`` (see
+[`SimpleSolvers.backtracking_αmin`](@ref)). Because ``\alpha_\mathrm{min}`` is a factor
+``2\cdot`` `τ_ulps` above the step at which the rounding degeneracy sets in, the search stays
+clear of that region — *unless* ``\alpha_\mathrm{min}``'s upper clamp at
+``\sqrt{\mathrm{eps}(T)}`` binds, which it does for a very flat merit in double precision and for
+essentially any merit in `Float16` (the clamp is there so that a nearly flat but genuine merit is
+still searched at all).
+
+The ``\min`` against ``\varphi(0)`` is what makes those trial steps harmless. Where the
+right-hand side has degenerated, the condition reduces to plain monotonicity
+``\varphi(\alpha) \leq \varphi(0)``: it can accept a non-increase but never an increase, and such
+an accept is classified `LINESEARCH_FLOOR` rather than reported as a decrease.
+
+`τ_ulps` itself is precision-aware, because ``\tau`` has to be at least an ulp or so of
+``\varphi(0)`` to recognise the floor *and* far below the ``2c_1\varphi(0)`` the condition demands
+at ``\alpha = 1`` to leave that condition meaningful. Those are compatible only while
+``\mathrm{eps}(T) \ll 2c_1``, which is true by ten orders of magnitude in double precision and
+false in `Float16`; [`SimpleSolvers.armijo_ulps`](@ref) caps the nominal 4 ulps accordingly, a
+no-op in `Float64` and `Float32`. Without the cap a `Float16` merit that genuinely decreased by
+two ulps — the smallest that precision can express — was reported as `LINESEARCH_FLOOR`, which a
+[`NonlinearSolver`](@ref) counts towards `max_stalls`, so a converging solve could be reported as
+stagnated.
+
+The situation is reported rather than hidden. [`solve_with_status`](@ref) returns a
+[`LinesearchStatus`](@ref) whose [`LinesearchOutcome`](@ref) distinguishes a step that
+genuinely decreased the merit (`LINESEARCH_DECREASED`) from one accepted only because nothing
+*can* decrease it (`LINESEARCH_FLOOR`):
+
+```@example floor
+using SimpleSolvers
+using SimpleSolvers: outcome, trials, steplength, issufficient, isfloor
+
+# a merit that is pure round-off noise: every α > 0 lands one ulp above φ(0)
+noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+ls = Linesearch(noise, Backtracking(); verbosity = 0)
+st = solve_with_status(ls, 1.0)
+(outcome(st), trials(st), steplength(st), st.αmin)
+```
+
+```@example floor
+isfloor(st), issufficient(st)
+```
+
+A `LINESEARCH_FLOOR` outcome is *not* an error: it says that no line search can make progress
+at this point, which is normally a statement about the problem rather than about the search.
+A [`NonlinearSolver`](@ref) treats it as a stalled step (see
+[`SimpleSolvers.stalled_step`](@ref)) and stops after `max_stalls` of them, reporting the
+residual it did achieve against the tolerance that was requested — the usual cause being an
+`f_abstol` below the residual's own round-off floor. See [`Options`](@ref).

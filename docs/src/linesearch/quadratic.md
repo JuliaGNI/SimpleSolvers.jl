@@ -106,7 +106,7 @@ p₁ = ∂fˡˢ∂α(0.)
 
 ### Finding ``p_2``
 
-We call [`bracket_minimum_with_fixed_point`](@ref) to find ``\alpha_0.`` For this point we should have ``f^\mathrm{ls}(\alpha_0) > f^\mathrm{ls}(0).``
+We call [`bracket_minimum_with_fixed_point`](@ref) to find ``\alpha_0.`` That routine grows the right end outward until the merit stops decreasing — the *turning point* — rather than until it climbs back above the fixed left anchor, so ``f^\mathrm{ls}(\alpha_0) > f^\mathrm{ls}(0)`` is *not* required (a merit that dips and then only asymptotes back up would never satisfy it). It returns `nothing` if no minimum can be bracketed at all.
 
 ```@example quadratic
 using SimpleSolvers: bracket_minimum_with_fixed_point

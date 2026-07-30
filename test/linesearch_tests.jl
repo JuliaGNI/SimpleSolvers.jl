@@ -6,7 +6,10 @@ using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters
 using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, compute_new_iterate!, direction!, nonlinearproblem, iteration_number
 using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_finder
-using SimpleSolvers: CurvatureCondition
+using SimpleSolvers: CurvatureCondition, SufficientDecreaseCondition
+using SimpleSolvers: issufficient, isfloor
+using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps, backtracking_αmin,
+    backtracking_interpolation, with_config, problem, method, config
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -125,17 +128,234 @@ end
     @test Backtracking() isa Backtracking                       # defaults are valid
 end
 
-@testset "$(rpad("Backtracking exhaustion returns the last nonzero step", 80))" begin
-    # A strictly increasing merit with positive slope at 0 can never satisfy the
-    # sufficient-decrease condition, so the search exhausts.  It must return the last
-    # (nonzero) trial step, not the α₀ = 0 anchor: returning 0 would freeze the outer
-    # solver iterate (x .+= 0 .* d) and spin it to max_iterations.  The loop also stops
-    # once α underflows to eps instead of shrinking to a denormal over all iterations.
+@testset "$(rpad("Backtracking: non-descent and stationary anchors are reported, not searched", 80))" begin
+    # A merit with positive slope at 0 can never satisfy the sufficient-decrease condition, so
+    # the former 53 shrinking trials (which returned α ≈ eps) were 53 wasted merit
+    # evaluations.  The anchor is now tested up front and, consistently with StrongWolfe, the
+    # caller's trial step is returned — never the α₀ = 0 anchor, which would freeze the outer
+    # solver iterate (x .+= 0 .* d) and spin it to max_iterations.
     prob = LinesearchProblem{Float64}((α, _) -> α + 1.0, (α, _) -> 1.0)  # φ'(0) = 1 > 0
     ls = Linesearch(prob, Backtracking(); verbosity=0)
-    α = solve(ls, 1.0)
-    @test α > zero(α)          # nonzero step, not the α₀ = 0 anchor
-    @test α ≤ eps(1.0)         # shrunk down to the negligible-step floor, no further
+    st = solve_with_status(ls, 0.7)
+    @test outcome(st) == LINESEARCH_NO_DESCENT
+    @test steplength(st) == 0.7   # the caller's step, not the α₀ = 0 anchor
+    @test steplength(st) > zero(steplength(st))
+    @test trials(st) == 0         # nothing beyond the anchor was evaluated
+    @test solve(ls, 0.7) == steplength(st)
+    # ... and it agrees with StrongWolfe, which has the same up-front descent check
+    @test solve(ls, 0.7) == solve(Linesearch(prob, StrongWolfe(); verbosity=0), 0.7)
+
+    # A stationary anchor (φ'(0) = 0, e.g. a vanishing Newton direction at an exact root) is
+    # benign: it must not warn at the default verbosity, since it happens on the last
+    # iteration of a converged solve.
+    flat = LinesearchProblem{Float64}((α, _) -> -1.0, (α, _) -> 0.0)
+    lsflat = Linesearch(flat, Backtracking())     # verbosity = 1, the default
+    @test outcome(solve_with_status(lsflat, 1.0)) == LINESEARCH_STATIONARY
+    @test (@test_logs solve(lsflat, 1.0)) == 1.0
+
+    # A merit whose slope contradicts its values (a stale or regularized Jacobian, an inexact
+    # linear solve) is a genuine failure and must be told apart from the round-off floor.
+    lying = LinesearchProblem{Float64}((α, _) -> 1.0 + α, (α, _) -> -2.0)
+    @test outcome(solve_with_status(Linesearch(lying, Backtracking(); verbosity=0), 1.0)) == LINESEARCH_EXHAUSTED
+end
+
+@testset "$(rpad("Backtracking: stagnation at the merit's round-off floor", 80))" begin
+    φ₀ = 1.0
+
+    # Fixture A — the *silent* variant.  The merit is frozen below α_move = 1e-6 (there the
+    # trial iterate x + α·δx no longer differs from x in floating point) and increases above
+    # it, so no α decreases it; d₀ = -2φ₀ is the exact-Newton slope of ‖F‖².
+    # Before: the Armijo right-hand side φ₀ + c₁·α·d₀ rounds back up to φ₀ for
+    # α < α* = eps/(4c₁) = 5.55e-13, the frozen merit tied it, and the search reported
+    # *success* at α = 2.2737367544323206e-13 after 43 trials — with no warning whatsoever.
+    frozen = LinesearchProblem{Float64}((α, _) -> α ≤ 1e-6 ? φ₀ : φ₀ * (1 + α), (α, _) -> -2φ₀)
+    ls = Linesearch(frozen, Backtracking(); verbosity=0)
+    st = solve_with_status(ls, 1.0)
+    @test outcome(st) == LINESEARCH_FLOOR   # the tie is *not* reported as a decrease
+    @test !issufficient(st)
+    @test isfloor(st)
+    @test trials(st) < 43                   # 14 (was 43)
+    @test steplength(st) > 1e-8             # stops at the frozen scale, not at 2.3e-13
+    @test solve(ls, 1.0) == steplength(st)  # `solve` still returns the step length
+
+    # Fixture B — the *reported* variant: every α > 0 lands one ulp above φ₀, i.e. ‖F‖² is
+    # pure round-off noise.  Before: 53 halvings down to α = eps(1.0) = 2.220446049250313e-16
+    # and a warning claiming the sufficient decrease condition failed "within 1000
+    # iterations" — neither the count nor the reason was true.
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(φ₀) : φ₀, (α, _) -> -2φ₀)
+    lsn = Linesearch(noise, Backtracking(); verbosity=0)
+    stn = solve_with_status(lsn, 1.0)
+    @test outcome(stn) == LINESEARCH_FLOOR
+    @test isfloor(stn)
+    @test trials(stn) < 53                          # 33 (was 53)
+    @test steplength(stn) > eps(1.0)                # the αmin floor, not eps(1.0)
+    @test steplength(stn) == stn.αmin
+    @test solve(lsn, 1.0) == steplength(stn)
+
+    # αmin sits a factor 2·τ_ulps above the α* at which fl(φ₀ + c₁αd₀) rounds back to φ₀, so
+    # the search never enters the region where the test is decided by rounding.
+    αstar = eps(1.0) / (4 * SimpleSolvers.DEFAULT_WOLFE_c₁)
+    @test stn.τ == 4eps(φ₀)
+    @test stn.αmin ≈ 2 * SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS * αstar
+    @test stn.αmin == 4.440892098500626e-12
+end
+
+@testset "$(rpad("armijo_tolerance / backtracking_αmin / interpolation", 80))" begin
+    @test armijo_tolerance(1.0, 4.0) == 4eps(1.0)
+    @test armijo_tolerance(1e-20, 4.0) == 4eps(1e-20)
+
+    τ = armijo_tolerance(1.0, 4.0)
+    @test backtracking_αmin(1e-4, -2.0, τ) == 4.440892098500626e-12
+    @test backtracking_αmin(1e-4, -0.0, τ) == sqrt(eps(1.0))   # no division by zero
+    @test backtracking_αmin(1e-4, -1e30, τ) == eps(1.0)        # clamped from below
+    @test backtracking_αmin(1e-4, -1e-30, τ) == sqrt(eps(1.0)) # clamped from above
+    @test backtracking_αmin(1e-4, -2.0, 0.0) == eps(1.0)       # τ = 0 keeps the old floor
+
+    # the interpolated step always stays inside [BACKTRACKING_SHRINK_MIN·α, p·α]
+    for (φα, αp, φp) in [(3.0, NaN, NaN), (3.0, 2.0, 5.0), (NaN, NaN, NaN), (Inf, 1.5, 2.0)]
+        αₙ = backtracking_interpolation(1.0, -2.0, 1.0, φα, αp, φp, 0.5)
+        @test SimpleSolvers.BACKTRACKING_SHRINK_MIN ≤ αₙ ≤ 0.5
+    end
+
+    # φ(α) = 1 - 2α + 1000α²: α = 1 overshoots badly.  Plain halving needs 10 trials,
+    # safeguarded interpolation fewer — and one merit evaluation per trial plus the anchor
+    # (the two-argument SufficientDecreaseCondition must not re-evaluate the merit).
+    n = Ref(0)
+    prob = LinesearchProblem{Float64}((α, _) -> (n[] += 1; 1.0 - 2α + 1000α^2), (α, _) -> -2.0 + 2000α)
+    st = solve_with_status(Linesearch(prob, Backtracking(); verbosity=0), 1.0)
+    @test issufficient(st)
+    @test trials(st) < 10
+    @test n[] == trials(st) + 1
+    @test steplength(st) ≤ 0.5
+end
+
+@testset "$(rpad("SufficientDecreaseCondition round-off allowance", 80))" begin
+    # τ = 0 (the default) is the exact former condition: a merit one ulp above φ₀ is rejected
+    # at every α — including the α where the right-hand side rounds back to φ₀.
+    sdc = SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> nextfloat(1.0))
+    @test !sdc(1.0)
+    @test !sdc(1e-13)
+
+    # τ slackens the decrease that is *demanded* — a merit that misses the Armijo target by
+    # less than τ is accepted where the exact condition rejects it ...
+    target = 1.0 + 1e-4 * 0.1 * -2.0      # the right-hand side at α = 0.1, ≈ 1 - 2e-5
+    φ = α -> nextfloat(target, 2)         # misses it by 2 ulps, well inside τ = 4 ulps of φ₀
+    @test !SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ)(0.1)
+    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ; τ=4eps(1.0))(0.1)
+
+    # ... but it never licenses a step where the demanded decrease is meaningful ...
+    sdcτ = SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> nextfloat(1.0); τ=4eps(1.0))
+    @test !sdcτ(1.0)
+    # ... and, thanks to the min against φ₀, it never licenses an *increase* either, not even at
+    # the degenerate α where fl(φ₀ + c₁αd₀) has rounded back up to φ₀. The unbounded form
+    # accepted here, which is a 0.4% uphill step in Float16 (4 ulps of φ₀ = 1).
+    @test !sdcτ(1e-13)
+    @test 1.0 + 1e-4 * 1e-13 * -2.0 == 1.0     # the right-hand side really has degenerated
+    # a *non-increase* at the same α is accepted, which is what keeps the ladder from shrinking
+    # to eps once the merit has reached its round-off floor
+    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> 1.0; τ=4eps(1.0))(1e-13)
+
+    # the bound holds in the precision where it bites: 4 ulps of Float16 is 3.9e-3, twenty times
+    # the 2c₁ = 2e-4 demanded at α = 1, so an unbounded τ would accept a visible increase
+    τ16 = 4eps(Float16(1))
+    sdc16 = SufficientDecreaseCondition(Float16(1e-4), Float16(1), Float16(-2), α -> Float16(1) + τ16 / 2; τ=τ16)
+    @test !sdc16(Float16(1))
+    @test !sdc16(Float16(1e-3))
+
+    @test_throws AssertionError SufficientDecreaseCondition(1e-4, 1.0, -2.0, sin; τ=-1.0)
+
+    # the two-argument form uses the merit value supplied by the caller
+    n = Ref(0)
+    sdc2 = SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> (n[] += 1; 0.0))
+    @test sdc2(1.0, 0.0)
+    @test n[] == 0
+    @test sdc2(1.0)
+    @test n[] == 1
+end
+
+@testset "$(rpad("Backtracking: τ_ulps validation and generic solve_with_status fallback", 80))" begin
+    @test_throws AssertionError Backtracking(; τ_ulps=-1.0)
+    @test Backtracking(; τ_ulps=0.0) isa Backtracking
+    @test Backtracking().τ_ulps == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
+
+    # τ_ulps = 0 recovers the exact condition, i.e. the old ladder down to the eps floor
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    st = solve_with_status(Linesearch(noise, Backtracking(; τ_ulps=0.0); verbosity=0), 1.0)
+    @test steplength(st) ≤ eps(1.0)
+
+    # Every built-in method reports a real outcome now, so none of them relies on the generic
+    # `LINESEARCH_UNKNOWN` fallback any more.  `Static` is the exception by nature: it ignores
+    # the caller's step and never evaluates the merit, so it has established nothing.
+    prob = LinesearchProblem{Float64}((α, _) -> (α - 0.7)^2, (α, _) -> 2 * (α - 0.7))
+    for m in (Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe(), Backtracking())
+        ls = Linesearch(prob, m; verbosity=0)
+        st = solve_with_status(ls, 1.0)
+        @test outcome(st) == LINESEARCH_DECREASED
+        @test issufficient(st)
+        @test !isfloor(st)
+        @test steplength(st) == solve(ls, 1.0)
+    end
+
+    lstatic = Linesearch(prob, Static(); verbosity=0)
+    ststatic = solve_with_status(lstatic, 1.0)
+    @test outcome(ststatic) == LINESEARCH_UNKNOWN
+    @test !issufficient(ststatic)
+    @test !isfloor(ststatic)
+    @test steplength(ststatic) == solve(lstatic, 1.0)
+
+    # The generic `solve_with_status` fallback is kept for user-defined `LinesearchMethod`s
+    # (it reports `LINESEARCH_UNKNOWN`), but no built-in method dispatches to it any more.
+end
+
+@testset "$(rpad("with_config replaces the Options and keeps problem and method", 80))" begin
+    prob = LinesearchProblem{Float64}((α, _) -> (α - 0.7)^2, (α, _) -> 2 * (α - 0.7))
+    ls = Linesearch(prob, Backtracking())
+    @test config(ls).verbosity == 1
+
+    ls2 = with_config(ls, Options(Float64; verbosity=0, linesearch_max_iterations=7))
+    @test problem(ls2) === problem(ls)
+    @test method(ls2) === method(ls)
+    @test config(ls2).verbosity == 0
+    @test config(ls2).linesearch_max_iterations == 7
+    @test config(ls).verbosity == 1   # the original is untouched
+
+    # a mismatched element type is rejected rather than silently accepted
+    @test_throws MethodError with_config(ls, Options(Float32))
+end
+
+@testset "$(rpad("linesearch_max_iterations bounds the ladder, max_iterations does not", 80))" begin
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+
+    unbounded = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity=0)), 1.0)
+    @test outcome(unbounded) == LINESEARCH_FLOOR
+
+    # the inner budget reaches the ladder, and a spent budget is *not* reported as the floor
+    capped = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity=0, linesearch_max_iterations=3)), 1.0)
+    @test trials(capped) == 3
+    @test outcome(capped) == LINESEARCH_EXHAUSTED
+
+    # the outer budget does not
+    outer = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity=0, max_iterations=1)), 1.0)
+    @test trials(outer) == trials(unbounded)
+    @test outcome(outer) == LINESEARCH_FLOOR
+
+    @test SimpleSolvers.linesearch_iterations(Float64) == 60
+    @test SimpleSolvers.linesearch_iterations(Float32) == 31
+    @test SimpleSolvers.linesearch_iterations(Float16) == 18
+
+    # The quadratic searches are bounded by the same field (they used to carry their own
+    # `max_number_of_quadratic_linesearch_iterations`).  They converge on their `ε` tolerance
+    # long before the budget, so it acts purely as a backstop — but it is reachable, and it is
+    # now settable by the user like every other line search's.
+    quad = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> 2(α - 1.0))
+    for m in (Quadratic(), BierlaireQuadratic())
+        generous = solve(Linesearch(quad, m, Options(Float64; verbosity=0, linesearch_max_iterations=60)), 0.5)
+        @test generous ≈ 1.0 atol = 1e-8
+        # the default budget reaches the same answer, i.e. it is not the binding constraint
+        @test solve(Linesearch(quad, m; verbosity=0), 0.5) ≈ generous atol = 1e-12
+    end
+    # a budget of one iteration truncates the Bierlaire fit, proving the field reaches the loop
+    @test solve(Linesearch(quad, BierlaireQuadratic(), Options(Float64; verbosity=0, linesearch_max_iterations=1)), 0.5) ≉ 1.0
 end
 
 @testset "$(rpad("Quadratic Linesearch (Bierlaire)", 80))" begin
@@ -358,7 +578,7 @@ end
     # The debug `println` and hard `error("Max iteration number exceeded")` were
     # A tight tolerance forces exhaustion here.
     fslow(α, _) = α - 1 / 3
-    cfg = Options(Float64; max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=0)
+    cfg = Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=0)
     local αbest
     @test (αbest = bisection(fslow, 0.0, 1.0, NullParameters(), cfg)) isa Float64
     @test 0.0 ≤ αbest ≤ 1.0
@@ -424,15 +644,30 @@ end
     end
 end
 
-@testset "$(rpad("Quadratic returns the tested bracket point (non-descent start)", 80))" begin
-    # When the start is not on the descent side, `bracket_minimum_with_fixed_point`
-    # flips and the bracket's left endpoint `a` (where the derivative is tested and
-    # the early-return fires) differs from the loop's start `α`.  The Quadratic search
-    # must return `a`, not `α`.  Here φ(α) = (α + 1)² is increasing at the α = 0 anchor
-    # (φ'(0) = 2 > 0) with its minimiser at α = -1.
+@testset "$(rpad("Quadratic returns the tested bracket point, and never a negative step", 80))" begin
+    # φ(α) = (α + 1)² is *increasing* at the α = 0 anchor (φ'(0) = 2 > 0) with its minimiser at
+    # α = -1.  `bracket_minimum_with_fixed_point` handles that by flipping direction, so this
+    # search used to return α ≈ -1 — a step *against* the direction.  That is meaningless as a
+    # step length (α scales a direction that is already chosen), and measured on a Newton solve
+    # the capability was emergent rather than designed: it arises only from a stale Jacobian, it
+    # was inherited from whichever bracketer each method happened to call, and `Bisection`
+    # produced steps as large as α = -3.  The α > 0 contract now applies to every method, so an
+    # ascent anchor is reported instead.
     prob = LinesearchProblem{Float64}((a, _) -> (a + 1.0)^2, (a, _) -> 2.0 * (a + 1.0))
-    ls = Linesearch(prob, Quadratic(); x_abstol=0.0)
-    @test solve(ls, 0.0) ≈ -1.0 atol = ∛(2eps())
+    ls = Linesearch(prob, Quadratic(); x_abstol=0.0, verbosity=0)
+    st = solve_with_status(ls, 0.0)
+    @test outcome(st) == LINESEARCH_NO_DESCENT
+    @test steplength(st) > 0.0
+    @test solve(ls, 0.0) == steplength(st)
+
+    # The original point of this test survives on a *descent* anchor: the bracket's left
+    # endpoint `a`, where the derivative is tested and the near-stationary early return fires,
+    # differs from the loop's start `α`, and it is `a` that must be returned.  Here the
+    # minimiser sits at α = +1.
+    descent = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> 2.0 * (a - 1.0))
+    lsd = Linesearch(descent, Quadratic(); x_abstol=0.0, verbosity=0)
+    @test solve(lsd, 0.0) ≈ 1.0 atol = ∛(2eps())
+    @test solve(lsd, 2.0) ≈ 1.0 atol = ∛(2eps())   # α₀ past the minimiser still lands on it
 end
 
 # Quadratic and BierlaireQuadratic validate their constructor parameters, like
@@ -479,5 +714,297 @@ end
         α = solve(ls, 0.5)
         @test α ≈ α_expected atol = 1e-8
         @test cnt[] ≤ bound
+    end
+end
+
+@testset "$(rpad("the benign outcomes do not warn at the default verbosity", 80))" begin
+    # Reaching the merit's round-off floor is the *normal* final state of a converged solve, so
+    # reporting it at the default verbosity would mean warning about success.  Measured on
+    # GeometricProblems, gating it at `verbosity ≥ 1` newly surfaced a message on three
+    # previously-silent, correctly-converging integrations.  Whether an irreducible merit
+    # matters is the outer iteration's call (see `stalled_step`).
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    lsdefault = Linesearch(noise, Backtracking())          # verbosity = 1, the default
+    @test outcome(solve_with_status(lsdefault, 1.0)) == LINESEARCH_FLOOR
+    @test (@test_logs solve(lsdefault, 1.0)) == solve(lsdefault, 1.0)   # silent
+
+    # ... but it is available for diagnosis
+    lsverbose = Linesearch(noise, Backtracking(); verbosity=2)
+    @test_logs (:warn, r"round-off floor") match_mode = :any solve(lsverbose, 1.0)
+
+    # a genuine inconsistency between the slope and the values *does* warn at verbosity 1
+    lying = LinesearchProblem{Float64}((α, _) -> 1.0 + α, (α, _) -> -2.0)
+    @test_logs (:warn, r"did not satisfy|no step satisfied") match_mode = :any solve(Linesearch(lying, Backtracking()), 1.0)
+
+    # ... and so does a non-descent direction
+    up = LinesearchProblem{Float64}((α, _) -> α + 1.0, (α, _) -> 1.0)
+    @test_logs (:warn, r"not a descent direction") match_mode = :any solve(Linesearch(up, Backtracking()), 1.0)
+end
+
+@testset "$(rpad("bracketing helpers report failure instead of throwing", 80))" begin
+    # A merit that is flat to round-off: `1.0 + 1e-20x` computes to exactly 1.0 for every small
+    # x, so no probe can find a decrease.  This used to halve δ five times and then throw,
+    # aborting the enclosing solve — and halving is precisely the wrong response, since a
+    # smaller probe is strictly *less* informative than the one that already failed.
+    n = Ref(0)
+    flat = x -> (n[] += 1; 1.0 + 1e-20 * x)
+    n[] = 0
+    @test triple_point_finder(flat, 0.0) === :flat
+    @test n[] == 2                       # the anchor and one probe; was 12 followed by a throw
+
+    # A strictly increasing merit, and one with no minimum to the right, likewise report rather
+    # than throw — but as `:unbracketable`, *not* `:flat`.  Both of these have a merit that
+    # varies far more than round-off, so a caller must not report them as a round-off floor: the
+    # second one is in fact descending without bound, which is the opposite of stagnation.
+    @test triple_point_finder(x -> x + 1.0, 0.0) === :unbracketable
+    @test triple_point_finder(x -> -x, 0.0) === :unbracketable
+
+    # ... while a genuine overshoot still gets the δ-halving retry it needs
+    @test triple_point_finder(x -> (x - 0.001)^2, 0.0) isa Tuple
+
+    # the success path is unchanged
+    a, b, c = triple_point_finder(x -> x^2, -1.0)
+    @test a < b < c
+
+    # the sibling bracketers report `nothing` on exhaustion rather than erroring
+    @test bracket_minimum(x -> -x, 0.0; nmax=3) === nothing
+    @test SimpleSolvers.bracket_minimum_with_fixed_point(x -> -x, 0.0, 0.01, 2.0, 3) === nothing
+    @test bracket_minimum(x -> (x - 1)^2, 0.0) !== nothing
+end
+
+@testset "$(rpad("check_anchor", 80))" begin
+    @test outcome(SimpleSolvers.check_anchor(NaN, -1.0, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(1.0, NaN, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(Inf, -1.0, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(1.0, 2.0, 0.7)) == LINESEARCH_NO_DESCENT
+    @test outcome(SimpleSolvers.check_anchor(1.0, 0.0, 0.7)) == LINESEARCH_STATIONARY
+    @test SimpleSolvers.check_anchor(1.0, -2.0, 0.7) === nothing   # healthy anchor: proceed
+
+    # the caller's trial step is handed back, and a non-positive one is replaced by the unit
+    # step so that the α > 0 guarantee holds regardless of what the caller passed
+    @test steplength(SimpleSolvers.check_anchor(1.0, 2.0, 0.7)) == 0.7
+    @test steplength(SimpleSolvers.check_anchor(1.0, 2.0, 0.0)) == 1.0
+    @test steplength(SimpleSolvers.check_anchor(1.0, 2.0, -3.0)) == 1.0
+end
+
+@testset "$(rpad("the line search contract holds for every method", 80))" begin
+    # One loop over every element type × every method × every pathological anchor.  This is the
+    # test that keeps the contract standardised: none of these may throw, and none may return
+    # α ≤ 0.  The low-precision rows matter in their own right: `Float16` is the precision where
+    # τ = 4·ulp(φ(0)) is *larger* than the decrease the Armijo condition demands at α = 1, and
+    # where `backtracking_αmin`'s √eps clamp is always active, so it is where the bounds on the
+    # round-off allowance are load-bearing rather than decorative.
+    for T in (Float64, Float32, Float16)
+        one_T = one(T)
+        pathological = (
+            ("NaN merit", (α, _) -> T(NaN), (α, _) -> T(NaN)),
+            ("NaN derivative", (α, _) -> one_T - α, (α, _) -> T(NaN)),
+            ("Inf merit", (α, _) -> T(Inf), (α, _) -> -one_T),
+            ("ascent anchor", (α, _) -> α + one_T, (α, _) -> one_T),
+            ("stationary anchor", (α, _) -> -one_T, (α, _) -> zero(T)),
+            ("flat to round-off", (α, _) -> α > zero(α) ? nextfloat(one_T) : one_T, (α, _) -> -2one_T),
+            ("minimiser at α < 0", (α, _) -> (α + one_T)^2, (α, _) -> 2 * (α + one_T)),
+            ("slope contradicts values", (α, _) -> one_T + α, (α, _) -> -2one_T),
+        )
+        for m in (Static(T), Backtracking(T), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+            for (nm, f, d) in pathological
+                ls = Linesearch(LinesearchProblem{T}(f, d), m; verbosity=0)
+                st = @test_nowarn solve_with_status(ls, one_T)
+                @test st isa LinesearchStatus{T}
+                @test steplength(st) > zero(T)            # the α > 0 guarantee
+                @test isfinite(steplength(st))
+                @test solve(ls, one_T) == steplength(st)  # `solve` is a thin wrapper
+            end
+        end
+    end
+end
+
+@testset "$(rpad("armijo_ulps caps the round-off resolution at what the precision supports", 80))" begin
+    # τ = τ_ulps·ulp(φ₀) has to be at least ~an ulp to recognise a merit at its round-off floor,
+    # and far below the decrease the Armijo condition demands at α = 1 (2c₁·φ₀ for the canonical
+    # ‖F‖² Newton merit) to leave that condition meaningful.  Those are compatible only while
+    # eps(T) ≪ 2c₁ — true by a wide margin in Float64, comfortably in Float32, and *false* in
+    # Float16, where eps = 9.8e-4 already exceeds 2c₁ = 2e-4.  `armijo_ulps` caps the nominal 4
+    # accordingly, which is a no-op in the two precisions that can afford it.
+    @test armijo_ulps(Float64) == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
+    @test armijo_ulps(Float32) == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
+    @test armijo_ulps(Float16) < 1                       # no room for even a single ulp
+    @test armijo_ulps(Float16) > 0
+
+    for T in (Float64, Float32, Float16)
+        c₁ = T(SimpleSolvers.DEFAULT_WOLFE_c₁)
+        τ = armijo_tolerance(one(T), armijo_ulps(T))
+        demanded = 2 * c₁                                # the decrease demanded at α = 1
+        # the invariant the cap exists for; the slack absorbs the rounding of the cap itself,
+        # which in Float16 is computed in Float16
+        @test τ ≤ 1.1 * SimpleSolvers.ARMIJO_τ_DEMAND_FRACTION * demanded
+        # ... and a tighter c₁ tightens the cap rather than being ignored
+        @test armijo_ulps(T, c₁ / 1000) ≤ armijo_ulps(T, c₁)
+    end
+
+    # The cap is applied by the inner constructor, so *every* path into a `Backtracking{T}` gets
+    # a resolution the element type supports — including `change_precision`, which converts a
+    # method built for a different `T`, and an explicit value that is too large.
+    for T in (Float64, Float32, Float16)
+        @test Backtracking(T).τ_ulps == armijo_ulps(T, T(SimpleSolvers.DEFAULT_WOLFE_c₁))
+        @test change_precision(T, Backtracking()).τ_ulps == Backtracking(T).τ_ulps
+        @test Backtracking(T; τ_ulps=T(4)).τ_ulps ≤ armijo_ulps(T)
+        @test Backtracking(T; τ_ulps=zero(T)).τ_ulps == 0   # opting out still works
+    end
+end
+
+@testset "$(rpad("a small but genuine Float16 decrease is a decrease, not the floor", 80))" begin
+    # With the nominal 4 ulps, τ/φ₀ = 3.9e-3 in Float16 — twenty times the 2c₁ = 2e-4 the
+    # condition demands at α = 1.  A merit that really did decrease by two ulps was then
+    # classified `LINESEARCH_FLOOR`, which `solver_step!` feeds to `flag_stall!`: two such steps
+    # and a *converging* solve was reported as stagnated.  The cap fixes the classification.
+    T = Float16
+    φ = α -> one(T) - T(0.004) * α + T(0.002) * α^2       # minimum at α = 1, φ(1) = 0.998
+    prob = LinesearchProblem{T}((α, _) -> φ(α), (α, _) -> -T(0.004) + T(0.004) * α)
+
+    decrease = φ(zero(T)) - φ(one(T))
+    @test decrease == 2 * eps(T)                          # two ulps: the smallest Float16 can show
+
+    τ = armijo_tolerance(one(T), armijo_ulps(T))
+    τnominal = armijo_tolerance(one(T), T(SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS))
+    @test φ(one(T)) ≤ φ(zero(T)) - τ                      # counts as a decrease with the cap ...
+    @test !(φ(one(T)) ≤ φ(zero(T)) - τnominal)            # ... and did not without it
+
+    # the two methods that actually run an Armijo test report it as progress
+    for m in (Backtracking(T), StrongWolfe(T))
+        st = solve_with_status(Linesearch(prob, m; verbosity=0), one(T))
+        @test issufficient(st)
+        @test outcome(st) == LINESEARCH_DECREASED
+    end
+
+    # and Float64 is untouched: the same relative decrease is far above its τ either way
+    @test armijo_tolerance(1.0, armijo_ulps(Float64)) == armijo_tolerance(1.0, 4)
+end
+
+@testset "$(rpad("no method accepts a step that increases the merit", 80))" begin
+    # The round-off allowance τ slackens the *demanded* decrease, so it must never license a step
+    # whose merit is above φ(0). The bound is invisible in Float64 (τ/φ₀ ≈ 1e-15) and essential in
+    # Float16, where τ/φ₀ = 3.9e-3 is twenty times the 2c₁ = 2e-4 demanded at α = 1: an unbounded
+    # τ accepted α = 1 on this merit and reported it as a step.
+    for T in (Float64, Float32, Float16)
+        τ = 4 * eps(one(T))
+        # rises immediately, by less than τ — inside the unbounded allowance, outside the bounded one
+        creep = LinesearchProblem{T}((α, _) -> one(T) + (α > zero(α) ? τ / 2 : zero(T)), (α, _) -> -2one(T))
+        for m in (Backtracking(T), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+            st = solve_with_status(Linesearch(creep, m; verbosity=0), one(T))
+            @test !issufficient(st)                 # never reported as a genuine decrease
+            @test outcome(st) != LINESEARCH_DECREASED
+        end
+        # and the condition object itself rejects it at every α
+        sdc = SufficientDecreaseCondition(T(1e-4), one(T), -2one(T), α -> one(T) + τ / 2; τ=τ)
+        @test !sdc(one(T))
+        @test !sdc(T(1e-3))
+        @test !sdc(eps(T))
+    end
+end
+
+@testset "$(rpad("StrongWolfe reports a non-finite anchor instead of asserting", 80))" begin
+    # A `NaN` derivative is not `≥ zero(T)`, so it used to slip past StrongWolfe's descent check
+    # and trip `SufficientDecreaseCondition`'s `@assert !isnan(d₀)`, throwing an `AssertionError`
+    # out of the enclosing solve.  It now matches `Backtracking` on the same problems.
+    for (f, d) in (((α, _) -> NaN, (α, _) -> NaN), ((α, _) -> 1.0 - α, (α, _) -> NaN))
+        prob = LinesearchProblem{Float64}(f, d)
+        sw = solve_with_status(Linesearch(prob, StrongWolfe(); verbosity=0), 0.7)
+        bt = solve_with_status(Linesearch(prob, Backtracking(); verbosity=0), 0.7)
+        @test outcome(sw) == outcome(bt) == LINESEARCH_NO_DESCENT
+        @test steplength(sw) == steplength(bt) == 0.7
+    end
+end
+
+@testset "$(rpad("cost is independent of the merit's scale", 80))" begin
+    # φ(α) = c·(α-1)² has its minimiser at α = 1 for every c > 0, so neither the returned step
+    # nor the number of merit evaluations may depend on c.  `BierlaireQuadratic` used to cost 15
+    # / 70 / 14 evaluations at c = 1 / 1e-6 / 1e-12: at c = 1e-6 it stalled on a single point
+    # (evaluating α = 0.99999999999999911 thirty-plus times in a row) and ran out its budget.
+    for m in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        αs = Float64[]
+        counts = Int[]
+        for c in (1e-12, 1e-6, 1.0, 1e6, 1e12)
+            n = Ref(0)
+            prob = LinesearchProblem{Float64}((α, _) -> (n[] += 1; c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
+            push!(αs, solve(Linesearch(prob, m; verbosity=0), 0.5))
+            push!(counts, n[])
+        end
+        @test all(≈(first(αs)), αs)                        # same step at every scale
+        @test maximum(counts) - minimum(counts) ≤ 2        # and essentially the same cost
+        @test maximum(counts) ≤ 25
+    end
+end
+
+@testset "$(rpad("BierlaireQuadratic contracts its bracket every iteration", 80))" begin
+    # The no-stall canary for the scale at which it used to spin: no single α may be evaluated
+    # more than a couple of times.
+    for c in (1.0, 1e-6)
+        αs = Float64[]
+        prob = LinesearchProblem{Float64}((α, _) -> (push!(αs, α); c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
+        α = solve(Linesearch(prob, BierlaireQuadratic(); verbosity=0), 0.5)
+        @test α ≈ 1.0 atol = 1e-8
+        @test maximum(count(==(u), αs) for u in unique(αs)) ≤ 3
+        @test length(αs) ≤ 25
+    end
+end
+
+@testset "$(rpad("trials is a real evaluation count for every method", 80))" begin
+    # `trials` used to be a hardcoded 0 for Bisection/Quadratic/BierlaireQuadratic — so the
+    # round-off-floor message read "in 0 trial step(s)" — and StrongWolfe counted only its
+    # expansion loop, not its zoom phase.  What each method counts is the problem evaluations of
+    # its *own* iteration: the merit, except for `Bisection`, which drives on the derivative it
+    # bisects.  See the `trials` field of `LinesearchStatus`.
+    function counted(m)
+        nf, nd = Ref(0), Ref(0)
+        prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - 2α + 1000α^2),
+            (α, _) -> (nd[] += 1; -2.0 + 2000α))
+        st = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
+        (st, nf[], nd[])
+    end
+
+    # Backtracking and StrongWolfe drive on the merit alone, and their count is *exact*: every
+    # evaluation is either the α = 0 anchor or a counted trial.  StrongWolfe used to evaluate φ
+    # twice per trial — once directly, once inside the one-argument `sdc` — and once more when
+    # building its status, so this identity is the regression test for that fix.
+    for m in (Backtracking(), StrongWolfe())
+        st, nf, _ = counted(m)
+        @test trials(st) > 0
+        @test nf == trials(st) + 1
+    end
+
+    # The bracketing searches additionally spend evaluations inside `bracket_minimum` /
+    # `triple_point_finder`, which are not counted, so their `trials` is a lower bound on the
+    # total cost — but it is a real count of their own iteration, never zero and never inflated.
+    for m in (Quadratic(), BierlaireQuadratic())
+        st, nf, _ = counted(m)
+        @test 0 < trials(st) ≤ nf
+    end
+    let (st, _, nd) = counted(Bisection())
+        @test 0 < trials(st) ≤ nd
+    end
+end
+
+@testset "$(rpad("αmin is reported only where it means something", 80))" begin
+    # αmin is a shrinking-ladder quantity. `Backtracking` derives a real one; the bracketing and
+    # minimising searches have none, report zero, and must not name it in their messages.
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    @test solve_with_status(Linesearch(noise, Backtracking(); verbosity=0), 1.0).αmin > 0
+    for m in (StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        @test iszero(solve_with_status(Linesearch(noise, m; verbosity=0), 1.0).αmin)
+    end
+
+    # the verbosity-2 floor message names αmin for Backtracking, and reports the true trial count
+    msg = @test_logs (:warn, r"smallest informative step is αmin") match_mode = :any solve(
+        Linesearch(noise, Backtracking(); verbosity=2), 1.0)
+    @test msg isa Float64
+    # ... and the count is whatever the method really spent, which for `BierlaireQuadratic` on
+    # this merit is legitimately zero: `triple_point_finder` recognises the flat merit from the
+    # anchor and one probe, so the fit never runs. A *genuine* zero is fine; the defect was a
+    # hardcoded one, which the previous testset pins down on a merit that does iterate.
+    for m in (StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        st = solve_with_status(Linesearch(noise, m; verbosity=0), 1.0)
+        @test trials(st) ≥ 0
+        @test iszero(st.αmin)
     end
 end

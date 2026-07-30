@@ -85,13 +85,17 @@ end
 # conditions are checked through the shared `sdc`/`cc` condition objects.
 function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseCondition{T}, cc::CurvatureCondition{T}, αlo::T, αhi::T, φlo::T) where {T}
     αj = αlo
-    for _ in 1:config(ls).max_iterations
+    n = 0
+    for _ in 1:config(ls).linesearch_max_iterations
         αj = (αlo + αhi) / 2
         φj = φ(αj)
-        if !sdc(αj) || φj ≥ φlo
+        n += 1
+        # `sdc(αj, φj)` rather than `sdc(αj)`: the one-argument form would evaluate the merit a
+        # second time at the very point that was just evaluated, doubling the cost of the zoom.
+        if !sdc(αj, φj) || φj ≥ φlo
             αhi = αj
         else
-            cc(αj) && return αj
+            cc(αj) && return (αj, φj, n)
             dj = dφ(αj)
             if dj * (αhi - αlo) ≥ zero(T)
                 αhi = αlo
@@ -101,16 +105,25 @@ function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseConditio
         end
         isapprox(αhi, αlo; atol=eps(T)) && break
     end
-    αlo
+    # `φlo` tracks `αlo` through every update, so the merit at the returned step is known and the
+    # caller does not have to re-evaluate it.
+    (αlo, φlo, n)
 end
 
 """
     solve(ls::Linesearch{T,<:StrongWolfe}, α, params)
 
-Run the strong-Wolfe bracketing line search starting from the trial step `α`.
-See [`StrongWolfe`](@ref).
+Run the strong-Wolfe bracketing line search starting from the trial step `α`, report the
+outcome through [`linesearch_warnings`](@ref) and return the accepted step length.
+See [`StrongWolfe`](@ref) and [`solve_with_status`](@ref).
 """
 function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) where {T}
+    status = solve_with_status(ls, α, params)
+    linesearch_warnings(status, ls, params)
+    steplength(status)
+end
+
+function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) where {T}
     m = method(ls)
     c₁ = m.c₁
     c₂ = m.c₂
@@ -136,34 +149,59 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     φ0 = φ(zero(T))
     d0 = dφ(zero(T))
 
-    # The strong Wolfe conditions are only meaningful for a descent direction.
-    if d0 ≥ zero(T)
-        config(ls).verbosity ≥ 1 && @warn "StrongWolfe: φ'(0) = $(d0) ≥ 0 is not a descent direction; returning α = $(α)."
-        return α
-    end
+    # The strong Wolfe conditions are only meaningful for a finite, decreasing anchor. The
+    # former test was `d0 ≥ zero(T)`, which a `NaN` derivative slips past (`NaN ≥ 0` is false)
+    # only to trip `SufficientDecreaseCondition`'s `@assert !isnan(d₀)` below and abort the
+    # enclosing solve; `check_anchor` covers the non-finite case too.
+    anchor = check_anchor(φ0, d0, α)
+    isnothing(anchor) || return anchor
 
     # The strong Wolfe conditions are the Armijo (sufficient decrease) condition
-    # plus the strong curvature condition.
+    # plus the strong curvature condition. `StrongWolfe` keeps the *exact* Armijo test (τ = 0
+    # inside `sdc`); τ is used only to classify the outcome, i.e. to tell a step that genuinely
+    # decreased the merit from one accepted where nothing can decrease it.
+    τ = armijo_tolerance(φ0, armijo_ulps(T))
     sdc = SufficientDecreaseCondition(c₁, φ0, d0, φ)
     cc = CurvatureCondition(c₂, d0, dφ, Val(:Strong))
 
     αprev = zero(T)
     φprev = φ0
     αi = clamp(α > zero(T) ? α : one(T), eps(T), αmax)
-    αvalid = αi   # last trial step that satisfied sufficient decrease
+    αvalid = αi   # last trial step that satisfied sufficient decrease, and its merit
+    # Seeded with the anchor merit so that a zero `linesearch_max_iterations` — the only way to
+    # reach the tail without having recorded a pair — reports the floor rather than a stale value.
+    φvalid = φ0
 
-    for i in 1:config(ls).max_iterations
+    # `n` counts the trial steps α > 0 at which the merit was evaluated, for the status.
+    n = 0
+    # `_wolfe_zoom` returns its `αlo`, which is seeded with `αprev = 0` on the first expansion
+    # round, so a merit that fails sufficient decrease immediately can drive the zoom to return
+    # the α = 0 anchor. Returning that would freeze the outer iterate (`x .+= 0 .* d`), so the
+    # contract's α > 0 guarantee is enforced here: a non-positive result means no positive step
+    # improved the merit, which is the round-off floor, and the caller's trial step is returned.
+    # `φres` is always a merit the caller has already computed, never a fresh evaluation: for a
+    # `NonlinearSolver` that would be a full residual evaluation per solver step.
+    function wolfe_status(αres, φres, extra=0)
+        αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n + extra, φ0, d0, φ0, τ, zero(T))
+        LinesearchStatus{T}(αres, φres ≤ φ0 - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
+            n + extra, φ0, d0, φres, τ, zero(T))
+    end
+
+    for i in 1:config(ls).linesearch_max_iterations
         φi = φ(αi)
-        if !sdc(αi) || (i > 1 && φi ≥ φprev)
-            return _wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)
+        n += 1
+        # The two-argument `sdc` reuses `φi`; the one-argument form would evaluate the merit
+        # again at the same point.
+        if !sdc(αi, φi) || (i > 1 && φi ≥ φprev)
+            return wolfe_status(_wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)...)
         end
         # αi satisfies sufficient decrease from here on
-        cc(αi) && return αi
+        cc(αi) && return wolfe_status(αi, φi)
         di = dφ(αi)
         if di ≥ zero(T)
-            return _wolfe_zoom(ls, φ, dφ, sdc, cc, αi, αprev, φi)
+            return wolfe_status(_wolfe_zoom(ls, φ, dφ, sdc, cc, αi, αprev, φi)...)
         end
-        αvalid = αi
+        αvalid, φvalid = αi, φi
         # ascend toward αmax; stop expanding once the cap is reached
         αi == αmax && break
         αprev = αi
@@ -172,7 +210,10 @@ function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) 
     end
 
     # Return the last trial step that satisfied sufficient decrease — never the
-    # freshly-doubled, unchecked `αi` from the expansion, and never the zero step.
-    config(ls).verbosity ≥ 1 && @warn "StrongWolfe: no step satisfying the strong Wolfe conditions found within (0, $(αmax)]; returning the last sufficient-decrease step α = $(αvalid)."
-    αvalid
+    # freshly-doubled, unchecked `αi` from the expansion, and never the zero step. The strong
+    # curvature condition was never met, so this is reported as an exhausted search even though
+    # the step itself is Armijo-acceptable.
+    αvalid > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n, φ0, d0, φ0, τ, zero(T))
+    # `φvalid` was recorded alongside `αvalid`, so reporting it costs no extra evaluation.
+    LinesearchStatus{T}(αvalid, LINESEARCH_EXHAUSTED, n, φ0, d0, φvalid, τ, zero(T))
 end

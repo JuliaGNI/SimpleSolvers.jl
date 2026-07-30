@@ -12,6 +12,13 @@ search returns (e.g. the next `direction!` step and the convergence check), so
 writing trial iterates into them would be an aliasing hazard. The line search
 therefore only *reads* the current direction from the shared cache and the
 current iterate from `params.x`; every write goes to a closure-owned buffer.
+
+`params` may carry an optional `φ₀` field holding the merit at the ``\\alpha = 0``
+anchor. Every line search evaluates that anchor first, and it is exactly the residual
+the solver has *already* computed at the current iterate, so [`solver_step!`](@ref)
+passes it along and saves one `F` evaluation per solver step — the most expensive
+single operation for a large residual. A caller who drives `solver_step!` by hand from
+a state whose `value` is stale must not supply it.
 """
 function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
     # private scratch buffers for the line search (see the docstring for why)
@@ -20,6 +27,9 @@ function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache:
     jₜ = zero(jacobianmatrix(cache))
 
     function f(α::Number, params)
+        # `haskey` on a `NamedTuple` is resolved at compile time, so the guard costs nothing
+        # and the closure stays usable with the bare `(x, parameters)` form.
+        (iszero(α) && haskey(params, :φ₀)) && return convert(T, params.φ₀)
         compute_new_iterate!(xₜ, params.x, α, direction(cache))
         value!(yₜ, nlp, xₜ, params.parameters)
         L2norm(yₜ)

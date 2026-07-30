@@ -7,9 +7,15 @@ struct Picard <: NonlinearSolverMethod end
 
 const PicardSolver{T} = NonlinearSolver{T,Picard}
 
-function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT,CT}
-    config = Options(T; options_kwargs...)
+function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT, config::Options{T}; jacobian) where {T,AT<:AbstractVector{T},NLST,LiSeT<:Linesearch{T},CT}
     NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache, config; jacobian=jacobian, method=Picard())
+end
+
+# See the corresponding `NewtonSolver` method: the line search is rebuilt on the solver's
+# `Options` so that solver and line search cannot be configured inconsistently.
+function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT<:Linesearch{T},CT}
+    config = Options(T; options_kwargs...)
+    PicardSolver(x, nlp, with_config(linesearch, config), cache, config; jacobian=jacobian)
 end
 
 """
@@ -48,7 +54,8 @@ solve!(x, s, state)
  0.0
 ```
 """
-function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, jacobian=missing, kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, jacobian=missing, options_kwargs...) where {T,AT<:AbstractVector{T}}
+    config = Options(T; options_kwargs...)
     nlp = NonlinearProblem(F, DF!, x, y)
     jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)
@@ -56,8 +63,8 @@ function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, jacobian=missing
     # mandatory) `linesearch` field is filled with a trivial `Static` step.  A
     # `linesearch` keyword is deliberately not accepted — it would be silently
     # ignored (any stray keyword falls through to `Options` and errors there).
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)))
-    PicardSolver(x, nlp, ls, cache; jacobian=jacobian, kwargs...)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)), config)
+    PicardSolver(x, nlp, ls, cache, config; jacobian=jacobian)
 end
 
 function PicardSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
@@ -76,7 +83,9 @@ function direction!(it::PicardSolver, x::AbstractVector, params)
     direction!(direction(cache(it)), x, it, params)
 end
 
-direction!(it::PicardSolver, x::AbstractVector, params, iteration) = direction!(it, x, params)
+# The `iteration` and `stalled` arguments are part of the shared `direction!` interface; a
+# Picard step has no Jacobian to refactorize, so both are ignored.
+direction!(it::PicardSolver, x::AbstractVector, params, iteration; stalled::Bool=false) = direction!(it, x, params)
 
 "Backtracking shrink factor used by the [`PicardSolver`](@ref) residual safeguard."
 const DEFAULT_PICARD_BACKTRACKING_p = 0.5

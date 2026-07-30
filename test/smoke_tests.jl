@@ -6,6 +6,7 @@
 # were once broken have been fixed; every check below is a plain `@test`.
 
 using SimpleSolvers
+using SimpleSolvers: issufficient, isfloor, isconverged, isstalled, status
 using Test
 
 const T = Float64
@@ -115,6 +116,22 @@ end
     @test ls_prob isa LinesearchProblem
     @test Linesearch(ls_prob, Static()) isa Linesearch
     @test Linesearch(ls_prob) isa Linesearch
+    @test SimpleSolvers.with_config(Linesearch(ls_prob), Options(T)) isa Linesearch
+
+    # the status API is available for every line search method
+    for m in (Static(), Backtracking(), Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe())
+        st = solve_with_status(Linesearch(ls_prob, m; verbosity=0), one(T))
+        @test st isa LinesearchStatus
+        @test st.outcome isa LinesearchOutcome
+        @test issufficient(st) isa Bool
+        @test isfloor(st) isa Bool
+    end
+    @test LINESEARCH_DECREASED isa LinesearchOutcome
+    @test LINESEARCH_FLOOR isa LinesearchOutcome
+    @test LINESEARCH_EXHAUSTED isa LinesearchOutcome
+    @test LINESEARCH_NO_DESCENT isa LinesearchOutcome
+    @test LINESEARCH_STATIONARY isa LinesearchOutcome
+    @test LINESEARCH_UNKNOWN isa LinesearchOutcome
 end
 
 
@@ -123,6 +140,7 @@ end
     @test NonlinearProblem(F_vec!, J_vec!, xvec, xvec) isa NonlinearProblem
 
     @test Options() isa Options
+    @test Options(; linesearch_max_iterations=10, max_stalls=3) isa Options
     @test NonlinearSolverException("msg") isa NonlinearSolverException
     @test NonlinearSolverState(xvec) isa NonlinearSolverState
 
@@ -133,4 +151,10 @@ end
     @test DogLegSolver(xvec, yr; F=F_vec!) isa NonlinearSolver
 
     @test NonlinearSolver(Newton(), xvec, yr; F=F_vec!) isa NonlinearSolver
+
+    ns = NewtonSolver(xvec, yr; F=F_vec!, verbosity=0)
+    nstate = SolverState(ns)
+    @test status(ns, nstate) isa NonlinearSolverStatus
+    @test isconverged(status(ns, nstate)) isa Bool
+    @test isstalled(status(ns, nstate), SimpleSolvers.config(ns)) isa Bool
 end
