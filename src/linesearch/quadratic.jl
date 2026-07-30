@@ -1,18 +1,4 @@
 """
-This constant is used for [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) in double precision.
-
-In single precision we use [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION`](@ref).
-"""
-const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH = 20
-
-"See [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)."
-const MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION = 5
-
-max_number_of_quadratic_linesearch_iterations(::Type{Float16}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION
-max_number_of_quadratic_linesearch_iterations(::Type{Float32}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH_SINGLE_PRECISION
-max_number_of_quadratic_linesearch_iterations(::Type{Float64}) = MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH
-
-"""
 A factor by which `s` is reduced in each bracketing iteration (see [`bracket_minimum_with_fixed_point`](@ref)).
 """
 const DEFAULT_s_REDUCTION = 0.5
@@ -26,7 +12,8 @@ p(α) = p_0 + p_1(\alpha - \alpha_0) + p_2(\alpha - \alpha_0)^2.
 ```
 Performs multiple iterations in which all parameters ``p_0``, ``p_1`` and ``p_2`` are adapted.
 We do not check the [`SufficientDecreaseCondition`](@ref) here. We instead repeatedly build new quadratic polynomials until a minimum is found (to sufficient accuracy).
-The iteration may also stop after it reaches the maximum number of iterations (see [`MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH`](@ref)).
+The iteration may also stop after it reaches the maximum number of iterations, the
+`linesearch_max_iterations` field of [`Options`](@ref) (see [`linesearch_iterations`](@ref)).
 
 # Keywords
 
@@ -70,7 +57,7 @@ function solve(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters())
     α = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
     s = method(ls).s
 
-    for _ in 1:max_number_of_quadratic_linesearch_iterations(T)
+    for _ in 1:config(ls).linesearch_max_iterations
         # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
         # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
         # from the bracketing, so no re-evaluation is needed here.

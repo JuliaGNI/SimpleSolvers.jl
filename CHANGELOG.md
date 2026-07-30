@@ -93,9 +93,23 @@ better the initial guess is.
   nonlinear iteration; the `Backtracking` ladder, the `StrongWolfe` bracketing and zoom phases
   and `bisection` are bounded by `linesearch_max_iterations`. The default therefore drops from
   1000 to 60 for `Float64` — unobservable, since all of these loops terminate on their own
-  floor long before either bound. (`Quadratic`/`BierlaireQuadratic` keep their own
-  `max_number_of_quadratic_linesearch_iterations`: those are quadratic-*fit* counts, not shrink
-  ladders.)
+  floor long before either bound. `Quadratic` and `BierlaireQuadratic` are bounded by the same
+  field: the (unexported) `max_number_of_quadratic_linesearch_iterations` and the constants
+  `MAX_NUMBER_OF_ITERATIONS_FOR_QUADRATIC_LINESEARCH[_SINGLE_PRECISION]` are removed, so their
+  budget is now settable by the user like every other line search's.
+
+  This is the one place where the split *is* observable, and it is an improvement. Their budget
+  rises from 20 to 60 (`Float64`) and from 5 to 31/18 (`Float32`/`Float16`), which lets them
+  resolve the one-dimensional subproblem further. Measured over 300 random starting points on
+  the `exp(x)(x³ − 5x² + 2x) + 2` root-finding fixture, with `BierlaireQuadratic` as the
+  `NewtonSolver` line search, the 95th-percentile distance from the root drops from 1.9e6 to
+  9.7e3 `eps` with a fresh Jacobian and from 6.0e6 to 8.5e4 `eps` with `refactorize = 5`
+  (median 8599 → 1.0 `eps`), and three starting points that used to throw in
+  `triple_point_finder` no longer do. `Quadratic` improves too (95th percentile 9 → 2 and
+  55 → 17 `eps`). The improvement is distributional rather than uniform: a minority of starting
+  points end up slightly further from the root because the outer iteration now meets its
+  convergence test one step earlier, which is why the `BierlaireQuadratic` rows of
+  `test/nonlinear_solver_tests.jl` carry a looser fixture tolerance.
 - **A stagnating solve now stops after `max_stalls` steps instead of running to
   `max_iterations`.** A step is *stalled* when it did not move the iterate while the residual is
   not small — the exact logical complement of the existing `x_converged` gate, so stagnation

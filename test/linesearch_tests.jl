@@ -309,6 +309,20 @@ end
     @test SimpleSolvers.linesearch_iterations(Float64) == 60
     @test SimpleSolvers.linesearch_iterations(Float32) == 31
     @test SimpleSolvers.linesearch_iterations(Float16) == 18
+
+    # The quadratic searches are bounded by the same field (they used to carry their own
+    # `max_number_of_quadratic_linesearch_iterations`).  They converge on their `ε` tolerance
+    # long before the budget, so it acts purely as a backstop — but it is reachable, and it is
+    # now settable by the user like every other line search's.
+    quad = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> 2(α - 1.0))
+    for m in (Quadratic(), BierlaireQuadratic())
+        generous = solve(Linesearch(quad, m, Options(Float64; verbosity=0, linesearch_max_iterations=60)), 0.5)
+        @test generous ≈ 1.0 atol = 1e-8
+        # the default budget reaches the same answer, i.e. it is not the binding constraint
+        @test solve(Linesearch(quad, m; verbosity=0), 0.5) ≈ generous atol = 1e-12
+    end
+    # a budget of one iteration truncates the Bierlaire fit, proving the field reaches the loop
+    @test solve(Linesearch(quad, BierlaireQuadratic(), Options(Float64; verbosity=0, linesearch_max_iterations=1)), 0.5) ≉ 1.0
 end
 
 @testset "$(rpad("Quadratic Linesearch (Bierlaire)", 80))" begin

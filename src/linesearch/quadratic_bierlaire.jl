@@ -79,7 +79,7 @@ function solve(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params,
     # Iterate rather than recurse: the depth is bounded by the iteration
     # maximum either way, but a loop keeps the stack flat and lets the
     # triple (a, b, c) and its values persist across rounds.
-    for _ in iteration_number:(max_number_of_quadratic_linesearch_iterations(T) - 1)
+    for _ in iteration_number:(config(ls).linesearch_max_iterations - 1)
         # The denominator vanishes when the three points are (nearly) collinear, i.e.
         # the quadratic fit is degenerate and χ becomes Inf/NaN or falls outside the
         # bracket.  Guard on the *result* (finite and inside [a, c]) rather than a

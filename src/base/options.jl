@@ -87,9 +87,10 @@ double precision, 24 in single), and a [`bisection`](@ref) needs the same count 
 mantissa. We take that count plus a small margin; everything beyond it can only produce
 denormals.
 
-Note that [`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) are *not* bounded by this: they
-fit a quadratic rather than shrink a step, and keep their own
-`max_number_of_quadratic_linesearch_iterations`.
+[`Quadratic`](@ref) and [`BierlaireQuadratic`](@ref) are bounded by the same field even though
+they fit a quadratic rather than shrink a step: they converge on their own `ε` tolerance long
+before the budget, which serves only as a backstop, so there is no reason for them to carry a
+separate knob.
 
 Compare this to [`default_tolerance`](@ref) and [`absolute_tolerance`](@ref).
 
@@ -201,8 +202,9 @@ linesearch_max_iterations = 60
     `max_iterations` bounds the **outer** nonlinear iteration (see
     [`meets_stopping_criteria`](@ref)); `linesearch_max_iterations` bounds the **inner**,
     one-dimensional line search taken within a single solver step — the
-    [`Backtracking`](@ref) ladder, the [`StrongWolfe`](@ref) bracketing and zoom phases, and
-    [`bisection`](@ref). These used to be the same field, which meant that capping the solver
+    [`Backtracking`](@ref) ladder, the [`StrongWolfe`](@ref) bracketing and zoom phases,
+    [`bisection`](@ref), and the [`Quadratic`](@ref)/[`BierlaireQuadratic`](@ref) fits. These
+    used to be the same field, which meant that capping the solver
     at `max_iterations = 50` silently also capped the ladder, and that the default of 1000 was
     applied to a ladder which can never need more than ``\\lceil-\\log_2\\varepsilon\\rceil``
     trials. See [`linesearch_iterations`](@ref).
