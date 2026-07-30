@@ -64,7 +64,7 @@ The keys are:
 - `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": the constant ``c_1`` in the [`SufficientDecreaseCondition`](@ref) (Armijo condition). Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": an *upper bound* on the factor by which ``\alpha`` is decreased in every step until the stopping criterion is satisfied. The actual factor is chosen by interpolation and confined to ``[`` [`BACKTRACKING_SHRINK_MIN`](@ref) ``\cdot\alpha, p\alpha]``, so the trial sequence is never longer than the plain ``\alpha \gets p\alpha`` ladder.
-- `τ_ulps`=""" * string(DEFAULT_ARMIJO_τ_ULPS) * raw""": the round-off resolution of the merit, in units in the last place of ``\varphi(0)``. It slackens the [`SufficientDecreaseCondition`](@ref) (never past ``\varphi(0)``), fixes ``\alpha_\mathrm{min}``, and separates a genuine decrease from one within the noise. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref).
+- `τ_ulps`=[`armijo_ulps`](@ref)`(T, c₁)` (""" * string(DEFAULT_ARMIJO_τ_ULPS) * raw""" in `Float64` and `Float32`, less in `Float16`): the round-off resolution of the merit, in units in the last place of ``\varphi(0)``. It slackens the [`SufficientDecreaseCondition`](@ref) (never past ``\varphi(0)``), fixes ``\alpha_\mathrm{min}``, and separates a genuine decrease from one within the noise. A value larger than [`armijo_ulps`](@ref)`(T, c₁)` is capped to it, since above that ``\tau`` would swamp the decrease the condition demands. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref).
 
 # Implementation
 
@@ -119,11 +119,14 @@ struct Backtracking{T} <: LinesearchMethod{T}
     p::T
     τ_ulps::T
 
-    function Backtracking{T}(α₀::T, c₁::T, c₂::T, p::T, τ_ulps::T=T(DEFAULT_ARMIJO_τ_ULPS)) where {T}
+    function Backtracking{T}(α₀::T, c₁::T, c₂::T, p::T, τ_ulps::T=armijo_ulps(T, c₁)) where {T}
         @assert 0 < p < 1 "The shrinking parameter needs to satisfy 0 < p < 1, it is $(p)."
         @assert 0 < c₁ < c₂ < 1 "The Wolfe constants need to satisfy 0 < c₁ < c₂ < 1, they are c₁ = $(c₁), c₂ = $(c₂)."
-        @assert τ_ulps ≥ 0 "The round-off allowance needs to be nonnegative, it is $(τ_ulps) ulps."
-        new{T}(α₀, c₁, c₂, p, τ_ulps)
+        @assert τ_ulps ≥ 0 "The round-off resolution needs to be nonnegative, it is $(τ_ulps) ulps."
+        # Capped here rather than only in the keyword constructor, so that *every* path into a
+        # `Backtracking{T}` — including `change_precision`, which converts a method built for a
+        # different `T` — gets a resolution the element type can support. See `armijo_ulps`.
+        new{T}(α₀, c₁, c₂, p, min(τ_ulps, armijo_ulps(T, c₁)))
     end
 end
 
@@ -132,7 +135,7 @@ function Backtracking(::Type{T}=Float64;
     c₁=T(DEFAULT_WOLFE_c₁),
     c₂=T(DEFAULT_WOLFE_c₂),
     p=T(DEFAULT_ARMIJO_p),
-    τ_ulps=T(DEFAULT_ARMIJO_τ_ULPS)
+    τ_ulps=armijo_ulps(T, c₁)
 ) where {T}
     Backtracking{T}(α₀, c₁, c₂, p, τ_ulps)
 end

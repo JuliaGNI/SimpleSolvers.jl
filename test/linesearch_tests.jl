@@ -8,7 +8,7 @@ using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, lines
 using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_finder
 using SimpleSolvers: CurvatureCondition, SufficientDecreaseCondition
 using SimpleSolvers: issufficient, isfloor
-using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, backtracking_αmin,
+using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps, backtracking_αmin,
     backtracking_interpolation, with_config, problem, method, config
 
 f(x) = x^2 - 1
@@ -817,6 +817,68 @@ end
             end
         end
     end
+end
+
+@testset "$(rpad("armijo_ulps caps the round-off resolution at what the precision supports", 80))" begin
+    # τ = τ_ulps·ulp(φ₀) has to be at least ~an ulp to recognise a merit at its round-off floor,
+    # and far below the decrease the Armijo condition demands at α = 1 (2c₁·φ₀ for the canonical
+    # ‖F‖² Newton merit) to leave that condition meaningful.  Those are compatible only while
+    # eps(T) ≪ 2c₁ — true by a wide margin in Float64, comfortably in Float32, and *false* in
+    # Float16, where eps = 9.8e-4 already exceeds 2c₁ = 2e-4.  `armijo_ulps` caps the nominal 4
+    # accordingly, which is a no-op in the two precisions that can afford it.
+    @test armijo_ulps(Float64) == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
+    @test armijo_ulps(Float32) == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
+    @test armijo_ulps(Float16) < 1                       # no room for even a single ulp
+    @test armijo_ulps(Float16) > 0
+
+    for T in (Float64, Float32, Float16)
+        c₁ = T(SimpleSolvers.DEFAULT_WOLFE_c₁)
+        τ = armijo_tolerance(one(T), armijo_ulps(T))
+        demanded = 2 * c₁                                # the decrease demanded at α = 1
+        # the invariant the cap exists for; the slack absorbs the rounding of the cap itself,
+        # which in Float16 is computed in Float16
+        @test τ ≤ 1.1 * SimpleSolvers.ARMIJO_τ_DEMAND_FRACTION * demanded
+        # ... and a tighter c₁ tightens the cap rather than being ignored
+        @test armijo_ulps(T, c₁ / 1000) ≤ armijo_ulps(T, c₁)
+    end
+
+    # The cap is applied by the inner constructor, so *every* path into a `Backtracking{T}` gets
+    # a resolution the element type supports — including `change_precision`, which converts a
+    # method built for a different `T`, and an explicit value that is too large.
+    for T in (Float64, Float32, Float16)
+        @test Backtracking(T).τ_ulps == armijo_ulps(T, T(SimpleSolvers.DEFAULT_WOLFE_c₁))
+        @test change_precision(T, Backtracking()).τ_ulps == Backtracking(T).τ_ulps
+        @test Backtracking(T; τ_ulps=T(4)).τ_ulps ≤ armijo_ulps(T)
+        @test Backtracking(T; τ_ulps=zero(T)).τ_ulps == 0   # opting out still works
+    end
+end
+
+@testset "$(rpad("a small but genuine Float16 decrease is a decrease, not the floor", 80))" begin
+    # With the nominal 4 ulps, τ/φ₀ = 3.9e-3 in Float16 — twenty times the 2c₁ = 2e-4 the
+    # condition demands at α = 1.  A merit that really did decrease by two ulps was then
+    # classified `LINESEARCH_FLOOR`, which `solver_step!` feeds to `flag_stall!`: two such steps
+    # and a *converging* solve was reported as stagnated.  The cap fixes the classification.
+    T = Float16
+    φ = α -> one(T) - T(0.004) * α + T(0.002) * α^2       # minimum at α = 1, φ(1) = 0.998
+    prob = LinesearchProblem{T}((α, _) -> φ(α), (α, _) -> -T(0.004) + T(0.004) * α)
+
+    decrease = φ(zero(T)) - φ(one(T))
+    @test decrease == 2 * eps(T)                          # two ulps: the smallest Float16 can show
+
+    τ = armijo_tolerance(one(T), armijo_ulps(T))
+    τnominal = armijo_tolerance(one(T), T(SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS))
+    @test φ(one(T)) ≤ φ(zero(T)) - τ                      # counts as a decrease with the cap ...
+    @test !(φ(one(T)) ≤ φ(zero(T)) - τnominal)            # ... and did not without it
+
+    # the two methods that actually run an Armijo test report it as progress
+    for m in (Backtracking(T), StrongWolfe(T))
+        st = solve_with_status(Linesearch(prob, m; verbosity=0), one(T))
+        @test issufficient(st)
+        @test outcome(st) == LINESEARCH_DECREASED
+    end
+
+    # and Float64 is untouched: the same relative decrease is far above its τ either way
+    @test armijo_tolerance(1.0, armijo_ulps(Float64)) == armijo_tolerance(1.0, 4)
 end
 
 @testset "$(rpad("no method accepts a step that increases the merit", 80))" begin

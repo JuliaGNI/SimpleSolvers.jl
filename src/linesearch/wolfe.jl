@@ -160,7 +160,7 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     # plus the strong curvature condition. `StrongWolfe` keeps the *exact* Armijo test (τ = 0
     # inside `sdc`); τ is used only to classify the outcome, i.e. to tell a step that genuinely
     # decreased the merit from one accepted where nothing can decrease it.
-    τ = armijo_tolerance(φ0, T(DEFAULT_ARMIJO_τ_ULPS))
+    τ = armijo_tolerance(φ0, armijo_ulps(T))
     sdc = SufficientDecreaseCondition(c₁, φ0, d0, φ)
     cc = CurvatureCondition(c₂, d0, dφ, Val(:Strong))
 

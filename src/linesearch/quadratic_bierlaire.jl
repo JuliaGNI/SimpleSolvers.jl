@@ -174,7 +174,7 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     anchor = check_anchor(φ₀, d₀, α₀)
     isnothing(anchor) || return anchor
 
-    τ = armijo_tolerance(φ₀, T(DEFAULT_ARMIJO_τ_ULPS))
+    τ = armijo_tolerance(φ₀, armijo_ulps(T))
 
     # Near-stationarity shortcut: the minimum along this direction has already been reached.
     l2norm(derivative(prob, α₀, params)) < method(ls).ξ &&

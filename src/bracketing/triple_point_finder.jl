@@ -66,7 +66,7 @@ function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_
         # the wrong answer when the rise is within round-off of `f(x₀)`: the merit then simply
         # does not resolve a decrease here, and a *smaller* δ is strictly less informative, so
         # the remaining halvings are wasted evaluations that end in the same failure.
-        fx₁ ≤ fx₀ + armijo_tolerance(fx₀, DEFAULT_ARMIJO_τ_ULPS) && return :flat
+        fx₁ ≤ fx₀ + armijo_tolerance(fx₀, armijo_ulps(typeof(fx₀))) && return :flat
         adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS && return :unbracketable
         return triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end

@@ -68,7 +68,7 @@ function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullP
     anchor = check_anchor(φ₀, d₀, α₀)
     isnothing(anchor) || return anchor
 
-    τ = armijo_tolerance(φ₀, T(DEFAULT_ARMIJO_τ_ULPS))
+    τ = armijo_tolerance(φ₀, armijo_ulps(T))
     αres, n = _quadratic_search(ls, α₀, params)
 
     # `bracket_minimum_with_fixed_point` flips direction when the merit rises to the right of

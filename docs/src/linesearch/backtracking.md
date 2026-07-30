@@ -151,10 +151,17 @@ still searched at all).
 The ``\min`` against ``\varphi(0)`` is what makes those trial steps harmless. Where the
 right-hand side has degenerated, the condition reduces to plain monotonicity
 ``\varphi(\alpha) \leq \varphi(0)``: it can accept a non-increase but never an increase, and such
-an accept is classified `LINESEARCH_FLOOR` rather than reported as a decrease. Without the
-``\min`` the allowance would license a step whose merit is up to ``\tau`` *above* ``\varphi(0)``
-— irrelevant at ``10^{-16}`` relative in double precision, but ``3.9\cdot10^{-3}`` in `Float16`,
-twenty times the ``2c_1`` the condition demands at ``\alpha = 1``.
+an accept is classified `LINESEARCH_FLOOR` rather than reported as a decrease.
+
+`τ_ulps` itself is precision-aware, because ``\tau`` has to be at least an ulp or so of
+``\varphi(0)`` to recognise the floor *and* far below the ``2c_1\varphi(0)`` the condition demands
+at ``\alpha = 1`` to leave that condition meaningful. Those are compatible only while
+``\mathrm{eps}(T) \ll 2c_1``, which is true by ten orders of magnitude in double precision and
+false in `Float16`; [`SimpleSolvers.armijo_ulps`](@ref) caps the nominal 4 ulps accordingly, a
+no-op in `Float64` and `Float32`. Without the cap a `Float16` merit that genuinely decreased by
+two ulps — the smallest that precision can express — was reported as `LINESEARCH_FLOOR`, which a
+[`NonlinearSolver`](@ref) counts towards `max_stalls`, so a converging solve could be reported as
+stagnated.
 
 The situation is reported rather than hidden. [`solve_with_status`](@ref) returns a
 [`LinesearchStatus`](@ref) whose [`LinesearchOutcome`](@ref) distinguishes a step that

@@ -64,9 +64,24 @@ better the initial guess is.
   caller already computed, so neither `Backtracking` nor `StrongWolfe` evaluates the merit twice
   per trial. `StrongWolfe` keeps `τ = 0`. The condition is
   `fα ≤ min(f₀, f₀ + cαd₀ + τ)`: the allowance may reduce the decrease *demanded*, but it never
-  accepts a step whose merit exceeds `f₀`. The `min` is inactive in double precision and
-  necessary in `Float16`, where four ulps of `f₀` is `3.9e-3` — twenty times the `2c₁ = 2e-4`
-  demanded at `α = 1`, so an unbounded `τ` would license a visible uphill step.
+  accepts a step whose merit exceeds `f₀`.
+- `armijo_ulps(T[, c₁])` makes the round-off resolution **precision-aware**, and is what every
+  method now uses in place of the bare `DEFAULT_ARMIJO_τ_ULPS`. `τ` must be at least ~an ulp of
+  `φ(0)` to recognise a merit at its round-off floor, and far below the `2c₁·φ(0)` the condition
+  demands at `α = 1` to leave that condition meaningful; the two are compatible only while
+  `eps(T) ≪ 2c₁`. That holds by ~10 orders of magnitude in `Float64` and by a factor 400 in
+  `Float32`, so the nominal 4 ulps stands in both and their behaviour is bit-identical to before.
+  It fails outright in `Float16`, where `eps(T) = 9.8e-4` already exceeds `2c₁ = 2e-4`: the
+  nominal `τ` was *twenty times* the demanded decrease, which degenerated the Armijo test to
+  plain monotonicity at every `α` and — worse — classified a genuine two-ulp decrease as
+  `LINESEARCH_FLOOR`, which `solver_step!` feeds to `flag_stall!`, so a *converging* half-precision
+  solve could be reported as stagnated. The cap (`ARMIJO_τ_DEMAND_FRACTION = 0.01`, i.e. `τ` may
+  distort the demanded decrease by at most one percent) drops `Float16` to ~2e-3 ulps, in effect
+  the exact condition. Nothing is lost: the floor is still detected without `τ`, both by the
+  condition degenerating to `φ(α) ≤ φ(0)` at a small enough trial step and by `Backtracking`'s
+  two-consecutive-bit-identical-merits check. `Backtracking` applies the cap in its inner
+  constructor, so every path in — including `change_precision` and an explicitly oversized
+  `τ_ulps` — gets a resolution the element type can support.
 - `Options` gained `linesearch_max_iterations` (default `linesearch_iterations(T)`: 60 for
   `Float64`, 31 for `Float32`, 18 for `Float16`) and `max_stalls` (default `MAX_STALLS = 2`).
 - `SimpleSolvers.with_config(ls, config)` returns a `Linesearch` with the problem and method of

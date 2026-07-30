@@ -75,19 +75,20 @@ end
 @doc raw"""
     const DEFAULT_ARMIJO_τ_ULPS
 
-The number of units in the last place (ulps) of ``\varphi(0)`` taken as the round-off
+The *nominal* number of units in the last place (ulps) of ``\varphi(0)`` taken as the round-off
 resolution ``\tau`` of a merit function, i.e.
 ``\tau = \mathrm{DEFAULT\_ARMIJO\_τ\_ULPS}\cdot\mathrm{ulp}(\varphi(0))``
 (see [`armijo_tolerance`](@ref)). Its value is """ * """$(DEFAULT_ARMIJO_τ_ULPS)""" * raw""".
+
+Use [`armijo_ulps`](@ref) rather than this constant: it caps the nominal value at what the
+element type can actually support, which matters in `Float16`.
 
 ``\tau`` is used for three things, and it is worth keeping them apart:
 
 1. it slackens the [`SufficientDecreaseCondition`](@ref) inside [`Backtracking`](@ref) to
    ``\varphi(\alpha) \leq \min\{\varphi(0),\ \varphi(0) + c_1\alpha\varphi'(0) + \tau\}``.
    The ``\min`` is what keeps the allowance honest: it may reduce the decrease *demanded*, but
-   it can never license a step whose merit *exceeds* ``\varphi(0)``. Without it the condition
-   would accept an increase of up to ``\tau``, which is negligible in double precision but
-   larger than the demanded ``2c_1\varphi(0)`` in `Float16`;
+   it can never license a step whose merit *exceeds* ``\varphi(0)``;
 2. it fixes the smallest *informative* trial step ``\alpha_\mathrm{min}`` below which the
    condition could only be decided by rounding (see [`backtracking_αmin`](@ref));
 3. every [`LinesearchMethod`](@ref) uses it to decide whether an accepted step's decrease was
@@ -99,11 +100,77 @@ Set `τ_ulps = 0` in [`Backtracking`](@ref) to recover the exact condition for (
 const DEFAULT_ARMIJO_τ_ULPS = 4
 
 @doc raw"""
+    const ARMIJO_τ_DEMAND_FRACTION
+
+The largest fraction of the *demanded* decrease that the round-off resolution ``\tau`` is
+allowed to amount to, used by [`armijo_ulps`](@ref) to cap ``\tau`` in low precision. Its value
+is """ * """$(ARMIJO_τ_DEMAND_FRACTION)""" * raw""", i.e. ``\tau`` may distort the
+[`SufficientDecreaseCondition`](@ref) by at most one percent.
+"""
+const ARMIJO_τ_DEMAND_FRACTION = 0.01
+
+@doc raw"""
+    armijo_ulps(T, c₁)
+    armijo_ulps(T)
+
+The number of ulps of ``\varphi(0)`` to use as the round-off resolution ``\tau`` for element
+type `T`: the nominal [`DEFAULT_ARMIJO_τ_ULPS`](@ref), capped at what `T` can support. The
+one-argument form uses [`DEFAULT_WOLFE_c₁`](@ref).
+
+``\tau`` has to satisfy two requirements that pull in opposite directions. To recognise a merit
+sitting at its round-off floor it must be *at least* an ulp or so of ``\varphi(0)``. To leave the
+[`SufficientDecreaseCondition`](@ref) meaningful it must be *far below* the decrease that
+condition demands, which for the canonical ``\|F\|^2`` merit of a Newton step
+(``\varphi'(0) = -2\varphi(0)``) is ``2c_1\varphi(0)`` at ``\alpha = 1``. Hence the cap
+
+```math
+n \leq \frac{\mathtt{ARMIJO\_τ\_DEMAND\_FRACTION}\cdot 2c_1}{\mathrm{eps}(T)} .
+```
+
+The two requirements are compatible only while ``\mathrm{eps}(T) \ll 2c_1``. They are, by a wide
+margin, in double precision (the cap is ``\sim10^{10}``) and comfortably in single (``\sim17``),
+so the nominal 4 stands in both. They are *not* in `Float16`, where ``\mathrm{eps}(T) = 9.8
+\cdot 10^{-4}`` already exceeds ``2c_1 = 2\cdot10^{-4}``: no value of `τ_ulps` above zero can
+satisfy both, so the cap resolves the conflict in favour of a meaningful condition and drops
+``\tau`` to about ``2\cdot10^{-3}`` ulps — in effect the exact condition.
+
+Nothing is lost by that. The floor is still detected, by two mechanisms that do not depend on
+``\tau``: at a trial step small enough that ``\mathrm{fl}(\varphi(0) + c_1\alpha\varphi'(0))``
+rounds back to ``\varphi(0)`` the condition *is* ``\varphi(\alpha) \leq \varphi(0)``, and
+[`Backtracking`](@ref) additionally stops on two consecutive bit-identical merits. What is gained
+is that a genuine decrease of one or two ulps — the smallest a `Float16` merit can express — is
+reported as `LINESEARCH_DECREASED` instead of as `LINESEARCH_FLOOR`, which the outer iteration
+would otherwise count towards `max_stalls`.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers: armijo_ulps)
+julia> armijo_ulps(Float64), armijo_ulps(Float32)
+(4.0, 4.0f0)
+```
+
+```jldoctest; setup = :(using SimpleSolvers: armijo_ulps)
+julia> armijo_ulps(Float16)
+Float16(0.002075)
+```
+"""
+function armijo_ulps(::Type{T}, c₁) where {T<:AbstractFloat}
+    # the decrease demanded at α = 1, relative to φ(0), for φ'(0) = -2φ(0)
+    demanded = 2 * T(c₁)
+    min(T(DEFAULT_ARMIJO_τ_ULPS), T(ARMIJO_τ_DEMAND_FRACTION) * demanded / eps(T))
+end
+
+# `DEFAULT_WOLFE_c₁` is defined with the other Wolfe constants in `linesearch/backtracking.jl`,
+# which is included after this file; the reference is resolved at call time, not here.
+armijo_ulps(::Type{T}) where {T<:AbstractFloat} = armijo_ulps(T, T(DEFAULT_WOLFE_c₁))
+
+@doc raw"""
     armijo_tolerance(φ₀, n)
 
 The absolute round-off resolution ``\tau = n\cdot\mathrm{ulp}(\varphi_0)`` of a merit function,
-where `n` is a number of units in the last place. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref) for what
-it is used for and [`backtracking_αmin`](@ref) for the step length derived from it.
+where `n` is a number of units in the last place — [`armijo_ulps`](@ref) for the default.
+See [`DEFAULT_ARMIJO_τ_ULPS`](@ref) for what it is used for and [`backtracking_αmin`](@ref) for
+the step length derived from it.
 
 This lives here rather than next to [`Backtracking`](@ref) because
 [`triple_point_finder`](@ref) needs it too, and `bracketing/` is included before
