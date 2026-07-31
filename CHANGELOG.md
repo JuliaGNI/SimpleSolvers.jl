@@ -2,6 +2,102 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.10.1]
+
+Compile-time and allocation fixes. No behaviour change: the same messages, at the same `verbosity`
+gates, with the same `maxlog` caps, and every test from 0.10.0 passes unedited.
+
+### The defect
+
+`SimpleSolvers.linesearch_warnings` is called from `solver_step!` on every iteration of every
+solve, and its arguments are a `Linesearch` — which carries the closure types of its
+`LinesearchProblem` — and a `NamedTuple` of parameters. It is therefore re-specialized for every
+*problem* a solver is built for, and because the four `@warn` sites lived directly in its body,
+so did all of their `Base.CoreLogging` and string-interpolation code: re-inferred and
+re-codegen'd from scratch for each one. 0.9.2 had two short `@warn`s inline in `Backtracking`'s
+`solve`; the 0.10.0 rewrite multiplied the message code roughly fivefold without changing where
+it is specialized, so what had been a tolerable per-solver cost became the dominant one.
+
+This is invisible in steady-state timings — a solve takes about a millisecond — and shows up
+only where many solvers with distinct residual closures are built in one session. On
+GeometricIntegrators' Runge-Kutta test suite, which builds one implicit integrator per tableau
+(`Gauss(1)` … `Gauss(8)`, the `LobattoIII` and `Radau` families, `PGLRK`), it cost **76 s of the
+suite's 145 s** — more than the whole rest of the line search and the Newton step together, and
+96.9 % of the suite was compilation.
+
+### Fixed
+
+- The messages moved behind a `@noinline` function barrier,
+  `SimpleSolvers.report_linesearch_status(status, name::Symbol, config::Options)`, which mentions
+  no closure type and is therefore compiled exactly **once per element type for the whole
+  session** instead of once per solver. `linesearch_warnings` remains the only place a line
+  search emits messages, and is now a thin wrapper around the barrier plus the
+  verbosity-2-gated `curvature_diagnostic` (which genuinely needs the `Linesearch` and the
+  parameters, and costs nothing). The Runge-Kutta suite above went to **67 s**, with all 107
+  assertions passing — recovering the entire regression. `nonlinear_solver_warnings` and
+  `print_status` already had this shape, which is why they never cost anything.
+- The same idiom was applied to every other message whose enclosing function is specialized on a
+  merit closure or on a solver, so that no reporting site in the package grows with the number of
+  solvers built: `curvature_diagnostic`'s message (`report_curvature_violation`, which is called
+  from `linesearch_warnings` itself and was therefore the last per-solver message on that path),
+  the two `bisection` messages (`report_bisection_nonconvergence`, `report_bisection_nobracket`),
+  the three `DogLeg` ones (`report_dogleg_singular`, `report_dogleg_nan`,
+  `report_dogleg_underflow`), `nan_recovery!`'s (`report_nan_direction`) and the `NewtonSolver`
+  constructor's (`report_static_refactorize`). These messages are short, so the saving beyond
+  `report_linesearch_status` is small; the point is that the whole package now has one idiom for
+  reporting and no site that grows per solver.
+- `linesearch_warnings` filters the two silent outcomes (`LINESEARCH_DECREASED`,
+  `LINESEARCH_UNKNOWN`) before calling the barrier as well as inside it, so the path a healthy
+  solve takes on every iteration does not make a call that would copy the 27-field `Options` for
+  the callee.
+- The `LINESEARCH_FLOOR` message's `αmin` clause and both wordings of the `LINESEARCH_EXHAUSTED`
+  message are interpolated *inside* their `@warn` rather than into a temporary before the verbosity
+  gate. Julia evaluates a `@warn` message only once the gate and `maxlog` have both passed, and a
+  solve that cannot progress reports the same outcome on every iteration, so the temporaries were
+  built and discarded once per iteration: 272 B per call for `EXHAUSTED` at *every* verbosity once
+  its `maxlog = 3` was spent, and 704 B per call for `FLOOR` at `verbosity = 2`. Present since
+  0.10.0.
+- **A converged solve no longer touches the heap** for any solver or line search (up to
+  ForwardDiff's own chunk-mode Jacobian, which allocates array wrappers above `n = 12`):
+  - `BierlaireQuadratic`: 256 B per solve → 0. `_bierlaire_fit` both captured and mutated its
+    evaluation counter in the merit closure, which boxes it and makes the `trials` of every
+    `LinesearchStatus` built from the fit inferred-`Any`; and `triple_point_finder`'s
+    `Union{Symbol,Tuple}` return had to be boxed. The bracketing loop moved into a type-stable
+    `_triple_point_core` returning `(a, b, c, status)`, the same split `bisection` and
+    `_bisection_core` already use; `triple_point_finder` keeps its documented return.
+  - `StrongWolfe`: 256 B and 12 allocations per line search → 48 B and one. `wolfe_status` now
+    takes the evaluation counter rather than capturing it, and the one-slot memo of φ and φ′ is a
+    single holder instead of four `Ref`s. One allocation per line search remains by design: the
+    closures that read the memo are handed to `_wolfe_zoom` and to the condition objects, so it
+    cannot stay on the stack.
+
+The barriers are internal and unexported. The contract is pinned down in both directions, and
+without counting specializations: `test/linesearch_tests.jl` checks the *types* in
+`report_linesearch_status`' signature, which bounds its specialization set to one per element type
+by construction rather than sampling a couple of closures, and `test/logging_code.jl` scans the
+lowered code of every reporter and every per-solver caller for `Base.CoreLogging`, asserting that
+the messages are in the barriers and nowhere else. Since the verbosity gates moved with the
+messages, the four reporters whose gate can be reached from a constructed problem — the two
+`bisection` ones and `DogLeg`'s singular-Jacobian and NaN-merit ones — are additionally driven at
+their documented verbosity and one below, so that a wrong gate in a future edit is not silent. The
+message texts whose interpolation moved are pinned by text, and a silent reporter is asserted to
+allocate nothing.
+
+The allocation fixes are pinned by their *causes* rather than by byte counts, because the suite runs
+under the `--check-bounds=yes` that `julia-actions/julia-runtest` passes, which inhibits the inlining
+that keeps these closures off the heap and makes any fixed number meaningless: `test/lowered_code.jl`
+scans lowered code for the `Core.Box` that a captured-and-mutated local produces, for every
+line-search and solver kernel, and the returns whose boxing propagated are `@inferred`. Both hold
+however the session was started. The end-to-end byte counts are asserted too, and skipped when the
+session does not compile the package the way a caller does.
+
+### Changed
+
+- **The minimum Julia version is now 1.10** (was 1.6). 1.6 has been out of support for some time,
+  CI has tested only 1.10 and newer for a while so the old bound was not exercised by anything,
+  and both GeometricIntegratorsBase and GeometricIntegrators already require 1.10, so nothing
+  downstream can be on less.
+
 ## [0.10.0]
 
 Robustness release for the `Backtracking` line search. Downstream packages

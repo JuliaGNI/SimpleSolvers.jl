@@ -13,6 +13,9 @@ using Test
 using Random
 using ForwardDiff
 using LinearAlgebra: SingularException
+
+include("lowered_code.jl")
+
 Random.seed!(1234)
 
 @testset "Stagnation is not reported as convergence" begin
@@ -1152,4 +1155,80 @@ end
     solve!(x2, s2, state2)
     @test isstalled(status(s2, state2), config(s2))
     @test iteration_number(state2) < config(s2).max_iterations
+end
+
+@testset "$(rpad("the solver messages are compiled once, not once per solver", 80))" begin
+    # `directions!`, `solver_step!`, `nan_recovery!` and the `NewtonSolver` constructor are all
+    # specialized on the solver, which carries the closure types of its `NonlinearProblem` and
+    # `Jacobian` — so a message in any of their bodies is re-inferred and re-codegen'd once per
+    # problem a solver is built for. Every one of them therefore delegates to a `@noinline` reporter
+    # taking nothing but numbers and the `Options`. See `report_linesearch_status` for why, and
+    # `test/logging_code.jl` for the check.
+    for f in (SimpleSolvers.report_dogleg_singular, SimpleSolvers.report_dogleg_nan,
+        SimpleSolvers.report_dogleg_underflow, SimpleSolvers.report_nan_direction,
+        SimpleSolvers.report_static_refactorize,
+        # `nonlinear_solver_warnings` is the outer iteration's own barrier: it takes a
+        # `NonlinearSolverStatus` and an `Options`, never the solver, and so has always been
+        # compiled once per element type rather than once per problem.
+        nonlinear_solver_warnings)
+        @test has_logging_code(f)
+    end
+    for f in (SimpleSolvers.directions!, solver_step!, SimpleSolvers.nan_recovery!)
+        @test !has_logging_code(f)
+    end
+
+    # Now that the gates live in the reporters rather than at the site that decides to report, pin
+    # them: each message fires at its documented verbosity and is silent one below. Neither of the
+    # two below carries `maxlog`, so unlike the line-search messages this is repeatable within a
+    # session.
+    #
+    # `report_dogleg_underflow` is not pinned this way: a collapsed trust-region radius needs a
+    # merit that is finite and non-decreasing along every direction the method tries, and every
+    # constructible candidate is caught first by the singular-Jacobian fallback and the stall
+    # counter, which end the solve before Δ reaches `eps`. It is a defensive path; the scan above
+    # still asserts that its message lives in a barrier rather than in `solver_step!`.
+
+    # A Jacobian that is singular at x₀ — the scenario of "DogLeg falls back to steepest descent on
+    # a singular Jacobian" above, rerun for its message alone.
+    Fsing(y, x, p) = (y[1] = x[1]^2; y[2] = x[2]; y)
+    singular(v) = function ()
+        x = [0.0, 1.0]
+        solve!(x, DogLegSolver(x, Fsing, zero(x); verbosity=v))
+    end
+    @test logged_any(singular(2), "singular Jacobian")
+    @test !logged_any(singular(1), "singular Jacobian")
+
+    # A merit that is NaN at the full trial step, so the trust-region radius shrinks: the
+    # domain-restricted log used by the Newton NaN-damping testset above, whose Newton step from
+    # x₀ = 1 lands at x = -1 where F is undefined.
+    nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
+    Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
+    nanmerit(v) = function ()
+        x = [1.0]
+        solve!(x, DogLegSolver(x, Flog, similar(x); verbosity=v))
+    end
+    @test logged_any(nanmerit(2), "undefined merit")
+    @test !logged_any(nanmerit(1), "undefined merit")
+end
+
+@testset "$(rpad("a converged solve allocates nothing", 80))" begin
+    # The companion of the line-search assertion in `linesearch_tests.jl`, for the two solvers that
+    # take no line search. Measured inside a function, because from global scope the arguments are
+    # boxed and the number says nothing about the code under test — and guarded, because under
+    # `--check-bounds=yes` it says nothing either (see `AS_A_CALLER_COMPILES_IT`).
+    for f in (solver_step!, SimpleSolvers.directions!, SimpleSolvers.nan_recovery!)
+        @test !has_boxed_capture(f)
+    end
+
+    F(y, x, params) = y .= x .^ 2 .- 2
+    function solve_allocations(S)
+        x = ones(3)
+        s = S(x, F, similar(x); verbosity=0)
+        state = SolverState(s)
+        solve!(x, s, state)
+        x .= 1.0
+        @allocated solve!(x, s, state)
+    end
+    @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
+    @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
 end

@@ -76,6 +76,15 @@ function Base.isapprox(w₁::StrongWolfe{T}, w₂::StrongWolfe{T}; kwargs...) wh
     isapprox(w₁.c₁, w₂.c₁; kwargs...) && isapprox(w₁.c₂, w₂.c₂; kwargs...) && isapprox(w₁.αmax, w₂.αmax; kwargs...)
 end
 
+# The one-slot memo of `solve_with_status` below: the `α` at which the merit φ and its derivative φ′
+# were last evaluated, and the value each returned there. See the memoisation comment there.
+mutable struct WolfeMemo{T}
+    φα::T
+    φv::T
+    dα::T
+    dv::T
+end
+
 # The `zoom` subroutine (Nocedal & Wright, Alg. 3.6).  On entry [αlo, αhi] brackets
 # an acceptable step, with αlo the lower-φ endpoint that already satisfies the
 # sufficient-decrease condition.  We interpolate by bisection (robust, no
@@ -135,15 +144,17 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     # trial `α`, so caching the last evaluation avoids recomputing the (expensive)
     # merit and derivative.
     # `NaN` never equals a real query, so the first call at any `α` always evaluates.
-    φα = Ref(T(NaN)); φv = Ref(T(NaN))
-    dα = Ref(T(NaN)); dv = Ref(T(NaN))
+    # One holder rather than four `Ref`s: the closures below are handed to `_wolfe_zoom` and to the
+    # condition objects, so the memory they capture cannot stay on the stack, and one allocation per
+    # line search is the whole cost of the memo.
+    memo = WolfeMemo{T}(T(NaN), T(NaN), T(NaN), T(NaN))
     function φ(a)
-        a == φα[] || (φα[] = a; φv[] = value(prob, a, params))
-        φv[]
+        a == memo.φα || (memo.φα = a; memo.φv = value(prob, a, params))
+        memo.φv
     end
     function dφ(a)
-        a == dα[] || (dα[] = a; dv[] = derivative(prob, a, params))
-        dv[]
+        a == memo.dα || (memo.dα = a; memo.dv = derivative(prob, a, params))
+        memo.dv
     end
 
     φ0 = φ(zero(T))
@@ -181,7 +192,9 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     # improved the merit, which is the round-off floor, and the caller's trial step is returned.
     # `φres` is always a merit the caller has already computed, never a fresh evaluation: for a
     # `NonlinearSolver` that would be a full residual evaluation per solver step.
-    function wolfe_status(αres, φres, extra=0)
+    # `n` is passed rather than captured: a counter that this closure captures and the loop below
+    # mutates is boxed, which makes the `trials` of every status it builds inferred-`Any`.
+    function wolfe_status(n, αres, φres, extra=0)
         αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n + extra, φ0, d0, φ0, τ, zero(T))
         LinesearchStatus{T}(αres, φres ≤ φ0 - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
             n + extra, φ0, d0, φres, τ, zero(T))
@@ -193,13 +206,13 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
         # The two-argument `sdc` reuses `φi`; the one-argument form would evaluate the merit
         # again at the same point.
         if !sdc(αi, φi) || (i > 1 && φi ≥ φprev)
-            return wolfe_status(_wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)...)
+            return wolfe_status(n, _wolfe_zoom(ls, φ, dφ, sdc, cc, αprev, αi, φprev)...)
         end
         # αi satisfies sufficient decrease from here on
-        cc(αi) && return wolfe_status(αi, φi)
+        cc(αi) && return wolfe_status(n, αi, φi)
         di = dφ(αi)
         if di ≥ zero(T)
-            return wolfe_status(_wolfe_zoom(ls, φ, dφ, sdc, cc, αi, αprev, φi)...)
+            return wolfe_status(n, _wolfe_zoom(ls, φ, dφ, sdc, cc, αi, αprev, φi)...)
         end
         αvalid, φvalid = αi, φi
         # ascend toward αmax; stop expanding once the cap is reached

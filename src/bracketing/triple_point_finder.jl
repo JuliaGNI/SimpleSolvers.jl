@@ -56,6 +56,25 @@ julia> round10.((f(a), f(b), f(c)))
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
 function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+    a, b, c, status = _triple_point_core(f, x₀, δ, nmax, adjust_constant_iteration)
+    status === :ok ? (a, b, c) : status
+end
+
+function triple_point_finder(f::Callable, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+    triple_point_finder(f, x₀, δ, nmax, adjust_constant_iteration)
+end
+
+function triple_point_finder(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
+    a, b, c, status = _triple_point_core(prob, params, x₀; δ=δ, nmax=nmax)
+    status === :ok ? (a, b, c) : status
+end
+
+# The bracketing loop, returning `(a, b, c, status)` with `status` one of `:ok`, `:flat` or
+# `:unbracketable` and the three points meaningful only for `:ok`. Splitting the loop from the
+# reporting is what the `Bisection` line search does with `bisection`/`_bisection_core`, and here it
+# also keeps the return type concrete: the `Union{Symbol,Tuple}` handed back by
+# `triple_point_finder` has to be boxed, and `BierlaireQuadratic` brackets once per line search.
+function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_constant_iteration::Integer) where {T}
     fx₀ = f(x₀)
     x₁ = x₀ + δ
     fx₁ = f(x₁)
@@ -66,9 +85,9 @@ function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_
         # the wrong answer when the rise is within round-off of `f(x₀)`: the merit then simply
         # does not resolve a decrease here, and a *smaller* δ is strictly less informative, so
         # the remaining halvings are wasted evaluations that end in the same failure.
-        fx₁ ≤ fx₀ + armijo_tolerance(fx₀, armijo_ulps(typeof(fx₀))) && return :flat
-        adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS && return :unbracketable
-        return triple_point_finder(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
+        fx₁ ≤ fx₀ + armijo_tolerance(fx₀, armijo_ulps(typeof(fx₀))) && return (x₀, x₀, x₁, :flat)
+        adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS && return (x₀, x₀, x₁, :unbracketable)
+        return _triple_point_core(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
     end
 
     local xₖ₋₁ = x₀
@@ -86,20 +105,16 @@ function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_
         xₖ₊₁ = xₖ + increment
         fxₖ₊₁ = f(xₖ₊₁)
         if fxₖ₊₁ > fxₖ
-            return (xₖ₋₁, xₖ, xₖ₊₁)
+            return (xₖ₋₁, xₖ, xₖ₊₁, :ok)
         end
     end
 
     # `nmax` doublings without a turning point: the merit is still descending at
     # `x₀ + δ(2^(nmax+1) - 1)`. That is the opposite of `:flat` — there is a decrease here, it
     # just cannot be bracketed — so the caller must not report it as a round-off floor.
-    :unbracketable
+    (xₖ₋₁, xₖ, xₖ₊₁, :unbracketable)
 end
 
-function triple_point_finder(f::Callable, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
-    triple_point_finder(f, x₀, δ, nmax, adjust_constant_iteration)
-end
-
-function triple_point_finder(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
-    triple_point_finder(x -> value(prob, x, params), x₀, δ, nmax)
+function _triple_point_core(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
+    _triple_point_core(x -> value(prob, x, params), x₀, δ, nmax, 1)
 end

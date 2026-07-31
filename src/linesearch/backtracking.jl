@@ -322,6 +322,13 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     LinesearchStatus{T}(αₐ, oc, n, φ₀, d₀, φₐ, τ, αmin)
 end
 
+# Behind a barrier because `curvature_diagnostic` below is specialized on the `Linesearch`, hence on
+# its problem's closure types — see `report_linesearch_status`.
+@noinline function report_curvature_violation(α::Number)
+    @warn "Backtracking line search: accepted step α = $(α) satisfies the sufficient decrease but not the curvature condition."
+    nothing
+end
+
 # The curvature condition cannot be enforced by shrinking alone, so `Backtracking` only
 # reports it — and only for a step that was genuinely accepted, because `derivative` costs a
 # full Jacobian for the line search problem of a nonlinear solver.
@@ -329,7 +336,7 @@ function curvature_diagnostic(status::LinesearchStatus{T}, ls::Linesearch{T,<:Ba
     issufficient(status) || return nothing
     d(a) = derivative(problem(ls), a, params)
     cc = CurvatureCondition(method(ls).c₂, status.d₀, d, Val(:Standard))
-    cc(steplength(status)) || @warn "Backtracking line search: accepted step α = $(steplength(status)) satisfies the sufficient decrease but not the curvature condition."
+    cc(steplength(status)) || report_curvature_violation(steplength(status))
     nothing
 end
 
