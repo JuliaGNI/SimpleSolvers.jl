@@ -52,9 +52,8 @@ function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), con
     α
 end
 
-# Both reporters below are `@noinline` and take nothing but numbers and the `Options`, for the
-# reason spelled out on `report_linesearch_status`: their callers are specialized on the merit
-# closure `f`, so a message inlined into them is re-inferred and re-codegen'd once per caller.
+# Behind barriers because `bisection` and `_bisection_core` are specialized on the merit closure `f`
+# — see `report_linesearch_status`.
 @noinline function report_bisection_nonconvergence(α::Number, config::Options)
     verbosity(config) ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α)."
     nothing

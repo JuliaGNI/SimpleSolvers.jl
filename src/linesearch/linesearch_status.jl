@@ -236,17 +236,26 @@ The messages themselves live in [`report_linesearch_status`](@ref) rather than h
 compile-time rather than a stylistic decision — see its docstring before merging them back.
 """
 function linesearch_warnings(status::LinesearchStatus, ls::Linesearch, params=NullParameters())
-    # The two silent outcomes are filtered here as well as in the barrier, so that the path a
-    # healthy solve takes on every iteration does not even make the call — which would copy the
-    # 27-field `Options` for the callee. Two inlined enum comparisons, and nothing that varies
-    # per solver, so this costs no per-solver codegen.
+    # The two silent outcomes are filtered before the call, so that the path a healthy solve takes
+    # on every iteration does not even copy the 27-field `Options` for the callee.
     oc = outcome(status)
-    (oc === LINESEARCH_DECREASED || oc === LINESEARCH_UNKNOWN) ||
+    oc === LINESEARCH_DECREASED || oc === LINESEARCH_UNKNOWN ||
         report_linesearch_status(status, nameof(typeof(method(ls))), config(ls))
 
-    config(ls).verbosity ≥ 2 && curvature_diagnostic(status, ls, params)
+    verbosity(config(ls)) ≥ 2 && curvature_diagnostic(status, ls, params)
 
     nothing
+end
+
+# The two wordings of the `LINESEARCH_EXHAUSTED` message. With `αmin = 0` — every method other than
+# `Backtracking` — the budget wording is selected, which is correct: those searches only ever
+# exhaust by running out of budget or by failing to bracket, never by reaching an `αmin` floor.
+# Called from *inside* the `@warn` message so that the string is built only for a message that is
+# actually shown; see the `FLOOR` branch of the barrier below.
+function linesearch_exhausted_reason(status::LinesearchStatus, config::Options)
+    steplength(status) > status.αmin ?
+    "the budget linesearch_max_iterations = $(config.linesearch_max_iterations) was spent, or the merit could not be bracketed" :
+    "the merit changed by $(status.φ - status.φ₀) at the smallest informative step αmin = $(status.αmin), which exceeds the round-off resolution τ = $(status.τ), so φ'(0) = $(status.d₀) is inconsistent with the merit (a stale or regularized Jacobian, an inexact linear solve, or a non-smooth problem)"
 end
 
 """
@@ -257,30 +266,27 @@ Emit the messages for a [`LinesearchStatus`](@ref); the reporting half of
 
 # Implementation
 
-This is a function barrier. [`linesearch_warnings`](@ref) is called from [`solver_step!`](@ref) on
-every iteration of every solve, and its arguments are a [`Linesearch`](@ref) — which carries the
-closure types of its [`LinesearchProblem`](@ref) — and a `NamedTuple` of parameters. It is
-therefore re-specialized for every *problem* a solver is built for, and if the messages lived in
-it, so would all of their `Base.CoreLogging` and string-interpolation code: re-inferred and
-re-codegen'd from scratch for each one.
+This is a function barrier, and its signature is what makes it one. [`linesearch_warnings`](@ref)
+is called from [`solver_step!`](@ref) on every iteration of every solve, and takes a
+[`Linesearch`](@ref) — which carries the closure types of its [`LinesearchProblem`](@ref) — and a
+`NamedTuple` of parameters, so it is specialized once per *problem* a solver is built for. A
+message in its body is specialized with it, and all of the `Base.CoreLogging` and
+string-interpolation code that `@warn` expands to is re-inferred and re-codegen'd for each one,
+which on a caller that builds one solver per tableau dominates the cost of the whole solve.
 
-Measured on `GeometricIntegrators`' Runge-Kutta test suite, which builds one implicit integrator
-per tableau (`Gauss(1)` … `Gauss(8)`, the `LobattoIII` family, …), that cost 76 s of the suite's
-145 s — more than the whole rest of the line search and Newton step together. Taking `name` and
-`config` instead of `ls`, and nothing that mentions a closure type, gives this function exactly one
-specialization per element type `T` for the whole session, and brought the suite to 67 s with every
-message, verbosity gate and `maxlog` cap unchanged. [`nonlinear_solver_warnings`](@ref) and
-[`print_status`](@ref) have this shape for the same reason, and cost nothing.
+Taking `name` and `config`, and nothing whose type can vary per solver, bounds the specializations
+of this function to one per element-type combination for the whole session.
+[`nonlinear_solver_warnings`](@ref) and [`print_status`](@ref) have the same shape for the same
+reason.
 
 So: do not give this function a parameter whose type varies per solver, and do not move the
 messages back into [`linesearch_warnings`](@ref). `test/linesearch_tests.jl` asserts both — the
 first from the method signature, which *bounds* the specialization set rather than sampling it,
 and the second by scanning the lowered code of each function for `Base.CoreLogging`.
 
-The signature is what does the work; the `@noinline` is a guard rather than the mechanism. Julia's
-inliner already refuses a body this size, so removing the annotation does not currently reintroduce
-the cost — but a future inliner that is more willing would, and nothing in the caller wants this
-inlined anyway.
+The `@noinline` is a guard rather than the mechanism: Julia's inliner refuses a body this size
+anyway, but a future one that is more willing would undo the barrier, and nothing in the caller
+wants this inlined.
 
 The element types are deliberately *not* tied together as `LinesearchStatus{T}`/`Options{T}`: this
 is a reporting path, and a precision mismatch anywhere upstream should not turn a diagnostic into a
@@ -288,13 +294,10 @@ is a reporting path, and a precision mismatch anywhere upstream should not turn 
 written the same way.
 """
 @noinline function report_linesearch_status(status::LinesearchStatus, name::Symbol, config::Options)
-    # A healthy solve reports `LINESEARCH_DECREASED` on every iteration and the generic
-    # `solve_with_status` fallback reports `LINESEARCH_UNKNOWN`; neither has anything to say, so
-    # leave before touching the status at all.
+    # `LINESEARCH_DECREASED` and `LINESEARCH_UNKNOWN` match none of the branches below, which is how
+    # they stay silent; the chain deliberately has no `else`.
     oc = outcome(status)
-    (oc === LINESEARCH_DECREASED || oc === LINESEARCH_UNKNOWN) && return nothing
-
-    verbose = config.verbosity
+    verbose = verbosity(config)
 
     if oc === LINESEARCH_FLOOR
         # Gated at `verbosity ≥ 2`, not 1: reaching the merit's round-off floor is the *normal*
@@ -305,22 +308,13 @@ written the same way.
         # residual is *not* small, and `nonlinear_solver_warnings` then reports it once, with
         # the achieved residual and the requested tolerance.
         # `αmin` is a `Backtracking` quantity (zero means "not applicable", see `LinesearchStatus`),
-        # so the clause naming it is only included when there is a value to name. It is built
-        # inside the gate, not before it: a `FLOOR` outcome is reported on every iteration of a
-        # stalling solve, and interpolating a string the gate then discards allocates once per
-        # iteration at the default verbosity.
-        if verbose ≥ 2
-            αminclause = iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"
-            @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(αminclause). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
-        end
+        # so the clause naming it is only included when there is a value to name. It sits inside the
+        # message rather than in a temporary before it: Julia evaluates a `@warn` message only once
+        # the verbosity gate and `maxlog` have both passed, and a stalling solve reports the same
+        # outcome on every iteration, so a temporary would be built and discarded each time.
+        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
     elseif oc === LINESEARCH_EXHAUSTED
-        # With `αmin = 0` — every method other than `Backtracking` — this selects the budget
-        # wording, which is correct: those searches only ever exhaust by running out of budget or
-        # by failing to bracket, never by reaching an `αmin` floor.
-        reason = steplength(status) > status.αmin ?
-                 "the budget linesearch_max_iterations = $(config.linesearch_max_iterations) was spent, or the merit could not be bracketed" :
-                 "the merit changed by $(status.φ - status.φ₀) at the smallest informative step αmin = $(status.αmin), which exceeds the round-off resolution τ = $(status.τ), so φ'(0) = $(status.d₀) is inconsistent with the merit (a stale or regularized Jacobian, an inexact linear solve, or a non-smooth problem)"
-        verbose ≥ 1 && @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(reason). Returning α = $(steplength(status))." maxlog = 3
+        verbose ≥ 1 && @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(linesearch_exhausted_reason(status, config)). Returning α = $(steplength(status))." maxlog = 3
     elseif oc === LINESEARCH_NO_DESCENT
         verbose ≥ 1 && @warn "$(name) line search: φ'(0) = $(status.d₀) (with φ(0) = $(status.φ₀)) is not a descent direction, so no α can satisfy the sufficient decrease condition. Returning α = $(steplength(status))." maxlog = 3
     elseif oc === LINESEARCH_STATIONARY

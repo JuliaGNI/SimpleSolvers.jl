@@ -4,8 +4,8 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [0.10.1]
 
-Compile-time fix. No behaviour change: the same messages, at the same `verbosity` gates, with
-the same `maxlog` caps, and every test from 0.10.0 passes unedited.
+Compile-time and allocation fixes. No behaviour change: the same messages, at the same `verbosity`
+gates, with the same `maxlog` caps, and every test from 0.10.0 passes unedited.
 
 ### The defect
 
@@ -50,10 +50,26 @@ suite's 145 s** — more than the whole rest of the line search and the Newton s
   `LINESEARCH_UNKNOWN`) before calling the barrier as well as inside it, so the path a healthy
   solve takes on every iteration does not make a call that would copy the 27-field `Options` for
   the callee.
-- The `LINESEARCH_FLOOR` message's `αmin` clause is built inside its `verbosity ≥ 2` gate rather
-  than before it. A `FLOOR` outcome is reported on every iteration of a stalling solve, so
-  interpolating a string the gate then discards allocated once per iteration at the default
-  verbosity. Present since 0.10.0.
+- The `LINESEARCH_FLOOR` message's `αmin` clause and both wordings of the `LINESEARCH_EXHAUSTED`
+  message are interpolated *inside* their `@warn` rather than into a temporary before the verbosity
+  gate. Julia evaluates a `@warn` message only once the gate and `maxlog` have both passed, and a
+  solve that cannot progress reports the same outcome on every iteration, so the temporaries were
+  built and discarded once per iteration: 272 B per call for `EXHAUSTED` at *every* verbosity once
+  its `maxlog = 3` was spent, and 704 B per call for `FLOOR` at `verbosity = 2`. Present since
+  0.10.0.
+- **A converged solve no longer touches the heap** for any solver or line search (up to
+  ForwardDiff's own chunk-mode Jacobian, which allocates array wrappers above `n = 12`):
+  - `BierlaireQuadratic`: 256 B per solve → 0. `_bierlaire_fit` both captured and mutated its
+    evaluation counter in the merit closure, which boxes it and makes the `trials` of every
+    `LinesearchStatus` built from the fit inferred-`Any`; and `triple_point_finder`'s
+    `Union{Symbol,Tuple}` return had to be boxed. The bracketing loop moved into a type-stable
+    `_triple_point_core` returning `(a, b, c, status)`, the same split `bisection` and
+    `_bisection_core` already use; `triple_point_finder` keeps its documented return.
+  - `StrongWolfe`: 256 B and 12 allocations per line search → 48 B and one. `wolfe_status` now
+    takes the evaluation counter rather than capturing it, and the one-slot memo of φ and φ′ is a
+    single holder instead of four `Ref`s. One allocation per line search remains by design: the
+    closures that read the memo are handed to `_wolfe_zoom` and to the condition objects, so it
+    cannot stay on the stack.
 
 The barriers are internal and unexported. The contract is pinned down in both directions, and
 without counting specializations: `test/linesearch_tests.jl` checks the *types* in
@@ -63,7 +79,9 @@ lowered code of every reporter and every per-solver caller for `Base.CoreLogging
 the messages are in the barriers and nowhere else. Since the verbosity gates moved with the
 messages, the four reporters whose gate can be reached from a constructed problem — the two
 `bisection` ones and `DogLeg`'s singular-Jacobian and NaN-merit ones — are additionally driven at
-their documented verbosity and one below, so that a wrong gate in a future edit is not silent.
+their documented verbosity and one below, so that a wrong gate in a future edit is not silent. The
+message texts whose interpolation moved are pinned by text, and the allocation counts above are
+asserted for every solver and line search.
 
 ### Changed
 

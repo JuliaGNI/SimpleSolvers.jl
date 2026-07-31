@@ -42,12 +42,9 @@ is accepted (passing one is an error rather than being silently ignored).
 """
 const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
-# The three reporters below are `@noinline` and take the `Options` rather than the solver, for the
-# reason spelled out on `report_linesearch_status`: `directions!` and `solver_step!` are specialized
-# on the `DogLegSolver`, which carries the closure types of its `NonlinearProblem` and `Jacobian`,
-# so a message inlined into them is re-inferred and re-codegen'd once per problem the solver is
-# built for. These three are short, so the saving here is small — the point is that the whole file
-# has one idiom for reporting and no site that grows with the number of solvers.
+# Behind barriers because `directions!` and `solver_step!` are specialized on the `DogLegSolver`,
+# hence on the closure types of its `NonlinearProblem` and `Jacobian` — see
+# `report_linesearch_status`.
 @noinline function report_dogleg_singular(config::Options)
     verbosity(config) ≥ 2 && @warn "DogLeg: singular Jacobian; falling back to a steepest-descent (Cauchy) step."
     nothing

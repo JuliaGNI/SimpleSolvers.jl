@@ -155,10 +155,8 @@ function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Boo
     s
 end
 
-# `@noinline` and taking the `Options` rather than the solver, for the reason spelled out on
-# `report_linesearch_status`: `nan_recovery!` is specialized on the `NonlinearSolver`, hence on the
-# closure types of its `NonlinearProblem`, so a message inlined into it is re-inferred and
-# re-codegen'd once per problem the solver is built for.
+# Behind a barrier because `nan_recovery!` below is specialized on the `NonlinearSolver`, hence on
+# its problem's closure types — see `report_linesearch_status`.
 @noinline function report_nan_direction(config::Options)
     verbosity(config) ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector."
     nothing

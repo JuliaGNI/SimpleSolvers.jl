@@ -322,11 +322,8 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     LinesearchStatus{T}(αₐ, oc, n, φ₀, d₀, φₐ, τ, αmin)
 end
 
-# The message is `@noinline` and takes nothing but a number, for the reason spelled out on
-# `report_linesearch_status`: `curvature_diagnostic` is specialized on the `Linesearch`, hence on
-# the closure types of its `LinesearchProblem`, and it is called from `linesearch_warnings` — so a
-# message inlined into it is re-inferred and re-codegen'd once per solver, exactly what the
-# barrier there exists to avoid.
+# Behind a barrier because `curvature_diagnostic` below is specialized on the `Linesearch`, hence on
+# its problem's closure types — see `report_linesearch_status`.
 @noinline function report_curvature_violation(α::Number)
     @warn "Backtracking line search: accepted step α = $(α) satisfies the sufficient decrease but not the curvature condition."
     nothing

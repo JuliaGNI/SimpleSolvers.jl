@@ -1011,30 +1011,23 @@ end
     end
 end
 
-
 @testset "$(rpad("the linesearch messages are compiled once, not once per solver", 80))" begin
     # `linesearch_warnings` is called from `solver_step!` on every iteration of every solve, and
     # it is specialized on the `Linesearch` — hence on the closure types of its
     # `LinesearchProblem`, hence once per *problem* a solver is built for. The messages therefore
-    # live behind the `report_linesearch_status` barrier, whose signature mentions no closure type.
-    # Inlining them back cost `GeometricIntegrators`' Runge-Kutta suite 76 s of compile time; see
-    # the barrier's docstring.
-    #
-    # Both halves below assert the property rather than sampling it. Counting specializations after
-    # driving a couple of solvers would only ever test the closures it happened to use, and would
-    # depend on what earlier testsets had already compiled.
+    # live behind the `report_linesearch_status` barrier, whose signature mentions no closure type;
+    # see its docstring.
 
     # Half one: the specialization set is bounded by the *signature*. Julia specializes on the
     # concrete types of the arguments, so if no parameter type can admit a `Linesearch` — which
     # includes an untyped parameter, since `Linesearch <: Any` — then the concrete argument types
     # are drawn from `{LinesearchStatus{T}} × {Symbol} × {Options{T}}` and cannot grow with the
-    # number of solvers built. Checked on the types, not on `string(m.sig)`: a parameter written
-    # `ls::Linesearch` prints without braces, so a substring test for "Linesearch{" misses exactly
-    # the regression this guards against, while a test for "Linesearch" would match
+    # number of solvers built. This must stay a test on the types: a parameter written
+    # `ls::Linesearch` stringifies *without* braces, so a substring test for "Linesearch{" would
+    # miss exactly the regression guarded against here, while one for "Linesearch" would match
     # `LinesearchStatus`.
-    let ms = methods(SimpleSolvers.report_linesearch_status)
-        @test length(ms) == 1
-        argtypes = collect(Base.unwrap_unionall(first(ms).sig).parameters)[2:end]
+    for m in methods(SimpleSolvers.report_linesearch_status)
+        argtypes = collect(Base.unwrap_unionall(m.sig).parameters)[2:end]
         @test !any(p -> Linesearch <: Base.unwrap_unionall(p), argtypes)
         @test !any(p -> NamedTuple <: Base.unwrap_unionall(p), argtypes)
     end
@@ -1078,4 +1071,72 @@ end
     nobracket(v) = () -> bisection(fpos, 0.0, 1.0, NullParameters(), Options(Float64; verbosity=v))
     @test logged_any(nobracket(2), "shows no sign change")
     @test !logged_any(nobracket(1), "shows no sign change")
+end
+
+@testset "$(rpad("every clause of a linesearch message is built only when it is shown", 80))" begin
+    # The `αmin` clause of `LINESEARCH_FLOOR` and both wordings of `LINESEARCH_EXHAUSTED` are
+    # interpolated inside their `@warn` rather than into a temporary before it, so that a message
+    # the verbosity gate or `maxlog` discards costs nothing (see `report_linesearch_status`). The
+    # exact texts are pinned here because that laziness is easy to undo by rewriting the
+    # interpolation, and easy to undo *silently*. `Test.TestLogger` records every message regardless
+    # of `maxlog`, which is keyed on the source location and therefore process-global.
+    reported(st, v) = () -> SimpleSolvers.report_linesearch_status(st, :Backtracking,
+        Options(Float64; verbosity=v, linesearch_max_iterations=7))
+
+    # φ = 0.5 against φ₀ = 1.0, so the merit difference the second EXHAUSTED wording names is exact.
+    status(oc, α, αmin) = LinesearchStatus{Float64}(α, oc, 3, 1.0, -2.0, 0.5, 1.0e-16, αmin)
+
+    @test logged_any(reported(status(LINESEARCH_FLOOR, 0.5, 0.0), 2),
+        "Backtracking line search: no trial step changed the merit by more than the round-off resolution τ = 1.0e-16 in 3 trial step(s). φ(0) = 1.0 has reached its round-off floor, so no step can decrease it. Returning α = 0.5. Check whether the requested residual tolerance is attainable in this precision.")
+    @test logged_any(reported(status(LINESEARCH_FLOOR, 0.5, 1.0e-8), 2),
+        "so no step can decrease it (the smallest informative step is αmin = 1.0e-8). Returning α = 0.5.")
+    @test !logged_any(reported(status(LINESEARCH_FLOOR, 0.5, 1.0e-8), 1), "round-off floor")
+
+    # α > αmin selects the budget wording, α ≤ αmin the inconsistent-derivative one.
+    @test logged_any(reported(status(LINESEARCH_EXHAUSTED, 0.5, 0.0), 1),
+        "Backtracking line search: no step satisfied the sufficient decrease condition in 3 trial step(s) — the budget linesearch_max_iterations = 7 was spent, or the merit could not be bracketed. Returning α = 0.5.")
+    @test logged_any(reported(status(LINESEARCH_EXHAUSTED, 1.0e-8, 1.0e-8), 1),
+        "— the merit changed by -0.5 at the smallest informative step αmin = 1.0e-8, which exceeds the round-off resolution τ = 1.0e-16, so φ'(0) = -2.0 is inconsistent with the merit (a stale or regularized Jacobian, an inexact linear solve, or a non-smooth problem). Returning α = 1.0e-8.")
+    @test !logged_any(reported(status(LINESEARCH_EXHAUSTED, 0.5, 0.0), 0), "sufficient decrease condition")
+
+    # And nothing is built for a message that is not shown. Measured inside a function: from global
+    # scope the arguments are boxed and the numbers say nothing about the code under test. This and
+    # the solve-path assertions below are the only ones in the suite that depend on codegen, so a
+    # future Julia release may call for revisiting them rather than the package.
+    function reporting_allocations(oc, v)
+        st = status(oc, 0.5, 1.0e-8)
+        cfg = Options(Float64; verbosity=v)
+        SimpleSolvers.report_linesearch_status(st, :Backtracking, cfg)
+        @allocated SimpleSolvers.report_linesearch_status(st, :Backtracking, cfg)
+    end
+    for oc in instances(LinesearchOutcome)
+        @test reporting_allocations(oc, 0) == 0
+    end
+end
+
+@testset "$(rpad("a converged solve allocates nothing", 80))" begin
+    # Every line search is expected to run a solve without touching the heap: the merit closures
+    # capture nothing they mutate, and the bracketing helpers return concrete types. `StrongWolfe`
+    # is the exception by design — its one-slot memo of φ and φ′ is handed to `_wolfe_zoom` and to
+    # the condition objects, so it cannot stay on the stack — and one small holder per line search
+    # is the whole of it, which is what the bound below pins.
+    F(y, x, params) = y .= x .^ 2 .- 2
+    function solve_allocations(ls)
+        x = ones(3)
+        s = NewtonSolver(x, similar(x); F=F, linesearch=ls, verbosity=0)
+        state = SolverState(s)
+        solve!(x, s, state)
+        x .= 1.0
+        @allocated solve!(x, s, state)
+    end
+    for ls in (Static(), Backtracking(), Bisection(), Quadratic(), BierlaireQuadratic())
+        @test solve_allocations(ls) == 0
+    end
+
+    function wolfe_allocations()
+        ls = Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity=0)
+        solve_with_status(ls, 1.0)
+        @allocated solve_with_status(ls, 1.0)
+    end
+    @test wolfe_allocations() ≤ 64
 end

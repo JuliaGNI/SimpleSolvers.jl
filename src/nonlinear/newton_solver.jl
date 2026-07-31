@@ -83,9 +83,8 @@ true
 """
 const NewtonSolver{T} = NonlinearSolver{T,Newton}
 
-# `@noinline` and taking the `Options` rather than the solver, for the reason spelled out on
-# `report_linesearch_status`: the constructor below is specialized on the closure types of the
-# `NonlinearProblem`, so a message inlined into it is re-inferred and re-codegen'd once per solver.
+# Behind a barrier because the constructor below is specialized on the closure types of the
+# `NonlinearProblem` — see `report_linesearch_status`.
 @noinline function report_static_refactorize(refactorize::Integer, config::Options)
     verbosity(config) ≥ 1 && @warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1."
     nothing

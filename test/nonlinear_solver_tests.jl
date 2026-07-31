@@ -1157,13 +1157,13 @@ end
     @test iteration_number(state2) < config(s2).max_iterations
 end
 
-@testset "the solver messages are compiled once, not once per solver" begin
+@testset "$(rpad("the solver messages are compiled once, not once per solver", 80))" begin
     # `directions!`, `solver_step!`, `nan_recovery!` and the `NewtonSolver` constructor are all
     # specialized on the solver, which carries the closure types of its `NonlinearProblem` and
     # `Jacobian` — so a message in any of their bodies is re-inferred and re-codegen'd once per
     # problem a solver is built for. Every one of them therefore delegates to a `@noinline` reporter
-    # taking nothing but numbers and the `Options`. See `report_linesearch_status`, where this cost
-    # 76 s of `GeometricIntegrators`' Runge-Kutta suite, and `test/logging_code.jl` for the check.
+    # taking nothing but numbers and the `Options`. See `report_linesearch_status` for why, and
+    # `test/logging_code.jl` for the check.
     for f in (SimpleSolvers.report_dogleg_singular, SimpleSolvers.report_dogleg_nan,
         SimpleSolvers.report_dogleg_underflow, SimpleSolvers.report_nan_direction,
         SimpleSolvers.report_static_refactorize,
@@ -1209,4 +1209,21 @@ end
     end
     @test logged_any(nanmerit(2), "undefined merit")
     @test !logged_any(nanmerit(1), "undefined merit")
+end
+
+@testset "$(rpad("a converged solve allocates nothing", 80))" begin
+    # The companion of the line-search assertion in `linesearch_tests.jl`, for the two solvers that
+    # take no line search. Measured inside a function, because from global scope the arguments are
+    # boxed and the number says nothing about the code under test.
+    F(y, x, params) = y .= x .^ 2 .- 2
+    function solve_allocations(S)
+        x = ones(3)
+        s = S(x, F, similar(x); verbosity=0)
+        state = SolverState(s)
+        solve!(x, s, state)
+        x .= 1.0
+        @allocated solve!(x, s, state)
+    end
+    @test solve_allocations(PicardSolver) == 0
+    @test solve_allocations(DogLegSolver) == 0
 end
