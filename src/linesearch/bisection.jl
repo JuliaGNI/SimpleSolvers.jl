@@ -56,12 +56,12 @@ end
 # reason spelled out on `report_linesearch_status`: their callers are specialized on the merit
 # closure `f`, so a message inlined into them is re-inferred and re-codegen'd once per caller.
 @noinline function report_bisection_nonconvergence(α::Number, config::Options)
-    config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α)."
+    verbosity(config) ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α)."
     nothing
 end
 
 @noinline function report_bisection_nobracket(α₀::Number, α₁::Number, y₀::Number, y₁::Number, config::Options)
-    config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
+    verbosity(config) ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
     nothing
 end
 

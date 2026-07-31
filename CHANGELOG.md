@@ -36,21 +36,40 @@ suite's 145 s** — more than the whole rest of the line search and the Newton s
   parameters, and costs nothing). The Runge-Kutta suite above went to **67 s**, with all 107
   assertions passing — recovering the entire regression. `nonlinear_solver_warnings` and
   `print_status` already had this shape, which is why they never cost anything.
-- The same idiom was applied to the two `bisection` messages
-  (`report_bisection_nonconvergence`, `report_bisection_nobracket`) and the three `DogLeg` ones
-  (`report_dogleg_singular`, `report_dogleg_nan`, `report_dogleg_underflow`), whose callers are
-  likewise specialized on a closure. Those messages are short, so the saving is small; the point
-  is that no reporting site in the package now grows with the number of solvers built.
+- The same idiom was applied to every other message whose enclosing function is specialized on a
+  merit closure or on a solver, so that no reporting site in the package grows with the number of
+  solvers built: `curvature_diagnostic`'s message (`report_curvature_violation`, which is called
+  from `linesearch_warnings` itself and was therefore the last per-solver message on that path),
+  the two `bisection` messages (`report_bisection_nonconvergence`, `report_bisection_nobracket`),
+  the three `DogLeg` ones (`report_dogleg_singular`, `report_dogleg_nan`,
+  `report_dogleg_underflow`), `nan_recovery!`'s (`report_nan_direction`) and the `NewtonSolver`
+  constructor's (`report_static_refactorize`). These messages are short, so the saving beyond
+  `report_linesearch_status` is small; the point is that the whole package now has one idiom for
+  reporting and no site that grows per solver.
+- `linesearch_warnings` filters the two silent outcomes (`LINESEARCH_DECREASED`,
+  `LINESEARCH_UNKNOWN`) before calling the barrier as well as inside it, so the path a healthy
+  solve takes on every iteration does not make a call that would copy the 27-field `Options` for
+  the callee.
+- The `LINESEARCH_FLOOR` message's `αmin` clause is built inside its `verbosity ≥ 2` gate rather
+  than before it. A `FLOOR` outcome is reported on every iteration of a stalling solve, so
+  interpolating a string the gate then discards allocated once per iteration at the default
+  verbosity. Present since 0.10.0.
 
-The barriers are internal and unexported. `test/linesearch_tests.jl` pins the contract down in
-both directions: nothing that varies per solver may appear in `report_linesearch_status`'
-signature, and driving solvers with distinct residual closures must not add a specialization.
+The barriers are internal and unexported. The contract is pinned down in both directions, and
+without counting specializations: `test/linesearch_tests.jl` checks the *types* in
+`report_linesearch_status`' signature, which bounds its specialization set to one per element type
+by construction rather than sampling a couple of closures, and `test/logging_code.jl` scans the
+lowered code of every reporter and every per-solver caller for `Base.CoreLogging`, asserting that
+the messages are in the barriers and nowhere else. Since the verbosity gates moved with the
+messages, the four reporters whose gate can be reached from a constructed problem — the two
+`bisection` ones and `DogLeg`'s singular-Jacobian and NaN-merit ones — are additionally driven at
+their documented verbosity and one below, so that a wrong gate in a future edit is not silent.
 
 ### Changed
 
-- **The minimum Julia version is now 1.10** (was 1.6). 1.6 has been out of support for some
-  time, `Base.specializations` — which the new regression test uses — was added in 1.10, and
-  both GeometricIntegratorsBase and GeometricIntegrators already require 1.10, so nothing
+- **The minimum Julia version is now 1.10** (was 1.6). 1.6 has been out of support for some time,
+  CI has tested only 1.10 and newer for a while so the old bound was not exercised by anything,
+  and both GeometricIntegratorsBase and GeometricIntegrators already require 1.10, so nothing
   downstream can be on less.
 
 ## [0.10.0]

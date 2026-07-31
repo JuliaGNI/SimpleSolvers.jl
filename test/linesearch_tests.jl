@@ -11,6 +11,8 @@ using SimpleSolvers: issufficient, isfloor
 using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps, backtracking_αmin,
     backtracking_interpolation, with_config, problem, method, config
 
+include("logging_code.jl")
+
 f(x) = x^2 - 1
 g(x) = 2x
 δx(x) = -g(x) / 2
@@ -1014,31 +1016,66 @@ end
     # `linesearch_warnings` is called from `solver_step!` on every iteration of every solve, and
     # it is specialized on the `Linesearch` — hence on the closure types of its
     # `LinesearchProblem`, hence once per *problem* a solver is built for. The messages therefore
-    # live behind the `report_linesearch_status` barrier, which mentions no closure type and is
-    # compiled exactly once per element type for the whole session. Inlining them back cost
-    # `GeometricIntegrators`' Runge-Kutta suite 76 s of compile time; see the barrier's docstring.
+    # live behind the `report_linesearch_status` barrier, whose signature mentions no closure type.
+    # Inlining them back cost `GeometricIntegrators`' Runge-Kutta suite 76 s of compile time; see
+    # the barrier's docstring.
+    #
+    # Both halves below assert the property rather than sampling it. Counting specializations after
+    # driving a couple of solvers would only ever test the closures it happened to use, and would
+    # depend on what earlier testsets had already compiled.
 
-    # The contract, stated directly and without any reflection API: nothing in the signature may
-    # vary per solver.
-    m = only(methods(SimpleSolvers.report_linesearch_status))
-    sig = string(m.sig)
-    @test !occursin("Linesearch{", sig)
-    @test !occursin("LinesearchProblem", sig)
-    @test !occursin("NamedTuple", sig)
-
-    # And the consequence: driving solvers whose residual closures are distinct types adds no
-    # specialization. Counted as a delta, since other testsets in the suite may already have
-    # compiled one.
-    nspec() = count(!isnothing, collect(Base.specializations(m)))
-    before = nspec()
-
-    F₁(y, x, params) = y .= x .^ 2 .- 2
-    F₂(y, x, params) = y .= sin.(x) .- 1 // 2
-    for F in (F₁, F₂)
-        x = ones(3)
-        s = NewtonSolver(x, similar(x); F=F, verbosity=0)
-        solve!(x, s)
+    # Half one: the specialization set is bounded by the *signature*. Julia specializes on the
+    # concrete types of the arguments, so if no parameter type can admit a `Linesearch` — which
+    # includes an untyped parameter, since `Linesearch <: Any` — then the concrete argument types
+    # are drawn from `{LinesearchStatus{T}} × {Symbol} × {Options{T}}` and cannot grow with the
+    # number of solvers built. Checked on the types, not on `string(m.sig)`: a parameter written
+    # `ls::Linesearch` prints without braces, so a substring test for "Linesearch{" misses exactly
+    # the regression this guards against, while a test for "Linesearch" would match
+    # `LinesearchStatus`.
+    let ms = methods(SimpleSolvers.report_linesearch_status)
+        @test length(ms) == 1
+        argtypes = collect(Base.unwrap_unionall(first(ms).sig).parameters)[2:end]
+        @test !any(p -> Linesearch <: Base.unwrap_unionall(p), argtypes)
+        @test !any(p -> NamedTuple <: Base.unwrap_unionall(p), argtypes)
     end
 
-    @test nspec() ≤ before + 1
+    # Half two: the messages are in the barrier and nowhere else. `@warn` is expanded by the macro,
+    # so a message in the body of `f` is visible in `f`'s lowered code as a `GlobalRef` into
+    # `Base.CoreLogging` — which makes "no reporting code in a function specialized on a merit
+    # closure" directly checkable, for every reporter at once, without any notion of
+    # specialization. `curvature_diagnostic` is included on the closure-free side because it too
+    # is called from `linesearch_warnings` and is specialized per problem.
+    for f in (SimpleSolvers.report_linesearch_status, SimpleSolvers.report_curvature_violation,
+        SimpleSolvers.report_bisection_nonconvergence, SimpleSolvers.report_bisection_nobracket)
+        @test has_logging_code(f)
+    end
+    for f in (SimpleSolvers.linesearch_warnings, SimpleSolvers.curvature_diagnostic,
+        SimpleSolvers.bisection, SimpleSolvers._bisection_core)
+        @test !has_logging_code(f)
+    end
+
+    # The barrier really is on the path a solve takes, for every method, and stays quiet when there
+    # is nothing to report.
+    F(y, x, params) = y .= x .^ 2 .- 2
+    for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        x = ones(3)
+        s = NewtonSolver(x, similar(x); F=F, linesearch=ls, verbosity=1)
+        @test_logs solve!(x, s)
+        @test x ≈ fill(sqrt(2), 3)
+    end
+
+    # The two `bisection` messages moved into reporters of their own, so their verbosity gates are
+    # no longer visible at the site that decides to report. Pin them: each fires at its documented
+    # level and is silent one below. Neither carries `maxlog`, so this is repeatable within a
+    # session, unlike the line-search messages.
+    fslow(α, _) = α - 1 / 3
+    nonconvergence(v) = () -> bisection(fslow, 0.0, 1.0, NullParameters(),
+        Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=v))
+    @test logged_any(nonconvergence(1), "did not converge within")
+    @test !logged_any(nonconvergence(0), "did not converge within")
+
+    fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
+    nobracket(v) = () -> bisection(fpos, 0.0, 1.0, NullParameters(), Options(Float64; verbosity=v))
+    @test logged_any(nobracket(2), "shows no sign change")
+    @test !logged_any(nobracket(1), "shows no sign change")
 end

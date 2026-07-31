@@ -236,7 +236,13 @@ The messages themselves live in [`report_linesearch_status`](@ref) rather than h
 compile-time rather than a stylistic decision — see its docstring before merging them back.
 """
 function linesearch_warnings(status::LinesearchStatus, ls::Linesearch, params=NullParameters())
-    report_linesearch_status(status, nameof(typeof(method(ls))), config(ls))
+    # The two silent outcomes are filtered here as well as in the barrier, so that the path a
+    # healthy solve takes on every iteration does not even make the call — which would copy the
+    # 27-field `Options` for the callee. Two inlined enum comparisons, and nothing that varies
+    # per solver, so this costs no per-solver codegen.
+    oc = outcome(status)
+    (oc === LINESEARCH_DECREASED || oc === LINESEARCH_UNKNOWN) ||
+        report_linesearch_status(status, nameof(typeof(method(ls))), config(ls))
 
     config(ls).verbosity ≥ 2 && curvature_diagnostic(status, ls, params)
 
@@ -251,12 +257,12 @@ Emit the messages for a [`LinesearchStatus`](@ref); the reporting half of
 
 # Implementation
 
-This is a function barrier, and the `@noinline` is load-bearing. [`linesearch_warnings`](@ref) is
-called from [`solver_step!`](@ref) on every iteration of every solve, and its arguments are a
-[`Linesearch`](@ref) — which carries the closure types of its [`LinesearchProblem`](@ref) — and a
-`NamedTuple` of parameters. It is therefore re-specialized for every *problem* a solver is built
-for, and if the messages lived in it, so would all of their `Base.CoreLogging` and
-string-interpolation code: re-inferred and re-codegen'd from scratch for each one.
+This is a function barrier. [`linesearch_warnings`](@ref) is called from [`solver_step!`](@ref) on
+every iteration of every solve, and its arguments are a [`Linesearch`](@ref) — which carries the
+closure types of its [`LinesearchProblem`](@ref) — and a `NamedTuple` of parameters. It is
+therefore re-specialized for every *problem* a solver is built for, and if the messages lived in
+it, so would all of their `Base.CoreLogging` and string-interpolation code: re-inferred and
+re-codegen'd from scratch for each one.
 
 Measured on `GeometricIntegrators`' Runge-Kutta test suite, which builds one implicit integrator
 per tableau (`Gauss(1)` … `Gauss(8)`, the `LobattoIII` family, …), that cost 76 s of the suite's
@@ -266,8 +272,15 @@ specialization per element type `T` for the whole session, and brought the suite
 message, verbosity gate and `maxlog` cap unchanged. [`nonlinear_solver_warnings`](@ref) and
 [`print_status`](@ref) have this shape for the same reason, and cost nothing.
 
-So: do not inline this into [`linesearch_warnings`](@ref), and do not give it a parameter whose
-type varies per solver. `test/linesearch_tests.jl` asserts both.
+So: do not give this function a parameter whose type varies per solver, and do not move the
+messages back into [`linesearch_warnings`](@ref). `test/linesearch_tests.jl` asserts both — the
+first from the method signature, which *bounds* the specialization set rather than sampling it,
+and the second by scanning the lowered code of each function for `Base.CoreLogging`.
+
+The signature is what does the work; the `@noinline` is a guard rather than the mechanism. Julia's
+inliner already refuses a body this size, so removing the annotation does not currently reintroduce
+the cost — but a future inliner that is more willing would, and nothing in the caller wants this
+inlined anyway.
 
 The element types are deliberately *not* tied together as `LinesearchStatus{T}`/`Options{T}`: this
 is a reporting path, and a precision mismatch anywhere upstream should not turn a diagnostic into a
@@ -292,9 +305,14 @@ written the same way.
         # residual is *not* small, and `nonlinear_solver_warnings` then reports it once, with
         # the achieved residual and the requested tolerance.
         # `αmin` is a `Backtracking` quantity (zero means "not applicable", see `LinesearchStatus`),
-        # so the clause naming it is only included when there is a value to name.
-        αminclause = iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"
-        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(αminclause). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
+        # so the clause naming it is only included when there is a value to name. It is built
+        # inside the gate, not before it: a `FLOOR` outcome is reported on every iteration of a
+        # stalling solve, and interpolating a string the gate then discards allocates once per
+        # iteration at the default verbosity.
+        if verbose ≥ 2
+            αminclause = iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"
+            @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(αminclause). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
+        end
     elseif oc === LINESEARCH_EXHAUSTED
         # With `αmin = 0` — every method other than `Backtracking` — this selects the budget
         # wording, which is correct: those searches only ever exhaust by running out of budget or

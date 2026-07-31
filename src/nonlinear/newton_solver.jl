@@ -83,9 +83,17 @@ true
 """
 const NewtonSolver{T} = NonlinearSolver{T,Newton}
 
+# `@noinline` and taking the `Options` rather than the solver, for the reason spelled out on
+# `report_linesearch_status`: the constructor below is specialized on the closure types of the
+# `NonlinearProblem`, so a message inlined into it is re-inferred and re-codegen'd once per solver.
+@noinline function report_static_refactorize(refactorize::Integer, config::Options)
+    verbosity(config) ≥ 1 && @warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1."
+    nothing
+end
+
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
     if refactorize > 1 && typeof(method(linesearch)) <: Static
-        verbosity(config) ≥ 1 && (@warn "Static line search will not work with refactorize = $(refactorize). Setting refactorize = 1.")
+        report_static_refactorize(refactorize, config)
         refactorize = 1
     end
 
