@@ -2,6 +2,57 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.10.1]
+
+Compile-time fix. No behaviour change: the same messages, at the same `verbosity` gates, with
+the same `maxlog` caps, and every test from 0.10.0 passes unedited.
+
+### The defect
+
+`SimpleSolvers.linesearch_warnings` is called from `solver_step!` on every iteration of every
+solve, and its arguments are a `Linesearch` — which carries the closure types of its
+`LinesearchProblem` — and a `NamedTuple` of parameters. It is therefore re-specialized for every
+*problem* a solver is built for, and because the four `@warn` sites lived directly in its body,
+so did all of their `Base.CoreLogging` and string-interpolation code: re-inferred and
+re-codegen'd from scratch for each one. 0.9.2 had two short `@warn`s inline in `Backtracking`'s
+`solve`; the 0.10.0 rewrite multiplied the message code roughly fivefold without changing where
+it is specialized, so what had been a tolerable per-solver cost became the dominant one.
+
+This is invisible in steady-state timings — a solve takes about a millisecond — and shows up
+only where many solvers with distinct residual closures are built in one session. On
+GeometricIntegrators' Runge-Kutta test suite, which builds one implicit integrator per tableau
+(`Gauss(1)` … `Gauss(8)`, the `LobattoIII` and `Radau` families, `PGLRK`), it cost **76 s of the
+suite's 145 s** — more than the whole rest of the line search and the Newton step together, and
+96.9 % of the suite was compilation.
+
+### Fixed
+
+- The messages moved behind a `@noinline` function barrier,
+  `SimpleSolvers.report_linesearch_status(status, name::Symbol, config::Options)`, which mentions
+  no closure type and is therefore compiled exactly **once per element type for the whole
+  session** instead of once per solver. `linesearch_warnings` remains the only place a line
+  search emits messages, and is now a thin wrapper around the barrier plus the
+  verbosity-2-gated `curvature_diagnostic` (which genuinely needs the `Linesearch` and the
+  parameters, and costs nothing). The Runge-Kutta suite above went to **67 s**, with all 107
+  assertions passing — recovering the entire regression. `nonlinear_solver_warnings` and
+  `print_status` already had this shape, which is why they never cost anything.
+- The same idiom was applied to the two `bisection` messages
+  (`report_bisection_nonconvergence`, `report_bisection_nobracket`) and the three `DogLeg` ones
+  (`report_dogleg_singular`, `report_dogleg_nan`, `report_dogleg_underflow`), whose callers are
+  likewise specialized on a closure. Those messages are short, so the saving is small; the point
+  is that no reporting site in the package now grows with the number of solvers built.
+
+The barriers are internal and unexported. `test/linesearch_tests.jl` pins the contract down in
+both directions: nothing that varies per solver may appear in `report_linesearch_status`'
+signature, and driving solvers with distinct residual closures must not add a specialization.
+
+### Changed
+
+- **The minimum Julia version is now 1.10** (was 1.6). 1.6 has been out of support for some
+  time, `Base.specializations` — which the new regression test uses — was added in 1.10, and
+  both GeometricIntegratorsBase and GeometricIntegrators already require 1.10, so nothing
+  downstream can be on less.
+
 ## [0.10.0]
 
 Robustness release for the `Backtracking` line search. Downstream packages

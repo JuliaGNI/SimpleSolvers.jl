@@ -48,8 +48,21 @@ So the algorithm checks in each step where the sign change occurred and moves th
 """
 function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
     α, converged, _ = _bisection_core(f, αmin, αmax, params, config)
-    converged || (config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α).")
+    converged || report_bisection_nonconvergence(α, config)
     α
+end
+
+# Both reporters below are `@noinline` and take nothing but numbers and the `Options`, for the
+# reason spelled out on `report_linesearch_status`: their callers are specialized on the merit
+# closure `f`, so a message inlined into them is re-inferred and re-codegen'd once per caller.
+@noinline function report_bisection_nonconvergence(α::Number, config::Options)
+    config.verbosity ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α)."
+    nothing
+end
+
+@noinline function report_bisection_nobracket(α₀::Number, α₁::Number, y₀::Number, y₁::Number, config::Options)
+    config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
+    nothing
 end
 
 # The bisection loop, returning `(α, converged, n)` so a caller can report non-convergence
@@ -76,7 +89,7 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
     y = zero(y₀)
 
     if y₀ * y₁ > zero(y₀)
-        config.verbosity ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
+        report_bisection_nobracket(α₀, α₁, y₀, y₁, config)
         return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), true, n
     end
 

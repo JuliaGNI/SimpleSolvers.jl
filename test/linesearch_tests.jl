@@ -1008,3 +1008,37 @@ end
         @test iszero(st.αmin)
     end
 end
+
+
+@testset "$(rpad("the linesearch messages are compiled once, not once per solver", 80))" begin
+    # `linesearch_warnings` is called from `solver_step!` on every iteration of every solve, and
+    # it is specialized on the `Linesearch` — hence on the closure types of its
+    # `LinesearchProblem`, hence once per *problem* a solver is built for. The messages therefore
+    # live behind the `report_linesearch_status` barrier, which mentions no closure type and is
+    # compiled exactly once per element type for the whole session. Inlining them back cost
+    # `GeometricIntegrators`' Runge-Kutta suite 76 s of compile time; see the barrier's docstring.
+
+    # The contract, stated directly and without any reflection API: nothing in the signature may
+    # vary per solver.
+    m = only(methods(SimpleSolvers.report_linesearch_status))
+    sig = string(m.sig)
+    @test !occursin("Linesearch{", sig)
+    @test !occursin("LinesearchProblem", sig)
+    @test !occursin("NamedTuple", sig)
+
+    # And the consequence: driving solvers whose residual closures are distinct types adds no
+    # specialization. Counted as a delta, since other testsets in the suite may already have
+    # compiled one.
+    nspec() = count(!isnothing, collect(Base.specializations(m)))
+    before = nspec()
+
+    F₁(y, x, params) = y .= x .^ 2 .- 2
+    F₂(y, x, params) = y .= sin.(x) .- 1 // 2
+    for F in (F₁, F₂)
+        x = ones(3)
+        s = NewtonSolver(x, similar(x); F=F, verbosity=0)
+        solve!(x, s)
+    end
+
+    @test nspec() ≤ before + 1
+end

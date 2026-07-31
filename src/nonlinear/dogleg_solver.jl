@@ -42,6 +42,27 @@ is accepted (passing one is an error rather than being silently ignored).
 """
 const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 
+# The three reporters below are `@noinline` and take the `Options` rather than the solver, for the
+# reason spelled out on `report_linesearch_status`: `directions!` and `solver_step!` are specialized
+# on the `DogLegSolver`, which carries the closure types of its `NonlinearProblem` and `Jacobian`,
+# so a message inlined into them is re-inferred and re-codegen'd once per problem the solver is
+# built for. These three are short, so the saving here is small — the point is that the whole file
+# has one idiom for reporting and no site that grows with the number of solvers.
+@noinline function report_dogleg_singular(config::Options)
+    verbosity(config) ≥ 2 && @warn "DogLeg: singular Jacobian; falling back to a steepest-descent (Cauchy) step."
+    nothing
+end
+
+@noinline function report_dogleg_nan(config::Options)
+    verbosity(config) ≥ 2 && @warn "DogLeg: undefined merit (NaN) at the trial step; shrinking the trust-region radius."
+    nothing
+end
+
+@noinline function report_dogleg_underflow(iterations::Integer, config::Options)
+    verbosity(config) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without an acceptable step (iterations: $(iterations))."
+    nothing
+end
+
 @doc raw"""
     directions!(s, x, params, iteration=1; force_refactorize=false)
 
@@ -124,7 +145,7 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration
     if cache(linearsolver(s)).info == 0
         ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
     else
-        verbosity(config(s)) ≥ 2 && @warn "DogLeg: singular Jacobian; falling back to a steepest-descent (Cauchy) step."
+        report_dogleg_singular(config(s))
         direction₂(cache(s)) .= direction₁(cache(s))
     end
 
@@ -222,7 +243,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         # merit must also not reach the ρ update below, where every comparison
         # with NaN is false and the loop would spin forever at constant Δ.)
         if isnan(φ)
-            verbosity(config(s)) ≥ 2 && @warn "DogLeg: undefined merit (NaN) at the trial step; shrinking the trust-region radius."
+            report_dogleg_nan(config(s))
             Δ *= config(s).dogleg_radius_shrink
             continue
         end
@@ -270,7 +291,7 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         # (NaN) or did not decrease ‖F‖² must not move the iterate (Nocedal & Wright keep xₖ
         # on a rejected step).  The resulting stalled step is reported as non-converged by
         # the residual-gated convergence test.
-        verbosity(config(s)) ≥ 1 && @warn "DogLeg trust-region radius Δ underflowed without an acceptable step (iterations: $(iteration_number(state)))."
+        report_dogleg_underflow(iteration_number(state), config(s))
         φ_last = L2norm(value(cache(s)))
         (isfinite(φ_last) && φ_last < φ₀) && (x .= solution(cache(s)))
     end
