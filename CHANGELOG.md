@@ -80,8 +80,16 @@ the messages are in the barriers and nowhere else. Since the verbosity gates mov
 messages, the four reporters whose gate can be reached from a constructed problem — the two
 `bisection` ones and `DogLeg`'s singular-Jacobian and NaN-merit ones — are additionally driven at
 their documented verbosity and one below, so that a wrong gate in a future edit is not silent. The
-message texts whose interpolation moved are pinned by text, and the allocation counts above are
-asserted for every solver and line search.
+message texts whose interpolation moved are pinned by text, and a silent reporter is asserted to
+allocate nothing.
+
+The allocation fixes are pinned by their *causes* rather than by byte counts, because the suite runs
+under the `--check-bounds=yes` that `julia-actions/julia-runtest` passes, which inhibits the inlining
+that keeps these closures off the heap and makes any fixed number meaningless: `test/lowered_code.jl`
+scans lowered code for the `Core.Box` that a captured-and-mutated local produces, for every
+line-search and solver kernel, and the returns whose boxing propagated are `@inferred`. Both hold
+however the session was started. The end-to-end byte counts are asserted too, and skipped when the
+session does not compile the package the way a caller does.
 
 ### Changed
 

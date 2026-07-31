@@ -14,7 +14,7 @@ using Random
 using ForwardDiff
 using LinearAlgebra: SingularException
 
-include("logging_code.jl")
+include("lowered_code.jl")
 
 Random.seed!(1234)
 
@@ -1214,7 +1214,12 @@ end
 @testset "$(rpad("a converged solve allocates nothing", 80))" begin
     # The companion of the line-search assertion in `linesearch_tests.jl`, for the two solvers that
     # take no line search. Measured inside a function, because from global scope the arguments are
-    # boxed and the number says nothing about the code under test.
+    # boxed and the number says nothing about the code under test — and guarded, because under
+    # `--check-bounds=yes` it says nothing either (see `AS_A_CALLER_COMPILES_IT`).
+    for f in (solver_step!, SimpleSolvers.directions!, SimpleSolvers.nan_recovery!)
+        @test !has_boxed_capture(f)
+    end
+
     F(y, x, params) = y .= x .^ 2 .- 2
     function solve_allocations(S)
         x = ones(3)
@@ -1224,6 +1229,6 @@ end
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    @test solve_allocations(PicardSolver) == 0
-    @test solve_allocations(DogLegSolver) == 0
+    @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
+    @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
 end

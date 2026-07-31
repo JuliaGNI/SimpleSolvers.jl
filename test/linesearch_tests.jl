@@ -11,7 +11,7 @@ using SimpleSolvers: issufficient, isfloor
 using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps, backtracking_αmin,
     backtracking_interpolation, with_config, problem, method, config
 
-include("logging_code.jl")
+include("lowered_code.jl")
 
 f(x) = x^2 - 1
 g(x) = 2x
@@ -1115,11 +1115,30 @@ end
 end
 
 @testset "$(rpad("a converged solve allocates nothing", 80))" begin
-    # Every line search is expected to run a solve without touching the heap: the merit closures
-    # capture nothing they mutate, and the bracketing helpers return concrete types. `StrongWolfe`
-    # is the exception by design — its one-slot memo of φ and φ′ is handed to `_wolfe_zoom` and to
-    # the condition objects, so it cannot stay on the stack — and one small holder per line search
-    # is the whole of it, which is what the bound below pins.
+    # Every line search runs a solve without touching the heap: no kernel counts its merit
+    # evaluations in a variable that a closure captures and the loop mutates, and the bracketing
+    # helpers return concrete types. `StrongWolfe` is the one exception by design — its one-slot memo
+    # of φ and φ′ is handed to `_wolfe_zoom` and to the condition objects, so it cannot stay on the
+    # stack — and one small holder per line search is the whole of it.
+    #
+    # The two causes are asserted first, on lowered code and by inference, because those hold however
+    # the session was started. The byte counts that motivated them follow, guarded: they are the
+    # end-to-end statement but say nothing under `--check-bounds=yes` (see `AS_A_CALLER_COMPILES_IT`).
+    for f in (solve, solve_with_status, SimpleSolvers._bierlaire_fit, SimpleSolvers._wolfe_zoom,
+        bisection, SimpleSolvers._bisection_core, SimpleSolvers._triple_point_core)
+        @test !has_boxed_capture(f)
+    end
+
+    # A boxed counter is invisible in the result but erases the type of everything built from it, so
+    # pin that too: the `trials` of a `LinesearchStatus` and the `Symbol` a bracketing attempt reports.
+    probe(a) = (a - 0.5)^2 + 1.0
+    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1)) isa Tuple{Float64,Float64,Float64,Symbol}
+    let ls = Linesearch(make_linesearch_problem(2.0), BierlaireQuadratic(); verbosity=0)
+        a, b, c = SimpleSolvers._triple_point_core(problem(ls), NullParameters(), 0.0)
+        @test (@inferred SimpleSolvers._bierlaire_fit(ls, a, b, c, NullParameters(), 1.0e-16)) isa Tuple{Float64,Float64,Int}
+    end
+    @test (@inferred solve_with_status(Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity=0), 1.0)) isa LinesearchStatus
+
     F(y, x, params) = y .= x .^ 2 .- 2
     function solve_allocations(ls)
         x = ones(3)
@@ -1130,7 +1149,7 @@ end
         @allocated solve!(x, s, state)
     end
     for ls in (Static(), Backtracking(), Bisection(), Quadratic(), BierlaireQuadratic())
-        @test solve_allocations(ls) == 0
+        @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end
 
     function wolfe_allocations()
@@ -1138,5 +1157,5 @@ end
         solve_with_status(ls, 1.0)
         @allocated solve_with_status(ls, 1.0)
     end
-    @test wolfe_allocations() ≤ 64
+    @test wolfe_allocations() ≤ 64 skip = !AS_A_CALLER_COMPILES_IT
 end
