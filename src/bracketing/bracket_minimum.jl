@@ -214,11 +214,15 @@ Find a bracket while keeping the left side (i.e. `x`) fixed.
 
 The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
 
-The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)), as the coefficient ``p_2`` of the fitted polynomial is:
+The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)): that line search fits the polynomial centred at the bracket's left endpoint ``a`` (which may differ from the input `x` after the bracketer’s initial direction flip),
 ```math
-p_2 = \frac{f(b) - f(a) - f'(a)b}{b^2},
+p(\alpha) = f(a) + f'(a)(\alpha - a) + p_2(\alpha - a)^2,
 ```
-where ``b = \mathtt{bracket\_minimum\_with\_fixed\_point}(a)``. The right end `b` is
+so interpolating ``f`` at the right endpoint ``b`` fixes the coefficient ``p_2`` as
+```math
+p_2 = \frac{f(b) - f(a) - f'(a)(b - a)}{(b - a)^2},
+```
+where ``(a, b)`` is the bracket returned by ``\mathtt{bracket\_minimum\_with\_fixed\_point}``. The right end `b` is
 grown outward (with the left end `a` held fixed) until `f` stops decreasing, i.e.
 until the *turning point* `f(b) ≥ f(b_\mathrm{prev})` is reached, so that a minimum
 is bracketed in `(a, b)`. (The earlier variant compared against the fixed anchor
