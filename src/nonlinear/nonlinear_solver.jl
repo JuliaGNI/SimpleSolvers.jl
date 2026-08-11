@@ -273,6 +273,7 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
         solver_step!(x, s, state, params)
         update!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
         record_stall!(state, config(s))
+        record_progress!(state, config(s))
     end
 
     status = NonlinearSolverStatus(state, config(s))

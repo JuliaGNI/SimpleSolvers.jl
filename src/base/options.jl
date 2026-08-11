@@ -258,6 +258,60 @@ Set `max_stalls = typemax(Int)` to restore the previous behaviour of running all
 """
 const MAX_STALLS::Int = 2
 
+@doc raw"""
+    const F_STALL_FACTOR
+
+The factor by which the residual has to drop for an iteration to count as *progress*; the
+default of the `f_stall_factor` field of [`Options`](@ref). Its value is """ *
+                        """$(F_STALL_FACTOR)""" * raw""", i.e. progress means "the residual
+halved".
+
+[`record_progress!`](@ref) keeps the residual ``r^f_a`` of the last iteration that counted as
+progress, together with the iteration at which it happened, so that
+[`iterations_since_progress`](@ref) measures how long the residual has been going nowhere. That
+one number is used twice: unconditionally by [`nonlinear_solver_warnings`](@ref) to explain a
+solve that spent its whole budget, and — only when `f_stall_window > 0` — as the stopping
+criterion [`no_progress`](@ref).
+
+A factor closer to one (say `0.999`, i.e. "any improvement of a tenth of a percent counts") makes
+the measurement *more permissive*: a residual creeping down that slowly keeps resetting the clock,
+so only one that is essentially flat is ever reported. A smaller factor demands a steeper descent
+of an iteration before it counts as progress, and so reports sooner.
+
+See [`F_STALL_WINDOW`](@ref).
+"""
+const F_STALL_FACTOR = 0.5
+
+@doc raw"""
+    const F_STALL_WINDOW
+
+The default number of iterations without progress after which a [`NonlinearSolver`](@ref) gives
+up; the default of the `f_stall_window` field of [`Options`](@ref). Its value is """ *
+                        """$(F_STALL_WINDOW)""" * raw""", which **disables** the criterion (see
+[`no_progress`](@ref)).
+
+This is the counterpart of `max_stalls` for a solve whose iterate keeps *moving*: the residual
+sits on a floor far above the requested tolerance while the step is nowhere near the round-off
+level of ``x``, so neither [`stalled_step`](@ref) nor either convergence branch can fire and the
+iteration spends `max_iterations` in full. That floor is typically set by the problem itself — a
+model, discretisation or ansatz error that ``F`` cannot resolve — rather than by round-off, so
+no ``\mathrm{eps}(T)``-scaled tolerance can bound it.
+
+It is off by default because the threshold is a *policy*, not a test, and a wrong one gives up on
+a healthy solve. An iteration converging linearly with rate ``\rho`` improves by ``\rho^W`` over a
+window ``W``: at `f_stall_factor = 0.5` and `f_stall_window = 50` every ``\rho > 2^{-1/50}
+\approx 0.986`` is abandoned, and a [`PicardSolver`](@ref) on a stiff problem is slower than that.
+There is no value that is right for every problem, which is why the *diagnosis* is unconditional
+(a solve that spent its budget without progressing says so, see
+[`nonlinear_solver_warnings`](@ref)) and only the *stopping* is opt-in: the report costs a solve
+that has already failed nothing, whereas the criterion can cost a solve that would have
+succeeded everything.
+
+So set it once you have seen the report and know the floor is real — a window of a few tens of
+iterations then turns a full budget into a prompt answer.
+"""
+const F_STALL_WINDOW::Int = 0
+
 """
     Options
 
@@ -275,6 +329,7 @@ Options()
                 f_reltol = 1.4901161193847656e-8
                 f_suctol = 4.440892098500626e-16
                 f_mindec = 0.0001
+          f_stall_factor = 0.5
           f_abstol_break = Inf
        allow_f_increases = true
           min_iterations = 0
@@ -282,6 +337,7 @@ Options()
          warn_iterations = 1000
 linesearch_max_iterations = 60
               max_stalls = 2
+          f_stall_window = 0
               show_trace = false
              store_trace = false
           extended_trace = false
@@ -341,6 +397,17 @@ linesearch_max_iterations = 60
     looser. If the stagnation warning reports an achieved `rfₐ` near your `f_abstol`, raise
     `f_abstol` above it — an order of magnitude of headroom is usual.
 
+    A residual floor need not come from round-off at all. A model, discretisation or ansatz
+    error — an approximation `F` is built on and cannot resolve — puts a floor on ``\\|F(x)\\|``
+    that may sit many orders of magnitude *above* the round-off level, and that no
+    ``\\mathrm{eps}(T)``-scaled tolerance can bound. Such a solve looks different from a stalled
+    one: the iterate keeps moving normally, so nothing stops the iteration and it spends
+    `max_iterations` in full. It is reported by [`nonlinear_solver_warnings`](@ref) as having
+    made no progress, and `f_stall_window` (see [`F_STALL_WINDOW`](@ref)) bounds its cost once
+    you know the floor is there. The remedy is the same, one level up: raise `f_abstol` above
+    the achieved `rfₐ`, or improve the approximation until its floor lies below the tolerance
+    you need.
+
 !!! info
     Also see [`meets_stopping_criteria`](@ref).
 """
@@ -352,6 +419,7 @@ struct Options{T}
     f_reltol::T
     f_suctol::T
     f_mindec::T
+    f_stall_factor::T
     f_abstol_break::T
     allow_f_increases::Bool
     min_iterations::Int
@@ -359,6 +427,7 @@ struct Options{T}
     warn_iterations::Int
     linesearch_max_iterations::Int
     max_stalls::Int
+    f_stall_window::Int
     show_trace::Bool
     store_trace::Bool
     extended_trace::Bool
@@ -381,6 +450,7 @@ function Options(T=Float64;
     f_reltol::Real=(√(eps(T))),
     f_suctol::Real=default_tolerance(T),
     f_mindec::Real=minimum_decrease_threshold(T),
+    f_stall_factor::Real=T(F_STALL_FACTOR),
     f_abstol_break::Real=T(Inf),
     allow_f_increases::Bool=ALLOW_F_INCREASES,
     min_iterations::Integer=MIN_ITERATIONS,
@@ -388,6 +458,7 @@ function Options(T=Float64;
     warn_iterations::Integer=WARN_ITERATIONS,
     linesearch_max_iterations::Integer=linesearch_iterations(T),
     max_stalls::Integer=MAX_STALLS,
+    f_stall_window::Integer=F_STALL_WINDOW,
     show_trace::Bool=SHOW_TRACE,
     store_trace::Bool=STORE_TRACE,
     extended_trace::Bool=EXTENDED_TRACE,
@@ -411,6 +482,7 @@ function Options(T=Float64;
             f_reltol,
             f_suctol,
             f_mindec,
+            f_stall_factor,
             f_abstol_break)...,
         allow_f_increases,
         min_iterations,
@@ -418,6 +490,7 @@ function Options(T=Float64;
         warn_iterations,
         linesearch_max_iterations,
         max_stalls,
+        f_stall_window,
         show_trace,
         store_trace,
         extended_trace,
@@ -470,3 +543,19 @@ The number of consecutive stalled steps after which a [`NonlinearSolver`](@ref) 
 [`MAX_STALLS`](@ref) and [`stalled_step`](@ref).
 """
 max_stalls(o::Options) = o.max_stalls
+
+"""
+    f_stall_factor(o::Options)
+
+The factor by which the residual has to drop for an iteration to count as progress. See
+[`F_STALL_FACTOR`](@ref) and [`record_progress!`](@ref).
+"""
+f_stall_factor(o::Options) = o.f_stall_factor
+
+"""
+    f_stall_window(o::Options)
+
+The number of iterations without progress after which a [`NonlinearSolver`](@ref) gives up
+(`0` disables the criterion). See [`F_STALL_WINDOW`](@ref) and [`no_progress`](@ref).
+"""
+f_stall_window(o::Options) = o.f_stall_window

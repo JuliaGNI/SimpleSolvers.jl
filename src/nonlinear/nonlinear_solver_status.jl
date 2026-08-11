@@ -9,6 +9,7 @@ Stores absolute and successive residuals for `x` and `f`. It is used as a diagno
 # Keys
 - `iterations`: number of iterations
 - `stalls`: number of *consecutive* stalled steps, see [`stalled_step`](@ref) and [`isstalled`](@ref),
+- `iterations_since_progress`: iterations since the residual last dropped by `f_stall_factor`, see [`iterations_since_progress`](@ref),
 - `rxₛ`: successive residual in `x`,
 - `rfₐ`: absolute residual in `f`,
 - `rfₛ`: successive residual in `f`,
@@ -16,6 +17,7 @@ Stores absolute and successive residuals for `x` and `f`. It is used as a diagno
 - `f_converged::Bool`
 - `f_increased::Bool`
 - `stalled::Bool`: the *last* step stalled, see [`stalled_step`](@ref)
+- `not_progressing::Bool`: the iteration is not getting anywhere, see [`no_progress`](@ref)
 
 # Examples
 
@@ -37,6 +39,7 @@ rfₛ= NaN
 struct NonlinearSolverStatus{T}
     iterations::Int
     stalls::Int
+    iterations_since_progress::Int
 
     rxₛ::T
     rfₐ::T
@@ -46,6 +49,7 @@ struct NonlinearSolverStatus{T}
     f_converged::Bool
     f_increased::Bool
     stalled::Bool
+    not_progressing::Bool
 end
 
 @doc raw"""
@@ -187,6 +191,35 @@ function stalled_step(rxₛ::Number, rfₐ::Number, config::Options, state::Nonl
     iterate_settled(rxₛ, config, state) && !residual_small(rfₐ, config, state)
 end
 
+@doc raw"""
+    no_progress(rfₐ, config, state)
+
+Return `true` when the iteration has spent `config.f_stall_window` iterations without the
+residual dropping by `config.f_stall_factor` (see [`iterations_since_progress`](@ref)) while the
+residual is **not** small (see [`residual_small`](@ref)). Always `false` at the default
+`f_stall_window = 0`, which disables the criterion — see [`F_STALL_WINDOW`](@ref) for why it is
+opt-in.
+
+This is the sibling of [`stalled_step`](@ref) for a solve whose iterate has *not* frozen. Both
+end an iteration that cannot reach the requested tolerance, and they cover disjoint cases:
+`stalled_step` fires when the step has dropped below the round-off level of ``x``, so that the
+merit cannot be reduced *along the current direction*; `no_progress` fires when the steps are
+perfectly healthy and the residual is descending — just towards a floor above the tolerance,
+slowly enough that the remaining budget cannot get there. Their thresholds differ by orders of
+magnitude for the same reason: two consecutive stalled steps are conclusive because the second
+one had a fresh [`Jacobian`](@ref), whereas no number of *moving* steps is conclusive about a
+rate, which is why one is a default and the other a policy the caller sets.
+
+The `!residual_small` gate is the same one [`stalled_step`](@ref) carries, and it is what keeps
+giving up and converging mutually exclusive: a residual that has stopped improving *because it
+is already small enough* is success, and [`assess_convergence`](@ref) says so.
+"""
+function no_progress(rfₐ::Number, config::Options, state::NonlinearSolverState)
+    config.f_stall_window > 0 &&
+        iterations_since_progress(state) ≥ config.f_stall_window &&
+        !residual_small(rfₐ, config, state)
+end
+
 """
     record_stall!(state, config)
 
@@ -217,17 +250,23 @@ end
 function NonlinearSolverStatus(state::NonlinearSolverState{T}, config::Options{T}) where {T}
     rxₛ, rfₐ, rfₛ = residuals(state)
     x_converged, f_converged, f_increased, stalled = assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
-    NonlinearSolverStatus{T}(iteration_number(state), stall_number(state), rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased, stalled)
+    # `no_progress` is evaluated here rather than in `assess_convergence` because it is not a
+    # convergence question: it reads a measurement taken once per iteration by `record_progress!`
+    # instead of the residuals of the current step.
+    NonlinearSolverStatus{T}(iteration_number(state), stall_number(state), iterations_since_progress(state),
+        rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased, stalled, no_progress(rfₐ, config, state))
 end
 
-# The stall line is appended only when it is relevant, so the printout of a fresh status is
-# unchanged.
+# The stall and no-progress lines are appended only when they are relevant, so the printout of a
+# fresh status — and of a healthy solve, whose residual improves right up to the last iteration —
+# is unchanged.
 Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
     (@sprintf "i=%4i" status.iterations), ",\n",
     (@sprintf "rxₛ=%4e" status.rxₛ), ",\n",
     (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
     (@sprintf "rfₛ=%4e" status.rfₛ),
-    status.stalls > 0 ? ",\n" * (@sprintf "stalls=%4i" status.stalls) : "")
+    status.stalls > 0 ? ",\n" * (@sprintf "stalls=%4i" status.stalls) : "",
+    spent_without_progress(status) ? ",\n" * (@sprintf "no progress for=%4i" status.iterations_since_progress) : "")
 
 @doc raw"""
     print_status(status, config)
@@ -274,6 +313,42 @@ and consider raising `f_abstol` above it, since the tolerance you asked for is n
 isstalled(status::NonlinearSolverStatus, config::Options) = status.stalls ≥ config.max_stalls
 
 """
+    isnotprogressing(status)
+
+Check whether the iteration has been given up on for lack of *progress*: `config.f_stall_window`
+iterations without the residual dropping by `config.f_stall_factor`, see [`no_progress`](@ref).
+Always `false` at the default `f_stall_window = 0`.
+
+Mutually exclusive with [`isconverged`](@ref), for the same reason [`isstalled`](@ref) is: the
+criterion requires the residual *not* to be small, whereas both convergence branches require that
+it is.
+
+As with [`isstalled`](@ref), whether this counts as failure is the caller's decision: the solve
+reached `status.rfₐ` and could not do better within the window it was given.
+"""
+isnotprogressing(status::NonlinearSolverStatus) = status.not_progressing
+
+"""
+    spent_without_progress(status)
+
+Check whether the iteration spent at least *half* of its iterations without the residual dropping
+by `config.f_stall_factor` — the diagnosis [`nonlinear_solver_warnings`](@ref) reports when a
+solve has used its whole budget, and the condition under which the no-progress line is shown by
+`show`.
+
+This is unconditional, unlike [`isnotprogressing`](@ref), and it can afford to be because it is
+only ever used to *describe* a solve, never to decide one: [`nonlinear_solver_warnings`](@ref)
+consults it about a solve that has already spent `max_iterations` without converging, and `show`
+about one it has been handed to print. A threshold that would be reckless as
+a stopping criterion (see [`F_STALL_WINDOW`](@ref)) is harmless as an explanation — which is why
+the two exist separately. A healthy solve never reaches it: an iteration converging linearly with
+rate ``\\rho`` halves its residual every ``-1/\\log_2\\rho`` iterations, 69 of them even at
+``\\rho = 0.99``, and it stops long before the budget in any case.
+"""
+spent_without_progress(status::NonlinearSolverStatus) =
+    status.iterations > 0 && 2 * status.iterations_since_progress ≥ status.iterations
+
+"""
     meets_stopping_criteria(state, config)
 
 Determines whether the iteration stops based on the current [`NonlinearSolverState`](@ref).
@@ -284,6 +359,7 @@ Determines whether the iteration stops based on the current [`NonlinearSolverSta
 The function `meets_stopping_criteria` returns `true` if one of the following is satisfied:
 - the `status::`[`NonlinearSolverStatus`](@ref) is converged (checked with [`isconverged`](@ref)) and `state.iterations ≥ config.min_iterations`,
 - the `status` has *stagnated* (checked with [`isstalled`](@ref), i.e. `config.max_stalls` consecutive steps that did not move the iterate while the residual is not small) and `state.iterations ≥ config.min_iterations`,
+- the `status` is making no *progress* (checked with [`isnotprogressing`](@ref), i.e. `config.f_stall_window` iterations without the residual dropping by `config.f_stall_factor` while it is not small) and `state.iterations ≥ config.min_iterations`; this is opt-in and never fires at the default `f_stall_window = 0`,
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
 - `state.iterations ≥ config.max_iterations`,
 - `status.rfₐ > config.f_abstol_break` (by default `Inf`). In theory this returns `true` if the residual gets too big.
@@ -328,10 +404,21 @@ function meets_stopping_criteria(state::NonlinearSolverState, config::Options)
 
     (isconverged(status) && state.iterations ≥ config.min_iterations) ||
         (isstalled(status, config) && state.iterations ≥ config.min_iterations) ||
+        (isnotprogressing(status) && state.iterations ≥ config.min_iterations) ||
         (status.f_increased && !config.allow_f_increases) ||
         state.iterations ≥ config.max_iterations ||
         status.rfₐ > config.f_abstol_break ||
         (havenan(status) && state.iterations ≥ 1)
+end
+
+# The two wordings of the no-progress message: the opt-in `f_stall_window` gave up, or the whole
+# budget was spent and this explains what it was spent on. Called from *inside* the `@warn` message
+# so that the string is built only for a message that is actually shown; see
+# `linesearch_exhausted_reason`, which is factored out for the same reason.
+function no_progress_reason(status::NonlinearSolverStatus, config::Options)
+    isnotprogressing(status) ?
+    "gave up after $(status.iterations) iterations: the residual rfₐ = $(status.rfₐ) did not improve by the factor f_stall_factor = $(config.f_stall_factor) in the last $(status.iterations_since_progress) of them, which is the f_stall_window = $(config.f_stall_window) you asked it to give up after" :
+    "spent its full budget of max_iterations = $(config.max_iterations) iterations without converging: the residual rfₐ = $(status.rfₐ) did not improve by the factor f_stall_factor = $(config.f_stall_factor) in the last $(status.iterations_since_progress) of them, so the iteration is making no useful progress and a larger budget is unlikely to change that. Set f_stall_window to stop at that point instead of spending the whole budget"
 end
 
 """
@@ -339,15 +426,37 @@ end
 
 Report a [`NonlinearSolverStatus`](@ref) at the end of a [`solve!`](@ref): the iteration count
 if it reached `warn_iterations`, *stagnation* at the residual floor (see [`isstalled`](@ref)
-and [`stalled_step`](@ref)), a disallowed residual increase, a residual beyond
+and [`stalled_step`](@ref)), a lack of *progress* (see [`spent_without_progress`](@ref) and
+[`isnotprogressing`](@ref)), a disallowed residual increase, a residual beyond
 `f_abstol_break`, and `NaN`s. Compare this to [`linesearch_warnings`](@ref), which does the
 same for the inner line search, and to [`print_status`](@ref).
 
 All messages except the iteration count and the two hard-failure ones are gated on
 `config.verbosity ≥ 1`.
+
+The three "this solve did not do what you asked" messages are mutually exclusive, most specific
+first: stagnation (the iterate froze) wins over lack of progress (the iterate moves but the
+residual is going nowhere), which in turn replaces the bare iteration count — which on its own
+names a symptom and no cause, and was the only thing a non-progressing solve used to report.
 """
 function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Options)
-    (config.warn_iterations > 0 && status.iterations ≥ config.warn_iterations) && (@warn "Solver took $(status.iterations) iterations.")
+    # Stagnation is the more specific diagnosis and is reported below, so it suppresses this one.
+    # Otherwise: either the caller opted into `f_stall_window` and it fired, or the solve spent its
+    # whole budget without converging and `spent_without_progress` says why.
+    noprogress = !isstalled(status, config) &&
+                 (isnotprogressing(status) ||
+                  (status.iterations ≥ config.max_iterations && !isconverged(status) && spent_without_progress(status)))
+
+    # `maxlog` for the same reason the messages below have one: a caller that drives `solve!` in a
+    # loop would otherwise get this once per step for as long as the problem stays unattainable.
+    (config.warn_iterations > 0 && status.iterations ≥ config.warn_iterations && !noprogress) &&
+        (@warn "Solver took $(status.iterations) iterations." maxlog = 3)
+    # Same shape as the stagnation message: say what the solve achieved, what was asked of it, and
+    # how to make the request attainable. The distinguishing news is that the iterate is *not*
+    # stuck — the steps are healthy and the residual is simply not heading for the tolerance —
+    # which points at the problem rather than at the solver or the precision.
+    (noprogress && config.verbosity ≥ 1) &&
+        (@warn "Nonlinear solver $(no_progress_reason(status, config)). The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖).$(status.stalled ? "" : " The iterate has not frozen (the last step was rxₛ = $(status.rxₛ)), so this is not the round-off floor of x that stagnation detection reports; a residual that is not heading for the tolerance while the steps are healthy usually means a floor of the problem itself — a model, discretisation or ansatz error that F cannot resolve, and that no eps-scaled tolerance can bound.") If rfₐ is accurate enough for you, raise f_abstol above it; otherwise improve the approximation F is built on until its floor lies below the tolerance you need. Set verbosity = 0 to silence this." maxlog = 3)
     # A stagnated solve is not an error, but it did not achieve what was asked of it, so say
     # what it *did* achieve and how to make the request attainable. This replaces the former
     # pair of misleading messages (a line-search warning per iteration plus "Solver took 1000

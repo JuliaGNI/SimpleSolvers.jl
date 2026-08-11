@@ -10,7 +10,7 @@ The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 
 ```jldoctest; setup = :(using SimpleSolvers)
 julia> state = NonlinearSolverState(zeros(3))
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], NaN, 0, false)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], NaN, 0, false, NaN, 0)
 ```
 """
 mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T}} <: AbstractSolverState
@@ -31,6 +31,10 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
                      # merit cannot be decreased; OR-ed into the verdict of the next
                      # `record_stall!`, which clears it again
 
+    rf_ref::T        # the residual as of the last iteration that counted as progress, and the
+    iter_ref::Int    # iteration at which that was; maintained by `record_progress!`, read as
+                     # `iterations_since_progress` by the report and by `no_progress`
+
     function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=X) where {T}
         x = zero(X)
         x̄ = zero(X)
@@ -42,7 +46,7 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
         y .= T(NaN)
         ȳ .= T(NaN)
 
-        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false)
+        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0)
     end
 end
 
@@ -93,6 +97,10 @@ function initialize!(state::NonlinearSolverState{T}, x::AbstractVector{T}, y::Ab
     state.ȳ .= T(NaN)
     state.stalls = 0
     state.stallflag = false
+    # The initial residual is also the first progress reference: a solve is measured against
+    # where it started, so `iterations_since_progress` counts from iteration 0.
+    state.rf_ref = state.r₀
+    state.iter_ref = 0
 end
 
 """
@@ -103,6 +111,53 @@ Return the number of *consecutive* stalled steps recorded in
 [`iteration_number`](@ref).
 """
 stall_number(state::NonlinearSolverState) = state.stalls
+
+@doc raw"""
+    iterations_since_progress(state)
+
+Return the number of iterations since the residual last dropped by `config.f_stall_factor`, as
+recorded in `state::`[`NonlinearSolverState`](@ref) by [`record_progress!`](@ref). Zero on a
+freshly initialized state.
+
+This measures the failure mode [`stall_number`](@ref) cannot see. A stalled step is one that did
+not move the iterate; here the iterate moves perfectly normally — by far more than the round-off
+level of ``x`` — while the residual descends towards a floor above the requested tolerance, so
+neither [`stalled_step`](@ref) nor either branch of [`assess_convergence`](@ref) can fire and the
+solve spends `max_iterations` in full. [`nonlinear_solver_warnings`](@ref) reports it, and
+[`no_progress`](@ref) stops it when the caller has opted in with `f_stall_window`.
+"""
+iterations_since_progress(state::NonlinearSolverState) = iteration_number(state) - state.iter_ref
+
+@doc raw"""
+    record_progress!(state, config)
+
+Update the progress reference of `state::`[`NonlinearSolverState`](@ref): when the residual has
+dropped to `config.f_stall_factor` times the residual of the last iteration that counted as
+progress, that becomes the new reference and the count returned by
+[`iterations_since_progress`](@ref) restarts. Returns that count.
+
+The reference is therefore monotonically non-increasing — it is the best residual so far, at the
+granularity of the factor — which is what makes the measurement immune to a residual that jumps
+around: an iteration that undoes the progress of the previous one does not reset the clock. See
+[`F_STALL_FACTOR`](@ref) for the choice of granularity.
+
+Like [`record_stall!`](@ref), this must be called *exactly once per iteration* — [`solve!`](@ref)
+does so right after [`update!`](@ref) — because it is a per-iteration measurement rather than a
+predicate. That is why it lives here and not in [`NonlinearSolverStatus`](@ref), which is pure
+and is built more than once per iteration. A hand-rolled iteration that drives
+[`solver_step!`](@ref) directly and never calls it keeps the count at zero and behaves exactly as
+before.
+"""
+function record_progress!(state::NonlinearSolverState, config::Options)
+    rfₐ = l2norm(value(state))
+    # `NaN ≤ x` is false, so a not-yet-initialized reference never counts as progress; it is set
+    # by `initialize!` before the first iteration in every solve that goes through `solve!`.
+    if rfₐ ≤ config.f_stall_factor * state.rf_ref
+        state.rf_ref = rfₐ
+        state.iter_ref = iteration_number(state)
+    end
+    iterations_since_progress(state)
+end
 
 """
     flag_stall!(state)
@@ -160,10 +215,10 @@ julia> y = zero(x); f(y, x, NullParameters())
  0.06120871905481365
 
 julia> state = NonlinearSolverState(x)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN], [NaN], [NaN], [NaN], NaN, 0, false)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN], [NaN], [NaN], [NaN], NaN, 0, false, NaN, 0)
 
 julia> update!(state, x, y)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.25], [NaN], [0.06120871905481365], [NaN], NaN, 0, false)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.25], [NaN], [0.06120871905481365], [NaN], NaN, 0, false, NaN, 0)
 
 julia> x = ones(1) / 2
 1-element Vector{Float64}:
@@ -174,7 +229,7 @@ julia> f(y, x, NullParameters())
  0.0
 
 julia> update!(state, x, y)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.5], [0.25], [0.0], [0.06120871905481365], NaN, 0, false)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.5], [0.25], [0.0], [0.06120871905481365], NaN, 0, false, NaN, 0)
 ```
 
 The [`NonlinearSolverState`](@ref) stores the previous solution, the previous value, the current solution and the current value.
