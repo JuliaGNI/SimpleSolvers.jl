@@ -181,6 +181,10 @@ for T ∈ (Float64, Float32)
     for (Solver, kwarguments, tolfac) in (
         (NewtonSolver, (linesearch=Static(T),), 2),
         (NewtonSolver, (linesearch=Backtracking(T),), 2),
+        # The expansion phase of issue #174 lengthens a step rather than only shrinking it, so it
+        # has to be pinned end-to-end and not just at the line search: a `NewtonSolver` asked for
+        # it must still land on a root, to the same tolerance as the shrink-only default.
+        (NewtonSolver, (linesearch=Backtracking(T; expand=true),), 2),
         (NewtonSolver, (linesearch=Bisection(T),), 2),
         (NewtonSolver, (linesearch=Quadratic(T),), 32),
         # These rows briefly carried `tolfac = 64`, when folding the quadratic searches into
@@ -1265,7 +1269,7 @@ end
     # `Jacobian` — so a message in any of their bodies is re-inferred and re-codegen'd once per
     # problem a solver is built for. Every one of them therefore delegates to a `@noinline` reporter
     # taking nothing but numbers and the `Options`. See `report_linesearch_status` for why, and
-    # `test/logging_code.jl` for the check.
+    # `has_logging_code` in `test/lowered_code.jl` for the check.
     for f in (SimpleSolvers.report_dogleg_singular, SimpleSolvers.report_dogleg_nan,
         SimpleSolvers.report_dogleg_underflow, SimpleSolvers.report_nan_direction,
         SimpleSolvers.report_static_refactorize,

@@ -4,10 +4,15 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [0.11.0]
 
-Convenience entry points for solving a `NonlinearProblem`, [issue
-#159](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/159).
+Two independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
+constructor, and gains an opt-in expansion phase. Additive: a `NonlinearProblem` can be solved
+without assembling a solver by hand.
 
-### The gap
+### Convenience entry points for solving a `NonlinearProblem`
+
+[Issue #159](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/159).
+
+#### The gap
 
 `NonlinearProblem` was exported but was not usable as an argument anywhere: no solver constructor
 accepted one, so a hand-built problem forced the seven-argument low-level constructor, with the
@@ -17,7 +22,7 @@ linear problem, the linear solver, the line search and the cache all supplied by
 taking a problem and a method, which both of the other subsystems have: `solve(lu, ls)` on the
 linear side, `solve(prob, method, α, params, config)` on the line-search side.
 
-### Added
+#### Added
 
 - `NewtonSolver(x, nlp::NonlinearProblem, y = zero(x))` and the same form for `PicardSolver` and
   `DogLegSolver`, hence also `NonlinearSolver(method, x, nlp)`. The residual prototype `y` only
@@ -41,12 +46,94 @@ Each wrapper call constructs a solver (a Jacobian with its ForwardDiff configura
 factorization cache, the line-search buffers), so this is the convenience path and not the one for a
 loop: that should still build one `NonlinearSolver` and reuse it. The docstrings say so.
 
-### Changed
+#### Changed
 
 The three `(x, F, y)` constructors are now one-line delegations to their `NonlinearProblem`
 counterparts — the assembly recipe they each carried a copy of exists once per solver now. No
 behaviour change: `NonlinearProblem(F, DF!, x, y)` stores `J = DF!`, so the resulting
 `resolve_jacobian` call is the one they made before.
+
+### `Backtracking` can lengthen a step
+
+`Backtracking` can now lengthen a step, and no longer carries a field that pretended to
+configure one. Both halves of [issue #174](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/174).
+
+#### The defects
+
+**`Backtracking.α₀` was never read.** It was stored, documented as *"the initial step size α"*,
+printed by `show`, compared by `isapprox` and converted by `change_precision` — but neither
+`solve` nor `solve_with_status` ever looked at it. The trial step was, and remains, the `α`
+argument. `Backtracking(; α₀ = 10.0)` therefore configured nothing.
+
+**The search could only shrink.** A backtracking search returns the trial step it was given
+whenever that step is acceptable, so on a direction whose natural scale is *larger* than the
+trial step it pins `α` at the caller's ceiling on every iteration. On the SVD test problem of
+JuliaGNI/GeometricOptimizers.jl#31 that cost a DFP direction — which wants `α ≈ 11` throughout —
+**49 679** iterations against **134** for `Bisection`, whose rightward bracketing is immune. It
+is a property of the search, not of DFP: BFGS, already scaled like a Newton step, is unaffected
+(113 against 143). Handing the same `Backtracking` a trial step of 3 instead of 1 is worth a
+factor of 217, which is precisely the knob `α₀` appeared to offer and did not.
+
+#### Fixed
+
+- **Breaking**: the `α₀` key of `Backtracking` and the constant `SimpleSolvers.DEFAULT_ARMIJO_α₀`
+  are removed, along with the positional `Backtracking{T}(α₀, c₁, c₂, p[, τ_ulps])` form. The
+  trial step now has exactly one source, the `α` argument of `solve`/`solve_with_status`. No
+  behaviour changes, because nothing read the field.
+- `Backtracking` gained an **expansion phase**, behind a new `expand` key that is `false` by
+  default: with it set, an accepted *first* trial step is lengthened while each longer trial
+  still satisfies the sufficient decrease condition and strictly improves the merit. A shrunken
+  step is never expanded again — the longer steps below it have already been rejected. Two
+  further keys tune it, `q` (an upper bound on the growth factor per round, the counterpart of
+  `p`) and `nexpand` (the cap on expansion trials, applied from *within* the
+  `linesearch_max_iterations` of `Options` rather than beside it, so the whole search still
+  spends at most that many merit evaluations). This is the one place where a line search leaves
+  the interval `[0, α]` the caller offered: the largest step it can try is `q^nexpand · α`, a
+  thousand times the trial step on the defaults. A trial whose merit is not finite is rejected at
+  the cost of that one evaluation, but a merit that *throws* outside its domain is the caller's
+  to guard — one more reason the phase is opt-in.
+- The step it grows to is chosen by a new `SimpleSolvers.backtracking_extrapolation`, from the
+  *same* quadratic model through `φ(0)`, `φ'(0)` and `φ(α)` that `backtracking_interpolation`
+  uses on the way down. All three values are already known when the trial step is accepted, so
+  the decision whether to expand at all costs no merit evaluation: a direction scaled like a
+  Newton step is at its model minimum and returns after the single trial the shrink-only search
+  would have made. That is what allowed the phase to be worth having at all — for the merit of a
+  `NonlinearSolver`, one evaluation is a full residual evaluation. It is also why the phase does
+  not consult the curvature condition, which would cost a full Jacobian per trial; `StrongWolfe`
+  remains the method for that.
+
+#### Measured
+
+On the `St(20,3)²` SVD problem of GeometricOptimizers (`test/optimizer_convergence/svd_optim.jl`,
+seed 1234), iterations to convergence:
+
+| method + retraction | `Backtracking` | `Backtracking(; expand = true)` | `Bisection` |
+|---|---|---|---|
+| `_DFP` + Geodesic | 49 679 | **830** | 134 |
+| `_DFP` + Cayley | 29 081 | **1 237** | 96 |
+| `_BFGS` + Geodesic | 113 | 93 | 143 |
+| `_BFGS` + Cayley | 136 | 118 | 93 |
+
+The `Backtracking` column reproduces 0.10.1's numbers exactly, which is the check that the
+default path is untouched. The well-scaled `_BFGS` rows are not merely unharmed but slightly
+better, because an occasional step *is* longer than the trial one. `_DFP` is still behind
+`Bisection` on iteration count, but ahead of it on wall clock (0.2 s against 0.5 s for
+Geodesic): a `Bisection` iteration spends of the order of 580 merit evaluations against
+`Backtracking`'s 25.
+
+On `nexpand`, the same problem: `1` is too few for `_DFP` (it does not converge within 60 000
+iterations), `2` and above all do, hence the default of 3. On `q`, the range 4–100 is a plateau
+rather than a cliff — `q = 100` reaches 594/398 on the two `_DFP` rows — and the default of 10 is
+the conservative point on it rather than the best on this one problem.
+
+**Behaviour is unchanged unless `expand = true`.** No expectation of the 0.10.1 test suite was
+adjusted to make this pass — every iteration count, `trials` count and zero-allocation assertion
+stands as it was, and the only edits to the test files are new cases and the addition of
+`Backtracking(T; expand = true)` to loops that already ran over every method. `NewtonSolver`'s
+default line search still shrinks only. GeometricIntegrators' Runge-Kutta suite
+passes (128 assertions) with bit-identical trajectories for `Gauss(1)`…`Gauss(4)`. To fix an
+under-scaled direction, ask for it:
+`NewtonSolver(x, F, y; linesearch = Backtracking(T; expand = true))`.
 
 ## [0.10.1]
 
