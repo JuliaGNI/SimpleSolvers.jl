@@ -47,10 +47,18 @@ Whether any message `f()` emits contains `pattern`.
 Used to pin a reporter's *verbosity gate*, which is otherwise silent when a future edit gets it
 wrong. Preferred over `@test_logs` here because it asks whether one specific message is present, and
 so is not upset by unrelated messages the same solve may emit at the same verbosity.
+
+`f` runs at a verbosity high enough to trigger the reporter under test, and at that verbosity a
+converged solve also writes its `NonlinearSolverStatus` to `stdout` (see `print_status`) — which is
+not a log record, so the `TestLogger` does not intercept it and it lands in the test output. That is
+by design for a *user* at `verbosity = 2` and noise in a test suite, so `stdout` is swallowed here
+too. Only the log stream is inspected either way.
 """
 function logged_any(f, pattern)
     logger = Test.TestLogger()
-    Base.CoreLogging.with_logger(f, logger)
+    redirect_stdout(devnull) do
+        Base.CoreLogging.with_logger(f, logger)
+    end
     any(r -> occursin(pattern, string(r.message)), logger.logs)
 end
 
