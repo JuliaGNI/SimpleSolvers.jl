@@ -214,7 +214,7 @@ Find a bracket while keeping the left side (i.e. `x`) fixed.
 
 The algorithm is similar to [`bracket_minimum`](@ref) (also based on [`DEFAULT_BRACKETING_s`](@ref) and [`DEFAULT_BRACKETING_k`](@ref)) with the difference that for the latter the left side is also moving.
 
-The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)): that line search fits the polynomial centred at the bracket's left endpoint ``a``,
+The function `bracket_minimum_with_fixed_point` is used as a starting point for [`Quadratic`](@ref) (adapted from [kelley1995iterative](@cite)): that line search fits the polynomial centred at the bracket's left endpoint ``a`` (which may differ from the input `x` after the bracketer’s initial direction flip),
 ```math
 p(\alpha) = f(a) + f'(a)(\alpha - a) + p_2(\alpha - a)^2,
 ```
