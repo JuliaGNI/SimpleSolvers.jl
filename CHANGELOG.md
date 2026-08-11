@@ -34,7 +34,13 @@ factor of 217, which is precisely the knob `α₀` appeared to offer and did not
   still satisfies the sufficient decrease condition and strictly improves the merit. A shrunken
   step is never expanded again — the longer steps below it have already been rejected. Two
   further keys tune it, `q` (an upper bound on the growth factor per round, the counterpart of
-  `p`) and `nexpand` (the cap on expansion trials).
+  `p`) and `nexpand` (the cap on expansion trials, applied from *within* the
+  `linesearch_max_iterations` of `Options` rather than beside it, so the whole search still
+  spends at most that many merit evaluations). This is the one place where a line search leaves
+  the interval `[0, α]` the caller offered: the largest step it can try is `q^nexpand · α`, a
+  thousand times the trial step on the defaults. A trial whose merit is not finite is rejected at
+  the cost of that one evaluation, but a merit that *throws* outside its domain is the caller's
+  to guard — one more reason the phase is opt-in.
 - The step it grows to is chosen by a new `SimpleSolvers.backtracking_extrapolation`, from the
   *same* quadratic model through `φ(0)`, `φ'(0)` and `φ(α)` that `backtracking_interpolation`
   uses on the way down. All three values are already known when the trial step is accepted, so
@@ -69,9 +75,11 @@ iterations), `2` and above all do, hence the default of 3. On `q`, the range 4�
 rather than a cliff — `q = 100` reaches 594/398 on the two `_DFP` rows — and the default of 10 is
 the conservative point on it rather than the best on this one problem.
 
-**Behaviour is unchanged unless `expand = true`.** The whole 0.10.1 test suite passes unedited,
-including the iteration counts, the `trials` counts and the zero-allocation assertions, and
-`NewtonSolver`'s default line search still shrinks only. GeometricIntegrators' Runge-Kutta suite
+**Behaviour is unchanged unless `expand = true`.** No expectation of the 0.10.1 test suite was
+adjusted to make this pass — every iteration count, `trials` count and zero-allocation assertion
+stands as it was, and the only edits to the test files are new cases and the addition of
+`Backtracking(T; expand = true)` to loops that already ran over every method. `NewtonSolver`'s
+default line search still shrinks only. GeometricIntegrators' Runge-Kutta suite
 passes (128 assertions) with bit-identical trajectories for `Gauss(1)`…`Gauss(4)`. To fix an
 under-scaled direction, ask for it:
 `NewtonSolver(x, F, y; linesearch = Backtracking(T; expand = true))`.

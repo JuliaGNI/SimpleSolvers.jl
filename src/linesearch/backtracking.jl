@@ -91,9 +91,9 @@ The keys are:
 - `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": the constant ``c_1`` in the [`SufficientDecreaseCondition`](@ref) (Armijo condition). Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": an *upper bound* on the factor by which ``\alpha`` is decreased in every step until the stopping criterion is satisfied. The actual factor is chosen by interpolation and confined to ``[`` [`BACKTRACKING_SHRINK_MIN`](@ref) ``\cdot\alpha, p\alpha]``, so the trial sequence is never longer than the plain ``\alpha \gets p\alpha`` ladder.
-- `expand`=`false`: whether the search may *lengthen* the trial step (the expansion phase described below). Off by default, so a `Backtracking` is the classical one-sided algorithm unless it is asked for.
+- `expand`=`false`: whether the search may *lengthen* the trial step (the expansion phase described below). Off by default, so a `Backtracking` is the classical one-sided algorithm unless it is asked for. Setting it requires the merit to be *evaluable* — finite or not, but not throwing — out to ``q^{\mathrm{nexpand}}\alpha``, since that is the largest step the phase can try.
 - `q`=""" * string(DEFAULT_BACKTRACKING_q) * raw""": an *upper bound* on the factor by which ``\alpha`` is increased in one expansion round — the counterpart of ``p``. Only used when `expand` is set. See [`DEFAULT_BACKTRACKING_q`](@ref).
-- `nexpand`=""" * string(DEFAULT_BACKTRACKING_NEXPAND) * raw""": the cap on the number of expansion trials, each of which costs one merit evaluation. Only used when `expand` is set. See [`DEFAULT_BACKTRACKING_NEXPAND`](@ref).
+- `nexpand`=""" * string(DEFAULT_BACKTRACKING_NEXPAND) * raw""": the cap on the number of expansion trials, each of which costs one merit evaluation. It bounds the phase from within the `linesearch_max_iterations` of [`Options`](@ref) rather than beside it: whichever of the two is smaller applies, so the whole search still spends at most `linesearch_max_iterations` merit evaluations. Only used when `expand` is set. See [`DEFAULT_BACKTRACKING_NEXPAND`](@ref).
 - `τ_ulps`=[`armijo_ulps`](@ref)`(T, c₁)` (""" * string(DEFAULT_ARMIJO_τ_ULPS) * raw""" in `Float64` and `Float32`, less in `Float16`): the round-off resolution of the merit, in units in the last place of ``\varphi(0)``. It slackens the [`SufficientDecreaseCondition`](@ref) (never past ``\varphi(0)``), fixes ``\alpha_\mathrm{min}``, and separates a genuine decrease from one within the noise. A value larger than [`armijo_ulps`](@ref)`(T, c₁)` is capped to it, since above that ``\tau`` would swamp the decrease the condition demands. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref).
 
 # Implementation
@@ -137,6 +137,16 @@ With `expand = true` and the *first* trial step accepted, the search may also le
 [`SufficientDecreaseCondition`](@ref) *and* strictly improves the merit; at most `nexpand` such
 trials are made and the best step seen is returned. A shrunken step is never expanded again:
 once the ladder has backtracked, the longer steps are already known to fail.
+
+This is the one place where the search leaves the interval ``[0, \alpha]`` the caller offered.
+The largest step it can try is ``q^{\mathrm{nexpand}}\alpha`` — a thousand times the trial step
+on the defaults — and a trial whose merit is not finite is simply rejected, at the cost of the
+one evaluation. A merit that *throws* outside its domain is the caller's to guard, and it is one
+reason the phase is opt-in.
+
+The trials it spends come out of the `linesearch_max_iterations` budget of [`Options`](@ref),
+not out of a second budget beside it, so termination case 4 above still bounds the whole search:
+the phase makes at most `nexpand` trials *and* at most as many as that budget has left.
 
 This is what makes the search two-sided. A shrink-only search returns the trial step it was
 given whenever that step is acceptable, so on a direction whose natural scale is *larger* than
@@ -316,9 +326,12 @@ the step grows by the full factor ``q``. A denominator that is not *finite* is a
 entirely, namely no model at all, and returns `α`.
 
 Everything the model needs has already been evaluated, so the decision costs no merit
-evaluation. That is what the lower bound [`BACKTRACKING_GROW_MIN`](@ref) is for: unless the
-model wants a step at least that multiple of ``\alpha``, `α` is returned unchanged and the
-search stops without spending one. A direction scaled like a Newton step has
+evaluation. That is what the lower bound [`BACKTRACKING_GROW_MIN`](@ref) is for: unless the step
+the search would actually try is at least that multiple of ``\alpha``, `α` is returned unchanged
+and the search stops without spending one. The test is on the *clamped* step rather than on
+``\alpha^\star`` itself, which matters only for ``q <`` [`BACKTRACKING_GROW_MIN`](@ref): there
+the clamp, not the model, is what decides, and a convex model must not be allowed to buy a
+growth by ``q`` that a non-convex one is refused. A direction scaled like a Newton step has
 ``\alpha^\star \approx \alpha`` at ``\alpha = 1`` and therefore pays nothing at all, and a merit
 sitting at its round-off floor (``\varphi(\alpha) \approx \varphi(0)``) gives
 ``\alpha^\star \approx \alpha/2``, so the model declines to expand into rounding noise without
@@ -331,8 +344,16 @@ function backtracking_extrapolation(φ₀::T, d₀::T, α::T, φα::T, q::T) whe
     # strength of a `NaN`. (`backtracking_interpolation` guards its model the same way.)
     isfinite(den) || return α
     αₙ = den > zero(T) ? -d₀ * α^2 / den : q * α
-    (isfinite(αₙ) && αₙ ≥ T(BACKTRACKING_GROW_MIN) * α) || return α
-    min(αₙ, q * α)
+    isfinite(αₙ) || return α
+    # The gate is applied to the *clamped* step — the one that would actually be tried — rather
+    # than to the raw minimiser. For `q ≥ BACKTRACKING_GROW_MIN`, which every default is, the two
+    # agree: the clamp cannot pull a step that passed the gate back below it. For a smaller `q`
+    # they do not, and gating the raw minimiser would then let a convex model spend a merit
+    # evaluation to grow by only `q`, while a non-convex one — which asks for exactly `q * α` —
+    # was refused that same growth outright.
+    αₙ = min(αₙ, q * α)
+    αₙ ≥ T(BACKTRACKING_GROW_MIN) * α || return α
+    αₙ
 end
 
 # The expansion phase of `solve_with_status` below: lengthen the accepted step `α` while
@@ -417,8 +438,13 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
             # ceiling on a direction whose natural scale is larger (issue #174). Only the first
             # trial is expanded — once the ladder has backtracked, the longer steps below have
             # already been rejected — and only when asked, `expand` being off by default.
+            # The expansion draws on the *same* `linesearch_max_iterations` budget as the ladder,
+            # so `trials` keeps meaning "merit evaluations this line search spent" and the bound
+            # `Options` documents keeps holding. The cap binds only for a budget of `nexpand + 1`
+            # or less; at the default of 60 against 3 it never does.
             if m.expand && i == 1
-                α, φₐ, n = backtracking_expand(f, sdc, φ₀, d₀, α, φₐ, n, m.q, m.nexpand)
+                budget = min(m.nexpand, config(ls).linesearch_max_iterations - n)
+                α, φₐ, n = backtracking_expand(f, sdc, φ₀, d₀, α, φₐ, n, m.q, budget)
             end
             oc = φₐ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR
             return LinesearchStatus{T}(α, oc, n, φ₀, d₀, φₐ, τ, αmin)

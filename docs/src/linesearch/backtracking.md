@@ -172,6 +172,17 @@ stop growing, which would cost a full [`Jacobian`](@ref) per trial. Where curvat
 genuinely required, use [`StrongWolfe`](@ref), which brackets on the derivative; where an actual
 line *minimiser* is wanted, use [`Bisection`](@ref) or [`Quadratic`](@ref).
 
+!!! note "The search leaves the interval the caller offered"
+    This is the one phase that evaluates ``\varphi`` beyond ``\alpha``. The largest step it can
+    try is ``q^{\mathrm{nexpand}}\alpha``, i.e. a thousand times the trial step on the defaults.
+    A trial whose merit is infinite or `NaN` is simply rejected, at the cost of that one
+    evaluation; a merit that *throws* outside its domain is the caller's to guard. Setting
+    `expand` is therefore a statement that ``\varphi`` is evaluable that far out.
+
+    What it does *not* do is spend more evaluations than it was allowed to: `nexpand` bounds the
+    phase from within the `linesearch_max_iterations` of [`Options`](@ref), not beside it, so the
+    whole search — ladder and expansion together — still stops at that budget.
+
 ## Stagnation at the round-off floor
 
 The sufficient decrease condition demands a decrease *proportional to* ``\alpha``:

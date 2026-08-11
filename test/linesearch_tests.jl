@@ -133,6 +133,19 @@ end
     @test_throws AssertionError Backtracking(; nexpand=0)
     @test Backtracking() isa Backtracking                       # defaults are valid
     @test !Backtracking().expand                                # ... and shrink-only
+
+    # `show` says which of the two algorithms the method is, and names the expansion budget only
+    # where it is read — the shrink-only default does not carry `q` and `nexpand` into its
+    # description of itself.
+    let shown = sprint(show, Backtracking())
+        @test occursin("shrinking only", shown)
+        @test !occursin("q = ", shown)
+    end
+    let shown = sprint(show, Backtracking(; expand=true, nexpand=2))
+        @test occursin("q = $(SimpleSolvers.DEFAULT_BACKTRACKING_q)", shown)
+        @test occursin("2 trial(s)", shown)
+        @test !occursin("shrinking only", shown)
+    end
 end
 
 @testset "$(rpad("Backtracking: non-descent and stationary anchors are reported, not searched", 80))" begin
@@ -260,11 +273,20 @@ end
 
     # A non-finite model must not propagate a NaN step into the search.
     @test backtracking_extrapolation(1.0, -2.0, 1.0, NaN, 10.0) == 1.0
+
+    # The gate is on the step that would actually be tried, not on the raw minimiser, so a q below
+    # BACKTRACKING_GROW_MIN buys nothing whichever branch the model takes: the convex one wants
+    # α★ = 11 but may only reach 1.5·α, and the non-convex one asks for exactly that.
+    @test backtracking_extrapolation(121.0, -22.0, 1.0, 100.0, 1.5) == 1.0
+    @test backtracking_extrapolation(1.0, -2.0, 1.0, -10.0, 1.5) == 1.0
+    # ... and at q = BACKTRACKING_GROW_MIN exactly, both do expand, by that factor.
+    @test backtracking_extrapolation(121.0, -22.0, 1.0, 100.0, 2.0) == 2.0
+    @test backtracking_extrapolation(1.0, -2.0, 1.0, -10.0, 2.0) == 2.0
 end
 
 @testset "$(rpad("Backtracking expansion phase (issue #174)", 80))" begin
     quadratic(αmin) = LinesearchProblem{Float64}((α, _) -> (α - αmin)^2, (α, _) -> 2(α - αmin))
-    run(prob, m) = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
+    search(prob, m) = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
 
     shrink = Backtracking()
     grow = Backtracking(; expand=true)
@@ -274,7 +296,7 @@ end
     # ceiling it was given, at every outer iteration. That is what cost DFP two orders of
     # magnitude in the issue.
     for αmin in (11.0, 100.0)
-        st = run(quadratic(αmin), shrink)
+        st = search(quadratic(αmin), shrink)
         @test steplength(st) == 1.0
         @test trials(st) == 1
     end
@@ -283,7 +305,7 @@ end
     # merit evaluations. Landing within a factor BACKTRACKING_GROW_MIN of the minimiser is the
     # whole point: it is the *scale* that was wrong, not the last digit.
     for αmin in (11.0, 100.0)
-        st = run(quadratic(αmin), grow)
+        st = search(quadratic(αmin), grow)
         @test issufficient(st)
         @test αmin / SimpleSolvers.BACKTRACKING_GROW_MIN ≤ steplength(st) ≤ αmin
         @test 1 < trials(st) ≤ 1 + grow.nexpand
@@ -292,43 +314,66 @@ end
     # And it costs nothing where it can gain nothing: a direction already scaled like a Newton
     # step is at its model minimum, so the phase returns after the one trial the shrink-only
     # search would have made. This is why the model is extrapolated rather than α simply grown.
-    stw = run(quadratic(1.0), grow)
+    stw = search(quadratic(1.0), grow)
     @test steplength(stw) == 1.0
-    @test trials(stw) == trials(run(quadratic(1.0), shrink)) == 1
+    @test trials(stw) == trials(search(quadratic(1.0), shrink)) == 1
 
     # A shrunken step is never expanded again: the longer steps have already been rejected.
     # φ(α) = 1 - 2α + 1000α² needs several backtracks from α = 1, and `expand` must not change
     # what that returns.
     overshoot = LinesearchProblem{Float64}((α, _) -> 1.0 - 2α + 1000α^2, (α, _) -> -2.0 + 2000α)
-    @test steplength(run(overshoot, grow)) == steplength(run(overshoot, shrink))
-    @test trials(run(overshoot, grow)) == trials(run(overshoot, shrink))
+    @test steplength(search(overshoot, grow)) == steplength(search(overshoot, shrink))
+    @test trials(search(overshoot, grow)) == trials(search(overshoot, shrink))
 
     # The merit's round-off floor is not expanded into, and stays reported as a floor.
     noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
-    @test outcome(run(noise, grow)) == outcome(run(noise, shrink)) == LINESEARCH_FLOOR
+    @test outcome(search(noise, grow)) == outcome(search(noise, shrink)) == LINESEARCH_FLOOR
+
+    # `noise` never accepts, so it cannot exercise the one case where the two meet: a *first*
+    # trial accepted at the floor, with `expand` set. A merit that is flat enough for the demanded
+    # decrease c₁α|φ'(0)| to fall below τ accepts α = 1 while decreasing by less than τ, and there
+    # the model gives α★ ≈ α/2 — so the phase declines to grow, the outcome stays a floor, and the
+    # shrink-only search is matched trial for trial.
+    let τ = armijo_tolerance(1.0, Backtracking().τ_ulps)
+        flat = LinesearchProblem{Float64}((α, _) -> α > 0 ? 1.0 - τ / 2 : 1.0, (α, _) -> -1e-13)
+        stf = search(flat, grow)
+        @test outcome(stf) == LINESEARCH_FLOOR
+        @test steplength(stf) == 1.0
+        @test trials(stf) == trials(search(flat, shrink)) == 1
+    end
 
     # Contract item 5: the cost does not depend on the scale of the merit, and neither does the
     # step — the model is built from φ₀, φ'(0) and φ(α), which all scale together.
     scaled(s) = LinesearchProblem{Float64}((α, _) -> s * (α - 11.0)^2, (α, _) -> s * 2(α - 11.0))
     for s in (1e-8, 1.0, 1e8)
-        @test steplength(run(scaled(s), grow)) == steplength(run(scaled(1.0), grow))
-        @test trials(run(scaled(s), grow)) == trials(run(scaled(1.0), grow))
+        @test steplength(search(scaled(s), grow)) == steplength(search(scaled(1.0), grow))
+        @test trials(search(scaled(s), grow)) == trials(search(scaled(1.0), grow))
     end
 
     # Every trial is counted, expansions included.
     n = Ref(0)
     counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; (α - 11.0)^2), (α, _) -> 2(α - 11.0))
-    st = run(counted, grow)
+    st = search(counted, grow)
     @test n[] == trials(st) + 1   # + the α = 0 anchor
 
     # `nexpand` is a hard cap on the extra evaluations, whatever the merit does.
-    @test trials(run(quadratic(1e10), Backtracking(; expand=true, nexpand=1))) == 2
+    @test trials(search(quadratic(1e10), Backtracking(; expand=true, nexpand=1))) == 2
+
+    # ... and it caps the phase from *within* `linesearch_max_iterations`, not beside it, so the
+    # whole search still spends at most the budget `Options` documents. A merit whose scale is far
+    # above the trial step would take every one of `nexpand`'s trials; a budget of one leaves it
+    # none, and a budget of two leaves it exactly one.
+    for (budget, expected) in ((1, 1), (2, 2), (3, 3))
+        st = solve_with_status(Linesearch(quadratic(1e10), grow; verbosity=0,
+                linesearch_max_iterations=budget), 1.0)
+        @test trials(st) == expected ≤ budget
+    end
 
     # The expansion never returns a step worse than the one the shrink-only search accepted: a
     # trial that fails sufficient decrease or does not improve the merit costs one evaluation and
     # the previous best is kept. φ(α) = (α-11)² for α ≤ 5 and a cliff above it.
     cliff = LinesearchProblem{Float64}((α, _) -> α > 5 ? 1e6 : (α - 11.0)^2, (α, _) -> 2(α - 11.0))
-    stc = run(cliff, grow)
+    stc = search(cliff, grow)
     @test steplength(stc) == 1.0
     @test stc.φ == 100.0
     @test trials(stc) == 2   # the one rejected expansion, and nothing more
@@ -965,6 +1010,20 @@ end
         @test change_precision(T, grow) ≈ Backtracking(T; expand=true, nexpand=2)
         @test !(change_precision(T, grow) ≈ Backtracking(T; nexpand=2))
         @test !(change_precision(T, grow) ≈ Backtracking(T; expand=true, nexpand=3))
+
+        # ... and the phase *runs* in the new precision, not merely survives conversion into it:
+        # `BACKTRACKING_GROW_MIN` and `q` are converted with the method, so a merit whose scale is
+        # an order of magnitude above the trial step is reached in Float16 exactly as in Float64,
+        # while the shrink-only search stays pinned at the caller's ceiling.
+        let prob = LinesearchProblem{T}((α, _) -> (α - T(11))^2, (α, _) -> 2 * (α - T(11))),
+            expander = Backtracking(T; expand=true)
+
+            st = solve_with_status(Linesearch(prob, expander; verbosity=0), one(T))
+            @test issufficient(st)
+            @test T(11) / T(SimpleSolvers.BACKTRACKING_GROW_MIN) ≤ steplength(st) ≤ T(11)
+            @test 1 < trials(st) ≤ 1 + expander.nexpand
+            @test steplength(solve_with_status(Linesearch(prob, Backtracking(T); verbosity=0), one(T))) == one(T)
+        end
     end
 end
 
