@@ -59,7 +59,7 @@ function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, kwargs...) where
 end
 
 """
-    PicardSolver(x, nlp::NonlinearProblem, y = similar(x))
+    PicardSolver(x, nlp::NonlinearProblem, y = zero(x))
 
 Build a [`PicardSolver`](@ref) for the [`NonlinearProblem`](@ref) `nlp` with the initial
 guess `x`. See [`NewtonSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref)
@@ -69,7 +69,7 @@ for the rôle of `y`; as above, no `linesearch` keyword is accepted.
 - `jacobian`: see [`resolve_jacobian`](@ref),
 - `options_kwargs`: see [`Options`](@ref).
 """
-function PicardSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=similar(x); jacobian=missing, options_kwargs...) where {T}
+function PicardSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); jacobian=missing, options_kwargs...) where {T}
     config = Options(T; options_kwargs...)
     jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)

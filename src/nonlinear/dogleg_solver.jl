@@ -312,7 +312,7 @@ function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; (
 end
 
 """
-    DogLegSolver(x, nlp::NonlinearProblem, y = similar(x))
+    DogLegSolver(x, nlp::NonlinearProblem, y = zero(x))
 
 Build a [`DogLegSolver`](@ref) for the [`NonlinearProblem`](@ref) `nlp` with the initial
 guess `x`. See [`NewtonSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref)
@@ -325,7 +325,7 @@ from the trust-region radius.
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref).
 """
-function DogLegSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=similar(x); linear_solver_method=LU(), jacobian=missing, refactorize=1, options_kwargs...) where {T}
+function DogLegSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=LU(), jacobian=missing, refactorize=1, options_kwargs...) where {T}
     config = Options(T; options_kwargs...)
     jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
     cache = DogLegCache(x, y)

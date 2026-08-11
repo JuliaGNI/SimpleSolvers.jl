@@ -322,8 +322,25 @@ starting from `x` and overwriting it with the solution (which is returned).
 The remaining positional arguments are passed on to
 [`solve!(::AbstractArray, ::NonlinearSolver, ::NonlinearSolverState, params)`](@ref), so they are
 either nothing at all, the `params` of the problem, or a [`NonlinearSolverState`](@ref) followed by
-`params`. The keyword arguments are those of the solver constructors (`linesearch`, `jacobian`,
-`linear_solver_method`, `refactorize`) together with the [`Options`](@ref) keywords.
+`params`.
+
+The keyword arguments are the [`Options`](@ref) keywords together with whatever the constructor
+selected by `method` accepts — which is *not* the same set for all four methods:
+
+| `method` | constructor keywords |
+|:---|:---|
+| [`Newton`](@ref), [`QuasiNewton`](@ref) | `linesearch`, `jacobian`, `linear_solver_method` |
+| [`DogLeg`](@ref) | `jacobian`, `linear_solver_method` |
+| [`Picard`](@ref) | `jacobian` |
+
+`Picard` and `DogLeg` consult no line search, so they reject a `linesearch` keyword rather than
+ignoring it (it falls through to [`Options`](@ref) and raises a `MethodError` there) — see
+[`PicardSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref).
+
+`refactorize` is deliberately absent from that table: it belongs to the `method`, as `Newton(5)`
+(equivalently [`QuasiNewton`](@ref)) or `DogLeg(5)`. Passing it as a keyword does work for those
+two — it is forwarded after `method.refactorize` and, being the rightmost occurrence, silently
+wins — but `Picard` has no Jacobian to refactorize and errors on it. Configure it through `method`.
 
 !!! info
     This is the convenience path: every call *builds a solver* — a Jacobian (with its ForwardDiff
@@ -397,6 +414,13 @@ This is how the outcome of a solve is obtained without holding on to a
 [`NonlinearSolverState`](@ref): the state is built here and handed to [`status`](@ref) afterwards.
 The `!` is part of the name because `x` *is* modified, unlike in the line-search
 [`solve_with_status`](@ref), whose `α` is a number.
+
+!!! info
+    The predicates that read the returned status — [`isconverged`](@ref) and
+    [`isstalled`](@ref) — are **not** exported, for the same reason the line-search predicates
+    are not: they are generic names a package doing `using SimpleSolvers` may well want for
+    itself. Reach them as `SimpleSolvers.isconverged(st)`, or import them explicitly with
+    `using SimpleSolvers: isconverged`.
 
 # Examples
 

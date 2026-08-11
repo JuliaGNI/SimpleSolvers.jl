@@ -303,11 +303,19 @@ for T ∈ (Float64, Float32)
             @test isconverged(st)
             @test all(isroot, xt)
 
-            # a problem carrying its own Jacobian takes the `JacobianFunction` path
+            # a problem carrying its own Jacobian takes the `JacobianFunction` path — asserted on
+            # the constructed solver, since the root alone would not distinguish it from autodiff
             probJ = NonlinearProblem(F!, J!, x, y)
+            @test SimpleSolvers.jacobian(NonlinearSolver(solver_method, T.(copy(x₀)), probJ; verbosity=0, kwarguments...)) isa JacobianFunction
             xj = T.(copy(x₀))
             solve!(xj, probJ, solver_method; verbosity=0, kwarguments...)
             @test all(isroot, xj)
+
+            # the solver-taking form of `solve_with_status!`, which the problem-taking one calls
+            xw = T.(copy(x₀))
+            sw = NonlinearSolver(solver_method, xw, prob; verbosity=0, kwarguments...)
+            @test isconverged(solve_with_status!(xw, sw))
+            @test all(isroot, xw)
         end
     end
 end
@@ -337,6 +345,26 @@ end
 
     @test_throws MethodError solve!(ones(2), prob, Picard(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
     @test_throws MethodError solve!(ones(2), prob, DogLeg(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
+end
+
+# The default residual prototype is `zero(x)` and not `similar(x)`: `alloc_j` broadcasts over it
+# (`_nan(T) .* y * x'`), so an uninitialized prototype throws an `UndefRefError` for any element
+# type whose `similar` leaves undefined references.  `BigFloat` is one.
+@testset "The default residual prototype works for element types with undef-leaving similar" begin
+    Fb!(y, x, params) = y .= x .^ 2 .- 2
+    xb = BigFloat.(ones(2))
+    prob = NonlinearProblem(Fb!, xb)
+
+    @test NewtonSolver(xb, prob) isa NonlinearSolver
+    @test PicardSolver(xb, prob) isa NonlinearSolver
+    @test DogLegSolver(xb, prob) isa NonlinearSolver
+
+    # …and a solve goes through.  `static=false` is needed only because the default `LU()` caches
+    # a small matrix as an `MMatrix`, and StaticArrays cannot `setindex!` a non-isbits eltype —
+    # a pre-existing limitation of the linear solver, unrelated to the residual prototype.
+    xs = BigFloat.(ones(2))
+    solve!(xs, prob, Newton(); linear_solver_method=LU(static=false), verbosity=0)
+    @test xs ≈ [sqrt(BigFloat(2)), sqrt(BigFloat(2))]
 end
 
 

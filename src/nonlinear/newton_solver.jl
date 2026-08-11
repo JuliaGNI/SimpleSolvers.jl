@@ -112,15 +112,25 @@ function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
 end
 
 """
-    NewtonSolver(x, nlp::NonlinearProblem, y = similar(x))
+    NewtonSolver(x, nlp::NonlinearProblem, y = zero(x))
 
 Build a [`NewtonSolver`](@ref) for the [`NonlinearProblem`](@ref) `nlp` with the initial
 guess `x`, assembling the [`Jacobian`](@ref), the [`LinearProblem`](@ref), the
 [`LinearSolver`](@ref), the [`Linesearch`](@ref) and the [`NonlinearSolverCache`](@ref).
 
-`y` only supplies the size and type of the residual ``F(x)``; its values are never read.
-It defaults to `similar(x)`, which is what a square system needs — and every system here is
-square, since the [`LinearSolver`](@ref) factorizes the Jacobian.
+`y` is a *prototype* for the residual ``F(x)``: it supplies a size and an element type, and
+nothing that is computed from it survives (`alloc_j` turns it into a `NaN` matrix and the
+cache stores `zero(y)`). It is not, however, left alone — [`JacobianAutodiff`](@ref) keeps it
+as the buffer ForwardDiff writes the residual into, so a caller-supplied `y` is overwritten on
+every Jacobian evaluation. It defaults to `zero(x)`, which is what a square system needs — and
+every system here is square, since the [`LinearSolver`](@ref) factorizes the Jacobian.
+
+!!! info
+    The default is `zero(x)` rather than `similar(x)` because `alloc_j` broadcasts over `y`:
+    for an element type whose `similar` leaves undefined references (`BigFloat`, say) an
+    uninitialized prototype throws an `UndefRefError`. It also assumes `zero(x)` has the same
+    type as `x`, which [`NonlinearSolverCache`](@ref) requires; for an `x` where it does not —
+    a `SubArray`, whose `zero` is an `Array` — pass `y` explicitly.
 
 The Jacobian stored in `nlp` (if any) takes precedence over autodiff, exactly as the `DF!`
 keyword of [`NewtonSolver(::AbstractVector{T}, ::Callable, ::AbstractVector{T}) where {T}`](@ref)
@@ -147,7 +157,7 @@ NewtonSolver(x, nlp) isa NewtonSolver
 true
 ```
 """
-function NewtonSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=similar(x); linear_solver_method=LU(), linesearch=Backtracking(T), jacobian=missing, refactorize=1, options_kwargs...) where {T}
+function NewtonSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=LU(), linesearch=Backtracking(T), jacobian=missing, refactorize=1, options_kwargs...) where {T}
     # The `Options` are built here, once, and shared by the solver *and* its line search, so
     # that `NewtonSolver(…; verbosity = 0)` silences the line search too and the inner ladder
     # is bounded by `linesearch_max_iterations` from the same place.

@@ -19,12 +19,14 @@ linear side, `solve(prob, method, α, params, config)` on the line-search side.
 
 ### Added
 
-- `NewtonSolver(x, nlp::NonlinearProblem, y = similar(x))` and the same form for `PicardSolver` and
+- `NewtonSolver(x, nlp::NonlinearProblem, y = zero(x))` and the same form for `PicardSolver` and
   `DogLegSolver`, hence also `NonlinearSolver(method, x, nlp)`. The residual prototype `y` only
-  supplies a size and a type — its values are never read — so it defaults to `similar(x)`, which is
-  what a square system needs, and every system here is square because the Jacobian gets factorized.
-  A Jacobian stored in the problem takes precedence over autodiff, exactly as the `DF!` keyword
-  does.
+  supplies a size and a type — nothing computed from it survives — so it defaults to `zero(x)`,
+  which is what a square system needs, and every system here is square because the Jacobian gets
+  factorized. (`zero` and not `similar`: `alloc_j` broadcasts over `y`, so an uninitialized
+  prototype throws an `UndefRefError` for an element type whose `similar` leaves undefined
+  references, such as `BigFloat`.) A Jacobian stored in the problem takes precedence over autodiff,
+  exactly as the `DF!` keyword does.
 - `solve!(x, prob, method, args...; kwargs...)`, which builds the solver and overwrites `x` with the
   solution, and `solve(x₀, prob, method, args...; kwargs...)`, which returns the solution as a new
   array and leaves `x₀` alone — `solve!`'s signature minus the bang. The trailing positional
@@ -40,41 +42,6 @@ factorization cache, the line-search buffers), so this is the convenience path a
 loop: that should still build one `NonlinearSolver` and reuse it. The docstrings say so.
 
 ### Changed
-
-The three `(x, F, y)` constructors are now one-line delegations to their `NonlinearProblem`
-counterparts — the assembly recipe they each carried a copy of exists once per solver now. No
-behaviour change: `NonlinearProblem(F, DF!, x, y)` stores `J = DF!`, so the resulting
-`resolve_jacobian` call is the one they made before.
-
-### Added
-
-Convenience entry points for solving a `NonlinearProblem`, [issue
-#159](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/159). `NonlinearProblem` was exported but
-was not usable as an argument anywhere: no solver constructor accepted one, so a hand-built problem
-forced the seven-argument low-level constructor, with the linear problem, the linear solver, the
-line search and the cache all supplied by the caller. The `NewtonSolver` docstring had advertised
-the missing capability — *"can be called with a `NonlinearProblem` or with a `Callable`"* — since
-before it existed.
-
-- `NewtonSolver(x, nlp::NonlinearProblem, y = similar(x))` and the same form for `PicardSolver` and
-  `DogLegSolver`, hence also `NonlinearSolver(method, x, nlp)`. The residual prototype `y` only
-  supplies a size and a type — its values are never read — so it defaults to `similar(x)`, which is
-  what a square system needs, and every system here is square because the Jacobian gets factorized.
-  A Jacobian stored in the problem takes precedence over autodiff, exactly as the `DF!` keyword
-  does.
-- `solve!(x, prob, method, args...; kwargs...)`, which builds the solver and overwrites `x` with the
-  solution, and `solve(x₀, prob, method, args...; kwargs...)`, which returns the solution as a new
-  array and leaves `x₀` alone — `solve!`'s signature minus the bang. The trailing positional
-  arguments go through to the solver-level `solve!`, so they are the problem's `params`, optionally
-  preceded by a `NonlinearSolverState`; the keywords are the constructor's plus `Options`'.
-- `solve_with_status!(x, s)` and `solve_with_status!(x, prob, method, params; kwargs...)`, returning
-  the `NonlinearSolverStatus` instead of the solution. A wrapper discards the solver it built, so
-  `status(s, state)` — which needs both — is otherwise out of reach; this builds the state itself.
-  The `!` is honest here, unlike in the line search's `solve_with_status`, whose `α` is a number.
-
-Each wrapper call constructs a solver (a Jacobian with its ForwardDiff configuration, a
-factorization cache, the line-search buffers), so this is the convenience path and not the one for a
-loop: that should still build one `NonlinearSolver` and reuse it. The docstrings say so.
 
 The three `(x, F, y)` constructors are now one-line delegations to their `NonlinearProblem`
 counterparts — the assembly recipe they each carried a copy of exists once per solver now. No
