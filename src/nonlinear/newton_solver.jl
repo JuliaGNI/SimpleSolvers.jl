@@ -58,7 +58,8 @@ A `const` derived from [`NonlinearSolver`](@ref) as `NewtonSolver{T} = Nonlinear
 
 The `NewtonSolver` can be called with a [`NonlinearProblem`](@ref) or with a `Callable`.
 
-See [`NewtonSolver(::AbstractVector{T}, ::Callable, ::AbstractVector{T}) where {T}`](@ref).
+See [`NewtonSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref)
+and [`NewtonSolver(::AbstractVector{T}, ::Callable, ::AbstractVector{T}) where {T}`](@ref).
 
 ```jldoctest; setup = :(using SimpleSolvers)
 F(y, x, params) = y .= sin.(x) ^ 2
@@ -111,6 +112,55 @@ function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
 end
 
 """
+    NewtonSolver(x, nlp::NonlinearProblem, y = similar(x))
+
+Build a [`NewtonSolver`](@ref) for the [`NonlinearProblem`](@ref) `nlp` with the initial
+guess `x`, assembling the [`Jacobian`](@ref), the [`LinearProblem`](@ref), the
+[`LinearSolver`](@ref), the [`Linesearch`](@ref) and the [`NonlinearSolverCache`](@ref).
+
+`y` only supplies the size and type of the residual ``F(x)``; its values are never read.
+It defaults to `similar(x)`, which is what a square system needs — and every system here is
+square, since the [`LinearSolver`](@ref) factorizes the Jacobian.
+
+The Jacobian stored in `nlp` (if any) takes precedence over autodiff, exactly as the `DF!`
+keyword of [`NewtonSolver(::AbstractVector{T}, ::Callable, ::AbstractVector{T}) where {T}`](@ref)
+does — see [`resolve_jacobian`](@ref).
+
+# Keywords
+- `linear_solver_method`
+- `linesearch`
+- `jacobian`
+- `refactorize`
+- `options_kwargs`: see [`Options`](@ref)
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+F(y, x, params) = y .= sin.(x) .^ 2
+x = ones(3)
+nlp = NonlinearProblem(F, x)
+
+NewtonSolver(x, nlp) isa NewtonSolver
+
+# output
+
+true
+```
+"""
+function NewtonSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=similar(x); linear_solver_method=LU(), linesearch=Backtracking(T), jacobian=missing, refactorize=1, options_kwargs...) where {T}
+    # The `Options` are built here, once, and shared by the solver *and* its line search, so
+    # that `NewtonSolver(…; verbosity = 0)` silences the line search too and the inner ladder
+    # is bounded by `linesearch_max_iterations` from the same place.
+    config = Options(T; options_kwargs...)
+    jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
+    cache = NonlinearSolverCache(x, y)
+    linearproblem = LinearProblem(alloc_j(x, y))
+    linearsolver = LinearSolver(linear_solver_method, y)
+    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch, config)
+    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
+end
+
+"""
     NewtonSolver(x, F, y)
 
 # Keywords
@@ -120,19 +170,13 @@ end
 - `jacobian`
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
+
+The `Callable` `F` (and the optional `DF!`) are wrapped in a [`NonlinearProblem`](@ref), so
+this is [`NewtonSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref)
+with the problem built for the caller.
 """
-function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, linesearch=Backtracking(T), jacobian=missing, refactorize=1, options_kwargs...) where {T}
-    # The `Options` are built here, once, and shared by the solver *and* its line search, so
-    # that `NewtonSolver(…; verbosity = 0)` silences the line search too and the inner ladder
-    # is bounded by `linesearch_max_iterations` from the same place.
-    config = Options(T; options_kwargs...)
-    nlp = NonlinearProblem(F, DF!, x, y)
-    jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
-    cache = NonlinearSolverCache(x, y)
-    linearproblem = LinearProblem(alloc_j(x, y))
-    linearsolver = LinearSolver(linear_solver_method, y)
-    ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch, config)
-    NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
+function NewtonSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; (DF!)=missing, kwargs...) where {T}
+    NewtonSolver(x, NonlinearProblem(F, DF!, x, y), y; kwargs...)
 end
 
 function NewtonSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}

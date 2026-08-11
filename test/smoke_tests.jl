@@ -152,6 +152,19 @@ end
 
     @test NonlinearSolver(Newton(), xvec, yr; F=F_vec!) isa NonlinearSolver
 
+    # the `NonlinearProblem` forms, with and without the residual prototype
+    nlprob = NonlinearProblem(F_vec!, xvec, yr)
+    @test NewtonSolver(xvec, nlprob, yr) isa NonlinearSolver
+    @test NewtonSolver(xvec, nlprob) isa NonlinearSolver
+    @test PicardSolver(xvec, nlprob) isa NonlinearSolver
+    @test DogLegSolver(xvec, nlprob) isa NonlinearSolver
+    @test NonlinearSolver(Newton(), xvec, nlprob) isa NonlinearSolver
+
+    # and the wrappers that build such a solver themselves
+    @test solve!(copy(xvec), nlprob, Newton(); verbosity=0) isa AbstractVector
+    @test solve(xvec, nlprob, Newton(); verbosity=0) isa AbstractVector
+    @test solve_with_status!(copy(xvec), nlprob, Newton(); verbosity=0) isa NonlinearSolverStatus
+
     ns = NewtonSolver(xvec, yr; F=F_vec!, verbosity=0)
     nstate = SolverState(ns)
     @test status(ns, nstate) isa NonlinearSolverStatus

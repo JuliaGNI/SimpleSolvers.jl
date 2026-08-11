@@ -116,6 +116,10 @@ include("linesearch/wolfe.jl")
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
     NewtonSolver, assess_convergence
 
+# The mutating counterpart of the line-search `solve_with_status`: it overwrites `x`, hence the
+# `!`. `solve!` and `solve` are exported above.
+export solve_with_status!
+
 # As above: the type is exported, `isconverged`/`isstalled`/`status` are not. `status` in
 # particular would be hostile to export — a downstream package that does `using SimpleSolvers`
 # and defines its own `status` gets a method-definition error, not a shadowing warning.
