@@ -1,12 +1,4 @@
 using Printf
-@doc raw"""
-    const DEFAULT_ARMIJO_α₀
-
-The default starting value for ``\alpha`` used in [`Backtracking`](@ref).
-Its value is """ * """$(DEFAULT_ARMIJO_α₀).
-"""
-const DEFAULT_ARMIJO_α₀ = 1.0
-
 """
     const DEFAULT_ARMIJO_p
 
@@ -55,15 +47,53 @@ Its value is """ * """$(BACKTRACKING_SHRINK_MIN).
 const BACKTRACKING_SHRINK_MIN = 0.1
 
 @doc raw"""
+    const BACKTRACKING_GROW_MIN
+
+Lower bound on the factor by which the expansion phase of [`Backtracking`](@ref) lengthens an
+accepted step: unless the model minimiser lies at least
+``\mathrm{BACKTRACKING\_GROW\_MIN}\cdot\alpha``, the trial step is kept and no further merit
+evaluation is spent (see [`backtracking_extrapolation`](@ref)).
+Its value is """ * """$(BACKTRACKING_GROW_MIN).
+
+This is the counterpart of [`BACKTRACKING_SHRINK_MIN`](@ref) on the growing side, and it is what
+makes the expansion phase free for a well-scaled direction: a Newton or BFGS step is already at
+its model minimum, so the test fails and the search returns at once.
+"""
+const BACKTRACKING_GROW_MIN = 2.0
+
+@doc raw"""
+    const DEFAULT_BACKTRACKING_q
+
+The default *upper* bound on the factor by which the expansion phase of [`Backtracking`](@ref)
+lengthens the step in one round, i.e. the counterpart of ``p`` on the growing side.
+Its value is """ * """$(DEFAULT_BACKTRACKING_q).
+"""
+const DEFAULT_BACKTRACKING_q = 10.0
+
+"""
+    const DEFAULT_BACKTRACKING_NEXPAND
+
+The default cap on the number of expansion trials of [`Backtracking`](@ref); each one costs a
+merit evaluation. Its value is $(DEFAULT_BACKTRACKING_NEXPAND).
+"""
+const DEFAULT_BACKTRACKING_NEXPAND = 3
+
+@doc raw"""
     Backtracking <: LinesearchMethod
 
 # Keys
 
+The trial step ``\alpha`` is *not* a key: it is the argument of [`solve`](@ref), which is its only
+source. (A `Backtracking` used to carry an `α₀` field for it, which the algorithm never read — see
+issue #174.)
+
 The keys are:
-- `α₀`=""" * string(DEFAULT_ARMIJO_α₀) * raw""": the initial step size ``\alpha``. This is decreased iteratively by a factor ``p`` until the [`SufficientDecreaseCondition`](@ref) is satisfied.
 - `c₁`=""" * string(DEFAULT_WOLFE_c₁) * raw""": the constant ``c_1`` in the [`SufficientDecreaseCondition`](@ref) (Armijo condition). Also see [`DEFAULT_WOLFE_c₁`](@ref).
 - `c₂`=""" * string(DEFAULT_WOLFE_c₂) * raw""": the constant on whose basis the [`CurvatureCondition`](@ref) is tested. We should have ``c_2\in(c_1, 1).`` The closer this constant is to 1, the easier it is to satisfy the [`CurvatureCondition`](@ref).
 - `p`=""" * string(DEFAULT_ARMIJO_p) * raw""": an *upper bound* on the factor by which ``\alpha`` is decreased in every step until the stopping criterion is satisfied. The actual factor is chosen by interpolation and confined to ``[`` [`BACKTRACKING_SHRINK_MIN`](@ref) ``\cdot\alpha, p\alpha]``, so the trial sequence is never longer than the plain ``\alpha \gets p\alpha`` ladder.
+- `expand`=`false`: whether the search may *lengthen* the trial step (the expansion phase described below). Off by default, so a `Backtracking` is the classical one-sided algorithm unless it is asked for.
+- `q`=""" * string(DEFAULT_BACKTRACKING_q) * raw""": an *upper bound* on the factor by which ``\alpha`` is increased in one expansion round — the counterpart of ``p``. Only used when `expand` is set. See [`DEFAULT_BACKTRACKING_q`](@ref).
+- `nexpand`=""" * string(DEFAULT_BACKTRACKING_NEXPAND) * raw""": the cap on the number of expansion trials, each of which costs one merit evaluation. Only used when `expand` is set. See [`DEFAULT_BACKTRACKING_NEXPAND`](@ref).
 - `τ_ulps`=[`armijo_ulps`](@ref)`(T, c₁)` (""" * string(DEFAULT_ARMIJO_τ_ULPS) * raw""" in `Float64` and `Float32`, less in `Float16`): the round-off resolution of the merit, in units in the last place of ``\varphi(0)``. It slackens the [`SufficientDecreaseCondition`](@ref) (never past ``\varphi(0)``), fixes ``\alpha_\mathrm{min}``, and separates a genuine decrease from one within the noise. A value larger than [`armijo_ulps`](@ref)`(T, c₁)` is capped to it, since above that ``\tau`` would swamp the decrease the condition demands. See [`DEFAULT_ARMIJO_τ_ULPS`](@ref).
 
 # Implementation
@@ -97,7 +127,33 @@ improvable by any line search), whereas one that does vary contradicts ``d_0 < 0
 
 The [`CurvatureCondition`](@ref) is not used to terminate the iteration — it cannot be
 honoured by shrinking alone — it is only checked afterwards to emit a warning (see
-[`curvature_diagnostic`](@ref)).
+[`curvature_diagnostic`](@ref)). With `expand` set it *is* satisfied more often, because the
+expansion phase moves the accepted step toward the line minimiser, so the diagnostic fires less.
+
+## The expansion phase
+
+With `expand = true` and the *first* trial step accepted, the search may also lengthen it, by
+[`backtracking_extrapolation`](@ref), while each longer trial still satisfies the
+[`SufficientDecreaseCondition`](@ref) *and* strictly improves the merit; at most `nexpand` such
+trials are made and the best step seen is returned. A shrunken step is never expanded again:
+once the ladder has backtracked, the longer steps are already known to fail.
+
+This is what makes the search two-sided. A shrink-only search returns the trial step it was
+given whenever that step is acceptable, so on a direction whose natural scale is *larger* than
+the trial step it pins ``\alpha`` at that ceiling on every iteration and the outer solve crawls —
+by two orders of magnitude in the DFP case of issue #174, where the direction wanted
+``\alpha \approx 11`` throughout.
+
+The phase costs nothing where it can gain nothing. The model it extrapolates from is the same
+quadratic that [`backtracking_interpolation`](@ref) uses on the way down, built from
+``\varphi(0)``, ``\varphi'(0)`` and the merit at the trial step — all three already known — so
+the decision whether to expand at all is free, and a direction that is already scaled like a
+Newton step (which is at its model minimum at ``\alpha = 1``) fails the test and returns without
+a further merit evaluation. That matters because for the merit of a [`NonlinearSolver`](@ref) an
+evaluation is a full residual evaluation, the most expensive single operation of a solver step,
+which is also why the phase does not test the [`CurvatureCondition`](@ref) to decide when to stop
+growing: that would cost a full [`Jacobian`](@ref) per trial. Use [`StrongWolfe`](@ref), which
+brackets on the derivative, where curvature control is genuinely required.
 
 # Extended help
 
@@ -113,31 +169,41 @@ to ``\varphi(\alpha) \leq \varphi_0``, i.e. plain monotonicity, and such an acce
 `LINESEARCH_FLOOR` rather than as a decrease.
 """
 struct Backtracking{T} <: LinesearchMethod{T}
-    α₀::T
     c₁::T
     c₂::T
     p::T
+    q::T
     τ_ulps::T
+    expand::Bool
+    nexpand::Int
 
-    function Backtracking{T}(α₀::T, c₁::T, c₂::T, p::T, τ_ulps::T=armijo_ulps(T, c₁)) where {T}
+    function Backtracking{T}(c₁::T, c₂::T, p::T, q::T, τ_ulps::T=armijo_ulps(T, c₁),
+        expand::Bool=false, nexpand::Int=DEFAULT_BACKTRACKING_NEXPAND) where {T}
         @assert 0 < p < 1 "The shrinking parameter needs to satisfy 0 < p < 1, it is $(p)."
+        @assert q > 1 "The expansion parameter needs to satisfy q > 1, it is $(q)."
         @assert 0 < c₁ < c₂ < 1 "The Wolfe constants need to satisfy 0 < c₁ < c₂ < 1, they are c₁ = $(c₁), c₂ = $(c₂)."
         @assert τ_ulps ≥ 0 "The round-off resolution needs to be nonnegative, it is $(τ_ulps) ulps."
+        # `≥ 1` rather than `≥ 0`: `expand` is the one and only way to switch the phase off, so
+        # `nexpand = 0` would be a second, silent encoding of "disabled" that `show` and
+        # `isapprox` would then have to agree about.
+        @assert nexpand ≥ 1 "The expansion budget needs to be at least one trial, it is $(nexpand). Pass expand = false to switch the phase off."
         # Capped here rather than only in the keyword constructor, so that *every* path into a
         # `Backtracking{T}` — including `change_precision`, which converts a method built for a
         # different `T` — gets a resolution the element type can support. See `armijo_ulps`.
-        new{T}(α₀, c₁, c₂, p, min(τ_ulps, armijo_ulps(T, c₁)))
+        new{T}(c₁, c₂, p, q, min(τ_ulps, armijo_ulps(T, c₁)), expand, nexpand)
     end
 end
 
 function Backtracking(::Type{T}=Float64;
-    α₀=T(DEFAULT_ARMIJO_α₀),
     c₁=T(DEFAULT_WOLFE_c₁),
     c₂=T(DEFAULT_WOLFE_c₂),
     p=T(DEFAULT_ARMIJO_p),
-    τ_ulps=armijo_ulps(T, c₁)
+    q=T(DEFAULT_BACKTRACKING_q),
+    τ_ulps=armijo_ulps(T, c₁),
+    expand=false,
+    nexpand=DEFAULT_BACKTRACKING_NEXPAND
 ) where {T}
-    Backtracking{T}(α₀, c₁, c₂, p, τ_ulps)
+    Backtracking{T}(c₁, c₂, p, q, τ_ulps, expand, nexpand)
 end
 
 Backtracking(::Type{T}, ::SolverMethod) where {T} = Backtracking(T)
@@ -230,6 +296,66 @@ function backtracking_interpolation(φ₀::T, d₀::T, α::T, φα::T, αp::T, �
     clamp(αₙ, T(BACKTRACKING_SHRINK_MIN) * α, p * α)
 end
 
+@doc raw"""
+    backtracking_extrapolation(φ₀, d₀, α, φα, q)
+
+The next trial step of the expansion phase of [`Backtracking`](@ref), or `α` itself to say that
+the step should not be lengthened.
+
+`α`/`φα` is the step that was just *accepted*. The model is the same quadratic through
+``\varphi(0)``, ``\varphi'(0)`` and ``\varphi(\alpha)`` that [`backtracking_interpolation`](@ref)
+uses on the first backtrack, and its minimiser is
+
+```math
+\alpha^\star = \frac{-\varphi'(0)\,\alpha^2}{2\big(\varphi(\alpha) - \varphi(0) - \varphi'(0)\alpha\big)} ,
+```
+
+clamped from above to ``q\alpha``. A denominator that is negative or zero means the model is not
+convex — the merit fell at least as fast as its tangent, so it is still dropping steeply — and
+the step grows by the full factor ``q``. A denominator that is not *finite* is a different thing
+entirely, namely no model at all, and returns `α`.
+
+Everything the model needs has already been evaluated, so the decision costs no merit
+evaluation. That is what the lower bound [`BACKTRACKING_GROW_MIN`](@ref) is for: unless the
+model wants a step at least that multiple of ``\alpha``, `α` is returned unchanged and the
+search stops without spending one. A direction scaled like a Newton step has
+``\alpha^\star \approx \alpha`` at ``\alpha = 1`` and therefore pays nothing at all, and a merit
+sitting at its round-off floor (``\varphi(\alpha) \approx \varphi(0)``) gives
+``\alpha^\star \approx \alpha/2``, so the model declines to expand into rounding noise without
+needing a special case for it.
+"""
+function backtracking_extrapolation(φ₀::T, d₀::T, α::T, φα::T, q::T) where {T}
+    den = 2 * (φα - φ₀ - d₀ * α)
+    # A non-finite denominator is *not* the non-convex case: it means there is no model at all,
+    # so it must not fall through to the `q * α` branch, which would grow the step on the
+    # strength of a `NaN`. (`backtracking_interpolation` guards its model the same way.)
+    isfinite(den) || return α
+    αₙ = den > zero(T) ? -d₀ * α^2 / den : q * α
+    (isfinite(αₙ) && αₙ ≥ T(BACKTRACKING_GROW_MIN) * α) || return α
+    min(αₙ, q * α)
+end
+
+# The expansion phase of `solve_with_status` below: lengthen the accepted step `α` while
+# `backtracking_extrapolation` asks for it and each longer trial both satisfies the sufficient
+# decrease condition and strictly improves the merit, and return the best pair seen together with
+# the updated evaluation count. A rejected expansion therefore costs exactly one merit evaluation
+# and nothing else — the previous best is still what is returned.
+#
+# `n` is passed and returned rather than captured: a counter captured by this function and mutated
+# by its caller would be boxed, which makes the `trials` of the status built from it inferred-`Any`
+# (the same reason `_wolfe_zoom`'s caller passes its `n`).
+function backtracking_expand(f, sdc::SufficientDecreaseCondition{T}, φ₀::T, d₀::T, α::T, φα::T, n::Int, q::T, nexpand::Int) where {T}
+    for _ in 1:nexpand
+        αₙ = backtracking_extrapolation(φ₀, d₀, α, φα, q)
+        αₙ > α || break
+        φₙ = f(αₙ)
+        n += 1
+        (isfinite(φₙ) && φₙ < φα && sdc(αₙ, φₙ)) || break
+        α, φα = αₙ, φₙ
+    end
+    (α, φα, n)
+end
+
 """
     solve(ls::Linesearch{T,<:Backtracking}, α, params)
 
@@ -272,7 +398,7 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     n = 0        # trial steps at which the merit was evaluated
     reachedαmin = false  # the ladder ran down to the αmin floor rather than out of budget
 
-    for _ in 1:config(ls).linesearch_max_iterations
+    for i in 1:config(ls).linesearch_max_iterations
         αₐ = α
         φₐ = f(α)
         n += 1
@@ -286,6 +412,14 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
         # The condition itself can never accept an increase (see `SufficientDecreaseCondition`),
         # so a `LINESEARCH_FLOOR` accept here is always a non-increasing step.
         if sdc(α, φₐ)
+            # The step may also be too *short*: a shrink-only search hands back whatever trial
+            # step it was given as soon as that step is acceptable, which pins α at the caller's
+            # ceiling on a direction whose natural scale is larger (issue #174). Only the first
+            # trial is expanded — once the ladder has backtracked, the longer steps below have
+            # already been rejected — and only when asked, `expand` being off by default.
+            if m.expand && i == 1
+                α, φₐ, n = backtracking_expand(f, sdc, φ₀, d₀, α, φₐ, n, m.q, m.nexpand)
+            end
             oc = φₐ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR
             return LinesearchStatus{T}(α, oc, n, φ₀, d₀, φₐ, τ, αmin)
         end
@@ -340,13 +474,16 @@ function curvature_diagnostic(status::LinesearchStatus{T}, ls::Linesearch{T,<:Ba
     nothing
 end
 
-Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with α₀ = $(ls.α₀) c₁ = $(ls.c₁), c₂ = $(ls.c₂), p = $(ls.p) and τ_ulps = $(ls.τ_ulps).")
+Base.show(io::IO, ls::Backtracking) = print(io, "Backtracking with c₁ = $(ls.c₁), c₂ = $(ls.c₂), p = $(ls.p) and τ_ulps = $(ls.τ_ulps)$(ls.expand ? ", expanding by at most q = $(ls.q) in at most $(ls.nexpand) trial(s)" : ", shrinking only").")
 
 function change_precision(::Type{T}, method::Backtracking) where {T}
     T ≠ eltype(method) || return method
-    Backtracking{T}(T(method.α₀), T(method.c₁), T(method.c₂), T(method.p), T(method.τ_ulps))
+    Backtracking{T}(T(method.c₁), T(method.c₂), T(method.p), T(method.q), T(method.τ_ulps), method.expand, method.nexpand)
 end
 
 function Base.isapprox(bt₁::Backtracking{T}, bt₂::Backtracking{T}; kwargs...) where {T}
-    isapprox(bt₁.α₀, bt₂.α₀; kwargs...) && isapprox(bt₁.c₁, bt₂.c₁; kwargs...) && isapprox(bt₁.c₂, bt₂.c₂; kwargs...) && isapprox(bt₁.p, bt₂.p; kwargs...) && isapprox(bt₁.τ_ulps, bt₂.τ_ulps; kwargs...)
+    # `expand` and `nexpand` are compared exactly: they select *which* algorithm runs and how many
+    # times, and neither is a quantity an approximate comparison means anything for.
+    bt₁.expand == bt₂.expand && bt₁.nexpand == bt₂.nexpand &&
+        isapprox(bt₁.c₁, bt₂.c₁; kwargs...) && isapprox(bt₁.c₂, bt₂.c₂; kwargs...) && isapprox(bt₁.p, bt₂.p; kwargs...) && isapprox(bt₁.q, bt₂.q; kwargs...) && isapprox(bt₁.τ_ulps, bt₂.τ_ulps; kwargs...)
 end

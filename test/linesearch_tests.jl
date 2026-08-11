@@ -9,7 +9,7 @@ using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_fin
 using SimpleSolvers: CurvatureCondition, SufficientDecreaseCondition
 using SimpleSolvers: issufficient, isfloor
 using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps, backtracking_αmin,
-    backtracking_interpolation, with_config, problem, method, config
+    backtracking_interpolation, backtracking_extrapolation, with_config, problem, method, config
 
 include("lowered_code.jl")
 
@@ -127,7 +127,12 @@ end
     @test_throws AssertionError Backtracking(; p=0.0)
     @test_throws AssertionError Backtracking(; c₁=0.5, c₂=0.1)  # c₁ < c₂ violated
     @test_throws AssertionError Backtracking(; c₁=-1e-4)        # c₁ > 0 violated
+    @test_throws AssertionError Backtracking(; q=1.0)           # q > 1 violated
+    # `expand` is the only way to switch the expansion phase off, so `nexpand = 0` — a second,
+    # silent encoding of "disabled" — is rejected rather than accepted as a synonym.
+    @test_throws AssertionError Backtracking(; nexpand=0)
     @test Backtracking() isa Backtracking                       # defaults are valid
+    @test !Backtracking().expand                                # ... and shrink-only
 end
 
 @testset "$(rpad("Backtracking: non-descent and stationary anchors are reported, not searched", 80))" begin
@@ -229,6 +234,104 @@ end
     @test trials(st) < 10
     @test n[] == trials(st) + 1
     @test steplength(st) ≤ 0.5
+end
+
+@testset "$(rpad("backtracking_extrapolation", 80))" begin
+    # φ(α) = (α - 11)², anchored at α = 0: φ₀ = 121, φ'(0) = -22, φ(1) = 100. The quadratic
+    # model through those three values has its minimiser at the true one, α★ = 11.
+    @test backtracking_extrapolation(121.0, -22.0, 1.0, 100.0, 100.0) == 11.0
+    @test backtracking_extrapolation(121.0, -22.0, 1.0, 100.0, 10.0) == 10.0   # clamped to q·α
+
+    # A well-scaled direction: φ(α) = (α - 1)² has α★ = α = 1, so the step is returned unchanged
+    # and the caller stops without spending a merit evaluation. This is the zero-cost gate.
+    @test backtracking_extrapolation(1.0, -2.0, 1.0, 0.0, 10.0) == 1.0
+
+    # ... and so is a model minimiser that is longer but not by the factor BACKTRACKING_GROW_MIN.
+    # φ(α) = (α - 1.5)²: α★ = 1.5 < 2·1.
+    @test backtracking_extrapolation(2.25, -3.0, 1.0, 0.25, 10.0) == 1.0
+
+    # A non-convex model — the merit fell at least as fast as its tangent, so it is still
+    # dropping steeply — grows by the full factor q.
+    @test backtracking_extrapolation(1.0, -2.0, 1.0, -10.0, 10.0) == 10.0
+
+    # A merit at its round-off floor (φ(α) = φ₀) gives α★ = α/2 and is therefore *not* expanded:
+    # the model declines to grow into rounding noise without needing a special case.
+    @test backtracking_extrapolation(1.0, -2.0, 1.0, 1.0, 10.0) == 1.0
+
+    # A non-finite model must not propagate a NaN step into the search.
+    @test backtracking_extrapolation(1.0, -2.0, 1.0, NaN, 10.0) == 1.0
+end
+
+@testset "$(rpad("Backtracking expansion phase (issue #174)", 80))" begin
+    quadratic(αmin) = LinesearchProblem{Float64}((α, _) -> (α - αmin)^2, (α, _) -> 2(α - αmin))
+    run(prob, m) = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
+
+    shrink = Backtracking()
+    grow = Backtracking(; expand=true)
+
+    # The defect: a direction whose natural scale is larger than the trial step. A shrink-only
+    # search accepts the trial step — it does satisfy sufficient decrease — and hands back the
+    # ceiling it was given, at every outer iteration. That is what cost DFP two orders of
+    # magnitude in the issue.
+    for αmin in (11.0, 100.0)
+        st = run(quadratic(αmin), shrink)
+        @test steplength(st) == 1.0
+        @test trials(st) == 1
+    end
+
+    # With the expansion phase the step reaches that scale instead, in at most `nexpand` further
+    # merit evaluations. Landing within a factor BACKTRACKING_GROW_MIN of the minimiser is the
+    # whole point: it is the *scale* that was wrong, not the last digit.
+    for αmin in (11.0, 100.0)
+        st = run(quadratic(αmin), grow)
+        @test issufficient(st)
+        @test αmin / SimpleSolvers.BACKTRACKING_GROW_MIN ≤ steplength(st) ≤ αmin
+        @test 1 < trials(st) ≤ 1 + grow.nexpand
+    end
+
+    # And it costs nothing where it can gain nothing: a direction already scaled like a Newton
+    # step is at its model minimum, so the phase returns after the one trial the shrink-only
+    # search would have made. This is why the model is extrapolated rather than α simply grown.
+    stw = run(quadratic(1.0), grow)
+    @test steplength(stw) == 1.0
+    @test trials(stw) == trials(run(quadratic(1.0), shrink)) == 1
+
+    # A shrunken step is never expanded again: the longer steps have already been rejected.
+    # φ(α) = 1 - 2α + 1000α² needs several backtracks from α = 1, and `expand` must not change
+    # what that returns.
+    overshoot = LinesearchProblem{Float64}((α, _) -> 1.0 - 2α + 1000α^2, (α, _) -> -2.0 + 2000α)
+    @test steplength(run(overshoot, grow)) == steplength(run(overshoot, shrink))
+    @test trials(run(overshoot, grow)) == trials(run(overshoot, shrink))
+
+    # The merit's round-off floor is not expanded into, and stays reported as a floor.
+    noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    @test outcome(run(noise, grow)) == outcome(run(noise, shrink)) == LINESEARCH_FLOOR
+
+    # Contract item 5: the cost does not depend on the scale of the merit, and neither does the
+    # step — the model is built from φ₀, φ'(0) and φ(α), which all scale together.
+    scaled(s) = LinesearchProblem{Float64}((α, _) -> s * (α - 11.0)^2, (α, _) -> s * 2(α - 11.0))
+    for s in (1e-8, 1.0, 1e8)
+        @test steplength(run(scaled(s), grow)) == steplength(run(scaled(1.0), grow))
+        @test trials(run(scaled(s), grow)) == trials(run(scaled(1.0), grow))
+    end
+
+    # Every trial is counted, expansions included.
+    n = Ref(0)
+    counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; (α - 11.0)^2), (α, _) -> 2(α - 11.0))
+    st = run(counted, grow)
+    @test n[] == trials(st) + 1   # + the α = 0 anchor
+
+    # `nexpand` is a hard cap on the extra evaluations, whatever the merit does.
+    @test trials(run(quadratic(1e10), Backtracking(; expand=true, nexpand=1))) == 2
+
+    # The expansion never returns a step worse than the one the shrink-only search accepted: a
+    # trial that fails sufficient decrease or does not improve the merit costs one evaluation and
+    # the previous best is kept. φ(α) = (α-11)² for α ≤ 5 and a cliff above it.
+    cliff = LinesearchProblem{Float64}((α, _) -> α > 5 ? 1e6 : (α - 11.0)^2, (α, _) -> 2(α - 11.0))
+    stc = run(cliff, grow)
+    @test steplength(stc) == 1.0
+    @test stc.φ == 100.0
+    @test trials(stc) == 2   # the one rejected expansion, and nothing more
 end
 
 @testset "$(rpad("SufficientDecreaseCondition round-off allowance", 80))" begin
@@ -808,7 +911,7 @@ end
             ("minimiser at α < 0", (α, _) -> (α + one_T)^2, (α, _) -> 2 * (α + one_T)),
             ("slope contradicts values", (α, _) -> one_T + α, (α, _) -> -2one_T),
         )
-        for m in (Static(T), Backtracking(T), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+        for m in (Static(T), Backtracking(T), Backtracking(T; expand=true), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
             for (nm, f, d) in pathological
                 ls = Linesearch(LinesearchProblem{T}(f, d), m; verbosity=0)
                 st = @test_nowarn solve_with_status(ls, one_T)
@@ -852,6 +955,16 @@ end
         @test change_precision(T, Backtracking()).τ_ulps == Backtracking(T).τ_ulps
         @test Backtracking(T; τ_ulps=T(4)).τ_ulps ≤ armijo_ulps(T)
         @test Backtracking(T; τ_ulps=zero(T)).τ_ulps == 0   # opting out still works
+
+        # The expansion keys survive a precision change too — `expand` and `nexpand` unconverted,
+        # `q` in the new element type — and `isapprox` compares them.
+        grow = Backtracking(; expand=true, nexpand=2)
+        @test change_precision(T, grow).expand
+        @test change_precision(T, grow).nexpand == 2
+        @test change_precision(T, grow).q == T(SimpleSolvers.DEFAULT_BACKTRACKING_q)
+        @test change_precision(T, grow) ≈ Backtracking(T; expand=true, nexpand=2)
+        @test !(change_precision(T, grow) ≈ Backtracking(T; nexpand=2))
+        @test !(change_precision(T, grow) ≈ Backtracking(T; expand=true, nexpand=3))
     end
 end
 
@@ -1125,6 +1238,7 @@ end
     # the session was started. The byte counts that motivated them follow, guarded: they are the
     # end-to-end statement but say nothing under `--check-bounds=yes` (see `AS_A_CALLER_COMPILES_IT`).
     for f in (solve, solve_with_status, SimpleSolvers._bierlaire_fit, SimpleSolvers._wolfe_zoom,
+        SimpleSolvers.backtracking_expand,
         bisection, SimpleSolvers._bisection_core, SimpleSolvers._triple_point_core)
         @test !has_boxed_capture(f)
     end
@@ -1148,7 +1262,7 @@ end
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    for ls in (Static(), Backtracking(), Bisection(), Quadratic(), BierlaireQuadratic())
+    for ls in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
         @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end
 

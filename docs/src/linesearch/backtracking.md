@@ -114,6 +114,64 @@ cc = CurvatureCondition(c₂, problem.D(0., params), alpha -> problem.D(alpha, p
 cc(αₜ)
 ```
 
+## [Lengthening the step](@id backtracking_expansion)
+
+A backtracking search only ever *shrinks*. It therefore hands back the trial step it was given
+whenever that step is acceptable — and on a search direction whose natural scale is **larger**
+than the trial step, that is every single iteration. The step is pinned at the caller's ceiling
+and the outer solve crawls.
+
+This is a property of the search rather than of the method that produced the direction. In the
+case that prompted it ([issue #174](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/174)) a
+DFP direction wanted ``\alpha \approx 11`` throughout and took **49 679** iterations with
+`Backtracking` against **134** with [`Bisection`](@ref), which brackets rightwards and is
+therefore immune; BFGS, whose direction is already scaled like a Newton step, was unaffected.
+Note that no caller-side rule for the initial step fixes this: the scale deficit is *persistent*,
+not an artefact of initialisation, so every heuristic that recomputes ``\alpha`` from the current
+iterate helps the under-scaled method and hurts the well-scaled one.
+
+Setting `expand` makes the search two-sided. When the first trial step is accepted, it is
+lengthened (see [`SimpleSolvers.backtracking_extrapolation`](@ref)) while each longer trial keeps
+satisfying the [sufficient decrease condition](@ref "The Sufficient Decrease Condition") and
+strictly improving the merit:
+
+```@example expand
+using SimpleSolvers
+using SimpleSolvers: steplength, trials
+
+# a direction under-scaled by an order of magnitude: the merit is minimised at α = 11,
+# but the caller only offers α = 1
+prob = LinesearchProblem{Float64}((α, _) -> (α - 11.0)^2, (α, _) -> 2(α - 11.0))
+
+shrink = solve_with_status(Linesearch(prob, Backtracking()), 1.0)
+grow   = solve_with_status(Linesearch(prob, Backtracking(; expand = true)), 1.0)
+
+(shrink = (steplength(shrink), trials(shrink)), expand = (steplength(grow), trials(grow)))
+```
+
+The step reaches the right *scale* — that is the whole of the problem — in two merit evaluations
+rather than one.
+
+It is off by default, and the reason is worth stating: a well-scaled direction is the common
+case, and it must not pay for a feature it cannot use. It does not. The model that decides
+whether to expand is the same quadratic through ``\varphi(0)``, ``\varphi'(0)`` and
+``\varphi(\alpha)`` that [`SimpleSolvers.backtracking_interpolation`](@ref) uses on the way down,
+so all three values are already in hand and the decision is free:
+
+```@example expand
+newton = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> 2(α - 1.0))
+st = solve_with_status(Linesearch(newton, Backtracking(; expand = true)), 1.0)
+
+(steplength(st), trials(st))   # α = 1 is the model minimum: no extra evaluation is spent
+```
+
+That matters because for the merit of a [`NonlinearSolver`](@ref) one evaluation is a full
+residual evaluation, the most expensive single operation of a solver step. It is also why the
+phase does not test the [curvature condition](@ref "The Curvature Condition") to decide when to
+stop growing, which would cost a full [`Jacobian`](@ref) per trial. Where curvature control is
+genuinely required, use [`StrongWolfe`](@ref), which brackets on the derivative; where an actual
+line *minimiser* is wanted, use [`Bisection`](@ref) or [`Quadratic`](@ref).
+
 ## Stagnation at the round-off floor
 
 The sufficient decrease condition demands a decrease *proportional to* ``\alpha``:

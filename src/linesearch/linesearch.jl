@@ -40,6 +40,8 @@ guarantees about the step, because there are two distinct kinds:
 - **Condition-satisfying, ``\\alpha``-relative** — [`Backtracking`](@ref),
   [`StrongWolfe`](@ref) and trivially [`Static`](@ref): "given the trial step ``\\alpha``,
   return a step satisfying a decrease condition". The result depends on the input ``\\alpha``.
+  [`Backtracking`](@ref) shrinks it only, and therefore returns it unchanged whenever it is
+  acceptable, unless its `expand` key is set; [`StrongWolfe`](@ref) brackets in both directions.
 - **Minimising, ``\\alpha``-independent** — [`Bisection`](@ref), [`Quadratic`](@ref) and
   [`BierlaireQuadratic`](@ref): "approximate the minimiser of ``\\varphi`` along the
   direction". The input ``\\alpha`` only seeds the bracketing (see issue #164), and no Wolfe
