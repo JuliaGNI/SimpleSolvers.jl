@@ -270,6 +270,108 @@ for T ∈ (Float64, Float32)
 end
 
 
+# test the convenience wrappers of issue #159: the same solves as the loop above, but with the
+# solver assembled by `solve!`/`solve`/`solve_with_status!` from a `NonlinearProblem` instead of
+# by the caller.
+for T ∈ (Float64, Float32)
+    for (solver_method, kwarguments, tolfac) in (
+        (Newton(), (linesearch=Static(T),), 2),
+        (QuasiNewton(), (linesearch=Static(T),), 2),
+        (Picard(), (), 8),
+        (DogLeg(), (), 1)
+    )
+
+        @testset "Testing solve!/solve/solve_with_status! with method = $(solver_method) & $(kwarguments) & $(T)" begin
+            isroot(_x) = ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+
+            x = T.(copy(x₀))
+            y = F(x)
+            prob = NonlinearProblem(F!, x, y)
+
+            # `solve!` overwrites its first argument and returns it
+            xs = T.(copy(x₀))
+            @test solve!(xs, prob, solver_method; verbosity=0, kwarguments...) === xs
+            @test all(isroot, xs)
+
+            # `solve` returns a new array and leaves the initial guess untouched
+            xi = T.(copy(x₀))
+            xn = solve(xi, prob, solver_method; verbosity=0, kwarguments...)
+            @test xn !== xi
+            @test xi == T.(x₀)
+            @test all(isroot, xn)
+
+            # `solve_with_status!` reports the outcome of the solve
+            xt = T.(copy(x₀))
+            st = solve_with_status!(xt, prob, solver_method; verbosity=0, kwarguments...)
+            @test st isa NonlinearSolverStatus
+            @test isconverged(st)
+            @test all(isroot, xt)
+
+            # a problem carrying its own Jacobian takes the `JacobianFunction` path — asserted on
+            # the constructed solver, since the root alone would not distinguish it from autodiff
+            probJ = NonlinearProblem(F!, J!, x, y)
+            @test SimpleSolvers.jacobian(NonlinearSolver(solver_method, T.(copy(x₀)), probJ; verbosity=0, kwarguments...)) isa JacobianFunction
+            xj = T.(copy(x₀))
+            solve!(xj, probJ, solver_method; verbosity=0, kwarguments...)
+            @test all(isroot, xj)
+
+            # the solver-taking form of `solve_with_status!`, which the problem-taking one calls
+            xw = T.(copy(x₀))
+            sw = NonlinearSolver(solver_method, xw, prob; verbosity=0, kwarguments...)
+            @test isconverged(solve_with_status!(xw, sw))
+            @test all(isroot, xw)
+        end
+    end
+end
+
+@testset "The solve! wrapper forwards params, a state and solver keywords" begin
+    Fp!(y, x, params) = y .= x .^ 2 .- params.a
+    prob = NonlinearProblem(Fp!, zeros(2))
+
+    # `params` is forwarded to the problem
+    x = ones(2)
+    solve!(x, prob, Newton(), (a=3.0,); verbosity=0)
+    @test x ≈ [sqrt(3.0), sqrt(3.0)]
+
+    # so is a state supplied by the caller, which is how the iteration count is obtained
+    state = NonlinearSolverState(zeros(2))
+    x .= 1
+    solve!(x, prob, Newton(), state, (a=3.0,); verbosity=0)
+    @test iteration_number(state) > 0
+    @test x ≈ [sqrt(3.0), sqrt(3.0)]
+
+    # solver keywords reach the constructor: a single iteration cannot converge, and the
+    # methods that consult no line search still reject a `linesearch` keyword (as their
+    # constructors do — see "PicardSolver rejects a linesearch keyword" below)
+    x .= 1
+    st = solve_with_status!(x, prob, Newton(), (a=3.0,); max_iterations=1, verbosity=0)
+    @test !isconverged(st)
+
+    @test_throws MethodError solve!(ones(2), prob, Picard(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
+    @test_throws MethodError solve!(ones(2), prob, DogLeg(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
+end
+
+# The default residual prototype is `zero(x)` and not `similar(x)`: `alloc_j` broadcasts over it
+# (`_nan(T) .* y * x'`), so an uninitialized prototype throws an `UndefRefError` for any element
+# type whose `similar` leaves undefined references.  `BigFloat` is one.
+@testset "The default residual prototype works for element types with undef-leaving similar" begin
+    Fb!(y, x, params) = y .= x .^ 2 .- 2
+    xb = BigFloat.(ones(2))
+    prob = NonlinearProblem(Fb!, xb)
+
+    @test NewtonSolver(xb, prob) isa NonlinearSolver
+    @test PicardSolver(xb, prob) isa NonlinearSolver
+    @test DogLegSolver(xb, prob) isa NonlinearSolver
+
+    # …and a solve goes through.  `static=false` is needed only because the default `LU()` caches
+    # a small matrix as an `MMatrix`, and StaticArrays cannot `setindex!` a non-isbits eltype —
+    # a pre-existing limitation of the linear solver, unrelated to the residual prototype.
+    xs = BigFloat.(ones(2))
+    solve!(xs, prob, Newton(); linear_solver_method=LU(static=false), verbosity=0)
+    @test xs ≈ [sqrt(BigFloat(2)), sqrt(BigFloat(2))]
+end
+
+
 # test regularization
 for T ∈ (Float64, Float32)
     for (solver_method, kwarguments) in (

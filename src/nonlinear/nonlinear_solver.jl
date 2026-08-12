@@ -312,3 +312,135 @@ true
 status(s::NonlinearSolver, state::NonlinearSolverState) = NonlinearSolverStatus(state, config(s))
 
 solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)
+
+"""
+    solve!(x, prob, method, args...; kwargs...)
+
+Solve the [`NonlinearProblem`](@ref) `prob` with the [`NonlinearSolverMethod`](@ref) `method`,
+starting from `x` and overwriting it with the solution (which is returned).
+
+The remaining positional arguments are passed on to
+[`solve!(::AbstractArray, ::NonlinearSolver, ::NonlinearSolverState, params)`](@ref), so they are
+either nothing at all, the `params` of the problem, or a [`NonlinearSolverState`](@ref) followed by
+`params`.
+
+The keyword arguments are the [`Options`](@ref) keywords together with whatever the constructor
+selected by `method` accepts — which is *not* the same set for all four methods:
+
+| `method` | constructor keywords |
+|:---|:---|
+| [`Newton`](@ref), [`QuasiNewton`](@ref) | `linesearch`, `jacobian`, `linear_solver_method` |
+| [`DogLeg`](@ref) | `jacobian`, `linear_solver_method` |
+| [`Picard`](@ref) | `jacobian` |
+
+`Picard` and `DogLeg` consult no line search, so they reject a `linesearch` keyword rather than
+ignoring it (it falls through to [`Options`](@ref) and raises a `MethodError` there) — see
+[`PicardSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref).
+
+`refactorize` is deliberately absent from that table: it belongs to the `method`, as `Newton(5)`
+(equivalently [`QuasiNewton`](@ref)) or `DogLeg(5)`. Passing it as a keyword does work for those
+two — it is forwarded after `method.refactorize` and, being the rightmost occurrence, silently
+wins — but `Picard` has no Jacobian to refactorize and errors on it. Configure it through `method`.
+
+!!! info
+    This is the convenience path: every call *builds a solver* — a Jacobian (with its ForwardDiff
+    configuration), a factorization cache and the line-search buffers. Code that solves repeatedly
+    should construct one [`NonlinearSolver`](@ref) and call
+    [`solve!(::AbstractArray, ::NonlinearSolver, ::NonlinearSolverState, params)`](@ref) on it
+    instead.
+
+`solve!` returns the solution, not a status; use [`solve_with_status!`](@ref) if the outcome of the
+solve is needed.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> prob = NonlinearProblem(F, zeros(1));
+
+julia> x = [1.0];
+
+julia> solve!(x, prob, Newton(); verbosity = 0)
+1-element Vector{Float64}:
+ 1.4142135623730951
+```
+"""
+function solve!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, args...; kwargs...)
+    solve!(x, NonlinearSolver(method, x, prob; kwargs...), args...)
+end
+
+"""
+    solve(x, prob, method, args...; kwargs...)
+
+Solve the [`NonlinearProblem`](@ref) `prob` with the [`NonlinearSolverMethod`](@ref) `method`,
+starting from the initial guess `x`, and return the solution as a *new* array — `x` itself is left
+untouched. This is [`solve!(::AbstractVector, ::NonlinearProblem, ::NonlinearSolverMethod)`](@ref)
+on a copy, and takes the same arguments; the note on solver construction there applies here too.
+
+The initial guess has to be passed because a `NonlinearProblem` stores neither the solution nor the
+residual, so nothing else determines the size and type of the array to allocate.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> prob = NonlinearProblem(F, zeros(1));
+
+julia> x₀ = [1.0];
+
+julia> solve(x₀, prob, Newton(); verbosity = 0)
+1-element Vector{Float64}:
+ 1.4142135623730951
+
+julia> x₀
+1-element Vector{Float64}:
+ 1.0
+```
+"""
+function solve(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, args...; kwargs...)
+    solve!(copy(x), prob, method, args...; kwargs...)
+end
+
+"""
+    solve_with_status!(x, s, params=NullParameters())
+    solve_with_status!(x, prob, method, params=NullParameters(); kwargs...)
+
+Solve as [`solve!`](@ref) does — `x` is overwritten with the solution — but return the
+[`NonlinearSolverStatus`](@ref) instead of `x`.
+
+This is how the outcome of a solve is obtained without holding on to a
+[`NonlinearSolverState`](@ref): the state is built here and handed to [`status`](@ref) afterwards.
+The `!` is part of the name because `x` *is* modified, unlike in the line-search
+[`solve_with_status`](@ref), whose `α` is a number.
+
+!!! info
+    The predicates that read the returned status — [`isconverged`](@ref) and
+    [`isstalled`](@ref) — are **not** exported, for the same reason the line-search predicates
+    are not: they are generic names a package doing `using SimpleSolvers` may well want for
+    itself. Reach them as `SimpleSolvers.isconverged(st)`, or import them explicitly with
+    `using SimpleSolvers: isconverged`.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> prob = NonlinearProblem(F, zeros(1));
+
+julia> x = [1.0];
+
+julia> isconverged(solve_with_status!(x, prob, Newton(); verbosity = 0))
+true
+```
+"""
+function solve_with_status!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
+    state = NonlinearSolverState(x, value(cache(s)))
+    solve!(x, s, state, params)
+    status(s, state)
+end
+
+function solve_with_status!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, params=NullParameters(); kwargs...)
+    solve_with_status!(x, NonlinearSolver(method, x, prob; kwargs...), params)
+end

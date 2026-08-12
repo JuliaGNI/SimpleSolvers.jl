@@ -307,10 +307,27 @@ function DogLegSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
     DogLegSolver(x, nlp, ls, linearsolver, with_config(linesearch, config), cache, config; jacobian=jacobian, refactorize=refactorize)
 end
 
-function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; linear_solver_method=LU(), (DF!)=missing, jacobian=missing, refactorize=1, options_kwargs...) where {T}
+function DogLegSolver(x::AbstractVector{T}, F::Callable, y::AbstractVector{T}; (DF!)=missing, kwargs...) where {T}
+    DogLegSolver(x, NonlinearProblem(F, DF!, x, y), y; kwargs...)
+end
+
+"""
+    DogLegSolver(x, nlp::NonlinearProblem, y = zero(x))
+
+Build a [`DogLegSolver`](@ref) for the [`NonlinearProblem`](@ref) `nlp` with the initial
+guess `x`. See [`NewtonSolver(::AbstractVector{T}, ::NonlinearProblem, ::AbstractVector{T}) where {T}`](@ref)
+for the rôle of `y`; as above, no `linesearch` keyword is accepted — the step length comes
+from the trust-region radius.
+
+# Keywords
+- `linear_solver_method`
+- `jacobian`: see [`resolve_jacobian`](@ref),
+- `refactorize`
+- `options_kwargs`: see [`Options`](@ref).
+"""
+function DogLegSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=LU(), jacobian=missing, refactorize=1, options_kwargs...) where {T}
     config = Options(T; options_kwargs...)
-    nlp = NonlinearProblem(F, DF!, x, y)
-    jacobian = resolve_jacobian(F, DF!, jacobian, x, y)
+    jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
     cache = DogLegCache(x, y)
     linearproblem = LinearProblem(alloc_j(x, y))
     linearsolver = LinearSolver(linear_solver_method, y)

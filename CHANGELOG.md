@@ -4,10 +4,61 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [0.11.0]
 
+Two independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
+constructor, and gains an opt-in expansion phase. Additive: a `NonlinearProblem` can be solved
+without assembling a solver by hand.
+
+### Convenience entry points for solving a `NonlinearProblem`
+
+[Issue #159](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/159).
+
+#### The gap
+
+`NonlinearProblem` was exported but was not usable as an argument anywhere: no solver constructor
+accepted one, so a hand-built problem forced the seven-argument low-level constructor, with the
+linear problem, the linear solver, the line search and the cache all supplied by the caller. The
+`NewtonSolver` docstring had advertised the missing capability — *"can be called with a
+`NonlinearProblem` or with a `Callable`"* — since before it existed. Nor was there a `solve`/`solve!`
+taking a problem and a method, which both of the other subsystems have: `solve(lu, ls)` on the
+linear side, `solve(prob, method, α, params, config)` on the line-search side.
+
+#### Added
+
+- `NewtonSolver(x, nlp::NonlinearProblem, y = zero(x))` and the same form for `PicardSolver` and
+  `DogLegSolver`, hence also `NonlinearSolver(method, x, nlp)`. The residual prototype `y` only
+  supplies a size and a type — nothing computed from it survives — so it defaults to `zero(x)`,
+  which is what a square system needs, and every system here is square because the Jacobian gets
+  factorized. (`zero` and not `similar`: `alloc_j` broadcasts over `y`, so an uninitialized
+  prototype throws an `UndefRefError` for an element type whose `similar` leaves undefined
+  references, such as `BigFloat`.) A Jacobian stored in the problem takes precedence over autodiff,
+  exactly as the `DF!` keyword does.
+- `solve!(x, prob, method, args...; kwargs...)`, which builds the solver and overwrites `x` with the
+  solution, and `solve(x₀, prob, method, args...; kwargs...)`, which returns the solution as a new
+  array and leaves `x₀` alone — `solve!`'s signature minus the bang. The trailing positional
+  arguments go through to the solver-level `solve!`, so they are the problem's `params`, optionally
+  preceded by a `NonlinearSolverState`; the keywords are the constructor's plus `Options`'.
+- `solve_with_status!(x, s)` and `solve_with_status!(x, prob, method, params; kwargs...)`, returning
+  the `NonlinearSolverStatus` instead of the solution. A wrapper discards the solver it built, so
+  `status(s, state)` — which needs both — is otherwise out of reach; this builds the state itself.
+  The `!` is honest here, unlike in the line search's `solve_with_status`, whose `α` is a number.
+
+Each wrapper call constructs a solver (a Jacobian with its ForwardDiff configuration, a
+factorization cache, the line-search buffers), so this is the convenience path and not the one for a
+loop: that should still build one `NonlinearSolver` and reuse it. The docstrings say so.
+
+#### Changed
+
+The three `(x, F, y)` constructors are now one-line delegations to their `NonlinearProblem`
+counterparts — the assembly recipe they each carried a copy of exists once per solver now. No
+behaviour change: `NonlinearProblem(F, DF!, x, y)` stores `J = DF!`, so the resulting
+`resolve_jacobian` call is the one they made before.
+
+### `Backtracking` can lengthen a step
+
 `Backtracking` can now lengthen a step, and no longer carries a field that pretended to
 configure one. Both halves of [issue #174](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/174).
 
-### The defects
+#### The defects
 
 **`Backtracking.α₀` was never read.** It was stored, documented as *"the initial step size α"*,
 printed by `show`, compared by `isapprox` and converted by `change_precision` — but neither
@@ -23,7 +74,7 @@ is a property of the search, not of DFP: BFGS, already scaled like a Newton step
 (113 against 143). Handing the same `Backtracking` a trial step of 3 instead of 1 is worth a
 factor of 217, which is precisely the knob `α₀` appeared to offer and did not.
 
-### Fixed
+#### Fixed
 
 - **Breaking**: the `α₀` key of `Backtracking` and the constant `SimpleSolvers.DEFAULT_ARMIJO_α₀`
   are removed, along with the positional `Backtracking{T}(α₀, c₁, c₂, p[, τ_ulps])` form. The
@@ -51,7 +102,7 @@ factor of 217, which is precisely the knob `α₀` appeared to offer and did not
   not consult the curvature condition, which would cost a full Jacobian per trial; `StrongWolfe`
   remains the method for that.
 
-### Measured
+#### Measured
 
 On the `St(20,3)²` SVD problem of GeometricOptimizers (`test/optimizer_convergence/svd_optim.jl`,
 seed 1234), iterations to convergence:
@@ -526,6 +577,7 @@ signature are not enumerated here.)
   different `refactorize` default). There is now a single `NewtonSolver` type
   (`NonlinearSolver{T,Newton}`); build a quasi-Newton solver with
   `NewtonSolver(…; refactorize=n)` (or via `NonlinearSolver(QuasiNewton(n), …)`).
+  ([issue #149](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/149))
 - The error-swallowing fallbacks `initialize!(x...)`, the 1-arg
   `solver_step!(::NonlinearSolver)`, and the generic two-arg `Gradient` functor;
   unsupported calls now raise a proper `MethodError`.
@@ -546,6 +598,7 @@ signature are not enumerated here.)
   struct with `Newton(refactorize=1)` (mirroring `DogLeg`). `QuasiNewton` is kept
   as a convenience constructor `QuasiNewton(refactorize=5) = Newton(refactorize)`.
   `Newton{true}`/`Newton{false}` no longer parse.
+  ([issue #149](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/149))
 - The default line search of `NewtonSolver(x, F, y; …)` changed from `Backtracking`
   to `StrongWolfe` (the only line search that genuinely enforces the strong curvature
   condition). Pass `linesearch=Backtracking(T)` to restore the previous behavior.
