@@ -312,6 +312,23 @@ iterations then turns a full budget into a prompt answer.
 """
 const F_STALL_WINDOW::Int = 0
 
+@doc raw"""
+    const F_STALL_REPORT_MINIMUM
+
+The fewest iterations without progress that [`spent_without_progress`](@ref) will report on. Its
+value is """ * """$(F_STALL_REPORT_MINIMUM)""" * raw""".
+
+Unlike `f_stall_window` this is not configurable, because it is not a policy: it is the point
+below which the *proportion* that predicate measures is not evidence of anything. A solve that
+converges in four iterations without halving its residual on the last two has not stagnated, it
+has finished — and at two iterations the proportion is satisfied by a single one, which is the
+normal last step of a solve that converged on its successive-change criterion.
+
+This bounds only what is *said* about a solve, never what is done with it — the stopping
+criterion is `f_stall_window` alone (see [`no_progress`](@ref)).
+"""
+const F_STALL_REPORT_MINIMUM::Int = 10
+
 """
     Options
 

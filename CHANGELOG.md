@@ -163,7 +163,9 @@ now says.
   reference is monotone — the best residual so far — so an iteration that undoes the previous
   one's progress does not reset the clock.
 - **The report is unconditional.** A solve that spends its whole budget without converging and
-  without progressing over at least half of it now says so, naming the residual it achieved, the
+  without progressing over at least half of it — and over at least `F_STALL_REPORT_MINIMUM`
+  iterations, below which the proportion is not evidence of anything — now says so, naming the
+  residual it achieved, the
   tolerance it was asked for, how many iterations it went without improving, and that the iterate
   did *not* freeze — which is what distinguishes a floor of the problem from the round-off floor
   `max_stalls` reports. It replaces the bare iteration count rather than adding to it, and, like

@@ -258,8 +258,9 @@ function NonlinearSolverStatus(state::NonlinearSolverState{T}, config::Options{T
 end
 
 # The stall and no-progress lines are appended only when they are relevant, so the printout of a
-# fresh status — and of a healthy solve, whose residual improves right up to the last iteration —
-# is unchanged.
+# fresh status is unchanged. `spent_without_progress` rather than its proportion alone is what
+# keeps a *healthy* solve's printout unchanged too: this is the one caller that cannot check the
+# budget, having no `Options` — see `F_STALL_REPORT_MINIMUM`.
 Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
     (@sprintf "i=%4i" status.iterations), ",\n",
     (@sprintf "rxₛ=%4e" status.rxₛ), ",\n",
@@ -331,22 +332,32 @@ isnotprogressing(status::NonlinearSolverStatus) = status.not_progressing
 """
     spent_without_progress(status)
 
-Check whether the iteration spent at least *half* of its iterations without the residual dropping
-by `config.f_stall_factor` — the diagnosis [`nonlinear_solver_warnings`](@ref) reports when a
-solve has used its whole budget, and the condition under which the no-progress line is shown by
-`show`.
+Check whether the iteration spent at least *half* of its iterations, and at least
+[`F_STALL_REPORT_MINIMUM`](@ref) of them, without the residual dropping by
+`config.f_stall_factor` — the diagnosis [`nonlinear_solver_warnings`](@ref) reports when a solve
+has used its whole budget, and the condition under which the no-progress line is shown by `show`.
 
 This is unconditional, unlike [`isnotprogressing`](@ref), and it can afford to be because it is
 only ever used to *describe* a solve, never to decide one: [`nonlinear_solver_warnings`](@ref)
 consults it about a solve that has already spent `max_iterations` without converging, and `show`
-about one it has been handed to print. A threshold that would be reckless as
-a stopping criterion (see [`F_STALL_WINDOW`](@ref)) is harmless as an explanation — which is why
-the two exist separately. A healthy solve never reaches it: an iteration converging linearly with
-rate ``\\rho`` halves its residual every ``-1/\\log_2\\rho`` iterations, 69 of them even at
-``\\rho = 0.99``, and it stops long before the budget in any case.
+about one it has been handed to print. A threshold that would be reckless as a stopping criterion
+(see [`F_STALL_WINDOW`](@ref)) is harmless as an explanation — which is why the two exist
+separately.
+
+The absolute minimum is what makes it safe in `show`, which has no `Options` and so cannot check
+the budget the way the warning does. Without it the proportion alone is satisfied by a *two*-
+iteration solve whose last step did not halve the residual — the normal last step of one that
+converged on its successive-change criterion — and a healthy solve would start explaining itself.
+With it, no such solve comes close: a `Gauss(2)` Lotka-Volterra run converges in two to four
+iterations with at most one of them unproductive.
+
+A long healthy solve does not reach it either, for the separate reason that its residual keeps
+halving: an iteration converging linearly with rate ``\\rho`` halves every ``-1/\\log_2\\rho``
+iterations, 69 of them even at ``\\rho = 0.99``.
 """
 spent_without_progress(status::NonlinearSolverStatus) =
-    status.iterations > 0 && 2 * status.iterations_since_progress ≥ status.iterations
+    status.iterations_since_progress ≥ F_STALL_REPORT_MINIMUM &&
+    2 * status.iterations_since_progress ≥ status.iterations
 
 """
     meets_stopping_criteria(state, config)

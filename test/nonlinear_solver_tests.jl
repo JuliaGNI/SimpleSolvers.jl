@@ -1060,13 +1060,30 @@ end
     @test !no_progress(rfₐ, Options(Float64; f_abstol=1e10, f_stall_window=3), state)  # residual small
     @test !no_progress(rfₐ, Options(Float64; f_abstol=1e-10, f_reltol=0.0), state)     # window disabled
 
-    # the report threshold is independent of the window: half the iterations without progress
+    # the report threshold is independent of the window: half the iterations without progress,
+    # and at least `F_STALL_REPORT_MINIMUM` of them
     status₁ = NonlinearSolverStatus(state, config₀)
     @test status₁.iterations_since_progress == 3
     @test status₁.iterations == 7
-    @test !spent_without_progress(status₁)    # 3 of 7
-    state.iterations = 8                      # ⇒ 4 of 8
+    @test !spent_without_progress(status₁)    # 3 of 7: neither half nor enough
+    state.iterations = 6                      # ⇒ 2 of 6
+    @test !spent_without_progress(NonlinearSolverStatus(state, config₀))
+    state.iterations = 8                      # ⇒ 4 of 8: half, but too few to mean anything
+    @test 2 * iterations_since_progress(state) ≥ iteration_number(state)
+    @test !spent_without_progress(NonlinearSolverStatus(state, config₀))
+    state.iterations = 4 + SimpleSolvers.F_STALL_REPORT_MINIMUM   # iter_ref is 4
     @test spent_without_progress(NonlinearSolverStatus(state, config₀))
+
+    # ... which is what keeps a *healthy* short solve from explaining itself: two iterations of
+    # which the last did not halve the residual satisfies the proportion on its own
+    short = NonlinearSolverState([1.0])
+    initialize!(short, [1.0], [1.0])
+    short.iterations = 1
+    update!(short, [2.0], [0.9])
+    @test record_progress!(short, config₀) == 1
+    short.iterations = 2
+    @test 2 * iterations_since_progress(short) ≥ iteration_number(short)
+    @test !spent_without_progress(NonlinearSolverStatus(short, config₀))
 
     # a freshly initialized state is neither, so a fresh status prints unchanged
     fresh = NonlinearSolverState([1.0])
