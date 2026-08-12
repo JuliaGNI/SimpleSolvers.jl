@@ -4,9 +4,12 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [0.11.0]
 
-Two independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
+Three independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
 constructor, and gains an opt-in expansion phase. Additive: a `NonlinearProblem` can be solved
-without assembling a solver by hand.
+without assembling a solver by hand, and a `NonlinearSolver` reports — and, on request, stops —
+a solve that is *not progressing*, the case
+[issue #173](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/173) found next to the
+`max_stalls` machinery of 0.10.0.
 
 ### Convenience entry points for solving a `NonlinearProblem`
 
@@ -134,6 +137,61 @@ default line search still shrinks only. GeometricIntegrators' Runge-Kutta suite
 passes (128 assertions) with bit-identical trajectories for `Gauss(1)`…`Gauss(4)`. To fix an
 under-scaled direction, ask for it:
 `NewtonSolver(x, F, y; linesearch = Backtracking(T; expand = true))`.
+
+### Solves that get nowhere
+
+`max_stalls` (0.10.0) catches a solve whose **iterate has frozen**: the step has fallen below the
+round-off level of `x` while the residual is not small, so no progress is possible along the
+current direction. Issue #173 reports the case next to it — the iterate keeps moving perfectly
+normally while the residual sits on a floor far above the requested tolerance. No existing
+criterion can fire, by construction: `iterate_settled` is false because the step is not small,
+`residual_small` is false because the residual is not either, and `stalled_step` needs both. Such
+a solve spends `max_iterations` in full and reports `"Solver took 1000 iterations."`, which names
+a symptom and no cause.
+
+The floor there was set by the *problem* — an under-parameterised network ansatz, whose
+approximation error put `‖F‖` at 2e-6, six orders of magnitude above the tolerance the solver was
+asked for. That is not round-off, so no `eps(T)`-scaled tolerance can bound it, and the remedy is
+one level up from the solver: raise `f_abstol` above the achievable residual, or improve the
+approximation until its floor lies below the tolerance you need. Which is exactly what the report
+now says.
+
+- `SimpleSolvers.record_progress!` keeps, per solve, the residual as of the last iteration that
+  counted as *progress* and the number of iterations since, so
+  `SimpleSolvers.iterations_since_progress` measures how long the residual has been going
+  nowhere. The reference is monotone — the best residual so far — so an iteration that undoes the
+  previous one's progress does not reset the clock. Like `record_stall!` it is an increment
+  rather than a predicate, so it owns its counter: an iteration that never records leaves it at
+  zero, exactly as `stall_number` does. `SimpleSolvers.record_iteration!` is the one function
+  that takes both measurements, from a single `residuals` call, and `solve!` calls it once per
+  iteration.
+- **The report is unconditional.** A solve that spends its whole budget without converging and
+  without progressing over at least half of it — and over at least `F_STALL_REPORT_MINIMUM`
+  iterations, below which the proportion is not evidence of anything — now says so, naming the
+  residual it achieved, the
+  tolerance it was asked for, how many iterations it went without improving, and that the iterate
+  did *not* freeze — which is what distinguishes a floor of the problem from the round-off floor
+  `max_stalls` reports. It replaces the bare iteration count rather than adding to it, and, like
+  the stagnation message, is gated on `verbosity ≥ 1` and capped with `maxlog`. The bare count
+  gained a `maxlog` too: it had none, so a time-stepping caller got one per step — and it is now
+  also replaced by the *stagnation* message, which had been added alongside it since 0.10.0. The
+  three are mutually exclusive, most specific first.
+- **The stopping criterion is opt-in**, through two new `Options` fields: `f_stall_window`
+  (default `0`, disabled) gives up after that many iterations without progress, and
+  `f_stall_factor` (default `0.5`) is the drop that counts as progress. `SimpleSolvers.no_progress`
+  is the predicate, gated on `!residual_small` exactly as `stalled_step` is, so giving up and
+  converging remain mutually exclusive; `SimpleSolvers.isnotprogressing` reads it off the status.
+
+The asymmetry is deliberate. The threshold is a policy, not a test: an iteration converging
+linearly with rate ρ improves by ρ^W over a window W, so a window of 50 at the default factor
+abandons every ρ > 0.986, and a `PicardSolver` on a stiff problem is slower than that. There is no
+value that is right for every problem — so the *diagnosis*, which is consulted only about a solve
+that has already spent its budget and therefore decides nothing, is free; while the *stopping*,
+which can cut short a solve that would have succeeded, is the caller's to ask for. Set it once the
+report has told you the floor is real.
+
+Behaviour at default options is unchanged except for what is printed: no solve stops earlier than
+it did, and `f_stall_window = 0` makes `no_progress` constant `false`.
 
 ## [0.10.1]
 

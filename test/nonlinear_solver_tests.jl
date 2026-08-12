@@ -4,9 +4,10 @@ using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update
 using SimpleSolvers: meets_stopping_criteria, nonlinear_solver_warnings, NonlinearSolverStatus
 using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value, direction, direction!, NullParameters
 using SimpleSolvers: trust_radius, DOGLEG_Δ_INITIAL
-using SimpleSolvers: isconverged, isstalled, status
+using SimpleSolvers: isconverged, isstalled, isnotprogressing, spent_without_progress, status
 using SimpleSolvers: config, linesearch, stall_number, record_stall!, flag_stall!,
     stalled_step, residual_small, iterate_settled, initial_residual
+using SimpleSolvers: iterations_since_progress, record_progress!, no_progress
 using SimpleSolvers: compute_new_iterate!, increase_iteration_number!, Bisection, Quadratic,
     StrongWolfe, Backtracking, steplength, solve_with_status
 using Test
@@ -900,10 +901,12 @@ end
         x0 = ics(T)
         solver = PicardSolver(x0, F, copy(x0))
 
-        # PicardSolver runs out of iterations on this problem (expected); assert the
-        # "Solver took … iterations." warning is emitted rather than letting it leak
-        # to the test log.
-        @test_logs (:warn, r"Solver took \d+ iterations\.") match_mode = :any solve!(x0, solver)
+        # PicardSolver runs out of iterations on this problem (expected); assert the warning is
+        # emitted rather than letting it leak to the test log. The fixed-point map is locally
+        # expanding here, so the residual safeguard damps α to nothing and the residual sits at
+        # 10.4 for all 1000 iterations — a solve that makes no progress, which is what is now
+        # reported instead of the bare "Solver took … iterations." (see `spent_without_progress`).
+        @test_logs (:warn, r"spent its full budget .* did not improve") match_mode = :any solve!(x0, solver)
         @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 
         x0 = ics(T)
@@ -971,6 +974,19 @@ end
     s2 = NewtonSolver(x2, Ffloor, zero(x2); f_abstol=1e-20, f_reltol=0.0)
     @test_logs (:warn, r"stagnated") match_mode = :any solve!(x2, s2, SolverState(s2))
 
+    # ... and it *replaces* the bare iteration count rather than joining it. This solve stagnates
+    # after three iterations, so it only reaches `warn_iterations` when that is set below them;
+    # the two messages would otherwise never be seen together and the mutual exclusivity
+    # `nonlinear_solver_warnings` promises would go untested.
+    x4 = [1.0]
+    s4 = NewtonSolver(x4, Ffloor, zero(x4); f_abstol=1e-20, f_reltol=0.0, warn_iterations=1)
+    logs, _ = Test.collect_test_logs() do
+        solve!(x4, s4, SolverState(s4))
+    end
+    messages = [string(record.message) for record in logs]
+    @test any(m -> occursin("stagnated", m), messages)
+    @test !any(m -> occursin("Solver took", m), messages)
+
     # raising `f_abstol` above the floor makes the very same problem converge, quietly
     x3 = [1.0]
     s3 = NewtonSolver(x3, Ffloor, zero(x3); f_abstol=1e-6, f_reltol=0.0)
@@ -1017,6 +1033,221 @@ end
     update!(state2, [9.0], [0.0])             # residual small ⇒ success, not stagnation
     flag_stall!(state2)
     @test record_stall!(state2, config₀) == 0
+end
+
+@testset "$(rpad("progress predicates and the no-progress counter", 80))" begin
+    config₀ = Options(Float64; f_abstol=1e-10, f_reltol=0.0, f_stall_window=3)
+
+    state = NonlinearSolverState([1.0])
+    initialize!(state, [1.0], [1.0])          # r₀ = 1 is the first progress reference
+    @test iterations_since_progress(state) == 0
+
+    # an iteration that does not reduce the residual by `f_stall_factor` does not reset the clock
+    for i in 1:3
+        state.iterations = i
+        update!(state, [Float64(i)], [0.9])   # a 10 % improvement is not progress at 0.5
+        @test record_progress!(state, config₀) == i
+    end
+
+    # ... and one that does resets it, from where it happened
+    state.iterations = 4
+    update!(state, [4.0], [0.4])
+    @test record_progress!(state, config₀) == 0
+    state.iterations = 5
+    update!(state, [5.0], [0.4])
+    @test record_progress!(state, config₀) == 1
+
+    # the reference is the *best* residual so far, so undoing progress does not reset the clock
+    state.iterations = 6
+    update!(state, [6.0], [0.8])              # worse than the 0.4 reference
+    @test record_progress!(state, config₀) == 2
+    state.iterations = 7
+    update!(state, [7.0], [0.8])
+    @test record_progress!(state, config₀) == 3
+
+    # the criterion fires once the window is full, and only while the residual is not small
+    _, rfₐ, _ = residuals(state)
+    @test iterations_since_progress(state) == config₀.f_stall_window
+    @test !residual_small(rfₐ, config₀, state)
+    @test no_progress(rfₐ, config₀, state)
+    @test !no_progress(rfₐ, Options(Float64; f_abstol=1e10, f_stall_window=3), state)  # residual small
+    @test !no_progress(rfₐ, Options(Float64; f_abstol=1e-10, f_reltol=0.0), state)     # window disabled
+
+    # the report threshold is independent of the window: half the iterations without progress,
+    # and at least `F_STALL_REPORT_MINIMUM` of them
+    status₁ = NonlinearSolverStatus(state, config₀)
+    @test status₁.iterations_since_progress == 3
+    @test status₁.iterations == 7
+    @test !spent_without_progress(status₁)    # 3 of 7: neither half nor enough
+
+    # a fourth unproductive iteration makes it half — and still too few to mean anything
+    state.iterations = 8
+    update!(state, [8.0], [0.8])
+    @test record_progress!(state, config₀) == 4
+    @test 2 * iterations_since_progress(state) ≥ iteration_number(state)
+    @test !spent_without_progress(NonlinearSolverStatus(state, config₀))
+
+    # ... and enough of them satisfies both
+    while iterations_since_progress(state) < SimpleSolvers.F_STALL_REPORT_MINIMUM
+        state.iterations += 1
+        update!(state, [Float64(state.iterations)], [0.8])
+        @test record_progress!(state, config₀) == iterations_since_progress(state)
+    end
+    @test 2 * iterations_since_progress(state) ≥ iteration_number(state)
+    @test spent_without_progress(NonlinearSolverStatus(state, config₀))
+
+    # the proportion is the independent half of the threshold: the *same* run of unproductive
+    # iterations, after a long productive stretch, is a solve that got somewhere and is not
+    # reported for the tail it ended on
+    long = NonlinearSolverState([1.0])
+    initialize!(long, [1.0], [1.0])
+    for i in 1:30                             # thirty iterations, every one of them progress
+        long.iterations = i
+        update!(long, [Float64(i)], [0.5^i])
+        @test record_progress!(long, config₀) == 0
+    end
+    for i in 31:(30+SimpleSolvers.F_STALL_REPORT_MINIMUM)
+        long.iterations = i
+        update!(long, [Float64(i)], [0.5^30])
+        record_progress!(long, config₀)
+    end
+    @test iterations_since_progress(long) == SimpleSolvers.F_STALL_REPORT_MINIMUM
+    @test !isconverged(NonlinearSolverStatus(long, config₀))
+    @test 2 * iterations_since_progress(long) < iteration_number(long)
+    @test !spent_without_progress(NonlinearSolverStatus(long, config₀))
+
+    # ... and a *converged* solve is never reported however lopsided the proportion. That is the
+    # guard `show` needs, having no `Options` with which to check the budget the warning checks:
+    # a plateau the solve sits on for most of its iterations is stagnation only if it is above
+    # the tolerance. Here the same 0.8 plateau is read against a tolerance that accepts it, and
+    # two identical iterates make both successive residuals vanish, so the solve has converged.
+    loose = Options(Float64; f_abstol=1.0, f_reltol=0.0, f_stall_window=3)
+    for _ in 1:2
+        state.iterations += 1
+        update!(state, [9.0], [0.8])
+        record_progress!(state, loose)        # still not progress: the plateau does not move
+    end
+    converged = NonlinearSolverStatus(state, loose)
+    @test isconverged(converged)
+    @test converged.iterations_since_progress ≥ SimpleSolvers.F_STALL_REPORT_MINIMUM
+    @test 2 * converged.iterations_since_progress ≥ converged.iterations
+    @test !spent_without_progress(converged)
+    @test !occursin("no progress", sprint(show, converged))
+
+    # the absolute minimum is the backstop for the solve that is short rather than converged: two
+    # iterations of which the last did not halve the residual satisfies the proportion on its own
+    short = NonlinearSolverState([1.0])
+    initialize!(short, [1.0], [1.0])
+    short.iterations = 1
+    update!(short, [2.0], [0.9])
+    @test record_progress!(short, config₀) == 1
+    short.iterations = 2
+    @test !isconverged(NonlinearSolverStatus(short, config₀))
+    @test 2 * iterations_since_progress(short) ≥ iteration_number(short)
+    @test !spent_without_progress(NonlinearSolverStatus(short, config₀))
+
+    # a freshly initialized state is neither, so a fresh status prints unchanged
+    fresh = NonlinearSolverState([1.0])
+    @test !spent_without_progress(NonlinearSolverStatus(fresh, config₀))
+end
+
+@testset "$(rpad("an iteration that never records keeps both counters at zero", 80))" begin
+    # `record_stall!` and `record_progress!` are increments, not predicates: the counters are
+    # fields of the state rather than differences of iteration numbers, so a hand-rolled loop
+    # that drives `solver_step!` directly and never calls `record_iteration!` behaves exactly as
+    # it did before either counter existed. Were `iterations_since_progress` derived from
+    # `iteration_number`, such a loop would report every one of its iterations as unproductive —
+    # and with `f_stall_window` set, `meets_stopping_criteria` would cut it short for it.
+    config₀ = Options(Float64; f_abstol=1e-10, f_reltol=0.0, f_stall_window=5)
+
+    state = NonlinearSolverState([1.0])
+    initialize!(state, [1.0], [1.0])
+    for i in 1:15
+        increase_iteration_number!(state)
+        update!(state, [Float64(i)], [1.0])   # the residual never moves, and nobody records it
+    end
+
+    @test iteration_number(state) == 15
+    @test iterations_since_progress(state) == 0
+    @test stall_number(state) == 0
+
+    st = NonlinearSolverStatus(state, config₀)
+    @test !spent_without_progress(st)
+    @test !isnotprogressing(st)
+    @test !occursin("no progress", sprint(show, st))
+    @test !meets_stopping_criteria(state, config₀)
+
+    # ... whereas recording those same iterations does report them
+    for _ in 1:15
+        record_progress!(state, config₀)
+    end
+    @test iterations_since_progress(state) == 15
+    @test spent_without_progress(NonlinearSolverStatus(state, config₀))
+end
+
+@testset "$(rpad("a solve that moves but gets nowhere is reported, and can be stopped", 80))" begin
+    # The gap in the stall machinery reported in issue #173: the iterate keeps moving normally
+    # while the residual sits on a floor far above the requested tolerance. Here the floor is the
+    # whole residual — `F` is constant, so no step can reduce it — while the Picard step
+    # `d = -F` moves the iterate by 1e-3 every iteration, which is twelve orders of magnitude
+    # above the round-off level of `x`. By construction neither convergence branch nor
+    # `stalled_step` can fire, so nothing used to end this solve or explain it.
+    Ffloor(y, x, params) = y .= 1e-3
+
+    x = [0.0]
+    s = PicardSolver(x, Ffloor, zero(x); verbosity=0)
+    state = SolverState(s)
+    @test_logs solve!(x, s, state)                      # verbosity = 0 silences it completely
+    st = status(s, state)
+
+    @test !isconverged(st)
+    @test !isstalled(st, config(s))                     # the iterate never froze ...
+    @test stall_number(state) == 0                      # ... so nothing was ever counted
+    @test iteration_number(state) == config(s).max_iterations
+    @test iterations_since_progress(state) == config(s).max_iterations
+    @test spent_without_progress(st)
+    @test !isnotprogressing(st)                         # the criterion is off by default
+    @test st.rfₐ ≈ 1e-3
+
+    # at the default verbosity the report names the residual and the missing progress, in place
+    # of the bare "Solver took … iterations." that used to be the only signal
+    x2 = [0.0]
+    s2 = PicardSolver(x2, Ffloor, zero(x2))
+    @test_logs (:warn, r"spent its full budget .* did not improve by the factor") match_mode = :any solve!(x2, s2, SolverState(s2))
+
+    # `f_stall_window` turns the report into a stopping criterion
+    x3 = [0.0]
+    s3 = PicardSolver(x3, Ffloor, zero(x3); f_stall_window=20, verbosity=0)
+    state3 = SolverState(s3)
+    @test_logs solve!(x3, s3, state3)                   # ... including when it stops the solve
+    st3 = status(s3, state3)
+
+    @test isnotprogressing(st3)
+    @test !isconverged(st3)                             # giving up is not converging
+    @test iteration_number(state3) == 20
+    @test iteration_number(state3) < config(s3).max_iterations
+
+    x4 = [0.0]
+    s4 = PicardSolver(x4, Ffloor, zero(x4); f_stall_window=20)
+    @test_logs (:warn, r"gave up after 20 iterations") match_mode = :any solve!(x4, s4, SolverState(s4))
+
+    # A slow but healthy solve must survive the same window: this one contracts by 0.9 per
+    # iteration and needs 316 of them, far more than the window, but it halves its residual every
+    # seven — which is what `f_stall_factor` measures and `max_iterations` alone cannot tell
+    # apart. This is why the window is opt-in; see `F_STALL_WINDOW`.
+    Fslow(y, x, params) = y .= (1 - 0.9) .* (x .- 1.0)
+
+    x5 = [0.0]
+    s5 = PicardSolver(x5, Fslow, zero(x5); f_stall_window=20)
+    state5 = SolverState(s5)
+    @test_logs solve!(x5, s5, state5)                   # converges, quietly
+    st5 = status(s5, state5)
+
+    @test isconverged(st5)
+    @test !isnotprogressing(st5)
+    @test !spent_without_progress(st5)
+    @test iteration_number(state5) > 20                 # ... despite taking far longer than the window
+    @test x5[1] ≈ 1.0
 end
 
 @testset "$(rpad("pre-step convergence check and the merit-evaluation canary", 80))" begin
