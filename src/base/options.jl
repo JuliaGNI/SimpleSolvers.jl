@@ -267,16 +267,20 @@ default of the `f_stall_factor` field of [`Options`](@ref). Its value is """ *
 halved".
 
 [`record_progress!`](@ref) keeps the residual ``r^f_a`` of the last iteration that counted as
-progress, together with the iteration at which it happened, so that
-[`iterations_since_progress`](@ref) measures how long the residual has been going nowhere. That
-one number is used twice: unconditionally by [`nonlinear_solver_warnings`](@ref) to explain a
-solve that spent its whole budget, and — only when `f_stall_window > 0` — as the stopping
-criterion [`no_progress`](@ref).
+progress, and counts the iterations since, so that [`iterations_since_progress`](@ref) measures
+how long the residual has been going nowhere. That one number is used twice: unconditionally by
+[`nonlinear_solver_warnings`](@ref) to explain a solve that spent its whole budget, and — only
+when `f_stall_window > 0` — as the stopping criterion [`no_progress`](@ref).
 
 A factor closer to one (say `0.999`, i.e. "any improvement of a tenth of a percent counts") makes
 the measurement *more permissive*: a residual creeping down that slowly keeps resetting the clock,
 so only one that is essentially flat is ever reported. A smaller factor demands a steeper descent
 of an iteration before it counts as progress, and so reports sooner.
+
+Only ``0 < f_{\mathrm{stall\,factor}} \le 1`` is meaningful. Nothing asserts it — `Options`
+validates none of its fields — but a factor above one would make a residual that *grew* count as
+progress and so let the reference climb, which is exactly the monotonicity
+[`record_progress!`](@ref) relies on to be immune to a residual that jumps around.
 
 See [`F_STALL_WINDOW`](@ref).
 """
@@ -319,10 +323,16 @@ The fewest iterations without progress that [`spent_without_progress`](@ref) wil
 value is """ * """$(F_STALL_REPORT_MINIMUM)""" * raw""".
 
 Unlike `f_stall_window` this is not configurable, because it is not a policy: it is the point
-below which the *proportion* that predicate measures is not evidence of anything. A solve that
-converges in four iterations without halving its residual on the last two has not stagnated, it
-has finished — and at two iterations the proportion is satisfied by a single one, which is the
-normal last step of a solve that converged on its successive-change criterion.
+below which the *proportion* that predicate measures is not evidence of anything. At two
+iterations the proportion is satisfied by a single one, and a solve that gets nowhere for four
+iterations has not shown you anything a solve that got somewhere on the fifth would not.
+
+It is the *second* of the two guards [`spent_without_progress`](@ref) carries. The first is
+[`isconverged`](@ref) — a residual that stopped improving because it was already small enough is
+success, not stagnation, and that is what excuses the short solve which converged on its
+successive-change criterion without halving its residual on the last step. This minimum then
+covers the solve that has *not* converged and is merely too short for the proportion to mean
+anything.
 
 This bounds only what is *said* about a solve, never what is done with it — the stopping
 criterion is `f_stall_window` alone (see [`no_progress`](@ref)).

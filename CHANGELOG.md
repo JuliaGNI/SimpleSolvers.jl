@@ -157,11 +157,14 @@ approximation until its floor lies below the tolerance you need. Which is exactl
 now says.
 
 - `SimpleSolvers.record_progress!` keeps, per solve, the residual as of the last iteration that
-  counted as *progress* and the iteration at which that was, so
+  counted as *progress* and the number of iterations since, so
   `SimpleSolvers.iterations_since_progress` measures how long the residual has been going
-  nowhere. It is called once per iteration from `solve!`, next to `record_stall!`, and the
-  reference is monotone — the best residual so far — so an iteration that undoes the previous
-  one's progress does not reset the clock.
+  nowhere. The reference is monotone — the best residual so far — so an iteration that undoes the
+  previous one's progress does not reset the clock. Like `record_stall!` it is an increment
+  rather than a predicate, so it owns its counter: an iteration that never records leaves it at
+  zero, exactly as `stall_number` does. `SimpleSolvers.record_iteration!` is the one function
+  that takes both measurements, from a single `residuals` call, and `solve!` calls it once per
+  iteration.
 - **The report is unconditional.** A solve that spends its whole budget without converging and
   without progressing over at least half of it — and over at least `F_STALL_REPORT_MINIMUM`
   iterations, below which the proportion is not evidence of anything — now says so, naming the
@@ -170,7 +173,9 @@ now says.
   did *not* freeze — which is what distinguishes a floor of the problem from the round-off floor
   `max_stalls` reports. It replaces the bare iteration count rather than adding to it, and, like
   the stagnation message, is gated on `verbosity ≥ 1` and capped with `maxlog`. The bare count
-  gained a `maxlog` too: it had none, so a time-stepping caller got one per step.
+  gained a `maxlog` too: it had none, so a time-stepping caller got one per step — and it is now
+  also replaced by the *stagnation* message, which had been added alongside it since 0.10.0. The
+  three are mutually exclusive, most specific first.
 - **The stopping criterion is opt-in**, through two new `Options` fields: `f_stall_window`
   (default `0`, disabled) gives up after that many iterations without progress, and
   `f_stall_factor` (default `0.5`) is the drop that counts as progress. `SimpleSolvers.no_progress`

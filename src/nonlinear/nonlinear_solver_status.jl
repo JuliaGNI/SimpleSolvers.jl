@@ -222,21 +222,28 @@ end
 
 """
     record_stall!(state, config)
+    record_stall!(state, config, rxₛ, rfₐ)
 
 Update the consecutive-stall counter of `state::`[`NonlinearSolverState`](@ref): increment it
 when the last step [`stalled_step`](@ref) *or* the line search flagged a stall (see
 [`flag_stall!`](@ref)), and reset it to zero otherwise. The flag is cleared either way.
-Returns the new count (see [`stall_number`](@ref)).
+Returns the new count (see [`stall_number`](@ref)). The four-argument form takes residuals the
+caller has already computed; the two-argument form computes them from the state.
 
-This must be called *exactly once per iteration* — [`solve!`](@ref) does so right after
-[`update!`](@ref). That is why the counter is not maintained inside
-[`assess_convergence`](@ref) or [`NonlinearSolverStatus`](@ref): those are pure and are
-evaluated more than once per iteration, so incrementing there would double-count. A
-hand-rolled iteration that drives [`solver_step!`](@ref) directly and never calls
-`record_stall!` simply keeps the count at zero and behaves exactly as before.
+This is a per-iteration measurement rather than a predicate, so it must be called exactly once
+per iteration; [`record_iteration!`](@ref) is what does so, and carries that contract. That is
+why the counter is not maintained inside [`assess_convergence`](@ref) or
+[`NonlinearSolverStatus`](@ref): those are pure and are evaluated more than once per iteration,
+so incrementing there would double-count. A hand-rolled iteration that drives
+[`solver_step!`](@ref) directly and never records simply keeps the count at zero and behaves
+exactly as before.
 """
 function record_stall!(state::NonlinearSolverState, config::Options)
     rxₛ, rfₐ, _ = residuals(state)
+    record_stall!(state, config, rxₛ, rfₐ)
+end
+
+function record_stall!(state::NonlinearSolverState, config::Options, rxₛ::Number, rfₐ::Number)
     flagged = state.stallflag
     state.stallflag = false
     # The line-search flag substitutes for `iterate_settled` (it is the same news, one
@@ -245,6 +252,29 @@ function record_stall!(state::NonlinearSolverState, config::Options)
     # gate is what makes stagnation and convergence mutually exclusive (see `isstalled`).
     stalled = (flagged || iterate_settled(rxₛ, config, state)) && !residual_small(rfₐ, config, state)
     state.stalls = stalled ? state.stalls + 1 : 0
+end
+
+"""
+    record_iteration!(state, config)
+
+Take the two per-iteration measurements of `state::`[`NonlinearSolverState`](@ref) — the
+consecutive-stall counter ([`record_stall!`](@ref)) and the progress reference
+([`record_progress!`](@ref)) — from a single evaluation of [`residuals`](@ref).
+
+This is the one function carrying the "exactly once per iteration" contract that both counters
+depend on: [`solve!`](@ref) calls it right after [`update!`](@ref), and nothing else does. Both
+counters are increments rather than predicates, so calling it twice would double-count and
+never calling it leaves both at zero, which is exactly how a hand-rolled iteration that drives
+[`solver_step!`](@ref) directly behaves.
+
+Sharing the residuals is why it exists at all: the two recordings need `rxₛ` and `rfₐ` between
+them, and computing them once here rather than once in each keeps a per-iteration norm off the
+hot loop.
+"""
+function record_iteration!(state::NonlinearSolverState, config::Options)
+    rxₛ, rfₐ, _ = residuals(state)
+    record_stall!(state, config, rxₛ, rfₐ)
+    record_progress!(state, config, rfₐ)
 end
 
 function NonlinearSolverStatus(state::NonlinearSolverState{T}, config::Options{T}) where {T}
@@ -332,23 +362,26 @@ isnotprogressing(status::NonlinearSolverStatus) = status.not_progressing
 """
     spent_without_progress(status)
 
-Check whether the iteration spent at least *half* of its iterations, and at least
-[`F_STALL_REPORT_MINIMUM`](@ref) of them, without the residual dropping by
+Check whether the iteration failed to converge and spent at least *half* of its iterations, and
+at least [`F_STALL_REPORT_MINIMUM`](@ref) of them, without the residual dropping by
 `config.f_stall_factor` — the diagnosis [`nonlinear_solver_warnings`](@ref) reports when a solve
 has used its whole budget, and the condition under which the no-progress line is shown by `show`.
 
-This is unconditional, unlike [`isnotprogressing`](@ref), and it can afford to be because it is
-only ever used to *describe* a solve, never to decide one: [`nonlinear_solver_warnings`](@ref)
-consults it about a solve that has already spent `max_iterations` without converging, and `show`
-about one it has been handed to print. A threshold that would be reckless as a stopping criterion
-(see [`F_STALL_WINDOW`](@ref)) is harmless as an explanation — which is why the two exist
-separately.
+This is not gated on any option, unlike [`isnotprogressing`](@ref), and it can afford not to be
+because it is only ever used to *describe* a solve, never to decide one:
+[`nonlinear_solver_warnings`](@ref) consults it about a solve that has already spent
+`max_iterations`, and `show` about one it has been handed to print. A threshold that would be
+reckless as a stopping criterion (see [`F_STALL_WINDOW`](@ref)) is harmless as an explanation —
+which is why the two exist separately.
 
-The absolute minimum is what makes it safe in `show`, which has no `Options` and so cannot check
-the budget the way the warning does. Without it the proportion alone is satisfied by a *two*-
-iteration solve whose last step did not halve the residual — the normal last step of one that
-converged on its successive-change criterion — and a healthy solve would start explaining itself.
-With it, no such solve comes close: a `Gauss(2)` Lotka-Volterra run converges in two to four
+Both guards are here rather than at the call sites because `show` has no `Options` and so cannot
+apply them itself, and it is the caller most exposed to a false positive. [`isconverged`](@ref)
+is the primary one: a residual that stopped improving *because it was already small enough* is
+success, and a solve held to a large `min_iterations` would otherwise spend most of its
+iterations on a converged plateau and start explaining itself. The absolute minimum is the
+backstop for a solve that has *not* converged and is simply short — without it the proportion
+alone is satisfied by a *two*-iteration solve whose last step did not halve the residual. With
+both, no healthy solve comes close: a `Gauss(2)` Lotka-Volterra run converges in two to four
 iterations with at most one of them unproductive.
 
 A long healthy solve does not reach it either, for the separate reason that its residual keeps
@@ -356,6 +389,7 @@ halving: an iteration converging linearly with rate ``\\rho`` halves every ``-1/
 iterations, 69 of them even at ``\\rho = 0.99``.
 """
 spent_without_progress(status::NonlinearSolverStatus) =
+    !isconverged(status) &&
     status.iterations_since_progress ≥ F_STALL_REPORT_MINIMUM &&
     2 * status.iterations_since_progress ≥ status.iterations
 
@@ -429,7 +463,7 @@ end
 function no_progress_reason(status::NonlinearSolverStatus, config::Options)
     isnotprogressing(status) ?
     "gave up after $(status.iterations) iterations: the residual rfₐ = $(status.rfₐ) did not improve by the factor f_stall_factor = $(config.f_stall_factor) in the last $(status.iterations_since_progress) of them, which is the f_stall_window = $(config.f_stall_window) you asked it to give up after" :
-    "spent its full budget of max_iterations = $(config.max_iterations) iterations without converging: the residual rfₐ = $(status.rfₐ) did not improve by the factor f_stall_factor = $(config.f_stall_factor) in the last $(status.iterations_since_progress) of them, so the iteration is making no useful progress and a larger budget is unlikely to change that. Set f_stall_window to stop at that point instead of spending the whole budget"
+    "spent its full budget of max_iterations = $(config.max_iterations) iterations without converging: the residual rfₐ = $(status.rfₐ) did not improve by the factor f_stall_factor = $(config.f_stall_factor) in the last $(status.iterations_since_progress) of them, so either it is on a floor this problem imposes — in which case a larger budget will not help — or it is converging far too slowly for the budget it was given. Set f_stall_window to stop at that point instead of spending the whole budget"
 end
 
 """
@@ -451,16 +485,21 @@ residual is going nowhere), which in turn replaces the bare iteration count — 
 names a symptom and no cause, and was the only thing a non-progressing solve used to report.
 """
 function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Options)
-    # Stagnation is the more specific diagnosis and is reported below, so it suppresses this one.
-    # Otherwise: either the caller opted into `f_stall_window` and it fired, or the solve spent its
-    # whole budget without converging and `spent_without_progress` says why.
-    noprogress = !isstalled(status, config) &&
+    # Stagnation is the more specific diagnosis and is reported below, so it suppresses the
+    # no-progress one. Otherwise: either the caller opted into `f_stall_window` and it fired, or the
+    # solve spent its whole budget and `spent_without_progress` says what on. (That predicate
+    # carries its own `!isconverged` gate, so it is not repeated here.)
+    stagnated = isstalled(status, config)
+    noprogress = !stagnated &&
                  (isnotprogressing(status) ||
-                  (status.iterations ≥ config.max_iterations && !isconverged(status) && spent_without_progress(status)))
+                  (status.iterations ≥ config.max_iterations && spent_without_progress(status)))
 
+    # The bare count names a symptom and no cause, so either of the two diagnoses below replaces it
+    # rather than joining it — the mutual exclusivity the docstring promises.
     # `maxlog` for the same reason the messages below have one: a caller that drives `solve!` in a
     # loop would otherwise get this once per step for as long as the problem stays unattainable.
-    (config.warn_iterations > 0 && status.iterations ≥ config.warn_iterations && !noprogress) &&
+    (config.warn_iterations > 0 && status.iterations ≥ config.warn_iterations &&
+     !noprogress && !stagnated) &&
         (@warn "Solver took $(status.iterations) iterations." maxlog = 3)
     # Same shape as the stagnation message: say what the solve achieved, what was asked of it, and
     # how to make the request attainable. The distinguishing news is that the iterate is *not*
@@ -477,7 +516,7 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     # step for as long as the problem stays unattainable, which is the message flood this
     # replaced. Note that `maxlog` is keyed on the source location and so is process-global, not
     # per solve; see `linesearch_warnings`.
-    (isstalled(status, config) && config.verbosity ≥ 1) &&
+    (stagnated && config.verbosity ≥ 1) &&
         (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖). If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this." maxlog = 3)
     (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")

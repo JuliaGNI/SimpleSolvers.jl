@@ -31,9 +31,13 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
                      # merit cannot be decreased; OR-ed into the verdict of the next
                      # `record_stall!`, which clears it again
 
-    rf_ref::T        # the residual as of the last iteration that counted as progress, and the
-    iter_ref::Int    # iteration at which that was; maintained by `record_progress!`, read as
-                     # `iterations_since_progress` by the report and by `no_progress`
+    rf_ref::T                  # the residual as of the last iteration that counted as progress,
+    iters_since_progress::Int  # and the number of iterations since; both maintained by
+                               # `record_progress!`, the latter read as
+                               # `iterations_since_progress` by the report and by `no_progress`.
+                               # The counter is *owned* rather than derived from `iterations` so
+                               # that, exactly like `stalls`, it stays at zero for an iteration
+                               # that never records.
 
     function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=X) where {T}
         x = zero(X)
@@ -100,7 +104,7 @@ function initialize!(state::NonlinearSolverState{T}, x::AbstractVector{T}, y::Ab
     # The initial residual is also the first progress reference: a solve is measured against
     # where it started, so `iterations_since_progress` counts from iteration 0.
     state.rf_ref = state.r₀
-    state.iter_ref = 0
+    state.iters_since_progress = 0
 end
 
 """
@@ -126,37 +130,46 @@ neither [`stalled_step`](@ref) nor either branch of [`assess_convergence`](@ref)
 solve spends `max_iterations` in full. [`nonlinear_solver_warnings`](@ref) reports it, and
 [`no_progress`](@ref) stops it when the caller has opted in with `f_stall_window`.
 """
-iterations_since_progress(state::NonlinearSolverState) = iteration_number(state) - state.iter_ref
+iterations_since_progress(state::NonlinearSolverState) = state.iters_since_progress
 
 @doc raw"""
     record_progress!(state, config)
+    record_progress!(state, config, rfₐ)
 
 Update the progress reference of `state::`[`NonlinearSolverState`](@ref): when the residual has
 dropped to `config.f_stall_factor` times the residual of the last iteration that counted as
 progress, that becomes the new reference and the count returned by
-[`iterations_since_progress`](@ref) restarts. Returns that count.
+[`iterations_since_progress`](@ref) restarts; otherwise the count advances by one. Returns that
+count. The three-argument form takes a residual `rfₐ` the caller has already computed; the
+two-argument form computes it from `value(state)`.
 
 The reference is therefore monotonically non-increasing — it is the best residual so far, at the
 granularity of the factor — which is what makes the measurement immune to a residual that jumps
 around: an iteration that undoes the progress of the previous one does not reset the clock. See
 [`F_STALL_FACTOR`](@ref) for the choice of granularity.
 
-Like [`record_stall!`](@ref), this must be called *exactly once per iteration* — [`solve!`](@ref)
-does so right after [`update!`](@ref) — because it is a per-iteration measurement rather than a
-predicate. That is why it lives here and not in [`NonlinearSolverStatus`](@ref), which is pure
-and is built more than once per iteration. A hand-rolled iteration that drives
-[`solver_step!`](@ref) directly and never calls it keeps the count at zero and behaves exactly as
-before.
+Like [`record_stall!`](@ref), this is a per-iteration measurement rather than a predicate, so it
+must be called exactly once per iteration; [`record_iteration!`](@ref) is what does so, and
+carries that contract. That is why the counter lives here and not in
+[`NonlinearSolverStatus`](@ref), which is pure and is built more than once per iteration. Because
+the count is a field rather than a difference of iteration numbers, a hand-rolled iteration that
+drives [`solver_step!`](@ref) directly and never records keeps it at zero and behaves exactly as
+before — the same guarantee [`stall_number`](@ref) gives.
 """
 function record_progress!(state::NonlinearSolverState, config::Options)
-    rfₐ = l2norm(value(state))
+    record_progress!(state, config, l2norm(value(state)))
+end
+
+function record_progress!(state::NonlinearSolverState, config::Options, rfₐ::Number)
     # `NaN ≤ x` is false, so a not-yet-initialized reference never counts as progress; it is set
     # by `initialize!` before the first iteration in every solve that goes through `solve!`.
     if rfₐ ≤ config.f_stall_factor * state.rf_ref
         state.rf_ref = rfₐ
-        state.iter_ref = iteration_number(state)
+        state.iters_since_progress = 0
+    else
+        state.iters_since_progress += 1
     end
-    iterations_since_progress(state)
+    state.iters_since_progress
 end
 
 """
