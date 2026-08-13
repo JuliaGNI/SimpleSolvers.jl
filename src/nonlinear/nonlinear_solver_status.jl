@@ -144,7 +144,11 @@ two are therefore mutually exclusive by construction.
 """
 function residual_small(rfₐ::Number, config::Options, state::NonlinearSolverState)
     r₀ = initial_residual(state)
-    relative_residual = isnan(r₀) ? zero(rfₐ) : config.f_reltol * r₀
+    # `isfinite`, not `!isnan`: an *infinite* initial residual would make the relative term `Inf`
+    # and this gate vacuously true, so every finite residual — a residual of 1e10 included —
+    # would count as small and the solve would report convergence wherever it happened to land.
+    # An overflowed `‖F(x₀)‖` is no more a usable reference scale than an uninitialized one.
+    relative_residual = isfinite(r₀) ? config.f_reltol * r₀ : zero(rfₐ)
     rfₐ ≤ config.f_abstol + relative_residual
 end
 
@@ -153,9 +157,13 @@ end
 
 Return `true` when the last step did not move the iterate, `rxₛ ≤ ‖x‖·x_suctol`. Used by
 [`assess_convergence`](@ref) and [`stalled_step`](@ref).
+
+An infinite step never counts as settled, even though `Inf ≤ ‖x‖·x_suctol` holds once `‖x‖` has
+overflowed too: an iterate that jumped to infinity has neither converged nor frozen, it has
+broken down, and that is what [`havenonfinite`](@ref) is for.
 """
 iterate_settled(rxₛ::Number, config::Options, state::NonlinearSolverState) =
-    rxₛ ≤ norm(solution(state)) * config.x_suctol
+    isfinite(rxₛ) && rxₛ ≤ norm(solution(state)) * config.x_suctol
 
 @doc raw"""
     stalled_step(rxₛ, rfₐ, config, state)
@@ -325,7 +333,27 @@ Check if either `x` or `f` has converged.
 The `status` is a [`NonlinearSolverStatus`](@ref).
 """
 isconverged(status::NonlinearSolverStatus) = status.x_converged || status.f_converged
-havenan(status::NonlinearSolverStatus) = isnan(status.rxₛ) || isnan(status.rfₐ) || isnan(status.rfₛ)
+
+"""
+    havenonfinite(status)
+
+Check whether any of the three residuals of a [`NonlinearSolverStatus`](@ref) — `rxₛ`, `rfₐ`,
+`rfₛ` — is not finite, i.e. whether the iteration has left the region where the problem is
+representable. Used by [`meets_stopping_criteria`](@ref) to give up and by
+[`nonlinear_solver_warnings`](@ref) to say so.
+
+The test is `isfinite`, not `!isnan`: a residual that has *overflowed* is as unusable as an
+undefined one, and the pure-`NaN` test used to miss it entirely — neither this predicate nor
+the `rfₐ > f_abstol_break` gate fired for an infinite residual, since `f_abstol_break` defaults
+to `Inf` and `Inf > Inf` is false, so such a solve ran its whole `max_iterations` budget with no
+diagnosis at all. The same widening was made to the solver-side guards; see
+[`nan_recovery!`](@ref).
+
+Note that a status is never *converged* by accident here — every comparison with `NaN` is false
+and no infinite residual passes [`residual_small`](@ref) — so this predicate decides when to
+stop and what to report, not whether the answer is good.
+"""
+havenonfinite(status::NonlinearSolverStatus) = !(isfinite(status.rxₛ) && isfinite(status.rfₐ) && isfinite(status.rfₛ))
 
 """
     isstalled(status, config)
@@ -408,7 +436,7 @@ The function `meets_stopping_criteria` returns `true` if one of the following is
 - `status.f_increased` and `config.allow_f_increases = false` (i.e. `f` increased even though we do not allow it),
 - `state.iterations ≥ config.max_iterations`,
 - `status.rfₐ > config.f_abstol_break` (by default `Inf`). In theory this returns `true` if the residual gets too big.
-- one of the residuals (`rxₛ`, `rfₐ`, `rfₛ`) is `NaN` (checked with `havenan`) and `state.iterations ≥ 1`,
+- one of the residuals (`rxₛ`, `rfₐ`, `rfₛ`) is not finite (checked with [`havenonfinite`](@ref)) and `state.iterations ≥ 1`,
 So convergence is only one possible criterion for which [`meets_stopping_criteria`](@ref). We may also satisfy a stopping criterion without having convergence!
 
 # Examples
@@ -453,7 +481,7 @@ function meets_stopping_criteria(state::NonlinearSolverState, config::Options)
         (status.f_increased && !config.allow_f_increases) ||
         state.iterations ≥ config.max_iterations ||
         status.rfₐ > config.f_abstol_break ||
-        (havenan(status) && state.iterations ≥ 1)
+        (havenonfinite(status) && state.iterations ≥ 1)
 end
 
 # The two wordings of the no-progress message: the opt-in `f_stall_window` gave up, or the whole
@@ -473,8 +501,9 @@ Report a [`NonlinearSolverStatus`](@ref) at the end of a [`solve!`](@ref): the i
 if it reached `warn_iterations`, *stagnation* at the residual floor (see [`isstalled`](@ref)
 and [`stalled_step`](@ref)), a lack of *progress* (see [`spent_without_progress`](@ref) and
 [`isnotprogressing`](@ref)), a disallowed residual increase, a residual beyond
-`f_abstol_break`, and `NaN`s. Compare this to [`linesearch_warnings`](@ref), which does the
-same for the inner line search, and to [`print_status`](@ref).
+`f_abstol_break`, and non-finite residuals (see [`havenonfinite`](@ref)). Compare this to
+[`linesearch_warnings`](@ref), which does the same for the inner line search, and to
+[`print_status`](@ref).
 
 All messages except the iteration count and the two hard-failure ones are gated on
 `config.verbosity ≥ 1`.
@@ -520,7 +549,7 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
         (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖). If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this." maxlog = 3)
     (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
-    (havenan(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs in solution or function value.")
+    (havenonfinite(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs or Infs in solution or function value.")
 
     nothing
 end

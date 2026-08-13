@@ -4,12 +4,16 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [0.11.0]
 
-Three independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
+Four independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
 constructor, and gains an opt-in expansion phase. Additive: a `NonlinearProblem` can be solved
 without assembling a solver by hand, and a `NonlinearSolver` reports — and, on request, stops —
 a solve that is *not progressing*, the case
 [issue #173](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/173) found next to the
-`max_stalls` machinery of 0.10.0.
+`max_stalls` machinery of 0.10.0. Fixed: the nonlinear solvers looked for `NaN` where they
+should have looked for any non-finite value, so an *overflowed* residual passed every guard
+they have —
+[issue #130](https://github.com/JuliaGNI/SimpleSolvers.jl/issues/130) — and could be reported
+as convergence.
 
 ### Convenience entry points for solving a `NonlinearProblem`
 
@@ -192,6 +196,58 @@ report has told you the floor is real.
 
 Behaviour at default options is unchanged except for what is printed: no solve stops earlier than
 it did, and `f_stall_window = 0` makes `no_progress` constant `false`.
+
+### `NaN` was only half of it
+
+Every guard the nonlinear solvers had against a trial iterate leaving the region where the
+problem is representable tested `isnan`, and `isnan` is false for `Inf`. Issue #130 asks whether
+that detection works, on the example `f(x) = 5|x-2|³ - 1/|x|` — whose singularity produces `Inf`
+at `x = 0`, not `NaN`, so for its own fixture the answer was no. Nothing downstream of the guards
+caught it either: `rfₐ > f_abstol_break` cannot, since `f_abstol_break` defaults to `Inf` and
+`Inf > Inf` is false. The line searches had never had this gap — `check_anchor` has always tested
+`isfinite` — and neither did the `Optimizer` removed in 0.11.0, which tested `isnan(f) || isinf(f)`.
+The solvers were the only ones left looking for half the problem.
+
+The distinction the fix turns on is that a non-finite **direction** and a non-finite **residual**
+are not the same failure:
+
+- A non-finite **direction is rejected**, as a `NaN` one always was. It cannot be recovered from:
+  `nan_recovery!` damps by a factor and `Inf * nan_factor` is `Inf`, so the loop would spend its
+  whole budget reproducing the same trial iterate. Rejecting it first is also what makes the
+  damping sound — past that guard the direction is finite, so every halving really does shorten
+  the step. Previously such a step was not rejected and not damped: the line search saw an
+  infinite directional derivative, returned `LINESEARCH_NO_DESCENT`, and the solve made no
+  progress without saying why.
+- A non-finite **trial residual is damped**, exactly as a `NaN` one was. `nan_recovery!`,
+  `report_dogleg_nan` and the dogleg trust-region rejection now all test `isfinite`.
+- `havenan` is now `SimpleSolvers.havenonfinite` and tests all three residuals for finiteness.
+  It is unexported and internal, so there is no deprecation.
+
+Three defects next to it are fixed with it, the first of which is the serious one:
+
+- **`residual_small` could report convergence on an overflowed solve.** It guarded only
+  `isnan(r₀)`, so an infinite `‖F(x₀)‖` made the relative term `f_reltol * Inf = Inf` and the
+  gate vacuously true — a residual of `1e10` counted as small, and the solve claimed success
+  wherever it happened to land. An overflowed initial residual is no more a usable reference
+  scale than an uninitialized one, and is now treated the same way.
+- **`iterate_settled` counted an infinite step as a frozen iterate**, since `Inf ≤ ‖x‖·x_suctol`
+  holds once `‖x‖` has overflowed too. An iterate that jumped to infinity has neither converged
+  nor stagnated; it has broken down, which is what `havenonfinite` is for.
+- **`nan_recovery!` at `nan_max_iterations = 0` left its cache untouched**, so the post-condition
+  its docstring advertises — that `solution(cache)` and `value(cache)` hold this step's trial and
+  its residual — was false. The `PicardSolver` step documents that it reads that cache instead of
+  re-evaluating `F`, so it tested a stale residual and committed a stale iterate from the
+  *previous* solver step. One trial is now always evaluated; the budget bounds the damping, not
+  the evaluation. The Picard step additionally refuses to commit a trial that is not finite, as
+  `DogLegSolver` already did on radius underflow.
+
+Behaviour on any solve that stays finite is unchanged, and the guards cost the same as before —
+one pass over the residual either way. Where it changes, it changes in the direction of saying
+so: a non-finite direction now raises `NonlinearSolverException` where it used to stall silently,
+which a caller driving `solve!` in a time-stepping loop will see as an exception rather than as a
+step that quietly achieved nothing. Downstream trajectories are bit-identical
+(GeometricIntegrators × GeometricProblems, five integrators over 1000 steps, plus a collisional
+initial condition with no root).
 
 ## [0.10.1]
 

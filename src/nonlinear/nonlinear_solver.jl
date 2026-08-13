@@ -158,7 +158,7 @@ end
 # Behind a barrier because `nan_recovery!` below is specialized on the `NonlinearSolver`, hence on
 # its problem's closure types — see `report_linesearch_status`.
 @noinline function report_nan_direction(config::Options)
-    verbosity(config) ≥ 2 && @warn "NaN detected in nonlinear solver. Reducing length of direction vector."
+    verbosity(config) ≥ 2 && @warn "Non-finite value (NaN or Inf) at the trial iterate. Reducing length of direction vector."
     nothing
 end
 
@@ -169,12 +169,27 @@ Damp `direction(cache(s))` by `nan_factor` until the trial iterate `x + d` has a
 finite residual (or the `nan_max_iterations` budget is exhausted). On return
 `solution(cache(s))` and `value(cache(s))` hold the last trial iterate and its
 residual. Used by the generic and Picard [`solver_step!`](@ref)s. Returns the solver `s`.
+
+"Finite" means `isfinite`, not merely "not `NaN`": a residual that has *overflowed* is
+as unusable as an undefined one and is just as much a symptom of a step that left the
+region where `F` is representable — the `-1/|x|` of issue #130 gives `Inf` at `x = 0`,
+not `NaN`. The option names (`nan_factor`, `nan_max_iterations`) predate that and are
+kept for compatibility.
+
+Damping is only meaningful because the *direction* is known to be finite: the callers
+reject a non-finite one outright (see [`solver_step!`](@ref)), and they must, since
+`Inf * nan_factor` is `Inf` and the loop would spend its whole budget reproducing the
+same trial iterate.
 """
 function nan_recovery!(s::NonlinearSolver{T}, x, params) where {T}
-    for _ in 1:config(s).nan_max_iterations
+    # `max(1, …)`: the budget bounds the *damping*, not the trial evaluation. A budget of zero used
+    # to skip the body entirely and leave the cache holding whatever the previous solver step had
+    # put there — which the Picard step then read as if it were this step's trial, committing a
+    # stale iterate. One trial is always evaluated, so the post-condition above always holds.
+    for _ in 1:max(1, config(s).nan_max_iterations)
         solution(cache(s)) .= x .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
-        any(isnan, value(cache(s))) || break
+        all(isfinite, value(cache(s))) && break
         report_nan_direction(config(s))
         direction(cache(s)) .*= T(config(s).nan_factor)
     end
@@ -219,7 +234,11 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     # A previous step that made no progress gets a freshly evaluated Jacobian rather than the
     # stale one that produced it (see `maybe_refactorize!`).
     direction!(s, x, params, iteration_number(state); stalled=needs_refresh(state))
-    any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
+    # A non-finite direction is not a step that can be shortened — `nan_recovery!` damps by a
+    # factor and `Inf * nan_factor` is still `Inf` — so it is rejected outright rather than
+    # handed to a recovery that cannot work. This is also what makes the recovery below sound:
+    # past this line the direction is finite and each damping actually shortens the trial step.
+    all(isfinite, direction(cache(s))) || throw(NonlinearSolverException("non-finite direction vector"))
 
     nan_recovery!(s, x, params)
 
@@ -267,7 +286,7 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
     # `initialize!`), so this fires exactly when ‖F(x₀)‖ ≤ f_abstol — for the default
     # `f_abstol = 0` only at an exact root. A caller who insists on at least one iteration
     # (`min_iterations ≥ 1`) still gets one, and a `NaN` initial residual still gets a step
-    # (the `havenan` branch requires `iterations ≥ 1`).
+    # (the `havenonfinite` branch requires `iterations ≥ 1`).
     while !meets_stopping_criteria(state, config(s))
         increase_iteration_number!(state)
         solver_step!(x, s, state, params)
