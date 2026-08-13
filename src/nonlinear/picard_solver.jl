@@ -151,12 +151,15 @@ function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::Nonlinear
         compute_new_iterate!(solution(cache(s)), x, α, direction(cache(s)))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
     end
-    # A trial iterate that is not finite must not be committed, even though it is the last one
-    # evaluated: it is reachable when `nan_recovery!` exhausted `nan_max_iterations` without
-    # escaping the region where `F` is undefined or overflows. Leaving `x` where it was makes
-    # the step a frozen one, which `stalled_step` already diagnoses — the same choice
-    # `DogLegSolver` makes for a rejected trial on radius underflow.
-    all(isfinite, solution(cache(s))) && (x .= solution(cache(s)))
+    # A trial whose *residual* is not finite must not be committed, even though it is the last one
+    # evaluated: it is reachable when `nan_recovery!` exhausted `nan_max_iterations` and the
+    # backtracking above never found an α that got back inside the region where `F` is defined and
+    # representable. It is `value(cache(s))` that says so and not `solution(cache(s))`: the trial
+    # iterate is finite whenever `x` and the direction are, and the guard at the top of this
+    # function has already established the direction. Leaving `x` where it was makes the step a
+    # frozen one, which `stalled_step` already diagnoses — the same choice `DogLegSolver` makes
+    # for a rejected trial on radius underflow.
+    (all(isfinite, solution(cache(s))) && all(isfinite, value(cache(s)))) && (x .= solution(cache(s)))
 
     x
 end

@@ -755,6 +755,29 @@ end
     solver_step!(x3, s3, state3, NullParameters())
     @test x3[1] ≠ -99.0
     @test all(isfinite, x3)
+
+    # ... and a budget of zero must not damp *either*: refreshing the cache with one trial while
+    # still halving the direction on the way out made a budget of zero behave exactly like a
+    # budget of one, so this solve landed on the root and reported convergence.  With no damping
+    # the full step onto the singularity is taken, and the solve has to fail and say so.
+    x4 = [2.0]
+    s4 = NewtonSolver(x4, similar(x4); F=Finv, linesearch=Static(), verbosity=0, nan_max_iterations=0)
+    state4 = SolverState(s4)
+    solve!(x4, s4, state4)
+    @test !isconverged(status(s4, state4))
+    @test SimpleSolvers.havenonfinite(status(s4, state4))
+
+    # The pairing `nan_recovery!` leaves behind: `value(cache)` is the residual of the trial built
+    # from the direction `cache` currently holds.  Damping *after* the failed trial rather than
+    # before the next one left the two a factor apart on every exhaustion path, and the Picard
+    # step reads them as a pair.
+    x5 = [2.0]
+    s5 = NewtonSolver(x5, similar(x5); F=Finv, linesearch=Static(), verbosity=0, nan_max_iterations=1)
+    initialize!(s5, x5)
+    direction!(s5, x5, NullParameters(), 0)
+    SimpleSolvers.nan_recovery!(s5, x5, NullParameters())
+    @test solution(cache(s5)) ≈ x5 .+ direction(cache(s5))
+    @test value(cache(s5)) ≈ [1 / solution(cache(s5))[1] - 1]
 end
 
 @testset "a non-finite status stops the solve and is reported" begin
@@ -766,7 +789,11 @@ end
     for bad in (NaN, Inf)
         config = Options(verbosity=1)
         state = NonlinearSolverState([1.0])
-        update!(state, [bad], [bad])
+        # Primed with a finite step first: a single `update!` leaves the *previous* iterate and
+        # value at the `NaN` the state is allocated with, so `rxₛ` and `rfₛ` would be `NaN`
+        # whatever `bad` is and the `Inf` row would pass under the old `isnan`-only predicate too.
+        update!(state, [1.0], [1.0])
+        update!(state, [2.0], [bad])
         increase_iteration_number!(state)
         st = NonlinearSolverStatus(state, config)
 
@@ -785,7 +812,13 @@ end
     state = NonlinearSolverState([1.0])
     SimpleSolvers.initialize!(state, [1.0], [Inf])
     @test !residual_small(1.0e10, Options(), state)
-    @test !iterate_settled(Inf, Options(), state)
+
+    # `iterate_settled` needs ‖x‖ itself to have overflowed, which is the only fixture that
+    # separates the new gate from the old one: with a finite iterate `Inf ≤ ‖x‖·x_suctol` was
+    # already false.
+    settled_state = NonlinearSolverState([1.0])
+    SimpleSolvers.initialize!(settled_state, [Inf], [Inf])
+    @test !iterate_settled(Inf, Options(), settled_state)
 
     # A finite status is untouched by the widening.  Two `update!`s, because a single one leaves
     # the *previous* iterate at the `NaN` the state is allocated with, so `rxₛ` and `rfₛ` are
@@ -806,18 +839,21 @@ end
     s = PicardSolver(x, Finv, similar(x); verbosity=0)
     @test_throws NonlinearSolverException solve!(x, s)
 
-    # And the commit guard: with the recovery budget exhausted, the residual-monotonicity
-    # backtracking only ever sees NaN (`NaN ≤ r₀` is false), halves α down to the underflow
-    # bound and would previously have written that non-finite trial into `x`.  A frozen iterate
-    # is the honest outcome — `stalled_step` diagnoses it — and it is what lets the solve be
-    # reported rather than propagating NaNs to the caller.
-    nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
-    Fneg(y, x, p) = (y .= .-nanlog.(x) .- 2)   # Picard step d = -F = log(x) + 2 leaves the domain
+    # And the commit guard.  `F` is finite on x ≤ 1 and `Inf` beyond it, with a residual large
+    # enough that even the underflowed backtracking step α‖d‖ still crosses that wall — so no
+    # trial the step evaluates has a finite residual, and the last one would be committed.  The
+    # trial *iterate* is finite throughout (x is, and the direction is past the guard above),
+    # which is why the guard has to test `value(cache)` rather than `solution(cache)`.  A frozen
+    # iterate is the honest outcome — `stalled_step` diagnoses it — and it is what lets the solve
+    # be reported rather than handing the caller an x whose residual is `Inf`.
+    Fwall(y, x, p) = (y .= [xi ≤ 1 ? -1.0e10 : oftype(xi, Inf) for xi in x])
     x2 = [1.0]
-    s2 = PicardSolver(x2, Fneg, similar(x2); verbosity=0, nan_max_iterations=1)
+    s2 = PicardSolver(x2, Fwall, similar(x2); verbosity=0)
     state2 = SolverState(s2)
     solve!(x2, s2, state2)
-    @test all(isfinite, x2)
+    @test x2 == [1.0]                                            # the poisoned trial was not committed
+    @test !SimpleSolvers.havenonfinite(status(s2, state2))
+    @test isstalled(status(s2, state2), config(s2))              # ... and the solve says why
 end
 
 @testset "DogLeg recovers from a collapsed trust-region radius" begin

@@ -237,9 +237,11 @@ Three defects next to it are fixed with it, the first of which is the serious on
   its docstring advertises — that `solution(cache)` and `value(cache)` hold this step's trial and
   its residual — was false. The `PicardSolver` step documents that it reads that cache instead of
   re-evaluating `F`, so it tested a stale residual and committed a stale iterate from the
-  *previous* solver step. One trial is now always evaluated; the budget bounds the damping, not
-  the evaluation. The Picard step additionally refuses to commit a trial that is not finite, as
-  `DogLegSolver` already did on radius underflow.
+  *previous* solver step. One trial is now always evaluated and the damping happens before the
+  trial it is for, so the budget bounds the damping rather than the evaluation and the cached
+  residual always belongs to the direction the cache holds. The Picard step additionally refuses
+  to commit a trial whose *residual* is not finite, as `DogLegSolver` already did on radius
+  underflow.
 
 Behaviour on any solve that stays finite is unchanged, and the guards cost the same as before —
 one pass over the residual either way. Where it changes, it changes in the direction of saying

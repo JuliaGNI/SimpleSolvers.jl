@@ -166,9 +166,13 @@ end
     nan_recovery!(s, x, params)
 
 Damp `direction(cache(s))` by `nan_factor` until the trial iterate `x + d` has a
-finite residual (or the `nan_max_iterations` budget is exhausted). On return
-`solution(cache(s))` and `value(cache(s))` hold the last trial iterate and its
-residual. Used by the generic and Picard [`solver_step!`](@ref)s. Returns the solver `s`.
+finite residual (or the `nan_max_iterations` budget of dampings is exhausted). On return
+`solution(cache(s))` and `value(cache(s))` hold the last trial iterate and its residual, and
+`direction(cache(s))` is the direction that trial was built from — so `value(cache(s))` is
+`F(x + direction(cache(s)))` on every exit path, which is what the Picard
+[`solver_step!`](@ref) reads instead of re-evaluating `F`. One trial is always evaluated, so a
+budget of zero refreshes the cache without damping at all. Used by the generic and Picard
+[`solver_step!`](@ref)s. Returns the solver `s`.
 
 "Finite" means `isfinite`, not merely "not `NaN`": a residual that has *overflowed* is
 as unusable as an undefined one and is just as much a symptom of a step that left the
@@ -182,16 +186,22 @@ reject a non-finite one outright (see [`solver_step!`](@ref)), and they must, si
 same trial iterate.
 """
 function nan_recovery!(s::NonlinearSolver{T}, x, params) where {T}
-    # `max(1, …)`: the budget bounds the *damping*, not the trial evaluation. A budget of zero used
-    # to skip the body entirely and leave the cache holding whatever the previous solver step had
-    # put there — which the Picard step then read as if it were this step's trial, committing a
-    # stale iterate. One trial is always evaluated, so the post-condition above always holds.
-    for _ in 1:max(1, config(s).nan_max_iterations)
+    # The damping happens *before* the trial it is for, not after the one that failed. That is what
+    # makes both post-conditions hold on every exit path: the budget bounds the *damping* (a budget
+    # of zero damps not at all), and `value(cache(s))` is the residual of the trial built from the
+    # direction the cache currently holds — damping after the last trial would leave the two one
+    # factor apart, and the Picard step reads them as a pair. The `i = 0` pass evaluates one trial
+    # unconditionally: a budget of zero used to skip the body entirely and leave the cache holding
+    # whatever the previous solver step had put there, which the Picard step then read as if it were
+    # this step's trial, committing a stale iterate.
+    for i in 0:config(s).nan_max_iterations
+        if i > 0
+            report_nan_direction(config(s))
+            direction(cache(s)) .*= T(config(s).nan_factor)
+        end
         solution(cache(s)) .= x .+ direction(cache(s))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         all(isfinite, value(cache(s))) && break
-        report_nan_direction(config(s))
-        direction(cache(s)) .*= T(config(s).nan_factor)
     end
     s
 end
