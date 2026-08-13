@@ -205,7 +205,7 @@ that detection works, on the example `f(x) = 5|x-2|³ - 1/|x|` — whose singula
 at `x = 0`, not `NaN`, so for its own fixture the answer was no. Nothing downstream of the guards
 caught it either: `rfₐ > f_abstol_break` cannot, since `f_abstol_break` defaults to `Inf` and
 `Inf > Inf` is false. The line searches had never had this gap — `check_anchor` has always tested
-`isfinite` — and neither did the `Optimizer` removed in 0.11.0, which tested `isnan(f) || isinf(f)`.
+`isfinite` — and neither did the `Optimizer` removed in 0.8.0, which tested `isnan(f) || isinf(f)`.
 The solvers were the only ones left looking for half the problem.
 
 The distinction the fix turns on is that a non-finite **direction** and a non-finite **residual**
