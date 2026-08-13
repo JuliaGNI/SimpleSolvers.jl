@@ -51,7 +51,7 @@ const DogLegSolver{T} = NonlinearSolver{T,DogLeg}
 end
 
 @noinline function report_dogleg_nan(config::Options)
-    verbosity(config) ≥ 2 && @warn "DogLeg: undefined merit (NaN) at the trial step; shrinking the trust-region radius."
+    verbosity(config) ≥ 2 && @warn "DogLeg: non-finite merit (NaN or Inf) at the trial step; shrinking the trust-region radius."
     nothing
 end
 
@@ -210,8 +210,8 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
     force_refresh = collapsed || needs_refresh(state)
 
     directions!(s, x, params, iteration_number(state); force_refactorize=force_refresh)
-    any(isnan, direction₁(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₁ vector"))
-    any(isnan, direction₂(cache(s))) && throw(NonlinearSolverException("NaN detected in direction₂ vector"))
+    all(isfinite, direction₁(cache(s))) || throw(NonlinearSolverException("non-finite direction₁ vector"))
+    all(isfinite, direction₂(cache(s))) || throw(NonlinearSolverException("non-finite direction₂ vector"))
 
     # Trust-region step with a ρ-based radius update (Nocedal & Wright, Alg. 4.1).
     # The radius Δ is *carried across outer solver steps* in the cache (rather than
@@ -232,14 +232,16 @@ function solver_step!(x::AbstractVector{T}, s::DogLegSolver{T}, state::Nonlinear
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
         φ = L2norm(value(cache(s)))
 
-        # An undefined merit (`F` evaluated outside its domain, e.g. `log`/`sqrt`
-        # of a negative trial iterate) is treated exactly like a rejected step:
-        # shrink the radius and retry with a shorter step along the *same* dogleg
-        # path.  (Rescaling d₁ or d₂ themselves would
+        # A merit that is not finite — undefined (`F` evaluated outside its domain,
+        # e.g. `log`/`sqrt` of a negative trial iterate) or overflowed — is treated
+        # exactly like a rejected step: shrink the radius and retry with a shorter
+        # step along the *same* dogleg path.  (Rescaling d₁ or d₂ themselves would
         # destroy the ‖d₁‖ ≤ ‖d₂‖ relation the dogleg interpolation assumes; a NaN
         # merit must also not reach the ρ update below, where every comparison
-        # with NaN is false and the loop would spin forever at constant Δ.)
-        if isnan(φ)
+        # with NaN is false and the loop would spin forever at constant Δ.  An
+        # infinite one does reach a correct verdict there — ρ = -Inf shrinks Δ —
+        # but arriving at it through the model is an accident, not a policy.)
+        if !isfinite(φ)
             report_dogleg_nan(config(s))
             Δ *= config(s).dogleg_radius_shrink
             continue

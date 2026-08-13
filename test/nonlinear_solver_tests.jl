@@ -634,6 +634,228 @@ end
     @test isapprox(x2[1], exp(-2.0); atol=1e-8)
 end
 
+@testset "Newton solver_step! damps the direction when the trial value is Inf" begin
+    # The companion of the testset above for the *other* way a trial iterate leaves the region
+    # where F is representable, and the one issue #130 actually asks about: its fixture
+    # 5|x-2|³ - 1/|x| is singular at x = 0, where 1/x overflows to `Inf` rather than going `NaN`.
+    # The guard used to test `isnan` only, so an infinite residual broke out of the recovery loop
+    # on the first pass and the undamped step was taken.
+    #
+    # F(x) = 1/x - 1 has its root at x = 1.  From x₀ = 2 the Newton step is exactly d = -2
+    # (F = -0.5, J = -1/x² = -0.25), landing exactly on x = 0 in floating point.  One halving
+    # gives d = -1, i.e. the root itself.  `Static` evaluates no merit at all, so `nan_recovery!`
+    # is the only thing standing between the solver and x = 0 here.
+    Finv(y, x, p) = (y .= 1 ./ x .- 1)
+    for T in (Float64, Float32)
+        x = T[2]
+        s = NewtonSolver(x, similar(x); F=Finv, linesearch=Static(), verbosity=0)
+        initialize!(s, x)
+        y = similar(x)
+        Finv(y, x, NullParameters())
+        state = NonlinearSolverState(x, y)
+        initialize!(state, x, y)
+
+        solver_step!(x, s, state, NullParameters())
+        @test x[1] ≈ one(T)                     # one halving landed the step on the root
+        @test all(isfinite, value(cache(s)))    # the committed trial value is finite
+
+        # ... and a full solve converges rather than dying: undamped, the next step divides the
+        # -Inf residual at x = 0 by the -Inf Jacobian there and throws on the NaN direction.
+        x2 = T[2]
+        s2 = NewtonSolver(x2, similar(x2); F=Finv, linesearch=Static(), verbosity=0)
+        solve!(x2, s2)
+        @test isapprox(x2[1], one(T); atol=∛(eps(T)))
+    end
+end
+
+@testset "a non-finite direction is rejected rather than damped" begin
+    # `nan_recovery!` damps by a *factor*, and `Inf * nan_factor` is `Inf`, so a non-finite
+    # direction is not something the recovery can shorten — it would spend its whole
+    # `nan_max_iterations` budget reproducing the same trial iterate.  The guard in
+    # `solver_step!` therefore rejects it outright, as it always has for a `NaN` direction.
+    #
+    # A Jacobian pinned at the smallest positive subnormal makes d = -F/J overflow exactly:
+    # from x₀ = 2 the residual is 1 and the step is -1/5e-324 = -Inf.  Before, this slipped
+    # through the `isnan` guard; the line search then saw an infinite directional derivative,
+    # reported `LINESEARCH_NO_DESCENT` and left the iterate where it was — a solve that silently
+    # made no progress instead of one that said what was wrong.
+    Flin(y, x, p) = (y .= x .- 1)
+    DFtiny(J, x, p) = (J .= 5e-324)
+    x = [2.0]
+    s = NewtonSolver(x, similar(x); F=Flin, DF! = DFtiny, verbosity=0)
+    initialize!(s, x)
+    y = similar(x)
+    Flin(y, x, NullParameters())
+    state = NonlinearSolverState(x, y)
+    initialize!(state, x, y)
+
+    @test_throws NonlinearSolverException solver_step!(x, s, state, NullParameters())
+
+    x2 = [2.0]
+    s2 = NewtonSolver(x2, similar(x2); F=Flin, DF! = DFtiny, verbosity=0)
+    @test_throws NonlinearSolverException solve!(x2, s2)
+end
+
+@testset "nan_factor and nan_max_iterations are honoured" begin
+    # The two `Options` that configure `nan_recovery!` had no test at all — neither their
+    # defaults nor a non-default value.  The damped iterate encodes both exactly, so this pins
+    # them without reaching into the loop.
+    Finv(y, x, p) = (y .= 1 ./ x .- 1)
+
+    # `nan_factor` — from x₀ = 2 the Newton step d = -2 lands on the singularity at x = 0.  The
+    # default 0.5 halves it to d = -1 (x = 1); 0.25 shortens it to d = -0.5 (x = 1.5) instead.
+    for (factor, expected) in ((0.5, 1.0), (0.25, 1.5))
+        x = [2.0]
+        s = NewtonSolver(x, similar(x); F=Finv, linesearch=Static(), verbosity=0, nan_factor=factor)
+        initialize!(s, x)
+        y = similar(x)
+        Finv(y, x, NullParameters())
+        state = NonlinearSolverState(x, y)
+        initialize!(state, x, y)
+        solver_step!(x, s, state, NullParameters())
+        @test x[1] ≈ expected
+    end
+
+    # `nan_max_iterations` — the domain-restricted log of the testset above needs *two* halvings
+    # (d = -2 → -1, x = 0 still NaN → -0.5, x = 0.5 finite).  A budget of one therefore leaves
+    # the loop with a NaN residual, which is the exhaustion path: nothing reports it there, so
+    # what has to hold is that the *outer* iteration notices.  It stops on the non-finite
+    # residual instead of spending `max_iterations`, does not claim convergence, and says so.
+    nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
+    Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
+    x = [1.0]
+    s = NewtonSolver(x, similar(x); F=Flog, linesearch=Static(), verbosity=0, nan_max_iterations=1)
+    state = SolverState(s)
+    solve!(x, s, state)
+    st = status(s, state)
+    @test SimpleSolvers.havenonfinite(st)
+    @test !isconverged(st)
+    @test iteration_number(state) < config(s).max_iterations
+
+    # ... and the full budget rescues the same solve.
+    x2 = [1.0]
+    s2 = NewtonSolver(x2, similar(x2); F=Flog, linesearch=Static(), verbosity=0)
+    solve!(x2, s2)
+    @test isapprox(x2[1], exp(-2.0); atol=1e-8)
+
+    # A budget of zero used to skip the loop body altogether, so the cache still held the trial
+    # of the *previous* solver step.  The Picard step documents that it reuses that cache rather
+    # than re-evaluating F (`picard_solver.jl`), so it read a stale residual and committed a
+    # stale iterate — the sentinel below, from nowhere near the current one.  At least one trial
+    # is now always evaluated, so the post-condition `nan_recovery!` advertises always holds.
+    x3 = [1.0]
+    s3 = PicardSolver(x3, Flog, similar(x3); verbosity=0, nan_max_iterations=0)
+    initialize!(s3, x3)
+    solution(cache(s3)) .= -99.0
+    value(cache(s3)) .= 0.0
+    y3 = similar(x3)
+    Flog(y3, x3, NullParameters())
+    state3 = NonlinearSolverState(x3, y3)
+    initialize!(state3, x3, y3)
+    solver_step!(x3, s3, state3, NullParameters())
+    @test x3[1] ≠ -99.0
+    @test all(isfinite, x3)
+
+    # ... and a budget of zero must not damp *either*: refreshing the cache with one trial while
+    # still halving the direction on the way out made a budget of zero behave exactly like a
+    # budget of one, so this solve landed on the root and reported convergence.  With no damping
+    # the full step onto the singularity is taken, and the solve has to fail and say so.
+    x4 = [2.0]
+    s4 = NewtonSolver(x4, similar(x4); F=Finv, linesearch=Static(), verbosity=0, nan_max_iterations=0)
+    state4 = SolverState(s4)
+    solve!(x4, s4, state4)
+    @test !isconverged(status(s4, state4))
+    @test SimpleSolvers.havenonfinite(status(s4, state4))
+
+    # The pairing `nan_recovery!` leaves behind: `value(cache)` is the residual of the trial built
+    # from the direction `cache` currently holds.  Damping *after* the failed trial rather than
+    # before the next one left the two a factor apart on every exhaustion path, and the Picard
+    # step reads them as a pair.
+    x5 = [2.0]
+    s5 = NewtonSolver(x5, similar(x5); F=Finv, linesearch=Static(), verbosity=0, nan_max_iterations=1)
+    initialize!(s5, x5)
+    direction!(s5, x5, NullParameters(), 0)
+    SimpleSolvers.nan_recovery!(s5, x5, NullParameters())
+    @test solution(cache(s5)) ≈ x5 .+ direction(cache(s5))
+    @test value(cache(s5)) ≈ [1 / solution(cache(s5))[1] - 1]
+end
+
+@testset "a non-finite status stops the solve and is reported" begin
+    # `havenonfinite`, the branch of `meets_stopping_criteria` that consults it and the warning
+    # that reports it had no test between them.  The `Inf` rows are the ones that used to fail:
+    # an overflowed residual passed the `isnan` test, and `rfₐ > f_abstol_break` does not catch
+    # it either, since `f_abstol_break` defaults to `Inf` and `Inf > Inf` is false — so such a
+    # solve ran its whole `max_iterations` budget with no diagnosis at all.
+    for bad in (NaN, Inf)
+        config = Options(verbosity=1)
+        state = NonlinearSolverState([1.0])
+        # Primed with a finite step first: a single `update!` leaves the *previous* iterate and
+        # value at the `NaN` the state is allocated with, so `rxₛ` and `rfₛ` would be `NaN`
+        # whatever `bad` is and the `Inf` row would pass under the old `isnan`-only predicate too.
+        update!(state, [1.0], [1.0])
+        update!(state, [2.0], [bad])
+        increase_iteration_number!(state)
+        st = NonlinearSolverStatus(state, config)
+
+        @test SimpleSolvers.havenonfinite(st)
+        @test !isconverged(st)
+        @test meets_stopping_criteria(state, config)
+        @test logged_any(() -> nonlinear_solver_warnings(st, config), "NaNs or Infs")
+        @test !logged_any(() -> nonlinear_solver_warnings(st, Options(verbosity=0)), "NaNs or Infs")
+    end
+
+    # An overflowed initial residual is not a usable reference scale.  `residual_small` guarded
+    # only `isnan(r₀)`, so `f_reltol * Inf = Inf` made its gate vacuously true and *any* finite
+    # residual counted as small — the solve then reported convergence wherever it landed, which
+    # is a far worse failure than not converging.  Likewise an infinite step is not a settled
+    # one, even though `Inf ≤ ‖x‖·x_suctol` holds once ‖x‖ has overflowed as well.
+    state = NonlinearSolverState([1.0])
+    SimpleSolvers.initialize!(state, [1.0], [Inf])
+    @test !residual_small(1.0e10, Options(), state)
+
+    # `iterate_settled` needs ‖x‖ itself to have overflowed, which is the only fixture that
+    # separates the new gate from the old one: with a finite iterate `Inf ≤ ‖x‖·x_suctol` was
+    # already false.
+    settled_state = NonlinearSolverState([1.0])
+    SimpleSolvers.initialize!(settled_state, [Inf], [Inf])
+    @test !iterate_settled(Inf, Options(), settled_state)
+
+    # A finite status is untouched by the widening.  Two `update!`s, because a single one leaves
+    # the *previous* iterate at the `NaN` the state is allocated with, so `rxₛ` and `rfₛ` are
+    # `NaN` until the second — which is exactly why the two consumers above require
+    # `iterations ≥ 1` (see the `initialize!` note in the first testset of this file).
+    state = NonlinearSolverState([1.0])
+    update!(state, [1.0], [1.0])
+    update!(state, [1.0], [1.0])
+    @test !SimpleSolvers.havenonfinite(NonlinearSolverStatus(state, Options()))
+end
+
+@testset "Picard rejects a non-finite direction and commits only finite iterates" begin
+    # The Picard direction *is* the residual (d = -F(x)), so a non-finite `F` at the current
+    # iterate is a non-finite direction and must be rejected for the same reason the Newton one
+    # is: damping cannot shorten it.  `1/x - 1` at x₀ = 0 gives exactly that.
+    Finv(y, x, p) = (y .= 1 ./ x .- 1)
+    x = [0.0]
+    s = PicardSolver(x, Finv, similar(x); verbosity=0)
+    @test_throws NonlinearSolverException solve!(x, s)
+
+    # And the commit guard.  `F` is finite on x ≤ 1 and `Inf` beyond it, with a residual large
+    # enough that even the underflowed backtracking step α‖d‖ still crosses that wall — so no
+    # trial the step evaluates has a finite residual, and the last one would be committed.  The
+    # trial *iterate* is finite throughout (x is, and the direction is past the guard above),
+    # which is why the guard has to test `value(cache)` rather than `solution(cache)`.  A frozen
+    # iterate is the honest outcome — `stalled_step` diagnoses it — and it is what lets the solve
+    # be reported rather than handing the caller an x whose residual is `Inf`.
+    Fwall(y, x, p) = (y .= [xi ≤ 1 ? -1.0e10 : oftype(xi, Inf) for xi in x])
+    x2 = [1.0]
+    s2 = PicardSolver(x2, Fwall, similar(x2); verbosity=0)
+    state2 = SolverState(s2)
+    solve!(x2, s2, state2)
+    @test x2 == [1.0]                                            # the poisoned trial was not committed
+    @test !SimpleSolvers.havenonfinite(status(s2, state2))
+    @test isstalled(status(s2, state2), config(s2))              # ... and the solve says why
+end
+
 @testset "DogLeg recovers from a collapsed trust-region radius" begin
     # Once the carried trust radius underflowed (Δ ≤ eps), the next
     # solver_step!'s `while Δ > eps(T)` never ran, so the iterate froze and the
@@ -1544,8 +1766,19 @@ end
         x = [1.0]
         solve!(x, DogLegSolver(x, Flog, similar(x); verbosity=v))
     end
-    @test logged_any(nanmerit(2), "undefined merit")
-    @test !logged_any(nanmerit(1), "undefined merit")
+    @test logged_any(nanmerit(2), "non-finite merit")
+    @test !logged_any(nanmerit(1), "non-finite merit")
+
+    # The generic step's own damping reporter, which was the one message in this family with no
+    # gate assertion at all. `Finv` overshoots from x₀ = 2 to exactly x = 0, where 1/x is `Inf`
+    # — the `-1/|x|` singularity of issue #130 — so `nan_recovery!` reports and halves.
+    Finv(y, x, p) = (y .= 1 ./ x .- 1)
+    nonfinite(v) = function ()
+        x = [2.0]
+        solve!(x, NewtonSolver(x, similar(x); F=Finv, linesearch=Static(), verbosity=v))
+    end
+    @test logged_any(nonfinite(2), "Reducing length of direction vector")
+    @test !logged_any(nonfinite(1), "Reducing length of direction vector")
 end
 
 @testset "$(rpad("a converged solve allocates nothing", 80))" begin

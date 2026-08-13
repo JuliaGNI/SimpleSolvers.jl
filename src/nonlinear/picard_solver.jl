@@ -127,7 +127,9 @@ a false positive.
 """
 function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params, iteration_number(state))
-    any(isnan, direction(cache(s))) && throw(NonlinearSolverException("NaN detected in direction vector"))
+    # The Picard direction *is* the residual, so this rejects a non-finite `F(x)` at the current
+    # iterate. As in the generic step, damping cannot rescue a non-finite direction.
+    all(isfinite, direction(cache(s))) || throw(NonlinearSolverException("non-finite direction vector"))
 
     # NaN recovery on the residual direction (mirrors the generic solver step); leaves
     # the α = 1 trial residual in `value(cache(s))`, reused by the safeguard below.
@@ -149,7 +151,15 @@ function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::Nonlinear
         compute_new_iterate!(solution(cache(s)), x, α, direction(cache(s)))
         value!(value(cache(s)), nonlinearproblem(s), solution(cache(s)), params)
     end
-    x .= solution(cache(s))
+    # A trial whose *residual* is not finite must not be committed, even though it is the last one
+    # evaluated: it is reachable when `nan_recovery!` exhausted `nan_max_iterations` and the
+    # backtracking above never found an α that got back inside the region where `F` is defined and
+    # representable. It is `value(cache(s))` that says so and not `solution(cache(s))`: the trial
+    # iterate is finite whenever `x` and the direction are, and the guard at the top of this
+    # function has already established the direction. Leaving `x` where it was makes the step a
+    # frozen one, which `stalled_step` already diagnoses — the same choice `DogLegSolver` makes
+    # for a rejected trial on radius underflow.
+    (all(isfinite, solution(cache(s))) && all(isfinite, value(cache(s)))) && (x .= solution(cache(s)))
 
     x
 end
