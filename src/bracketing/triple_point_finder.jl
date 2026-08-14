@@ -31,6 +31,10 @@ Find three points `a < b < c` (strictly ordered in position) with `f(a) ≥ f(b)
       doublings never reached a turning point, or `f` rose at every probe down to the smallest
       `δ` tried. This is a genuine failure to report (`LINESEARCH_EXHAUSTED`), not a floor.
 
+    A third status, `:capped`, is not a failure at all: the search reached the ceiling `αmax` (see
+    [`linesearch_αmax`](@ref)) while `f` was still falling, so the turning point lies beyond the
+    largest step the caller allows and that ceiling *is* the answer.
+
 # Implementation
 
 For `δ` we take [`DEFAULT_BRACKETING_s`](@ref) as default. For `nmax` we take [`DEFAULT_BRACKETING_nmax`](@ref) as default.
@@ -74,8 +78,11 @@ end
 # reporting is what the `Bisection` line search does with `bisection`/`_bisection_core`, and here it
 # also keeps the return type concrete: the `Union{Symbol,Tuple}` handed back by
 # `triple_point_finder` has to be boxed, and `BierlaireQuadratic` brackets once per line search.
-function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_constant_iteration::Integer) where {T}
+function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_constant_iteration::Integer, αmax::T=T(Inf)) where {T}
     fx₀ = f(x₀)
+    # The first probe has to stay inside the ceiling too, or a caller whose ceiling is smaller
+    # than the default `δ` would have its whole search happen outside the range it allows.
+    δ = min(δ, αmax - x₀)
     x₁ = x₀ + δ
     fx₁ = f(x₁)
 
@@ -87,7 +94,7 @@ function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_c
         # the remaining halvings are wasted evaluations that end in the same failure.
         fx₁ ≤ fx₀ + armijo_tolerance(fx₀, armijo_ulps(typeof(fx₀))) && return (x₀, x₀, x₁, :flat)
         adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS && return (x₀, x₀, x₁, :unbracketable)
-        return _triple_point_core(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1)
+        return _triple_point_core(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1, αmax)
     end
 
     local xₖ₋₁ = x₀
@@ -103,6 +110,15 @@ function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_c
         fxₖ = fxₖ₊₁
         increment = 2 * increment
         xₖ₊₁ = xₖ + increment
+        # Probe *at* the ceiling rather than past it, and stop there: `f` was still falling at
+        # `xₖ`, so a turning point (if any) lies beyond the largest step the caller allows. The
+        # rise can still happen exactly at the ceiling, which is a genuine triple, hence the test
+        # — with `xₖ₊₁ > xₖ` alongside it, since a ceiling at or below `xₖ` cannot order one.
+        if xₖ₊₁ ≥ αmax
+            xₖ₊₁ = αmax
+            fxₖ₊₁ = f(xₖ₊₁)
+            return (xₖ₋₁, xₖ, xₖ₊₁, (xₖ₊₁ > xₖ && fxₖ₊₁ > fxₖ) ? :ok : :capped)
+        end
         fxₖ₊₁ = f(xₖ₊₁)
         if fxₖ₊₁ > fxₖ
             return (xₖ₋₁, xₖ, xₖ₊₁, :ok)
@@ -115,6 +131,6 @@ function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_c
     (xₖ₋₁, xₖ, xₖ₊₁, :unbracketable)
 end
 
-function _triple_point_core(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
-    _triple_point_core(x -> value(prob, x, params), x₀, δ, nmax, 1)
+function _triple_point_core(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T}
+    _triple_point_core(x -> value(prob, x, params), x₀, δ, nmax, 1, αmax)
 end

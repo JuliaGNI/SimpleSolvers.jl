@@ -237,3 +237,10 @@ save("f_ls_bierlaire6_dark.png", fig)
     implementation therefore bisects the wider sub-interval whenever ``\chi`` lands on ``a``,
     ``b`` or ``c``, which makes ``c - a`` decrease strictly every iteration and bounds the search
     at ``O(\log_2((c-a)/\varepsilon))`` steps regardless of the merit's magnitude.
+
+!!! info "The bracketing is bounded"
+    [`SimpleSolvers.triple_point_finder`](@ref) doubles its increment until the merit rises, so
+    without a bound the third point — and hence the fitted ``\chi`` — can be arbitrarily far out
+    on a merit that is nearly flat or whose minimiser is genuinely distant. The `αmax` field of
+    [`BierlaireQuadratic`](@ref) stops it, and a caller with a scale of its own can ask for less;
+    see [Bounding the step](@ref "Bounding the step").

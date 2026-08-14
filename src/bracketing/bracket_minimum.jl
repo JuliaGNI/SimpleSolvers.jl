@@ -90,30 +90,67 @@ maximum rather than a minimum, so it is deliberately skipped.
 Returns `nothing` when no bracket is found within `nmax` steps. A line search must be able to
 report an unbracketable merit rather than abort the enclosing solve, so this is a `nothing`
 rather than an error; see [`bracket_minimum`](@ref).
+
+`αmax` bounds how far to the *right* the search may probe (see [`linesearch_αmax`](@ref)); a
+bracket truncated by it is returned like any other, and only [`_bracket_core`](@ref) distinguishes
+the two.
 """
-function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+function bracket(f::Callable, x::T, bc::BracketingCriterion, s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    lo, hi, status = _bracket_core(f, x, bc, s, k, nmax, αmax)
+    status === :unbracketable ? nothing : (lo, hi)
+end
+
+"""
+    _bracket_core(f, x, bc, s, k, nmax, αmax)
+
+The loop of [`bracket`](@ref), returning `(lo, hi, status)` with `status` one of `:ok`, `:capped`
+or `:unbracketable`. Splitting the loop from the reporting is what `bisection`/`_bisection_core`
+and [`triple_point_finder`](@ref)/`_triple_point_core` already do, and here it is what lets a
+caller tell a bracket that *ends* at the ceiling `αmax` from one that satisfied the criterion:
+the first says the turning point lies beyond the largest step the caller allows, so the answer is
+`αmax` itself, and the interval is not worth fitting anything to.
+
+Private: [`bracket`](@ref) and [`bracket_minimum`](@ref) are the public entry points.
+"""
+function _bracket_core(f::Callable, x::T, bc::BracketingCriterion, s::T, k::T, nmax::Integer, αmax::T) where {T<:Number}
     a = x
 
-    b = a + s
+    # The *first* probe is bounded too, not just the loop's. A ceiling smaller than the initial
+    # step `s` would otherwise have the merit evaluated outside the range the caller called
+    # admissible before the loop ever tests the bound — one evaluation, but on a problem where a
+    # step beyond `αmax` is meaningless it is exactly the evaluation the ceiling exists to avoid.
+    # `s` is left alone: it is the growth scale, and clamping it would also shrink the loop's steps.
+    b = s > zero(T) ? min(a + s, αmax) : a + s
     yb = f(b)
 
     if bc isa BracketRootCriterion && bc(f(a - s), yb)
-        return (a - s, b)
+        return (a - s, b, :ok)
     end
 
     for _ in 1:nmax
         c = b + s
+        # The ceiling bounds a *step length*, so it applies only while the search runs to the
+        # right. A negative `s` means the caller flipped the search (see `bracket_minimum`), and
+        # the α > 0 contract of the line-search layer is what handles that side.
+        if s > zero(T) && c ≥ αmax
+            # Probe *at* the ceiling rather than past it: it is the last point the caller allows,
+            # and evaluating it is what lets the search report the merit at the step it returns.
+            c = αmax
+            c > a || return (a, a, :capped)
+            yc = f(c)
+            return (a, c, bc(yb, yc) ? :ok : :capped)
+        end
         yc = f(c)
         if bc(yb, yc)
             interval = a < c ? (a, c) : (c, a)
-            return interval
+            return (interval..., :ok)
         end
         a = b
         b = c
         yb = yc
         s *= k
     end
-    nothing
+    (a, b, :unbracketable)
 end
 
 @doc raw"""
@@ -178,11 +215,26 @@ The interval that is returned by `bracket_minimum` is then typically used as a s
     i.e. that a sign change in the function occurs. Also see [`BracketRootCriterion`](@ref).
 
 """
-function bracket_minimum(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+function bracket_minimum(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    lo, hi, status = _bracket_minimum_core(f, x, s, k, nmax, αmax)
+    status === :unbracketable ? nothing : (lo, hi)
+end
+
+"""
+    _bracket_minimum_core(f, x, s, k, nmax, αmax)
+
+[`bracket_minimum`](@ref) with the `(lo, hi, status)` return of [`_bracket_core`](@ref), so that a
+caller can tell a bracket truncated at the ceiling `αmax` from one that found a turning point.
+Private; see [`_bracket_core`](@ref).
+"""
+function _bracket_minimum_core(f::Callable, x::T, s::T, k::T, nmax::Integer, αmax::T) where {T<:Number}
     a = x
     ya = f(a)
 
-    b = a + s
+    # This probe decides the *direction* and is taken before `_bracket_core` sees the problem at
+    # all, so it needs the same bound `_bracket_core`'s own first probe carries — otherwise a
+    # ceiling below `s` is stepped over here and the bound in the loop never gets the chance.
+    b = s > zero(T) ? min(a + s, αmax) : a + s
     yb = f(b)
 
     # flip a & b if necessary
@@ -192,20 +244,23 @@ function bracket_minimum(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), 
         s = -s
     end
 
-    bracket(f, a, BracketMinimumCriterion(), s, k, nmax)
+    _bracket_core(f, a, BracketMinimumCriterion(), s, k, nmax, αmax)
 end
 
-function bracket_minimum(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum(f, x, s, k, nmax)
+function bracket_minimum(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    bracket_minimum(f, x, s, k, nmax, αmax)
 end
 
-function bracket_minimum(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum(x -> value(prob, x, params), x, s, k, nmax)
+function bracket_minimum(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    bracket_minimum(x -> value(prob, x, params), x, s, k, nmax, αmax)
 end
 
-function bracket_minimum(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum(prob, params, x, s, k, nmax)
+function bracket_minimum(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    bracket_minimum(prob, params, x, s, k, nmax, αmax)
 end
+
+_bracket_minimum_core(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number} =
+    _bracket_minimum_core(x -> value(prob, x, params), x, s, k, nmax, αmax)
 
 @doc raw"""
     bracket_minimum_with_fixed_point(f, x, s, k, nmax)
@@ -237,10 +292,30 @@ to re-evaluate `f` at the endpoints.
 
 Returns `nothing` if no bracket is found within `nmax` steps — a line search must be able to
 report an unbracketable merit rather than abort the enclosing solve.
+
+`αmax` bounds how far to the right the search may probe; see [`linesearch_αmax`](@ref) and
+[`_bracket_minimum_with_fixed_point_core`](@ref), which is what tells a truncated bracket from a
+genuine one.
 """
-function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
+function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    a, b, ya, yb, status = _bracket_minimum_with_fixed_point_core(f, x, s, k, nmax, αmax)
+    status === :unbracketable ? nothing : (a, b, ya, yb)
+end
+
+"""
+    _bracket_minimum_with_fixed_point_core(f, x, s, k, nmax, αmax)
+
+[`bracket_minimum_with_fixed_point`](@ref) with the bracket's `status` appended — `:ok`, `:capped`
+or `:unbracketable`, as [`_bracket_core`](@ref) reports them. Private; the split exists so that
+[`Quadratic`](@ref) can tell a bracket that ends at the ceiling from one that found a turning
+point, and hand back the ceiling instead of fitting a polynomial to an interval over which the
+merit only falls.
+"""
+function _bracket_minimum_with_fixed_point_core(f::Callable, x::T, s::T, k::T, nmax::Integer, αmax::T) where {T<:Number}
     a = x
-    b = a + s
+    # Bounded like the loop's probes below, and for the reason given in `_bracket_core`: a ceiling
+    # smaller than `s` must not be stepped over before the bound is first tested.
+    b = s > zero(T) ? min(a + s, αmax) : a + s
 
     ya = f(a)
     yb = f(b)
@@ -263,30 +338,42 @@ function bracket_minimum_with_fixed_point(f::Callable, x::T, s::T, k::T=T(DEFAUL
     # the minimum just like the moving-anchor `bracket_minimum`.
     ybprev = yb
     for _ in 1:nmax
-        b = b + s
+        bnext = b + s
+        # As in `_bracket_core`: the ceiling bounds a step length, so it binds only while the
+        # search runs rightward, and the ceiling itself is probed rather than skipped over.
+        if s > zero(T) && bnext ≥ αmax
+            αmax > a || return (a, a, ya, ya, :capped)
+            b = αmax
+            yb = f(b)
+            return (a, b, ya, yb, bc(ybprev, yb) ? :ok : :capped)
+        end
+        b = bnext
         yb = f(b)
         if bc(ybprev, yb)
             # return the endpoints (sorted) along with their function values
-            return a < b ? (a, b, ya, yb) : (b, a, yb, ya)
+            return a < b ? (a, b, ya, yb, :ok) : (b, a, yb, ya, :ok)
         end
         ybprev = yb
         s *= k
     end
 
-    nothing
+    (a, b, ya, yb, :unbracketable)
 end
 
-function bracket_minimum_with_fixed_point(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum_with_fixed_point(f, x, s, k, nmax)
+function bracket_minimum_with_fixed_point(f::Callable, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    bracket_minimum_with_fixed_point(f, x, s, k, nmax, αmax)
 end
 
-function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum_with_fixed_point(x -> value(prob, x, params), x, s, k, nmax)
+function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    bracket_minimum_with_fixed_point(x -> value(prob, x, params), x, s, k, nmax, αmax)
 end
 
-function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T<:Number}
-    bracket_minimum_with_fixed_point(prob, params, x, s, k, nmax)
+function bracket_minimum_with_fixed_point(prob::LinesearchProblem{T}, params, x::T; s::T=T(DEFAULT_BRACKETING_s), k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number}
+    bracket_minimum_with_fixed_point(prob, params, x, s, k, nmax, αmax)
 end
+
+_bracket_minimum_with_fixed_point_core(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEFAULT_BRACKETING_k), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T<:Number} =
+    _bracket_minimum_with_fixed_point_core(x -> value(prob, x, params), x, s, k, nmax, αmax)
 
 """
     bracket_root(f, x)

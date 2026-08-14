@@ -365,9 +365,13 @@ end
 # `n` is passed and returned rather than captured: a counter captured by this function and mutated
 # by its caller would be boxed, which makes the `trials` of the status built from it inferred-`Any`
 # (the same reason `_wolfe_zoom`'s caller passes its `n`).
-function backtracking_expand(f, sdc::SufficientDecreaseCondition{T}, φ₀::T, d₀::T, α::T, φα::T, n::Int, q::T, nexpand::Int) where {T}
+function backtracking_expand(f, sdc::SufficientDecreaseCondition{T}, φ₀::T, d₀::T, α::T, φα::T, n::Int, q::T, nexpand::Int, αmax::T=T(Inf)) where {T}
     for _ in 1:nexpand
-        αₙ = backtracking_extrapolation(φ₀, d₀, α, φα, q)
+        # `min(…, αmax)` and not "stop at the ceiling": the model's step may overshoot a caller's
+        # ceiling that the *current* step is still comfortably inside, and the point on the
+        # boundary is then worth the one evaluation it costs. It is tried at most once, since the
+        # `αₙ > α` test fails on the round after.
+        αₙ = min(backtracking_extrapolation(φ₀, d₀, α, φα, q), αmax)
         αₙ > α || break
         φₙ = f(αₙ)
         n += 1
@@ -389,13 +393,22 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
     f(a) = value(problem(ls), a, params)
     d(a) = derivative(problem(ls), a, params)
 
+    # Before any merit evaluation, so that an unusable caller-supplied ceiling costs none. This
+    # search has no ceiling of its own (`method_αmax` is `Inf` for it): it *shrinks* the caller's
+    # trial step, so that step is already its bound, and the opt-in expansion phase carries its
+    # own in `q^nexpand`. Only `params.αmax` binds here — and it binds on the trial step itself,
+    # not only on the expansion, because a caller that says "no step above this is admissible"
+    # means the first trial too.
+    αmax = linesearch_αmax(m, params)
+    α = min(α, αmax)
+
     # note that we anchor at α = 0 here as this is the base point of the linesearch problem.
     φ₀ = f(zero(T))
     d₀ = d(zero(T))
 
     # No α can satisfy the SufficientDecreaseCondition unless the merit is finite and actually
     # decreasing at the anchor, so report that instead of shrinking α fifty times to find out.
-    anchor = check_anchor(φ₀, d₀, α)
+    anchor = check_anchor(φ₀, d₀, α, αmax)
     isnothing(anchor) || return anchor
 
     τ = armijo_tolerance(φ₀, m.τ_ulps)
@@ -435,7 +448,7 @@ function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullP
             # or less; at the default of 60 against 3 it never does.
             if m.expand && i == 1
                 budget = min(m.nexpand, config(ls).linesearch_max_iterations - n)
-                α, φₐ, n = backtracking_expand(f, sdc, φ₀, d₀, α, φₐ, n, m.q, budget)
+                α, φₐ, n = backtracking_expand(f, sdc, φ₀, d₀, α, φₐ, n, m.q, budget, αmax)
             end
             oc = φₐ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR
             return LinesearchStatus{T}(α, oc, n, φ₀, d₀, φₐ, τ, αmin)

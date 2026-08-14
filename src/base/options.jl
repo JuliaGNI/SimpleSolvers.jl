@@ -179,6 +179,34 @@ This lives here rather than next to [`Backtracking`](@ref) because
 armijo_tolerance(φ₀::T, n::Real) where {T} = T(n) * eps(φ₀)
 
 @doc raw"""
+    const DEFAULT_LINESEARCH_αmax
+
+The largest step length a [`LinesearchMethod`](@ref) will try unless a caller asks for less; its
+value is """ * """$(DEFAULT_LINESEARCH_αmax)""" * raw""" (``2^{16}``). See
+[`linesearch_αmax`](@ref) for the two ways the ceiling is set and [`method_αmax`](@ref) for the
+per-method field it defaults.
+
+An *absolute* number is the right shape here, and this is the one place in the package where that
+is worth arguing. ``\alpha`` scales a direction that has already been chosen, so it is a
+step-length *fraction* and of order one — the same reason the bracket-width tolerance of
+[`BierlaireQuadratic`](@ref) is absolute while its merit comparisons are not. A ceiling of
+``2^{16}`` is therefore four to five orders of magnitude of headroom above any step a well-scaled
+direction asks for, and still rules out the ``\alpha \approx 4\cdot10^7`` that an unbounded
+bracketing search can reach on a merit whose minimiser is far away or whose fit is nearly flat.
+
+The value is [`StrongWolfe`](@ref)'s, which has carried exactly this field since before the other
+methods had one; [`DEFAULT_WOLFE_αmax`](@ref) is now defined as this constant so the two cannot
+drift apart.
+
+!!! info "The ceiling is not a decrease criterion"
+    A search stopped by the ceiling has not failed: it returns the largest step it was allowed to
+    take, with the merit *measured* there, and classifies it by the usual round-off allowance
+    ``\tau``. There is no [`LinesearchOutcome`](@ref) for "capped", because a caller that supplied
+    a ceiling can compare it against the step it got.
+"""
+const DEFAULT_LINESEARCH_αmax = 65536.0
+
+@doc raw"""
     linesearch_iterations(T)
 
 Determine the default number of trial steps a line search may take, i.e. the default of the

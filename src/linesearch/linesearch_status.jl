@@ -177,7 +177,7 @@ Base.show(io::IO, s::LinesearchStatus) = print(io,
     "(φ(0) = $(s.φ₀), φ(α) = $(s.φ), φ'(0) = $(s.d₀), τ = $(s.τ), αmin = $(s.αmin)).")
 
 @doc raw"""
-    check_anchor(φ₀, d₀, α)
+    check_anchor(φ₀, d₀, α, αmax=Inf)
 
 Validate the ``\alpha = 0`` anchor of a line search problem. Return a
 [`LinesearchStatus`](@ref) that the caller should return *immediately*, or `nothing` if the
@@ -205,18 +205,44 @@ step (see [`needs_refresh`](@ref) and [`maybe_refactorize!`](@ref)) and gives up
 `max_stalls` if that does not help.
 
 The step handed back is therefore still positive, as the contract requires — whether to *use*
-it is the caller's decision, not the line search's.
+it is the caller's decision, not the line search's. It also respects `αmax` (see
+[`linesearch_αmax`](@ref)), so that the ceiling holds on *every* return of a line search and not
+only on the ones that searched.
 """
-function check_anchor(φ₀::T, d₀::T, α::T) where {T}
+function check_anchor(φ₀::T, d₀::T, α::T, αmax::T=T(Inf)) where {T}
     # A non-positive trial step is not a step the caller can be handed back, so substitute the
     # unit step — the same convention `StrongWolfe` uses for its initial trial. This is what
-    # makes the α > 0 guarantee hold even when the caller passes α ≤ 0.
-    αout = α > zero(T) ? α : one(T)
+    # makes the α > 0 guarantee hold even when the caller passes α ≤ 0. The substitute is bounded
+    # by the ceiling like any other step, which matters when a caller both passes α ≤ 0 and asks
+    # for an αmax below one.
+    αout = min(α > zero(T) ? α : one(T), αmax)
     if !isfinite(φ₀) || !isfinite(d₀) || d₀ > zero(T)
         LinesearchStatus{T}(αout, LINESEARCH_NO_DESCENT, 0, φ₀, d₀, φ₀, zero(T), zero(T))
     elseif iszero(d₀)
         LinesearchStatus{T}(αout, LINESEARCH_STATIONARY, 0, φ₀, d₀, φ₀, zero(T), zero(T))
     end
+end
+
+@doc raw"""
+    capped_status(prob, params, αmax, φ₀, d₀, τ)
+
+The [`LinesearchStatus`](@ref) of a search whose bracketing reached the ceiling `αmax` (see
+[`linesearch_αmax`](@ref)) with the merit still falling. The turning point then lies beyond the
+largest step the caller allows, so `αmax` *is* the best admissible step, and this is the shared
+definition of what to report about it.
+
+It is deliberately not a failure and not a distinct [`LinesearchOutcome`](@ref). The merit is
+evaluated at `αmax` and classified by exactly the rule every other returned step is classified by:
+`LINESEARCH_DECREASED` when it beats ``\varphi(0)`` by more than the round-off allowance ``\tau``,
+`LINESEARCH_FLOOR` when it does not. That is honest in both directions — on a compact merit, where
+this case arises, ``\varphi(\alpha_\mathrm{max})`` is genuinely lower and the step genuinely
+decreases the merit — and a caller that wants to know whether its ceiling bound the search can
+compare the ceiling it supplied against [`steplength`](@ref).
+"""
+function capped_status(prob, params, αmax::T, φ₀::T, d₀::T, τ::T) where {T}
+    φ = value(prob, αmax, params)
+    LinesearchStatus{T}(αmax, φ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
+        1, φ₀, d₀, φ, τ, zero(T))
 end
 
 @doc raw"""

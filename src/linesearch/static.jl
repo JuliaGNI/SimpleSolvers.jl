@@ -30,8 +30,13 @@ Static(::Type{T}, ::SolverMethod) where {T} = Static(T)
 # evaluated and hence no decrease has been established. `linesearch_warnings` passes
 # `LINESEARCH_UNKNOWN` over in silence, so the derived `solve` returns `method(ls).α` and says
 # nothing — which is what the hand-written `solve` this replaced did.
+#
+# The ceiling still applies: `Static` establishes nothing about its step, which is all the more
+# reason for a caller that knows its step is inadmissible above `αmax` to be able to say so. It has
+# no ceiling of its own — the whole point of the method is that `α` is the caller's to fix — so
+# only `params.αmax` can bind here.
 solve_with_status(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T} =
-    LinesearchStatus(method(ls).α, LINESEARCH_UNKNOWN)
+    LinesearchStatus(min(method(ls).α, linesearch_αmax(method(ls), params)), LINESEARCH_UNKNOWN)
 
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 

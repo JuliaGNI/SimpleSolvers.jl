@@ -19,6 +19,10 @@ the solver has *already* computed at the current iterate, so [`solver_step!`](@r
 passes it along and saves one `F` evaluation per solver step — the most expensive
 single operation for a large residual. A caller who drives `solver_step!` by hand from
 a state whose `value` is stale must not supply it.
+
+It may carry an optional `αmax` field too, the caller's ceiling on the step length; see
+[`linesearch_αmax`](@ref), which documents why that one has to be per call. Both are read
+through a `hasproperty` guard resolved at compile time, so supplying neither costs nothing.
 """
 function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
     # private scratch buffers for the line search (see the docstring for why)
