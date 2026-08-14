@@ -1337,6 +1337,46 @@ follows is what is left.
   a step that was never allowed to grow "exhausted" is a question about that method, not about the
   ceiling, so it was left alone.
 
+### Raised while fixing the `Bisection` maximum, not addressed
+
+- **The orientation is not checked on a bracket that `bracket_minimum` flipped.**
+  `_bisect_for_minimum` returns early on `lo ≤ 0`, which covers two different things: the overshoot
+  branch, where `lo = 0` and `ylo` *is* the `φ′(0) < 0` the anchor check established (genuinely
+  nothing to check), and a bracket that the walk flipped leftward, where `lo < 0` and nothing has
+  been established at all. The second is a real hole, and it is demonstrable: on `φ(α) = α²` with
+  `φ′` given the roots `-0.5`, `0.3`, `0.7`, `bracket_minimum` returns `[-1, 1]` with `φ′(-1) > 0`,
+  and the bisection converges to `α = -0.5` — a **maximum**, reached with the check skipped.
+
+  Nothing leaked in that instance, because `-0.5 < 0` and the α > 0 contract rejected it: the
+  negative-step retry fired and the search reported `LINESEARCH_EXHAUSTED`. Whether the same route
+  can select a maximum at *positive* α — the interval spans zero and may contain several `+ → -`
+  crossings, only some of them negative — was **not** established either way. It is hard to arrange
+  because `check_anchor` guarantees `φ′(0) < 0`, so a crossing selected from a positive left
+  endpoint has one candidate at or before zero; it is not ruled out. The clean closure is to bisect
+  `[0, hi]` rather than `[lo, hi]` whenever `lo < 0` — a positive step is all the contract permits
+  anyway, and `φ′(0) < 0` orients it by construction — but that removes the flipped-bracket case the
+  negative-step retry exists to handle, so it wants its own change and its own tests.
+- **The repair throws away the first bisection.** When `ylo > 0`, `_bisect_for_minimum` has already
+  run a complete bisection to a root it then discards, and pays for a second one. Checking the
+  orientation *before* the loop — an argument to `_bisection_core` saying which sign the left
+  endpoint must have, or a two-evaluation pre-flight — would spend two derivative evaluations
+  instead of a whole bisection. Left because the path is the pathological one and the cost on the
+  common path, which is what the fix was careful about, is already zero.
+- **`_bisection_core` decides its root test with `f_abstol`, which is a residual tolerance.** The
+  loop stops early on `≈(y, 0; atol = config.f_abstol)` where `y` is `φ′(α)`, while `Options`
+  documents `f_abstol` as *"an absolute target for ‖F(x)‖"*. Those are incommensurable: `φ′` is the
+  α-derivative of `‖F‖²`, not a residual norm. It is invisible at the default `f_abstol = 0`, where
+  the branch fires only on an exact zero and the loop terminates on its width test instead — but it
+  is not invisible when a caller sets one. Measured on `φ(α) = (α-1)²`: `f_abstol = 0` locates the
+  minimiser to `|φ′| = 8.9e-16`, `1e-6` to `9.5e-7`, and `1e-2` to `7.8e-3`, i.e. raising the
+  residual tolerance for a coarse solve silently coarsens the line minimiser by the same factor.
+  This is the same class of defect as the one 0.10.0 fixed in `BierlaireQuadratic`, where "one
+  absolute constant used to govern three incommensurable quantities"; the fix there was to compare
+  merit differences against `τ` and α-space widths against `ε`. The equivalent here is a tolerance
+  of the bisection's own, defaulting to something derived from `φ′(0)`. Left out because it changes
+  the accuracy of every `Bisection` solve that sets `f_abstol`, which is a behaviour change with no
+  reported symptom behind it.
+
 ### Documentation
 
 - **There is no page for the nonlinear solvers.** 0.12.0 adds `docs/src/convergence.md`, which
