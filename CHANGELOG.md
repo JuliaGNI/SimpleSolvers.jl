@@ -4,12 +4,169 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [0.12.0]
 
-Two defects reported from downstream by
-[GeometricOptimizers.jl](https://github.com/JuliaGNI/GeometricOptimizers.jl), filed there as **D3**
-and **D4**, and the two reporting defects a review of that work turned up. **Breaking**: a
+Three defects reported from downstream by
+[GeometricOptimizers.jl](https://github.com/JuliaGNI/GeometricOptimizers.jl), filed there as **D3**,
+**D4** and **D6**, and the two reporting defects a review of that work turned up. **Breaking**: a
 `NonlinearSolver` no longer emits line-search warnings from inside its iteration,
 `NonlinearSolverStatus` gains a field, and a `LinesearchMethod` now implements `solve_with_status`
 rather than `solve`.
+
+### A line search bounds the step it returns
+
+[Issue D6](https://github.com/JuliaGNI/GeometricOptimizers.jl/blob/main/CHANGELOG.md), the upstream
+half of GeometricOptimizers' **A1b**.
+
+#### The gap
+
+`Quadratic` and `BierlaireQuadratic` fit a polynomial to `φ` and step to its stationary point. The
+fits already confine that point to the bracket — what nothing confined was the **bracket**.
+`bracket_minimum_with_fixed_point` and `_triple_point_core` double their probe step up to
+`DEFAULT_BRACKETING_nmax = 100` times, so from `s = 1e-2` the right endpoint can in principle reach
+`1e28`. Measured downstream on the `St(20,3)²` SVD problem, `Quadratic` returned `α = 4.3e7` on a
+direction of norm 5.54 — a step of `‖αδ‖ = 2.4e8` — and did it again two steps later on a
+steepest-descent direction, so the behaviour belongs to the search and not to its input.
+`bracket_minimum`, and hence `Bisection`, has the same shape.
+
+Why this went unreported for so long is the part worth stating, because it is also what makes it a
+`SimpleSolvers` defect rather than a downstream one. In a Euclidean problem it is self-correcting:
+`f(x + αp)` grows with `α` — as `α²` for a quadratic — so the search's own decrease test throws the
+step out and no one ever sees it. On a **compact** manifold it is not. `φ` is bounded there, and at
+`α = 1e9` it can be genuinely *lower* than at `α = 0`, so the search reports `LINESEARCH_DECREASED`
+on a step that is nine orders of magnitude too long and is telling the truth. **The merit is not a
+bound on the step**, and the bound that does exist — for a manifold solver, the `2π` of a rotation
+divided by `‖δ‖` — is not something the search can measure.
+
+#### Added
+
+- Every `LinesearchMethod` now returns `α ≤ αmax`, a sixth clause of the contract in
+  `LinesearchMethod`, with two ways to set that ceiling. `SimpleSolvers.linesearch_αmax` is the one
+  definition of the policy, as `check_anchor` is of the anchor policy.
+- **The method's own ceiling**, the `αmax` field, is generalised from `StrongWolfe` — which has
+  carried exactly this field, with exactly this meaning, since before the bracketing searches were
+  found to need one — to `Bisection`, `Quadratic` and `BierlaireQuadratic`. All four default to the
+  new `SimpleSolvers.DEFAULT_LINESEARCH_αmax`, which *is* `DEFAULT_WOLFE_αmax = 65536.0`; the latter
+  is now defined as the former so the two cannot drift. An absolute number is the right shape
+  because `α` scales an already-chosen direction and is therefore a step-length *fraction* of order
+  one — the same argument `BierlaireQuadratic` already makes for its bracket-width `ε`.
+- **The caller's ceiling** is an optional `αmax` field of `params`:
+  `solve_with_status(ls, one(T), (x = x, αmax = 2π / norm(δ)))`. It is read through the same
+  compile-time `hasproperty` guard as `params.φ₀`, so a caller that supplies nothing pays nothing,
+  and it is *not* a keyword, so `solve_with_status(ls, α, params)` keeps the signature that the
+  contract names as the extension point — a third-party method (GeometricOptimizers'
+  `DecayingStatic`) is unaffected either way.
+
+  It has to be per call because the scale it comes from changes with `‖δ‖` at every solver step, and
+  it has to be an *input* rather than a clamp on the returned `α`: clamping afterwards yields a step
+  the search never evaluated, whose `LinesearchStatus` then describes a different step than the one
+  taken. As an input, the bracketing stops at the ceiling — so the evaluations beyond it are saved,
+  not merely wasted — the merit is measured there, and the status describes the step handed back.
+- All six methods honour it, including the two with no ceiling of their own: `Backtracking` clamps
+  its trial step and bounds its opt-in expansion phase, and `Static` clamps its fixed `α`.
+  `check_anchor` clamps too, so the ceiling holds on the returns that never search.
+- `SimpleSolvers.capped_status` is what a search reports when the ceiling binds, and it is
+  deliberately **not** a new `LinesearchOutcome`: the merit is evaluated at `αmax` and classified by
+  the same `τ` rule as any other returned step. A ceiling is not a failure — on the compact merit
+  where this arises the step genuinely decreases `φ` — and a caller that supplied a ceiling can
+  compare it against `steplength`. Adding an outcome would have changed `NLINESEARCH_OUTCOMES`, the
+  tally in `NonlinearSolverState`, and every downstream read of it, to say something the caller
+  already knows.
+- The ceiling bounds where the merit is **evaluated**, not only what is returned. Each bracketer's
+  *first* probe is bounded as well as its loop's, so a ceiling smaller than the bracketing step
+  `DEFAULT_BRACKETING_s` is not stepped over before the bound is first tested — one evaluation, but
+  on a problem where a step past the ceiling is meaningless it is precisely the evaluation the
+  ceiling exists to avoid. Asserted for all six methods by recording every `α` the merit is asked
+  for.
+- The bracketing helpers gained cores that report the truncation — `_bracket_core`,
+  `_bracket_minimum_core`, `_bracket_minimum_with_fixed_point_core`, and a `:capped` status
+  alongside `_triple_point_core`'s `:flat`/`:unbracketable`. This is the third use of the
+  split that `bisection`/`_bisection_core` and `triple_point_finder`/`_triple_point_core` already
+  make; the public functions keep the return types they document. The distinction earns its keep:
+  handing a truncated bracket to the fits would be worse than useless, because `Quadratic`'s
+  curvature guard sees a monotone-decreasing interval, falls back to bisecting it, and returns a
+  midpoint strictly worse than the endpoint.
+
+#### Changed (behavioural)
+
+One case changes at default options: a merit that keeps decreasing to the right. It used to exhaust
+the bracketing budget and be reported as `LINESEARCH_EXHAUSTED` with the caller's `α` handed back;
+it now stops at the ceiling and returns it, reported as `LINESEARCH_DECREASED` because the merit
+there really is lower. That is the better answer of the two — `EXHAUSTED` on a merit that descends
+is the least informative outcome the enum has — and it is why `:unbracketable` is now reachable only
+with the ceiling switched off (`αmax = Inf`) or on a leftward, flipped search. One test expectation
+moved with it, and the old behaviour is asserted alongside the new one at `αmax = Inf`.
+
+Nothing else moves unless the ceiling binds: on the `(α-1)²` fixtures the step, the outcome and the
+merit-evaluation count are identical with and without a generous `params.αmax`, and the six
+per-method evaluation canaries and every zero-allocation assertion stand unedited. A ceiling in
+`params` allocates nothing, which is asserted for all six methods.
+
+`Bisection` gains a field and is no longer a singleton, but `Bisection()`, `Bisection(T)`,
+`Bisection{T}()` and `Bisection(T, ::SolverMethod)` all still construct one; `show` and `isapprox`
+report the field, as they already did for `StrongWolfe`.
+
+#### Measured
+
+Downstream, on GeometricOptimizers' SVD problem, `_BFGS` + `Cayley`, over the eight starting points
+of `scripts/retraction_accuracy.jl` (cap 20 000). *On the manifold* means the run ended with
+`check ≤ 1e-12`, that package's own `MANIFOLD_TOLERANCE`; it is the criterion that matters here
+because A1b's failure is a solve that reports success from a point that is no longer on `St(20,3)`:
+
+| search | ceiling | seeds ending on the manifold | worst `check` |
+|---|---|---|---|
+| `Quadratic` | none (before) | 4 of 8 | 1.3 |
+| `Quadratic` | 65536 (the default) | 4 of 8 | 2.8 |
+| `Quadratic` | 100 | 4 of 8 | 1.2 |
+| `Quadratic` | 10 | 7 of 8 | 4.1e-9 |
+| `Quadratic` | 1 | **8 of 8** | **6.2e-14** |
+| `BierlaireQuadratic` | none (before) | 2 of 8 | 0.92 |
+| `BierlaireQuadratic` | 65536 (the default) | 4 of 8 | 0.38 |
+| `BierlaireQuadratic` | 100 | 4 of 8 | 76 |
+| `BierlaireQuadratic` | 10 | 7 of 8 | 4.7e-9 |
+| `BierlaireQuadratic` | 1 | **8 of 8** | **6.4e-14** |
+
+Read that honestly: **the default ceiling does not fix A1b.** At `‖δ‖ ≈ 5.5` a step of `α = 65536`
+is still `‖αδ‖ = 3.6e5`, five orders above the `2π` at which a rotation stops going anywhere, so
+most of the runs that diverged still diverge — and the value they diverge *to* is noise, which is
+why the `check` column moves in both directions across the top three rows of each block and why
+`BierlaireQuadratic`'s 2-of-8 → 4-of-8 at the default is worth no more than that. What the default
+reliably does is remove the unbounded extrapolation (`α = 4.3e7` is gone) and bound the bracketing
+cost for everyone.
+
+What *fixes* A1b is a ceiling of the right **magnitude**, and the bottom row of each block is the
+evidence that one exists and that this is the mechanism for it: at `αmax = 1`, i.e. `‖αδ‖` of a few
+and so of order `2π`, all eight starting points converge cleanly onto the manifold, from 4 and 2.
+Which is exactly why the caller's half is not optional — `2π/‖δ‖` is geometry, it changes at every
+step, and no property of `φ` reveals it. The ceiling GeometricOptimizers should pass is theirs to
+choose; this change is what lets them pass one.
+
+Everything else downstream is unmoved. GeometricIntegrators' Runge-Kutta suite passes (107
+assertions), and `LotkaVolterra2d` over 1000 steps is **bit-identical** for `Gauss(1)`, `Gauss(2)`,
+`Gauss(3)`, `ImplicitMidpoint` and `SRK3`. On the SVD sweep the Euclidean-scaled rows are unchanged
+to the digit; the single exception is `_DFP` + `Bisection` + `Cayley`, which moves from 110 to 111
+iterations — the ceiling binding once, on the same compact merit, in the search the report did not
+name.
+
+### Every convergence and stopping criterion is documented in one place
+
+`docs/src/convergence.md` is a new page. The criteria themselves are unchanged; what did not exist
+was a statement of them that a reader could follow end to end, since they were spread across a
+dozen docstrings on unexported functions.
+
+It covers three things. **The line search**: the round-off resolution ``\tau`` every criterion is
+expressed against, all six `LinesearchOutcome`s with the test that produces each, the anchor policy,
+``\alpha_\mathrm{min}``, the new ``\alpha_\mathrm{max}``, and the six clauses of the contract.
+**The nonlinear solver**: the three residuals, the shared `residual_small` gate that both
+convergence branches require and both give-up branches negate — which is *why* converging and
+stagnating are mutually exclusive — the four flags of `assess_convergence`, the four distinct ways a
+solve ends without converging, and the full `meets_stopping_criteria` disjunction. **The channel
+between them**: how a `LinesearchStatus` becomes a `flag_stall!`, a forced Jacobian refresh, a
+per-solve tally, and finally the clause that names the cause in the solver's own failure message.
+
+Two distinctions get stated outright because conflating either makes a solve report the wrong cause:
+`LINESEARCH_FLOOR` claims that *no* line search can progress here (and the outer iteration acts on
+it) whereas `LINESEARCH_EXHAUSTED` claims only that this one did not; and `LINESEARCH_NO_DESCENT`
+is a Jacobian problem, not a tolerance problem. The page closes with a table of every `Options`
+field that participates, its default, and which criterion it governs.
 
 ### `Bisection` no longer reports success when it cannot bracket
 
@@ -1051,6 +1208,9 @@ section and into the release that fixed it.
 
 ### Reported by GeometricOptimizers.jl, not addressed in 0.12.0
 
+Of their reports, **D3**, **D4** and **D6** are addressed in 0.12.0 and are written up there; what
+follows is what is left.
+
 - **`Bisection` can converge onto a *maximum*.** The 0.12.0 fix closed the route by which a
   *failed* bracket became `LINESEARCH_FLOOR`; it did not touch the route by which a *successful*
   one does. `bracket_minimum` brackets a minimum in **value**, which on a non-convex ray can
@@ -1068,6 +1228,63 @@ section and into the release that fixed it.
   ignored, so a caller who sets one gets silence rather than a trace or an error.
   GeometricOptimizers implements `store_trace` itself for this reason. Either implement them or
   remove them; both are breaking, so neither belongs in a release driven by something else.
+
+### Raised while fixing D6 (the step ceiling), not addressed
+
+- **The default ceiling does not close A1b, and cannot.** `DEFAULT_LINESEARCH_αmax = 65536` removes
+  the unbounded extrapolation and bounds the bracketing cost, but at `‖δ‖ ≈ 5.5` it still permits
+  `‖αδ‖ = 3.6e5`, five orders above the `2π` past which retracting a lift only adds round-off. Four
+  of the eight SVD starting points still diverge under `Cayley` with either polynomial search; the
+  same runs at `αmax = 1` all converge (the table in the 0.12.0 entry). The remaining half is
+  GeometricOptimizers passing `params.αmax = c·2π/‖δ‖`, which is theirs to write — and which they
+  cannot pick up until their `[compat]` moves off `SimpleSolvers = "0.11"`. **A1b stays open until
+  then.** Choosing the constant `c` is a decision about their geometry, not about `φ`, which is
+  exactly why this package does not make it for them.
+- **A binding ceiling leaves no trace in the `LinesearchStatus`.** By design there is no
+  `LINESEARCH_CAPPED` (see the 0.12.0 entry for why), and a caller who set `params.αmax` can
+  compare it against `steplength`. A caller relying on the *method's* ceiling cannot: "the
+  minimiser is at 65536" and "the search stopped because it was not allowed past 65536" are
+  reported identically, both as `LINESEARCH_DECREASED`. A boolean field on the status would close
+  it without touching the outcome enum or its tally; left out because nothing needed it yet and the
+  struct is copied per solver step.
+- **The capped path costs one merit evaluation that was already made.** `BierlaireQuadratic` and
+  `Bisection` reach `capped_status`, which evaluates `φ(αmax)` — the same point the bracketing
+  evaluated on the round it stopped. Carrying the value out of `_triple_point_core` and
+  `_bracket_core` (the fixed-point bracketer already returns its endpoint values) would remove it.
+  One evaluation, on a path that is rare in a Euclidean problem and is a full residual or objective
+  evaluation when it fires, so it is worth doing and was not urgent.
+- **The public bracketers can return a degenerate interval at the ceiling.** When `αmax` lies at or
+  below the bracketing start, `_bracket_core` returns `(a, a, :capped)` and `bracket` /
+  `bracket_minimum` hand that on as the interval `(a, a)` with no signal. Unreachable from a line
+  search — `Quadratic` and `BierlaireQuadratic` return the ceiling instead of bracketing when their
+  start is not strictly below it, and `Bisection` always brackets from `α = 0`, which every valid
+  ceiling is strictly above — but reachable by a standalone caller of the exported
+  `bracket_minimum`, which has no such guard.
+- **`:unbracketable` is now nearly unreachable, and with it the diagnosis it carried.** A rightward
+  search under a finite ceiling always terminates as `:ok` or `:capped`, so `LINESEARCH_EXHAUSTED`
+  from a *failed bracket* now needs `αmax = Inf` or a flipped, leftward search. That is the right
+  behaviour for the case it was measured on — a merit that descends forever is better answered with
+  the largest admissible step than with a failure — but it means a genuinely unbracketable merit is
+  now reported as an ordinary decrease at the ceiling. This is the same gap as the previous entry
+  seen from the other side: the status cannot say "I stopped because you would not let me look
+  further".
+- **`StrongWolfe` classifies the ceiling differently from the minimising searches.** On a merit
+  whose minimiser lies beyond it, the three minimising searches return `αmax` with
+  `LINESEARCH_DECREASED` while `StrongWolfe` returns `αmax` with `LINESEARCH_EXHAUSTED` (observed
+  on `φ(α) = (α - 10^7)²/10^{14}`). Its behaviour is unchanged and internally consistent — the
+  strong curvature condition genuinely was never met, and it has always reported the last
+  Armijo-acceptable step that way — but the ceiling makes the divergence between the two families
+  visible where it previously took a contrived merit to reach. Whether a Wolfe search *should* call
+  a step that was never allowed to grow "exhausted" is a question about that method, not about the
+  ceiling, so it was left alone.
+
+### Documentation
+
+- **There is no page for the nonlinear solvers.** 0.12.0 adds `docs/src/convergence.md`, which
+  documents every line-search outcome, every solver stopping criterion, and the channel between
+  them — but `NewtonSolver`, `PicardSolver` and their caches, states and constructors are still
+  reachable only through docstrings and the `@autodocs` index. The line searches have nine pages
+  and the solvers that call them have none.
 
 ### Introduced or left standing by 0.12.0
 
