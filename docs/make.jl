@@ -39,6 +39,7 @@ makedocs(;
             "Quadratic" => "linesearch/quadratic.md",
             "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md",
         ],
+        "Convergence and Stopping" => "convergence.md",
         "Trust Region" => ["Trust Region" => "trust_region/trust_region_summary.md",],
         "Linear Solvers" => "linear/linear_solvers.md",
         "References" => "references.md",

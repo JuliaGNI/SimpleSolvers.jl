@@ -179,6 +179,70 @@ This lives here rather than next to [`Backtracking`](@ref) because
 armijo_tolerance(φ₀::T, n::Real) where {T} = T(n) * eps(φ₀)
 
 @doc raw"""
+    const DEFAULT_LINESEARCH_αmax
+
+The largest step length a [`LinesearchMethod`](@ref) will try unless a caller asks for less; its
+value is """ * """$(DEFAULT_LINESEARCH_αmax)""" * raw""" (``2^{16}``). See
+[`linesearch_αmax`](@ref) for the two ways the ceiling is set and [`method_αmax`](@ref) for the
+per-method field it defaults.
+
+An *absolute* number is the right shape here, and this is the one place in the package where that
+is worth arguing. ``\alpha`` scales a direction that has already been chosen, so it is a
+step-length *fraction* and of order one — the same reason the bracket-width tolerance of
+[`BierlaireQuadratic`](@ref) is absolute while its merit comparisons are not. A ceiling of
+``2^{16}`` is therefore four to five orders of magnitude of headroom above any step a well-scaled
+direction asks for, and still rules out the ``\alpha \approx 4\cdot10^7`` that an unbounded
+bracketing search can reach on a merit whose minimiser is far away or whose fit is nearly flat.
+
+The value is [`StrongWolfe`](@ref)'s, which has carried exactly this field since before the other
+methods had one; [`DEFAULT_WOLFE_αmax`](@ref) is now defined as this constant so the two cannot
+drift apart.
+
+Use [`default_linesearch_αmax`](@ref) rather than `T(DEFAULT_LINESEARCH_αmax)` to obtain it in a
+given precision: ``2^{16}`` is *above* `floatmax(Float16)`, so the plain conversion overflows to
+`Inf` and silently removes the ceiling in the precision the package otherwise takes most care over.
+
+!!! info "The ceiling is not a decrease criterion"
+    A search stopped by the ceiling has not failed: it returns the largest step it was allowed to
+    take, with the merit *measured* there, and classifies it by the usual round-off allowance
+    ``\tau``. There is no [`LinesearchOutcome`](@ref) for "capped", because a caller that supplied
+    a ceiling can compare it against the step it got.
+"""
+const DEFAULT_LINESEARCH_αmax = 65536.0
+
+"""
+    default_linesearch_αmax(T)
+
+[`DEFAULT_LINESEARCH_αmax`](@ref) in the precision `T`, saturated at `floatmax(T)`.
+
+The saturation is the whole point of the function. `65536` exceeds `floatmax(Float16) = 65504`, so
+`Float16(DEFAULT_LINESEARCH_αmax)` is `Inf` — a `Float16` line search built from the plain
+conversion would carry no ceiling at all, which is precisely the defect the field exists to fix,
+absent in the one precision where every other tolerance in this file is special-cased.
+
+```jldoctest; setup = :(using SimpleSolvers: default_linesearch_αmax)
+default_linesearch_αmax(Float16)
+
+# output
+
+Float16(6.55e4)
+```
+"""
+default_linesearch_αmax(::Type{T}) where {T} = T(min(DEFAULT_LINESEARCH_αmax, floatmax(T)))
+
+"""
+    convert_αmax(T, αmax)
+
+Convert the step-length ceiling `αmax` to the precision `T`, saturating a finite value at
+`floatmax(T)` instead of letting it overflow to `Inf`.
+
+`Inf` is passed through unchanged: it is not an overflow but a statement — "no ceiling of my own"
+(see [`linesearch_αmax`](@ref)) — and turning it into `floatmax(T)` would impose one the caller
+declined. Used by `change_precision` for the `αmax` field of every method that has one.
+"""
+convert_αmax(::Type{T}, αmax) where {T} = isinf(αmax) ? T(αmax) : T(min(αmax, floatmax(T)))
+
+@doc raw"""
     linesearch_iterations(T)
 
 Determine the default number of trial steps a line search may take, i.e. the default of the

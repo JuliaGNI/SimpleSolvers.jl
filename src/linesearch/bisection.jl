@@ -95,12 +95,20 @@ This is internal: it is the return type of a private function, like the `Symbol`
     BISECTION_EXHAUSTED
 end
 
-# The bisection loop, returning `(α, outcome, n)` so a caller can report the failure itself
+# The bisection loop, returning `(α, outcome, n, ylo)` so a caller can report the failure itself
 # instead of having this function log it, and report the evaluation count `n` as the `trials` of
-# a `LinesearchStatus`. The `Bisection` *line search* needs all three: it reports through
+# a `LinesearchStatus`. The `Bisection` *line search* needs all of them: it reports through
 # `linesearch_warnings` like every other line search, so a message emitted from here would
 # duplicate it and bypass the shared verbosity policy. The public `bisection` above keeps
 # warning, since it is also used standalone as a root finder.
+#
+# `ylo` is `f` at the *left* endpoint of the (sorted) interval, and it is returned because its
+# **sign is invariant under the whole bisection**: `y₀` is reassigned only on the branch where
+# `y₀ * y > 0`, so it never changes sign, and `y₁` keeps the opposite sign throughout. The interval
+# therefore shrinks onto a crossing whose direction was decided by the interval it started from, and
+# `sign(ylo)` names that direction — which is the difference between a minimum and a maximum when
+# `f` is a derivative. `Bisection` uses it for exactly that; see `_bisect_for_minimum`. A caller
+# root-finding through the public `bisection` can ignore it, and does.
 #
 # The outcome is a `BisectionOutcome` and not a `Bool` because "no sign change" used to be folded
 # into `converged = true` — the endpoint with the smallest |f| was returned and *claimed* as a
@@ -123,8 +131,12 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
     n += 2
     y = zero(y₀)
 
+    # `f` at the *left* endpoint, kept because its sign is what identifies which kind of crossing
+    # was located and is therefore worth reporting; see the fourth element of the return.
+    ylo = y₀
+
     if y₀ * y₁ > zero(y₀)
-        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), BISECTION_NOBRACKET, n
+        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), BISECTION_NOBRACKET, n, ylo
     end
 
     outcome = BISECTION_EXHAUSTED
@@ -153,7 +165,7 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
         end
     end
 
-    α, outcome, n
+    α, outcome, n, ylo
 end
 
 function bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
@@ -169,6 +181,12 @@ bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = 
     Bisection <: LinesearchMethod
 
 See [`bisection`](@ref) for the implementation of the algorithm.
+
+# Keywords
+
+- `αmax`: the largest step the bracketing will try, by default
+  [`DEFAULT_LINESEARCH_αmax`](@ref). See [`linesearch_αmax`](@ref), which is also how a caller
+  imposes a smaller ceiling of its own.
 
 # Extended help
 
@@ -190,6 +208,28 @@ via one extra derivative evaluation (see issue #164):
 This keeps the safe ``\\alpha = 0`` anchor while letting the caller's `α` set the
 search scale and, when it overshoots, serve directly as the upper bracket bound.
 
+## What it converges to is a minimum, not a maximum
+
+Bisection drives on the *sign* of ``\\varphi'``, so it converges to whichever crossing the sign at
+its left endpoint selects — and that sign is invariant under the halving. From
+``\\varphi'(\\mathrm{lo}) < 0`` the interval shrinks onto a ``-\\to+`` crossing, a **minimum**; from
+``\\varphi'(\\mathrm{lo}) > 0`` onto a ``+\\to-`` crossing, a **maximum**.
+
+Nothing in [`bracket_minimum`](@ref) rules the second out. It brackets a minimum in *value*,
+sampling ``\\varphi`` and never ``\\varphi'``, so on a non-convex ray its interval can enclose
+several stationary points and its left endpoint can sit past one of them. Landing on a maximum used
+not to be caught: the step was classified by the merit like any other step, so it was
+`LINESEARCH_DECREASED` when it happened to improve ``\\varphi`` and `LINESEARCH_FLOOR` when it did
+not — the same overclaim the previous section describes, reached by a different route, and
+GeometricOptimizers observed exactly it (`LINESEARCH_FLOOR` reported with
+``\\varphi(1) = \\varphi(0)``, and the step taken regardless).
+
+The orientation is now checked and repaired: when ``\\varphi'(\\mathrm{lo}) > 0`` the search bisects
+``[0, \\mathrm{lo}]`` instead, which brackets a minimum *by construction* — the anchor check has
+established ``\\varphi'(0) < 0`` — and finds the earlier one, nearer the anchor. The check costs
+nothing on a ray that does not need it, because it reads a value the bisection computes anyway.
+See `SimpleSolvers._bisect_for_minimum`.
+
 ## A bracket that fails is never a floor
 
 Bisection drives on the *sign* of ``\\varphi'``, so it can only work on an interval whose
@@ -207,16 +247,68 @@ establishes nothing of the kind. So the outcome is now classified by the merit a
 ``\\tau``, and `LINESEARCH_EXHAUSTED` when it does not. `LINESEARCH_FLOOR` is reachable only
 from a bisection that actually converged.
 """
-struct Bisection{T} <: LinesearchMethod{T} end
+struct Bisection{T} <: LinesearchMethod{T}
+    αmax::T
 
-Bisection(::Type{T}=Float64) where {T} = Bisection{T}()
+    function Bisection{T}(αmax::T=default_linesearch_αmax(T)) where {T}
+        @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
+        new{T}(αmax)
+    end
+end
+
+Bisection(::Type{T}=Float64; αmax=default_linesearch_αmax(T)) where {T} = Bisection{T}(T(αmax))
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
+
+method_αmax(m::Bisection) = m.αmax
 
 
 # Bisect the derivative on a known bracket. Private: `solve`/`solve_with_status` is the public
 # entry point (this used to be a `solve` overload, which made the public name ambiguous).
 _bisect_on(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params) where {T} =
     _bisection_core(problem(ls).D, α₀, α₁, params, config(ls))
+
+@doc raw"""
+    _bisect_for_minimum(ls, lo, hi, params)
+
+Bisect ``\varphi'`` on `[lo, hi]` for a **minimum**, returning `(α, outcome, n)` as
+`_bisection_core` does without its `ylo`.
+
+A bisection converges to whichever crossing the sign of ``\varphi'`` at its left endpoint selects,
+and that sign is invariant under the halving (see `_bisection_core`): from ``\varphi'(lo) < 0`` the
+interval shrinks onto a ``- \to +`` crossing, which is a minimum, and from ``\varphi'(lo) > 0`` onto
+a ``+ \to -`` crossing, which is a **maximum**. Nothing in [`bracket_minimum`](@ref) rules the
+second out — it brackets a minimum in *value*, sampling ``\varphi`` and never ``\varphi'``, so on a
+non-convex ray its interval can enclose several stationary points and its left endpoint can sit past
+one of them.
+
+So when ``\varphi'(lo) > 0`` this bisects `[0, lo]` instead, which brackets a minimum *by
+construction*: [`check_anchor`](@ref) has established ``\varphi'(0) < 0``, and ``\varphi'(lo) > 0``
+gives the opposite sign at the other end, so the crossing between them is a ``- \to +`` one. It is
+also the *earlier* minimum, the one nearer the anchor, which is the one a line search wants.
+
+The repair costs nothing on the path that does not need it: `ylo` is a value `_bisection_core`
+computes anyway, so a correctly oriented bracket is recognised without a single extra evaluation of
+``\varphi'`` — which for the ``\|F\|^2`` merit of a [`NonlinearSolver`](@ref) is a full
+[`Jacobian`](@ref). Only the pathological ray pays for a second bisection.
+
+The same condition covers the case where `[lo, hi]` has no crossing at all *and* ascends at `lo`
+(`BISECTION_NOBRACKET` with `ylo > 0`): there too a minimum lies in ``(0, lo)`` and there too the
+bisection of `[0, lo]` finds it. The retry's verdict then replaces the first one rather than being
+merged with it, unlike the negative-step retry in [`solve_with_status`](@ref) — the two disagree
+here because the first bracket was in the wrong place, which is precisely what `ylo` detected, and
+not because ``\varphi'`` is inconsistent with ``\varphi``.
+
+Private; [`solve_with_status`](@ref) is the public entry point.
+"""
+function _bisect_for_minimum(ls::Linesearch{T,<:Bisection}, lo::T, hi::T, params) where {T}
+    αres, bres, n, ylo = _bisect_on(ls, lo, hi, params)
+    # `lo ≤ 0` covers the intervals that are anchored at (or left of) zero already: the overshoot
+    # branch bisects `[0, α]`, whose `ylo` *is* the `φ′(0) < 0` the anchor check established, and a
+    # bracket that `bracket_minimum` flipped leftward is handled by the α > 0 contract instead.
+    (ylo ≤ zero(ylo) || lo ≤ zero(T)) && return (αres, bres, n)
+    αret, bret, nret, _ = _bisect_on(ls, zero(T), lo, params)
+    (αret, bret, n + nret)
+end
 
 """
     solve_with_status(ls::Linesearch{T,<:Bisection}, α, params)
@@ -227,53 +319,77 @@ Bisect the derivative of the merit to approximate the line minimiser and return 
 """
 function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
     prob = problem(ls)
+    # Before any merit evaluation, so that an unusable caller-supplied ceiling costs none.
+    αmax = linesearch_αmax(method(ls), params)
     φ₀ = value(prob, zero(T), params)
     d₀ = derivative(prob, zero(T), params)
 
-    anchor = check_anchor(φ₀, d₀, α)
+    anchor = check_anchor(φ₀, d₀, α, αmax)
     isnothing(anchor) || return anchor
 
     τ = armijo_tolerance(φ₀, armijo_ulps(T))
+
+    # Every step this function can hand back is derived from the trial step or from the bracketing,
+    # and both are bounded here rather than at each of the five returns below.
+    α = min(α, αmax)
 
     # Lower-anchor the bracket at α = 0, where a genuine descent direction has a decreasing
     # merit (φ′(0) < 0, now guaranteed by `check_anchor`). Probe the caller's trial step α (one
     # extra derivative evaluation) to decide how to fold it in; see the docstring and #164.
     αres, bres, n = if α > zero(T) && derivative(prob, α, params) ≥ zero(T)
-        # α overshot the minimum: [0, α] already brackets the stationary point.
-        _bisect_on(ls, zero(T), α, params)
+        # α overshot the minimum: [0, α] already brackets the stationary point, and brackets it
+        # with the right orientation — `φ′(0) < 0` at the left end, `φ′(α) ≥ 0` at the right — so
+        # what it converges to is a minimum and not a maximum. See `_bisect_for_minimum`.
+        _bisect_for_minimum(ls, zero(T), α, params)
     else
         # α is on the descent side: grow the bracket from 0, seeding the step scale from |α|
         # (clamped) instead of the fixed default.
         s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
-        bracket = bracket_minimum(prob, params, zero(T), s)
-        # `bracket_minimum` returns `nothing` only when `nmax` steps found no bracket in either
-        # direction, i.e. for a merit that keeps decreasing. There is then no interval to bisect —
-        # but that is a failure to *report*, not a round-off floor: calling it a floor would make
-        # the outer iteration count a descending merit as stagnation.
+        lo, hi, nb, bstatus = _bracket_minimum_core(prob, params, zero(T), s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        # The bracket ends at the ceiling with the merit still falling across it, so the minimiser
+        # lies beyond the largest step the caller allows and that step is the best admissible one.
+        # There is nothing to bisect: the derivative keeps its sign on `[0, αmax]` by construction,
+        # so bisection would report `BISECTION_NOBRACKET` and hand back an endpoint chosen by
+        # `|φ′|` rather than by the merit.
+        bstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, nb)
+        # `_bracket_minimum_core` reports `:unbracketable` only when `nmax` steps found no bracket
+        # in either direction, i.e. for a merit that keeps decreasing. There is then no interval to
+        # bisect — but that is a failure to *report*, not a round-off floor: calling it a floor
+        # would make the outer iteration count a descending merit as stagnation.
         # The merit *is* evaluated at the step handed back, at the cost of one evaluation on a path
         # that has already failed. Filling `φ` with `φ₀` instead would be a claim that the merit did
         # not change, which is what `linesearch_exhausted_reason` would then interpolate into its
         # message — and for a merit that descends forever it is exactly wrong. (The `check_anchor`
         # returns do fill `φ` with `φ₀`, deliberately: the whole point of an ascent or stationary
         # anchor is that no trial step is worth an evaluation.)
-        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, value(prob, α, params), τ, zero(T))
-        _bisect_on(ls, bracket..., params)
+        bstatus === :unbracketable && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, nb + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
+        # `_bisect_for_minimum` and not `_bisect_on`: this bracket is the one that can be oriented
+        # for a *maximum*, because `bracket_minimum` samples φ and never φ′.
+        # The bracketing's evaluations are this search's own, so they are carried into `trials`.
+        αb, bb, nbis = _bisect_for_minimum(ls, lo, hi, params)
+        (αb, bb, nb + nbis)
     end
     # A spent budget is reported through the status rather than logged here, so that
     # `linesearch_warnings` remains the only place a line search emits messages. Note that this
     # is *only* the budget case: a failed bracket carries on below, because the endpoint it
     # returns may still improve the merit and there is no reason to throw that away.
     bres === BISECTION_EXHAUSTED &&
-        return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
+        return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n + 1, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
 
     # `bracket_minimum` flips direction when the merit rises to the right of its start, so the
     # bracket — and hence the bisected result — can lie left of zero. A negative step is not a
     # meaningful step length along a direction (see the α > 0 contract), so retry once from the
     # α = 0 anchor, which `check_anchor` has established is decreasing.
     if αres ≤ zero(T)
-        bracket = bracket_minimum(prob, params, zero(T), T(DEFAULT_BRACKETING_s))
-        if !isnothing(bracket)
-            αres, bretry, nretry = _bisect_on(ls, bracket..., params)
+        # `_bracket_minimum_core` and not the public `bracket_minimum`: the latter reports a
+        # bracket truncated at the ceiling as an ordinary one, so this retry would bisect an
+        # interval over which φ′ keeps its sign — the one path in this method that could not reach
+        # `capped_status`.
+        rlo, rhi, nrb, rstatus = _bracket_minimum_core(prob, params, zero(T), T(DEFAULT_BRACKETING_s), T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        rstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, n + nrb)
+        n += nrb
+        if rstatus !== :unbracketable
+            αres, bretry, nretry = _bisect_for_minimum(ls, rlo, rhi, params)
             n += nretry
             # The retry's own verdict counts too: a retry that could not bracket either must not
             # be allowed to claim the floor below, for exactly the reason the first one may not.
@@ -301,18 +417,24 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # anchor *does* descend. As on the no-bracket path above, `φ` is the merit at the step handed
     # back and not `φ₀`: the caller's `α` is what is returned here, and nothing has measured the
     # merit there.
-    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n, φ₀, d₀, value(prob, α, params), τ, zero(T))
+    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
 
+    # The bracketing stops at the ceiling and bisection only narrows the interval it is given, so
+    # this cannot bind; it is here so that the α ≤ αmax half of the contract is guaranteed by this
+    # function rather than inferred from the helpers that feed it.
+    αres = min(αres, αmax)
+    # Counted like every other evaluation at a trial step α > 0; see the `trials` field.
     φres = value(prob, αres, params)
+    n += 1
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : nodecrease,
         n, φ₀, d₀, φres, τ, zero(T))
 end
 
-Base.show(io::IO, ::Bisection) = print(io, "Bisection")
+Base.show(io::IO, ls::Bisection) = print(io, "Bisection with αmax = $(ls.αmax).")
 
 function change_precision(::Type{T}, method::Bisection) where {T}
     T ≠ eltype(method) || return method
-    Bisection(T)
+    Bisection{T}(convert_αmax(T, method.αmax))
 end
 
-Base.isapprox(::Bisection{T}, ::Bisection{T}; kwargs...) where {T} = true
+Base.isapprox(b₁::Bisection{T}, b₂::Bisection{T}; kwargs...) where {T} = isapprox(b₁.αmax, b₂.αmax; kwargs...)

@@ -788,7 +788,83 @@ end
 
     # And the outcome is inferred, not boxed — it is on the line search's hot path.
     @test (@inferred SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())) isa
-          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int}
+          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int,Float64}
+
+    # The fourth element is `f` at the *left* endpoint, and it is there because its sign is
+    # invariant under the halving: the interval shrinks onto a crossing whose direction the
+    # starting interval already fixed. It is reported after the endpoint flip, i.e. it belongs to
+    # the smaller endpoint whichever order the caller passed them in.
+    @test SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())[4] == froot(0.0, nothing)
+    @test SimpleSolvers._bisection_core(froot, 2.0, 0.0, NullParameters(), Options())[4] == froot(0.0, nothing)
+    @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[4] == fpos(0.0, nothing)
+end
+
+@testset "$(rpad("a Bisection converges onto a minimum, never onto a maximum", 80))" begin
+    # `bracket_minimum` brackets a minimum in *value*: it samples φ and never φ′, so on a
+    # non-convex ray its interval can enclose several stationary points and its left endpoint can
+    # sit past one of them. The bisection inside it then converges to whichever crossing the sign
+    # of φ′ at that left endpoint selects — and from φ′(lo) > 0 that crossing is a *maximum*.
+    #
+    # This was not caught: the step was classified by the merit like any other, so it came back as
+    # `LINESEARCH_DECREASED` when it happened to improve φ and `LINESEARCH_FLOOR` when it did not.
+    # The second is the overclaim — `LINESEARCH_FLOOR` asserts that *no* line search can progress
+    # along this direction, and the outer iteration acts on it via `flag_stall!` and `max_stalls`.
+    # GeometricOptimizers observed exactly that (`_BFGS` + `Bisection` + `Geodesic`:
+    # `LINESEARCH_FLOOR` with φ(1) = φ(0), and the step taken regardless).
+    #
+    # φ has its minimum at α = 1; φ′ is given its own shape, with a minimum at α = 0.3 and a
+    # maximum at α = 2 — the realistic case, since `Bisection` bisects φ′ while bracketing on φ and
+    # the two disagree exactly when something is wrong (a stale or regularized Jacobian, an inexact
+    # linear solve, a non-smooth merit).
+    φ(a) = (a - 1.0)^2
+    D(a) = -(a - 0.3) * (a - 2.0)
+    prob = LinesearchProblem{Float64}((a, _) -> φ(a), (a, _) -> D(a))
+    ls = Linesearch(prob, Bisection(); verbosity=0)
+
+    # The bracket really is the pathological one: it ascends at its left endpoint and descends at
+    # its right, so the sign change it contains belongs to the maximum.
+    lo, hi = SimpleSolvers.bracket_minimum(φ, 0.0, 0.01)
+    @test (lo, hi) == (0.64, 2.56)
+    @test D(0.0) < 0.0 && D(lo) > 0.0 && D(hi) < 0.0
+
+    # Bisecting it as such lands on the maximum at α = 2, where the merit equals φ(0) exactly — the
+    # step that used to be handed back and claimed as the line minimiser.
+    αmax_root, ocmax, _, ylo = SimpleSolvers._bisect_on(ls, lo, hi, NullParameters())
+    @test ocmax === SimpleSolvers.BISECTION_CONVERGED
+    @test αmax_root ≈ 2.0 atol = 1e-8
+    @test ylo > 0.0                       # the orientation that gives it away
+    @test φ(αmax_root) == φ(0.0)          # no decrease at all, yet a "located root"
+
+    # Repaired, it bisects [0, lo] instead — oriented for a minimum by construction, since
+    # `check_anchor` has established φ′(0) < 0 — and finds the *earlier* minimum at α = 0.3.
+    αmin_root, ocmin, _ = SimpleSolvers._bisect_for_minimum(ls, lo, hi, NullParameters())
+    @test ocmin === SimpleSolvers.BISECTION_CONVERGED
+    @test αmin_root ≈ 0.3 atol = 1e-8
+
+    # End to end: a genuine decrease, reported as one.
+    st = solve_with_status(ls, 0.01)
+    @test steplength(st) ≈ 0.3 atol = 1e-8
+    @test outcome(st) === LINESEARCH_DECREASED
+    @test !isfloor(st)
+    @test st.φ ≤ st.φ₀ - st.τ
+
+    # A correctly oriented bracket is left exactly as it was, and — the reason the check is
+    # affordable at all — without one extra evaluation of φ′, which for the ‖F‖² merit of a
+    # `NonlinearSolver` is a full Jacobian. `ylo` is a value the bisection computes anyway.
+    convex = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> 2(a - 1.0))
+    lsc = Linesearch(convex, Bisection(); verbosity=0)
+    for (a, b) in ((0.0, 3.0), (0.5, 4.0), (0.64, 2.56))
+        probed = Ref(0)
+        counted = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> (probed[] += 1; 2(a - 1.0)))
+        lscount = Linesearch(counted, Bisection(); verbosity=0)
+        plain = SimpleSolvers._bisect_on(lscount, a, b, NullParameters())
+        n_plain = probed[]
+        probed[] = 0
+        repaired = SimpleSolvers._bisect_for_minimum(lscount, a, b, NullParameters())
+        @test repaired == plain[1:3]      # same step, same verdict, same evaluation count
+        @test probed[] == n_plain         # and the orientation check itself costs nothing
+    end
+    @test solve(lsc, 1.0) ≈ 1.0 atol = ∛(2eps())
 end
 
 @testset "$(rpad("a Bisection that cannot bracket never reports a floor", 80))" begin
@@ -830,10 +906,20 @@ end
     # bracket at all and the true value is as far from φ(0) as the step is long.
     @test stbad.φ == (α -> (α + 1.0)^2)(steplength(stbad))
     forever = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> -1.0)
+    # A merit that descends forever is now answered by the ceiling rather than by a failure: the
+    # bracketing stops at `αmax`, and the step it hands back really does decrease the merit — by
+    # 65535 here — so it is a decrease and not an exhausted search.  Reaching `:unbracketable` at
+    # all needs the ceiling switched off, and that is the case the `φ` field was fixed for.
     stf = solve_with_status(Linesearch(forever, Bisection(); verbosity=0), 1.0)
-    @test outcome(stf) === LINESEARCH_EXHAUSTED
-    @test stf.φ == 1.0 - steplength(stf)   # was φ₀ = 1.0, i.e. "the merit did not change"
+    @test outcome(stf) === LINESEARCH_DECREASED
+    @test steplength(stf) == SimpleSolvers.DEFAULT_LINESEARCH_αmax
+    @test stf.φ == 1.0 - steplength(stf)
     @test stf.φ < stf.φ₀
+
+    stfu = solve_with_status(Linesearch(forever, Bisection(; αmax=Inf); verbosity=0), 1.0)
+    @test outcome(stfu) === LINESEARCH_EXHAUSTED
+    @test stfu.φ == 1.0 - steplength(stfu)   # was φ₀ = 1.0, i.e. "the merit did not change"
+    @test stfu.φ < stfu.φ₀
 end
 
 @testset "$(rpad("bisection interval/config disambiguation", 80))" begin
@@ -932,6 +1018,305 @@ end
     @test_throws AssertionError BierlaireQuadratic(Float64; ξ=-1.0)
     @test Quadratic() isa Quadratic                      # defaults are valid
     @test BierlaireQuadratic() isa BierlaireQuadratic    # defaults are valid
+    @test_throws AssertionError Quadratic(Float64; αmax=0.0)
+    @test_throws AssertionError BierlaireQuadratic(Float64; αmax=-1.0)
+    @test_throws AssertionError Bisection(Float64; αmax=0.0)
+    @test Bisection() isa Bisection                      # defaults are valid
+end
+
+# The bracketing searches used to grow their bracket outward until the merit stopped falling, and
+# nothing bounded how far that was: `bracket_minimum_with_fixed_point` and `_triple_point_core`
+# double their probe step up to `DEFAULT_BRACKETING_nmax = 100` times, so from `s = 1e-2` the right
+# endpoint can reach 1e28.  Measured downstream (GeometricOptimizers issue D6, the upstream half of
+# their A1b), `Quadratic` returned α = 4.3e7 on a direction of norm 5.5.
+#
+# In a Euclidean problem that is self-correcting — φ grows like α², so the search's own decrease
+# test throws the step out — which is why it went unreported for so long.  On a *compact* manifold
+# it is not: φ is bounded there and can be genuinely lower at α = 1e9 than at α = 0, so nothing the
+# search can measure calls the step too large.  The merit is not a bound on the step.
+@testset "$(rpad("no search extrapolates past its ceiling", 80))" begin
+    αmax = SimpleSolvers.DEFAULT_LINESEARCH_αmax
+    minimising = (Bisection(), Quadratic(), BierlaireQuadratic())
+    every = (Static(), Backtracking(), Backtracking(; expand=true), StrongWolfe(), minimising...)
+
+    # A genuine minimiser, ten million steps away.  Scaled by 1e-14 so the merit stays of order one
+    # over the whole range and the outcome turns on the ceiling rather than on any tolerance.
+    far = LinesearchProblem{Float64}((α, _) -> (α - 1.0e7)^2 / 1.0e14, (α, _) -> 2(α - 1.0e7) / 1.0e14)
+
+    # Switching the ceiling off recovers the old behaviour, which is what says the defect was real
+    # and that this is what fixes it rather than some tolerance change alongside.
+    for m in (Bisection(; αmax=Inf), Quadratic(; αmax=Inf), BierlaireQuadratic(; αmax=Inf))
+        @test steplength(solve_with_status(Linesearch(far, m; verbosity=0), 1.0)) > 1.0e6
+    end
+
+    # With it, every minimising search stops exactly there — and reports a *decrease*, because the
+    # merit at the ceiling really is lower.  A ceiling is not a failure.
+    for m in minimising
+        st = solve_with_status(Linesearch(far, m; verbosity=0), 1.0)
+        @test steplength(st) == αmax
+        @test outcome(st) === LINESEARCH_DECREASED
+        @test st.φ == (α -> (α - 1.0e7)^2 / 1.0e14)(steplength(st))   # the merit at the step handed back
+        @test st.φ ≤ st.φ₀ - st.τ
+    end
+
+    # The caller's ceiling binds for *every* method, including the two that have none of their own.
+    # This is the half GeometricOptimizers needs: its bound is the 2π of a rotation divided by the
+    # norm of the direction, so it changes at every solver step and cannot live in a struct field.
+    for m in every, ceiling in (10.0, 0.25)
+        st = solve_with_status(Linesearch(far, m; verbosity=0), 1.0, (αmax=ceiling,))
+        @test steplength(st) ≤ ceiling
+        @test steplength(st) > 0.0                       # the α > 0 contract still holds
+    end
+
+    # It binds below the natural minimiser too, i.e. it is a ceiling and not just a backstop.
+    near = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> 2(α - 1.0))
+    for m in every
+        st = solve_with_status(Linesearch(near, m; verbosity=0), 1.0, (αmax=0.5,))
+        @test 0.0 < steplength(st) ≤ 0.5
+    end
+
+    # A ceiling that does not bind changes nothing at all — not the step, not the outcome, not the
+    # number of merit evaluations.  This is the assertion that the default path is untouched.
+    for m in every
+        ls = Linesearch(near, m; verbosity=0)
+        plain = solve_with_status(ls, 1.0)
+        roomy = solve_with_status(ls, 1.0, (αmax=1.0e6,))
+        @test steplength(roomy) === steplength(plain)
+        @test outcome(roomy) === outcome(plain)
+        @test trials(roomy) == trials(plain)
+    end
+
+    # `check_anchor` respects it too, so the ceiling holds on the returns that never search: an
+    # ascent anchor hands back the caller's trial step, and a caller that asked for less gets less.
+    ascent = LinesearchProblem{Float64}((α, _) -> (α + 1.0)^2, (α, _) -> 2(α + 1.0))
+    for m in every
+        st = solve_with_status(Linesearch(ascent, m; verbosity=0), 4.0, (αmax=0.5,))
+        @test 0.0 < steplength(st) ≤ 0.5
+    end
+
+    # The ceiling bounds where the merit is *evaluated*, not only what is returned.  A ceiling below
+    # the bracketing step `DEFAULT_BRACKETING_s` used to be stepped over by the first probe, before
+    # the loop tested the bound for the first time — one evaluation outside the range the caller
+    # called admissible, which on a problem where such a step is meaningless is exactly the
+    # evaluation the ceiling exists to avoid.
+    for m in every
+        probed = Float64[]
+        watched = LinesearchProblem{Float64}((α, _) -> (push!(probed, α); (α - 1.0)^2),
+            (α, _) -> (push!(probed, α); 2(α - 1.0)))
+        st = solve_with_status(Linesearch(watched, m; verbosity=0), 1.0, (αmax=0.005,))
+        @test isempty(probed) || maximum(probed) ≤ 0.005     # `Static` evaluates nothing at all
+        @test 0.0 < steplength(st) ≤ 0.005
+    end
+
+    # A ceiling that is not a usable step length is a caller error, and is reported as one before a
+    # single merit evaluation is spent — not silently ignored, which would hand back exactly the
+    # unbounded step the caller was trying to rule out.
+    for bad in (0.0, -1.0, NaN)
+        n = Ref(0)
+        counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; (α - 1.0)^2), (α, _) -> (n[] += 1; 2(α - 1.0)))
+        for m in every
+            @test_throws ArgumentError solve_with_status(Linesearch(counted, m; verbosity=0), 1.0, (αmax=bad,))
+        end
+        @test n[] == 0
+    end
+    # `Inf` is not one of them: it says the caller has no scale of its own, which is what a bound
+    # derived from one (2π / ‖δ‖, say) degenerates to for a vanishing direction. The method's own
+    # ceiling then stands, so it cannot produce an unbounded step either.
+    @test steplength(solve_with_status(Linesearch(far, Quadratic(); verbosity=0), 1.0, (αmax=Inf,))) == αmax
+
+    # When the merit only falls, the ceiling *is* the best admissible step and every minimising
+    # search has to return it — including at the ceilings a caller with a geometric bound actually
+    # supplies.  `Bisection` seeds its bracketing step from the trial step (`s = clamp(|α|, 0.01, 1)`,
+    # so `1` for `α = 1`), which put every ceiling ≤ 1 on the wrong side of the first probe: the
+    # truncated bracket tied with itself, was reported as a found one, and the search fell through
+    # to a `BISECTION_NOBRACKET` and its retry.  Measured on this merit, it returned 0.32 for a
+    # ceiling of 1.0 and 0.16 for one of 0.5 — a third of the step it was allowed — for 15 merit
+    # evaluations, and `LINESEARCH_EXHAUSTED` at 0.005.
+    descending = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> -1.0)
+    for m in minimising, ceiling in (2.0, 1.0, 0.5, 0.05, 0.005)
+        probed = Float64[]
+        watched = LinesearchProblem{Float64}((α, _) -> (push!(probed, α); 1.0 - α), (α, _) -> -1.0)
+        st = solve_with_status(Linesearch(watched, m; verbosity=0), 1.0, (αmax=ceiling,))
+        @test steplength(st) == ceiling
+        @test outcome(st) === LINESEARCH_DECREASED
+        @test st.φ == 1.0 - ceiling            # the merit at the step handed back
+        @test maximum(probed) ≤ ceiling
+    end
+    # …and the merit is not evaluated where nothing needs it: the whole search costs a handful of
+    # evaluations rather than the dozen the fall-through spent.
+    for m in minimising
+        n = Ref(0)
+        counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; 1.0 - α), (α, _) -> -1.0)
+        solve_with_status(Linesearch(counted, m; verbosity=0), 1.0, (αmax=0.5,))
+        @test n[] ≤ 6
+    end
+    @test steplength(solve_with_status(Linesearch(descending, Static(); verbosity=0), 1.0, (αmax=0.5,))) == 0.5
+
+    # A ceiling that cancels the search cancels the *derivative* evaluation that would only have
+    # decided where to start it. `Quadratic` chose its bracketing start first and tested the
+    # ceiling after, so it paid for an answer it discarded — and for the ‖F‖² merit of a
+    # `NonlinearSolver` that derivative is a full `Jacobian`, on the one path a caller-supplied
+    # ceiling makes common. Only the anchor's own `φ′(0)` is left.
+    for ceiling in (1.0, 0.5, 0.005)
+        nd = Ref(0)
+        watched = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> (nd[] += 1; -1.0))
+        st = solve_with_status(Linesearch(watched, Quadratic(); verbosity=0), 1.0, (αmax=ceiling,))
+        @test steplength(st) == ceiling
+        @test nd[] == 1
+    end
+end
+
+# `params` carries two optional fields — `φ₀` for the merit at the anchor and `αmax` for the
+# caller's ceiling — and they used to be read through different guards: `haskey` in the merit
+# closure and `hasproperty` in `linesearch_αmax`. Those agree on a `NamedTuple` and on nothing
+# else, so a plain struct had its ceiling honoured and then raised a `MethodError` from inside the
+# merit. `hasproperty` is the one that matches the rest of the closure, which reaches `params.x`
+# and `params.parameters` by property access and so could never have taken a `Dict` anyway.
+@testset "$(rpad("both optional params fields are read the same way", 80))" begin
+    F(y, x, p) = y .= (x .- 1.0) .^ 2
+    x = [0.5]
+    nl = NewtonSolver(x, similar(x); F=F)
+    SimpleSolvers.direction!(nl, x, NullParameters(), 1)
+    prob = SimpleSolvers.linesearch_problem(nl)
+
+    plain = (x=x, parameters=NullParameters())
+    supplied = (x=x, parameters=NullParameters(), φ₀=7.0)
+    @test value(prob, 0.0, supplied) == 7.0                       # the field is used …
+    @test value(prob, 0.0, plain) == SimpleSolvers.L2norm(F(similar(x), x, nothing))   # … and optional
+
+    struct LSParams
+        x::Vector{Float64}
+        parameters::Any
+        φ₀::Float64
+        αmax::Float64
+    end
+    st = LSParams(x, NullParameters(), 7.0, 0.5)
+    @test value(prob, 0.0, st) == 7.0
+    @test SimpleSolvers.linesearch_αmax(Bisection(), st) == 0.5
+    # and a struct without the field falls back, rather than raising, on both channels
+    struct BareParams
+        x::Vector{Float64}
+        parameters::Any
+    end
+    bare = BareParams(x, NullParameters())
+    @test value(prob, 0.0, bare) == value(prob, 0.0, plain)
+    @test SimpleSolvers.linesearch_αmax(Bisection(), bare) == Bisection().αmax
+end
+
+# `DEFAULT_LINESEARCH_αmax` is 2^16, which is *above* `floatmax(Float16) = 65504`, so the plain
+# `T(DEFAULT_LINESEARCH_αmax)` the constructors used overflowed to `Inf` — and a `Float16` line
+# search then carried no ceiling at all, i.e. the defect the field exists to fix was absent in the
+# one precision this package special-cases everywhere else (`armijo_ulps`, `linesearch_iterations`,
+# `default_precision`).
+@testset "$(rpad("the default ceiling survives Float16", 80))" begin
+    for T in (Float64, Float32, Float16)
+        @test isfinite(SimpleSolvers.default_linesearch_αmax(T))
+        for m in (Bisection(T), Quadratic(T), BierlaireQuadratic(T), StrongWolfe(T))
+            @test SimpleSolvers.method_αmax(m) === SimpleSolvers.default_linesearch_αmax(T)
+            @test isfinite(SimpleSolvers.method_αmax(m))
+        end
+    end
+    @test SimpleSolvers.default_linesearch_αmax(Float16) == floatmax(Float16)
+    @test SimpleSolvers.default_linesearch_αmax(Float64) == SimpleSolvers.DEFAULT_LINESEARCH_αmax
+
+    # `change_precision` saturates a finite ceiling for the same reason, but must leave an explicit
+    # `Inf` alone: that one is not an overflow but a statement — "no ceiling of my own".
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection())) == floatmax(Float16)
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection(; αmax=Inf))) == Inf
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, StrongWolfe())) == floatmax(Float16)
+end
+
+# The bracketing helpers report a truncated bracket as such rather than as a found one: the fits
+# would otherwise be handed an interval over which the merit only falls, where `Quadratic`'s
+# curvature guard bisects and returns a midpoint strictly worse than the endpoint.
+@testset "$(rpad("the bracketing helpers report a bracket truncated at the ceiling", 80))" begin
+    descending(x) = 1.0 - x                    # never turns, so only the ceiling can stop it
+    turning(x) = (x - 1.0)^2                   # turns at 1, well inside the ceilings below
+
+    a, b, ya, yb, _, st = SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, 0.01, 2.0, 100, 5.0)
+    @test st === :capped
+    @test b == 5.0 && yb == descending(5.0)
+    @test SimpleSolvers._bracket_minimum_with_fixed_point_core(turning, 0.0, 0.01, 2.0, 100, 5.0)[end] === :ok
+    # …and without a ceiling the same merit is what it always was: unbracketable.
+    @test SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, 0.01, 2.0, 100, Inf)[end] === :unbracketable
+
+    lo, hi, _, stm = SimpleSolvers._bracket_minimum_core(descending, 0.0, 0.01, 2.0, 100, 5.0)
+    @test stm === :capped && hi == 5.0
+    @test SimpleSolvers._bracket_minimum_core(turning, 0.0, 0.01, 2.0, 100, 5.0)[end] === :ok
+
+    _, _, c, _, stt = SimpleSolvers._triple_point_core(descending, 0.0, 0.01, 100, 1, 5.0)
+    @test stt === :capped && c == 5.0
+    @test SimpleSolvers._triple_point_core(turning, 0.0, 0.01, 100, 1, 5.0)[end] === :ok
+    # A ceiling below the initial probe still keeps every evaluation inside the admissible range.
+    @test SimpleSolvers._triple_point_core(descending, 0.0, 0.01, 100, 1, 0.005)[3] ≤ 0.005
+
+    # The public wrappers keep the return type they document; only the cores carry the status.
+    @test SimpleSolvers.bracket_minimum_with_fixed_point(descending, 0.0, 0.01, 2.0, 100, 5.0) == (0.0, 5.0, 1.0, -4.0)
+    @test isnothing(SimpleSolvers.bracket_minimum_with_fixed_point(descending, 0.0, 0.01, 2.0, 100, Inf))
+    # `bracket_minimum` moves its left endpoint as it walks (unlike the fixed-point variant above),
+    # so only the right end is pinned to the ceiling.
+    @test bracket_minimum(descending, 0.0, 0.01, 2.0, 100, 5.0)[2] == 5.0
+    @test isnothing(bracket_minimum(descending, 0.0, 0.01, 2.0, 100, Inf))
+
+    # A ceiling at or *below* the bracketing step `s` is the case that matters, because it is the
+    # regime a caller with a geometric bound of its own lands in — and `Bisection` seeds `s` from
+    # the trial step, so `s = 1` for the usual `α = 1`.  The first probe is clamped to the ceiling
+    # there, so the loop's probe lands on the same point: comparing it with itself is a *tie*,
+    # and a tie satisfies `BracketMinimumCriterion` (`yc ≥ yb`), which used to report the
+    # truncation as `:ok` — a turning point that is one point counted twice.  The caller then
+    # fitted a polynomial, or bisected a derivative, on an interval over which the merit only
+    # falls, and the whole `:capped` route was unreachable below `s`.
+    for (s, ceiling) in ((1.0, 1.0), (1.0, 0.5), (0.01, 0.005), (0.01, 0.01))
+        let (lo, hi, _, status) = SimpleSolvers._bracket_minimum_core(descending, 0.0, s, 2.0, 100, ceiling)
+            @test (lo, hi, status) == (0.0, ceiling, :capped)
+        end
+        let (_, b, _, _, _, status) = SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, s, 2.0, 100, ceiling)
+            @test (b, status) == (ceiling, :capped)
+        end
+        let (_, _, c, _, status) = SimpleSolvers._triple_point_core(descending, 0.0, s, 100, 1, ceiling)
+            @test (c, status) == (ceiling, :capped)
+        end
+        # …and the point at the ceiling is asked for exactly once, not twice.
+        for core in (SimpleSolvers._bracket_minimum_core,
+            SimpleSolvers._bracket_minimum_with_fixed_point_core)
+            probed = Float64[]
+            core(x -> (push!(probed, x); descending(x)), 0.0, s, 2.0, 100, ceiling)
+            @test count(==(ceiling), probed) == 1
+        end
+        probed = Float64[]
+        SimpleSolvers._triple_point_core(x -> (push!(probed, x); descending(x)), 0.0, s, 100, 1, ceiling)
+        @test count(==(ceiling), probed) == 1
+    end
+    # A turning point *at* the ceiling is still a genuine bracket and must not be swallowed by the
+    # guard above: it is only a tie against the same point that is not one.
+    @test SimpleSolvers._bracket_minimum_core(turning, 0.0, 1.0, 2.0, 100, 2.0)[end] === :ok
+
+    # A ceiling at or *below* the start leaves no admissible range at all. `_triple_point_core`
+    # clamps its first probe with `δ = min(δ, αmax - x₀)`, which is then zero or negative, so
+    # every probe landed at or left of the start: `αmax == x₀` reported `:flat` — that no line
+    # search can decrease the merit here — about a search that was never allowed to look, and
+    # `αmax < x₀` spent twelve evaluations halving a negative `δ` first.
+    for ceiling in (0.5, 1.0)
+        n = Ref(0)
+        _, _, _, nrep, status = SimpleSolvers._triple_point_core(
+            x -> (n[] += 1; descending(x)), 1.0, 0.01, 100, 1, ceiling)
+        @test status === :capped
+        @test n[] == 0 && nrep == 0        # and it costs nothing to say so
+    end
+    # Room to the right is still searched, and a negative `δ` — not a step length, and not what
+    # the ceiling is about — behaves exactly as it did.
+    @test SimpleSolvers._triple_point_core(descending, 1.0, 0.01, 100, 1, 2.0)[end] === :capped
+    @test SimpleSolvers._triple_point_core(turning, 1.5, -0.01, 100, 1)[end] ===
+          SimpleSolvers._triple_point_core(turning, 1.5, -0.01, 100, 1, Inf)[end]
+
+    # Each core reports what it spent, because for the searches that bracket the bracketing is
+    # where the work happens — see the `trials` testset for what that is for.
+    for (core, args) in ((SimpleSolvers._bracket_minimum_core, (0.0, 0.01, 2.0, 100, 5.0)),
+        (SimpleSolvers._triple_point_core, (0.0, 0.01, 100, 1, 5.0)))
+        n = Ref(0)
+        reported = core(x -> (n[] += 1; descending(x)), args...)[end-1]
+        @test reported == n[] > 0
+    end
 end
 
 # Check that `bracket_minimum_with_fixed_point` returns the
@@ -1228,9 +1613,9 @@ end
 @testset "$(rpad("trials is a real evaluation count for every method", 80))" begin
     # `trials` used to be a hardcoded 0 for Bisection/Quadratic/BierlaireQuadratic — so the
     # round-off-floor message read "in 0 trial step(s)" — and StrongWolfe counted only its
-    # expansion loop, not its zoom phase.  What each method counts is the problem evaluations of
-    # its *own* iteration: the merit, except for `Bisection`, which drives on the derivative it
-    # bisects.  See the `trials` field of `LinesearchStatus`.
+    # expansion loop, not its zoom phase.  What each method counts is the problem evaluations the
+    # search spent: the merit, except for `Bisection`, which drives on the derivative it bisects
+    # and brackets on the merit.  See the `trials` field of `LinesearchStatus`.
     function counted(m)
         nf, nd = Ref(0), Ref(0)
         prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - 2α + 1000α^2),
@@ -1249,15 +1634,30 @@ end
         @test nf == trials(st) + 1
     end
 
-    # The bracketing searches additionally spend evaluations inside `bracket_minimum` /
-    # `triple_point_finder`, which are not counted, so their `trials` is a lower bound on the
-    # total cost — but it is a real count of their own iteration, never zero and never inflated.
+    # The bracketing searches spend most of their evaluations inside `bracket_minimum` /
+    # `triple_point_finder`, and those count too: the bracketing is not a helper the search calls
+    # on the side, it is where the search does its work — and on the path where a ceiling binds it
+    # is the *whole* of it, where a count that omitted it reported one trial (`Bisection`) or none
+    # at all (`Quadratic`, the same value `Static` reports for evaluating nothing) for a search of
+    # any size.  So the count is real in both directions: never zero, and never more than the
+    # evaluations that actually happened.
     for m in (Quadratic(), BierlaireQuadratic())
         st, nf, _ = counted(m)
         @test 0 < trials(st) ≤ nf
     end
-    let (st, _, nd) = counted(Bisection())
-        @test 0 < trials(st) ≤ nd
+    # `Bisection` bisects the derivative but brackets on the merit, so its count is of both.
+    let (st, nf, nd) = counted(Bisection())
+        @test 0 < trials(st) ≤ nf + nd
+    end
+
+    # And the capped path, which is the one the old count said nothing about: the ceiling is
+    # reached by the bracketing, so everything the search spent is the bracketing's.
+    for m in (Bisection(), Quadratic(), BierlaireQuadratic())
+        nf, nd = Ref(0), Ref(0)
+        prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - α), (α, _) -> (nd[] += 1; -1.0))
+        st = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0, (αmax=0.5,))
+        @test steplength(st) == 0.5
+        @test 0 < trials(st) ≤ nf[] + nd[]
     end
 end
 
@@ -1420,9 +1820,15 @@ end
     # A boxed counter is invisible in the result but erases the type of everything built from it, so
     # pin that too: the `trials` of a `LinesearchStatus` and the `Symbol` a bracketing attempt reports.
     probe(a) = (a - 0.5)^2 + 1.0
-    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1)) isa Tuple{Float64,Float64,Float64,Symbol}
+    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1)) isa Tuple{Float64,Float64,Float64,Int,Symbol}
+    # The ceiling adds a third status but must not add a type: `:capped` travels the same slot.
+    # The evaluation count each core reports has to stay an inferred `Int` for the same reason —
+    # it becomes the `trials` of a `LinesearchStatus`, on the line search's hot path.
+    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1, 0.2)) isa Tuple{Float64,Float64,Float64,Int,Symbol}
+    @test (@inferred SimpleSolvers._bracket_minimum_with_fixed_point_core(probe, 0.0, 0.01, 2.0, 100, 0.2)) isa Tuple{Float64,Float64,Float64,Float64,Int,Symbol}
+    @test (@inferred SimpleSolvers._bracket_minimum_core(probe, 0.0, 0.01, 2.0, 100, 0.2)) isa Tuple{Float64,Float64,Int,Symbol}
     let ls = Linesearch(make_linesearch_problem(2.0), BierlaireQuadratic(); verbosity=0)
-        a, b, c = SimpleSolvers._triple_point_core(problem(ls), NullParameters(), 0.0)
+        a, b, c, _, _ = SimpleSolvers._triple_point_core(problem(ls), NullParameters(), 0.0)
         @test (@inferred SimpleSolvers._bierlaire_fit(ls, a, b, c, NullParameters(), 1.0e-16)) isa Tuple{Float64,Float64,Int}
     end
     @test (@inferred solve_with_status(Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity=0), 1.0)) isa LinesearchStatus
@@ -1438,6 +1844,20 @@ end
     end
     for ls in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
         @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
+    end
+
+    # A caller that supplies no ceiling pays nothing for the one it could have: `hasproperty` on the
+    # parameter type is resolved at compile time, so `caller_αmax` folds to `Inf` and the solve above
+    # is the proof. A caller that *does* supply one must not pay either — `params` gains a field, not
+    # an allocation — which is what this asserts on the line search directly.
+    function ceiling_allocations(m, params)
+        ls = Linesearch(make_linesearch_problem(2.0), m; verbosity=0)
+        solve_with_status(ls, 1.0, params)
+        @allocated solve_with_status(ls, 1.0, params)
+    end
+    for m in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
+        @test ceiling_allocations(m, (x=2.0, αmax=10.0)) == 0 skip = !AS_A_CALLER_COMPILES_IT
+        @test ceiling_allocations(m, (x=2.0,)) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end
 
     function wolfe_allocations()

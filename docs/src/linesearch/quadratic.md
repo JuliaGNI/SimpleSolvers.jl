@@ -342,3 +342,10 @@ nothing # hide
 
 ![](f_ls_3_light.png)
 ![](f_ls_3_dark.png)
+
+!!! info "The bracketing is bounded"
+    The fitted ``\alpha_t`` is confined to the bracket, so it is the *bracket* that has to be
+    bounded: [`bracket_minimum_with_fixed_point`](@ref) grows its right end outward until the
+    merit stops decreasing, which on a nearly flat or distantly-minimised ``f^\mathrm{ls}`` is
+    arbitrarily far. The `αmax` field of [`Quadratic`](@ref) stops it, and a caller with a scale
+    of its own can ask for less; see [Bounding the step](@ref "Bounding the step").

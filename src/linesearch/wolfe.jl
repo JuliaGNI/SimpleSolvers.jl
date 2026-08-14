@@ -2,9 +2,13 @@
     const DEFAULT_WOLFE_αmax
 
 Default upper bound on the step length for the bracketing phase of
-[`StrongWolfe`](@ref). Its value is `65536.0`.
+[`StrongWolfe`](@ref). This is [`DEFAULT_LINESEARCH_αmax`](@ref), which every method's ceiling now
+defaults to: the field was `StrongWolfe`'s alone until the bracketing searches were found to
+extrapolate without one, and defining this as that constant is what keeps the two from drifting
+apart. The constructor obtains it through [`default_linesearch_αmax`](@ref), which saturates it at
+`floatmax(T)` rather than overflowing to `Inf` in `Float16`.
 """
-const DEFAULT_WOLFE_αmax = 65536.0
+const DEFAULT_WOLFE_αmax = DEFAULT_LINESEARCH_αmax
 
 @doc raw"""
     StrongWolfe{T} <: LinesearchMethod
@@ -58,18 +62,20 @@ end
 function StrongWolfe(::Type{T}=Float64;
     c₁=T(DEFAULT_WOLFE_c₁),
     c₂=T(DEFAULT_WOLFE_c₂),
-    αmax=T(DEFAULT_WOLFE_αmax)
+    αmax=default_linesearch_αmax(T)
 ) where {T}
     StrongWolfe{T}(c₁, c₂, αmax)
 end
 
 StrongWolfe(::Type{T}, ::SolverMethod) where {T} = StrongWolfe(T)
 
+method_αmax(m::StrongWolfe) = m.αmax
+
 Base.show(io::IO, ls::StrongWolfe) = print(io, "StrongWolfe with c₁ = $(ls.c₁), c₂ = $(ls.c₂) and αmax = $(ls.αmax).")
 
 function change_precision(::Type{T}, method::StrongWolfe) where {T}
     T ≠ eltype(method) || return method
-    StrongWolfe{T}(T(method.c₁), T(method.c₂), T(method.αmax))
+    StrongWolfe{T}(T(method.c₁), T(method.c₂), convert_αmax(T, method.αmax))
 end
 
 function Base.isapprox(w₁::StrongWolfe{T}, w₂::StrongWolfe{T}; kwargs...) where {T}
@@ -130,7 +136,10 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     m = method(ls)
     c₁ = m.c₁
     c₂ = m.c₂
-    αmax = m.αmax
+    # `StrongWolfe` has had this ceiling since before the other methods did; all that is new is
+    # that a caller can ask for a smaller one. Everything downstream — the clamp of the initial
+    # trial and the stop of the expansion loop — already respects it.
+    αmax = linesearch_αmax(m, params)
     prob = problem(ls)
 
     # One-slot memoisation of the merit φ and its derivative φ′: the bracketing /
@@ -158,8 +167,11 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     # former test was `d0 ≥ zero(T)`, which a `NaN` derivative slips past (`NaN ≥ 0` is false)
     # only to trip `SufficientDecreaseCondition`'s `@assert !isnan(d₀)` below and abort the
     # enclosing solve; `check_anchor` covers the non-finite case too.
-    anchor = check_anchor(φ0, d0, α)
+    anchor = check_anchor(φ0, d0, α, αmax)
     isnothing(anchor) || return anchor
+    # The three tail returns hand back the caller's trial step, so it is bounded here rather than
+    # at each of them; the searching returns are bounded by `αi ≤ αmax` already.
+    α = min(α, αmax)
 
     # The strong Wolfe conditions are the Armijo (sufficient decrease) condition
     # plus the strong curvature condition. `StrongWolfe` keeps the *exact* Armijo test (τ = 0

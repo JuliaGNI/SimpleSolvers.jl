@@ -40,28 +40,43 @@ function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
 end
 
 
-"""
+@doc raw"""
     BierlaireQuadratic <: LinesearchMethod
 
 Algorithm taken from [bierlaire2015optimization](@cite).
+
+# Keywords
+
+- `ε`: the bracket-width tolerance of the fit.
+- `ξ`: the threshold below which ``|\varphi'(\alpha_0)|`` counts as stationary.
+- `αmax`: the largest step the triple-point bracketing will try, by default
+  [`DEFAULT_LINESEARCH_αmax`](@ref). Without it the bracketing doubles its increment until the
+  merit stops falling, which for a nearly flat or distantly-minimised ``\varphi`` is arbitrarily
+  far; see [`linesearch_αmax`](@ref), which is also how a caller imposes a smaller ceiling of its
+  own.
 """
 struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ε::T
     ξ::T
+    αmax::T
 
-    function BierlaireQuadratic{T}(ε::T, ξ::T) where {T}
+    function BierlaireQuadratic{T}(ε::T, ξ::T, αmax::T=default_linesearch_αmax(T)) where {T}
         @assert ε > 0 "Precision ε must be positive."
         @assert ξ > 0 "Derivative threshold ξ must be positive."
-        new{T}(ε, ξ)
+        @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
+        new{T}(ε, ξ, αmax)
     end
 end
 
 function BierlaireQuadratic(::Type{T}=Float64;
     ε=default_precision(T),
-    ξ=default_precision(T)
+    ξ=default_precision(T),
+    αmax=default_linesearch_αmax(T)
 ) where {T}
-    BierlaireQuadratic{T}(ε, ξ)
+    BierlaireQuadratic{T}(ε, ξ, αmax)
 end
+
+method_αmax(m::BierlaireQuadratic) = m.αmax
 
 BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 
@@ -161,6 +176,8 @@ report; see [`BierlaireQuadratic`](@ref).
 """
 function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
     prob = problem(ls)
+    # Before any merit evaluation, so that an unusable caller-supplied ceiling costs none.
+    αmax = linesearch_αmax(method(ls), params)
     φ₀ = value(prob, zero(T), params)
     d₀ = derivative(prob, zero(T), params)
 
@@ -169,10 +186,13 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     # flipping. Checking the anchor here is what keeps it from being handed an impossible
     # problem — the α = 0 anchor is *not* guaranteed decreasing when the direction came from a
     # stale or regularized Jacobian.
-    anchor = check_anchor(φ₀, d₀, α₀)
+    anchor = check_anchor(φ₀, d₀, α₀, αmax)
     isnothing(anchor) || return anchor
 
     τ = armijo_tolerance(φ₀, armijo_ulps(T))
+    # Every step this function can hand back is derived from the trial step or from the bracketing,
+    # and both are bounded here rather than at each of the returns below.
+    α₀ = min(α₀, αmax)
 
     # Near-stationarity shortcut: the minimum along this direction has already been reached.
     l2norm(derivative(prob, α₀, params)) < method(ls).ξ &&
@@ -182,20 +202,38 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     # (φ′(α₀) < 0, so the minimiser is to its right), otherwise at the α = 0 anchor, which
     # `check_anchor` has established is decreasing. See issue #164.
     start = (α₀ > zero(T) && derivative(prob, α₀, params) < zero(T)) ? α₀ : zero(T)
+    # A start at or beyond the ceiling leaves nothing to bracket; the ceiling is the answer, and
+    # `capped_status` is what says so with the merit measured there.
+    start < αmax || return capped_status(prob, params, αmax, φ₀, d₀, τ)  # nothing bracketed yet
     # `_triple_point_core` rather than `triple_point_finder`: its concrete return type costs no
     # allocation, and this runs once per line search.
-    a, b, c, bracket = _triple_point_core(prob, params, start)
+    a, b, c, nb, bracket = _triple_point_core(prob, params, start; αmax=αmax)
     # The two failures mean opposite things and must not be conflated: `:flat` says the merit does
     # not resolve a decrease from here, so no line search can improve on this point (a floor, which
     # the outer iteration counts as a stalled step), while `:unbracketable` says there *is* a
     # decrease that could not be bracketed — reporting that as a floor would count a descending
     # merit as stagnation.
-    if bracket !== :ok
+    if bracket === :flat || bracket === :unbracketable
         oc = bracket === :flat ? LINESEARCH_FLOOR : LINESEARCH_EXHAUSTED
-        return LinesearchStatus{T}(α₀, oc, 0, φ₀, d₀, φ₀, τ, zero(T))
+        return LinesearchStatus{T}(α₀, oc, nb, φ₀, d₀, φ₀, τ, zero(T))
     end
 
-    αres, φres, n = _bierlaire_fit(ls, a, b, c, params, τ)
+    # `:capped` is neither: the merit was still falling when the bracketing reached the largest
+    # step the caller allows, so that step is the best admissible one and there is no triple to
+    # fit.
+    bracket === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, nb)
+
+    αres, φres, nfit = _bierlaire_fit(ls, a, b, c, params, τ)
+    # The bracketing's evaluations are this search's own, so they are carried into `trials`.
+    n = nb + nfit
+    # The fit is confined to `[a, c] ⊆ [0, αmax]`, so this cannot bind; it is here so that the
+    # α ≤ αmax half of the contract is guaranteed by this function rather than inferred from the
+    # bracketing.
+    if αres > αmax
+        αres = αmax
+        φres = value(prob, αres, params)
+        n += 1
+    end
     # The fit works inside a bracket whose left end is ≥ 0, so a non-positive result means the
     # arithmetic collapsed rather than that the anchor ascends (`check_anchor` ruled that out):
     # no positive step improves the merit as far as this search can tell, which is the floor.
@@ -207,17 +245,17 @@ end
 
 
 
-Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", and ξ = " * string(ls.ξ) * ".")
+Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", ξ = " * string(ls.ξ) * ", and αmax = " * string(ls.αmax) * ".")
 
 function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
     T ≠ AT || return method
     if method.ε == default_precision(AT) && method.ξ == default_precision(AT)
-        BierlaireQuadratic{T}(default_precision(T), default_precision(T))
+        BierlaireQuadratic{T}(default_precision(T), default_precision(T), convert_αmax(T, method.αmax))
     else
-        BierlaireQuadratic{T}(T(method.ε), T(method.ξ))
+        BierlaireQuadratic{T}(T(method.ε), T(method.ξ), convert_αmax(T, method.αmax))
     end
 end
 
 function Base.isapprox(bq₁::BierlaireQuadratic{T}, bq₂::BierlaireQuadratic{T}; kwargs...) where {T}
-    isapprox(bq₁.ε, bq₂.ε; kwargs...) && isapprox(bq₁.ξ, bq₂.ξ; kwargs...)
+    isapprox(bq₁.ε, bq₂.ε; kwargs...) && isapprox(bq₁.ξ, bq₂.ξ; kwargs...) && isapprox(bq₁.αmax, bq₂.αmax; kwargs...)
 end

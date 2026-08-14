@@ -20,6 +20,10 @@ The iteration may also stop after it reaches the maximum number of iterations, t
 - `ε`: A constant that checks the *precision*/*tolerance*.
 - `s`: A constant that determines the initial interval for bracketing. By default this is [`DEFAULT_BRACKETING_s`](@ref).
 - `s_reduction:` A constant that determines the factor by which `s` is decreased in each new *bracketing iteration*.
+- `αmax`: the largest step the bracketing will try, by default [`DEFAULT_LINESEARCH_αmax`](@ref).
+  Without it the bracket grows outward until the merit stops falling, which for a nearly flat or
+  distantly-minimised ``\varphi`` is arbitrarily far; see [`linesearch_αmax`](@ref), which is also
+  how a caller imposes a *smaller* ceiling of its own.
 
 # Extended help
 
@@ -29,22 +33,27 @@ struct Quadratic{T} <: LinesearchMethod{T}
     ε::T
     s::T
     s_reduction::T
+    αmax::T
 
-    function Quadratic{T}(ε::T, s::T, s_reduction::T) where {T}
+    function Quadratic{T}(ε::T, s::T, s_reduction::T, αmax::T=default_linesearch_αmax(T)) where {T}
         @assert ε > 0 "Precision ε must be positive."
         @assert s > 0 "Bracketing step s must be positive."
         @assert 0 < s_reduction < 1 "Bracketing step reduction factor must satisfy 0 < s_reduction < 1."
-        new{T}(ε, s, s_reduction)
+        @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
+        new{T}(ε, s, s_reduction, αmax)
     end
 end
 
 function Quadratic(::Type{T}=Float64;
     ε=default_precision(T),
     s=T(DEFAULT_BRACKETING_s),
-    s_reduction=T(DEFAULT_s_REDUCTION)
+    s_reduction=T(DEFAULT_s_REDUCTION),
+    αmax=default_linesearch_αmax(T)
 ) where {T}
-    Quadratic{T}(ε, s, s_reduction)
+    Quadratic{T}(ε, s, s_reduction, αmax)
 end
+
+method_αmax(m::Quadratic) = m.αmax
 
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
@@ -56,14 +65,19 @@ Fit successive quadratics to approximate the line minimiser and return the
 [`Quadratic`](@ref).
 """
 function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
+    # Before any merit evaluation, so that an unusable caller-supplied ceiling costs none.
+    αmax = linesearch_αmax(method(ls), params)
     φ₀ = value(problem(ls), zero(T), params)
     d₀ = derivative(problem(ls), zero(T), params)
 
-    anchor = check_anchor(φ₀, d₀, α₀)
+    anchor = check_anchor(φ₀, d₀, α₀, αmax)
     isnothing(anchor) || return anchor
 
     τ = armijo_tolerance(φ₀, armijo_ulps(T))
-    αres, n = _quadratic_search(ls, α₀, params)
+    # Every step this function can hand back is derived from the trial step or from the bracketing,
+    # and both are bounded here rather than at each of the returns below.
+    α₀ = min(α₀, αmax)
+    αres, n = _quadratic_search(ls, α₀, params, αmax)
 
     # `bracket_minimum_with_fixed_point` flips direction when the merit rises to the right of
     # the bracketing *start* — which is α₀, not 0 — so even a decreasing anchor can yield a
@@ -71,7 +85,7 @@ function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullP
     # meaningful step length along a direction (see the α > 0 contract), so retry once from the
     # α = 0 anchor, which `check_anchor` has established is decreasing.
     if isnothing(αres) || αres ≤ zero(T)
-        αres, nretry = _quadratic_search(ls, zero(T), params)
+        αres, nretry = _quadratic_search(ls, zero(T), params, αmax)
         n += nretry
     end
     # `bracket_minimum_with_fixed_point` fails only by exhausting `nmax` in both directions, i.e.
@@ -82,7 +96,16 @@ function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullP
     # which is the floor — `check_anchor` established above that the anchor itself descends.
     αres > zero(T) || return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
 
+    # The bracketing already stops at the ceiling and the fit is confined to the bracket, so this
+    # cannot bind; it is here so that the α ≤ αmax half of the contract is guaranteed by this
+    # function rather than inferred from the two that feed it, and so that the merit reported
+    # below is the merit at the step handed back whichever of them produced it.
+    αres = min(αres, αmax)
+    # Counted: this is a merit evaluation at a trial step α > 0 like any other, and on the path
+    # where the ceiling answers the question without a search it is the *only* one — reporting
+    # zero there would be the value `Static` reports for evaluating nothing at all.
     φres = value(problem(ls), αres, params)
+    n += 1
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
         n, φ₀, d₀, φres, τ, zero(T))
 end
@@ -90,13 +113,21 @@ end
 # The quadratic-fit iteration itself. Returns `(α, n)` with `n` the number of merit evaluations,
 # or `(nothing, n)` if the merit cannot be bracketed.
 # Private: `solve`/`solve_with_status` is the public entry point.
-function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params) where {T}
+function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params, αmax::T) where {T}
     n = 0
+    # A trial step at or beyond the ceiling leaves nothing to search: the whole admissible range
+    # lies left of where the bracketing could start, so the ceiling itself is the answer. Tested
+    # *before* the start is chosen, because the answer is the same on either side of the
+    # minimiser and the derivative below only decides *where* to start — for the ‖F‖² merit of a
+    # `NonlinearSolver` that derivative is a full `Jacobian`, and a caller who supplies a ceiling
+    # is precisely the caller whose trial step it exceeds.
+    α₀ < αmax || return (αmax, n)
     # Start the bracketing at the caller's α₀ when it lies on the descent side
     # (φ′(α₀) < 0, so the minimiser is to its right); otherwise keep the α = 0 anchor,
     # where a descent direction is guaranteed decreasing. `bracket_minimum_with_fixed_point`
     # searches rightward from a fixed left point, so that point must be on the descent
-    # side. See issue #164.
+    # side. See issue #164. Either way the result is below the ceiling — `α₀` by the test above
+    # and `0` because a ceiling is positive — so the bracketing always has room to run.
     α = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
     s = method(ls).s
 
@@ -104,11 +135,21 @@ function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params) wher
         # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
         # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
         # from the bracketing, so no re-evaluation is needed here.
-        bracket = bracket_minimum_with_fixed_point(problem(ls), params, α, s)
-        # `nothing` means the merit could not be bracketed from here (see `bracket_minimum`).
-        isnothing(bracket) && return (nothing, n)
-        a, b, y₀, y₁ = bracket
-        n += 2   # this round of the fit; the bracketer’s own evaluations are not counted
+        a, b, y₀, y₁, nb, bracket = _bracket_minimum_with_fixed_point_core(problem(ls), params, α, s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        # The bracketing's evaluations are this search's own, so they are carried into `trials`.
+        n += nb
+        # The merit could not be bracketed from here (see `bracket_minimum`).
+        bracket === :unbracketable && return (nothing, n)
+        # The bracket ends at the ceiling with the merit still falling across it, so the turning
+        # point lies beyond the largest step the caller allows and `αmax` is the best admissible
+        # step. Fitting the truncated bracket instead would be worse than useless: the fitted
+        # curvature over a monotone-decreasing interval is non-positive, so the guard below falls
+        # back to bisecting it and hands back a midpoint strictly above the endpoint's merit.
+        bracket === :capped && return (αmax, n)
+        # No `n` of its own for this round: the fit interpolates `y₀`, `y₁` at the bracket
+        # endpoints, and those *are* evaluations the bracketing made and `nb` has counted. The
+        # fixed `n += 2` that stood here was a proxy for them from when the bracketer's cost was
+        # invisible, and adding it now would count them twice.
         d₀ = derivative(problem(ls), a, params)
         # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
         # (not the loop's start `α`), which differ when the bracketer flipped because
@@ -131,13 +172,13 @@ function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params) wher
     (α, n)
 end
 
-Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s) and s_reduction = $(ls.s_reduction).")
+Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(ls.ε), s = $(ls.s), s_reduction = $(ls.s_reduction) and αmax = $(ls.αmax).")
 
 function change_precision(::Type{T}, method::Quadratic) where {T}
     T ≠ eltype(method) || return method
-    Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction))
+    Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction), convert_αmax(T, method.αmax))
 end
 
 function Base.isapprox(qu₁::Quadratic{T}, qu₂::Quadratic{T}; kwargs...) where {T}
-    isapprox(qu₁.ε, qu₂.ε; kwargs...) && isapprox(qu₁.s, qu₂.s; kwargs...) && isapprox(qu₁.s_reduction, qu₂.s_reduction; kwargs...)
+    isapprox(qu₁.ε, qu₂.ε; kwargs...) && isapprox(qu₁.s, qu₂.s; kwargs...) && isapprox(qu₁.s_reduction, qu₂.s_reduction; kwargs...) && isapprox(qu₁.αmax, qu₂.αmax; kwargs...)
 end

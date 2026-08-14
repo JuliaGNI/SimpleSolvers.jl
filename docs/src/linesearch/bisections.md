@@ -115,3 +115,9 @@ bracket_root(f2, 30.)
 throw(UnexpectedSuccess()) #hide
 catch e; e isa UnexpectedSuccess ? rethrow(e) : showerror(stderr, e); end  #hide
 ```
+
+!!! info "The bracketing is bounded"
+    [`bracket_minimum`](@ref) grows the interval outward until the merit stops decreasing, which
+    on a merit that keeps falling is bounded only by the bracketing budget. The `αmax` field of
+    [`Bisection`](@ref) stops it, and a caller with a scale of its own can ask for less; see
+    [Bounding the step](@ref "Bounding the step").
