@@ -101,7 +101,11 @@ function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullP
     # function rather than inferred from the two that feed it, and so that the merit reported
     # below is the merit at the step handed back whichever of them produced it.
     αres = min(αres, αmax)
+    # Counted: this is a merit evaluation at a trial step α > 0 like any other, and on the path
+    # where the ceiling answers the question without a search it is the *only* one — reporting
+    # zero there would be the value `Static` reports for evaluating nothing at all.
     φres = value(problem(ls), αres, params)
+    n += 1
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
         n, φ₀, d₀, φres, τ, zero(T))
 end
@@ -111,22 +115,29 @@ end
 # Private: `solve`/`solve_with_status` is the public entry point.
 function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params, αmax::T) where {T}
     n = 0
+    # A trial step at or beyond the ceiling leaves nothing to search: the whole admissible range
+    # lies left of where the bracketing could start, so the ceiling itself is the answer. Tested
+    # *before* the start is chosen, because the answer is the same on either side of the
+    # minimiser and the derivative below only decides *where* to start — for the ‖F‖² merit of a
+    # `NonlinearSolver` that derivative is a full `Jacobian`, and a caller who supplies a ceiling
+    # is precisely the caller whose trial step it exceeds.
+    α₀ < αmax || return (αmax, n)
     # Start the bracketing at the caller's α₀ when it lies on the descent side
     # (φ′(α₀) < 0, so the minimiser is to its right); otherwise keep the α = 0 anchor,
     # where a descent direction is guaranteed decreasing. `bracket_minimum_with_fixed_point`
     # searches rightward from a fixed left point, so that point must be on the descent
-    # side. See issue #164.
+    # side. See issue #164. Either way the result is below the ceiling — `α₀` by the test above
+    # and `0` because a ceiling is positive — so the bracketing always has room to run.
     α = (α₀ > zero(T) && derivative(problem(ls), α₀, params) < zero(T)) ? α₀ : zero(T)
-    # A trial step at or beyond the ceiling leaves nothing to search: the whole admissible range
-    # lies left of where the bracketing would start, so the ceiling itself is the answer.
-    α < αmax || return (αmax, n)
     s = method(ls).s
 
     for _ in 1:config(ls).linesearch_max_iterations
         # fit p(α) = p₀ + p₁(α - a) + p₂(α - a)² with p₀ = y₀, p₁ = d₀ and
         # p₂ = (y₁ - y₀ - d₀(b - a)) / (b - a)²; the endpoint merits y₀, y₁ come
         # from the bracketing, so no re-evaluation is needed here.
-        a, b, y₀, y₁, bracket = _bracket_minimum_with_fixed_point_core(problem(ls), params, α, s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        a, b, y₀, y₁, nb, bracket = _bracket_minimum_with_fixed_point_core(problem(ls), params, α, s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        # The bracketing's evaluations are this search's own, so they are carried into `trials`.
+        n += nb
         # The merit could not be bracketed from here (see `bracket_minimum`).
         bracket === :unbracketable && return (nothing, n)
         # The bracket ends at the ceiling with the merit still falling across it, so the turning
@@ -135,7 +146,10 @@ function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params, αma
         # curvature over a monotone-decreasing interval is non-positive, so the guard below falls
         # back to bisecting it and hands back a midpoint strictly above the endpoint's merit.
         bracket === :capped && return (αmax, n)
-        n += 2   # this round of the fit; the bracketer’s own evaluations are not counted
+        # No `n` of its own for this round: the fit interpolates `y₀`, `y₁` at the bracket
+        # endpoints, and those *are* evaluations the bracketing made and `nb` has counted. The
+        # fixed `n += 2` that stood here was a proxy for them from when the bracketer's cost was
+        # invisible, and adding it now would count them twice.
         d₀ = derivative(problem(ls), a, params)
         # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
         # (not the loop's start `α`), which differ when the bracketer flipped because

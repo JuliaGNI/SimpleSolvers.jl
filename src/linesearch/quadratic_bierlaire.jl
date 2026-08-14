@@ -204,10 +204,10 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     start = (α₀ > zero(T) && derivative(prob, α₀, params) < zero(T)) ? α₀ : zero(T)
     # A start at or beyond the ceiling leaves nothing to bracket; the ceiling is the answer, and
     # `capped_status` is what says so with the merit measured there.
-    start < αmax || return capped_status(prob, params, αmax, φ₀, d₀, τ)
+    start < αmax || return capped_status(prob, params, αmax, φ₀, d₀, τ)  # nothing bracketed yet
     # `_triple_point_core` rather than `triple_point_finder`: its concrete return type costs no
     # allocation, and this runs once per line search.
-    a, b, c, bracket = _triple_point_core(prob, params, start; αmax=αmax)
+    a, b, c, nb, bracket = _triple_point_core(prob, params, start; αmax=αmax)
     # The two failures mean opposite things and must not be conflated: `:flat` says the merit does
     # not resolve a decrease from here, so no line search can improve on this point (a floor, which
     # the outer iteration counts as a stalled step), while `:unbracketable` says there *is* a
@@ -215,21 +215,24 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     # merit as stagnation.
     if bracket === :flat || bracket === :unbracketable
         oc = bracket === :flat ? LINESEARCH_FLOOR : LINESEARCH_EXHAUSTED
-        return LinesearchStatus{T}(α₀, oc, 0, φ₀, d₀, φ₀, τ, zero(T))
+        return LinesearchStatus{T}(α₀, oc, nb, φ₀, d₀, φ₀, τ, zero(T))
     end
 
     # `:capped` is neither: the merit was still falling when the bracketing reached the largest
     # step the caller allows, so that step is the best admissible one and there is no triple to
     # fit.
-    bracket === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ)
+    bracket === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, nb)
 
-    αres, φres, n = _bierlaire_fit(ls, a, b, c, params, τ)
+    αres, φres, nfit = _bierlaire_fit(ls, a, b, c, params, τ)
+    # The bracketing's evaluations are this search's own, so they are carried into `trials`.
+    n = nb + nfit
     # The fit is confined to `[a, c] ⊆ [0, αmax]`, so this cannot bind; it is here so that the
     # α ≤ αmax half of the contract is guaranteed by this function rather than inferred from the
     # bracketing.
     if αres > αmax
         αres = αmax
         φres = value(prob, αres, params)
+        n += 1
     end
     # The fit works inside a bracket whose left end is ≥ 0, so a non-positive result means the
     # arithmetic collapsed rather than that the anchor ascends (`check_anchor` ruled that out):

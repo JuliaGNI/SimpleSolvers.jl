@@ -22,9 +22,10 @@ a state whose `value` is stale must not supply it.
 
 It may carry an optional `αmax` field too, the caller's ceiling on the step length; see
 [`linesearch_αmax`](@ref), which documents why that one has to be per call. That one is read by
-the *method* rather than by these closures, through a `hasproperty` guard, as `φ₀` is read here
-through a `haskey` one. Both are resolved from the parameter type at compile time, so supplying
-neither costs nothing.
+the *method* rather than by these closures, but through the same `hasproperty` guard, resolved
+from the parameter type at compile time, so supplying neither costs nothing. `params` therefore
+has to answer *property* access throughout — a `NamedTuple` or any struct, which is what the
+required `x` and `parameters` fields already demanded.
 """
 function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
     # private scratch buffers for the line search (see the docstring for why)
@@ -33,9 +34,14 @@ function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache:
     jₜ = zero(jacobianmatrix(cache))
 
     function f(α::Number, params)
-        # `haskey` on a `NamedTuple` is resolved at compile time, so the guard costs nothing
-        # and the closure stays usable with the bare `(x, parameters)` form.
-        (iszero(α) && haskey(params, :φ₀)) && return convert(T, params.φ₀)
+        # `hasproperty` is resolved from the parameter type at compile time, so the guard costs
+        # nothing and the closure stays usable with the bare `(x, parameters)` form. It is the
+        # same guard `linesearch_αmax` reads `params.αmax` through, and it has to be: this
+        # closure reaches its other two fields by *property* access (`params.x`,
+        # `params.parameters`), so a `params` that only answers `haskey` — a `Dict` — could never
+        # have worked here anyway, while one that only answers `hasproperty` — any struct, and
+        # `NullParameters` among them — used to raise a `MethodError` from inside the merit.
+        (iszero(α) && hasproperty(params, :φ₀)) && return convert(T, params.φ₀)
         compute_new_iterate!(xₜ, params.x, α, direction(cache))
         value!(yₜ, nlp, xₜ, params.parameters)
         L2norm(yₜ)

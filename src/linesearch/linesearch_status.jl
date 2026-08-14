@@ -90,13 +90,17 @@ answer, or it may be all that is left after the merit turned out to be irreducib
 
 - `α`: the returned step length (the value [`solve`](@ref) returns),
 - `outcome::`[`LinesearchOutcome`](@ref),
-- `trials`: the number of trial steps ``\alpha > 0`` at which the method actually evaluated the
-  problem in its own iteration — *not* the `linesearch_max_iterations` budget. That is the merit
-  for every method except [`Bisection`](@ref), which drives on the derivative it bisects.
-  Evaluations spent inside a bracketing helper ([`bracket_minimum`](@ref),
-  [`triple_point_finder`](@ref)) are not included, so for the bracketing searches this is a
-  lower bound on the total cost; for [`Backtracking`](@ref) and [`StrongWolfe`](@ref) it is
-  exact, and every merit evaluation is either the ``\alpha = 0`` anchor or a counted trial,
+- `trials`: what the search cost, as the number of times it evaluated the problem — *not* the
+  `linesearch_max_iterations` budget. That is the merit for every method except
+  [`Bisection`](@ref), which drives on the derivative it bisects and brackets on the merit, so
+  its count is of both. For [`Backtracking`](@ref) and [`StrongWolfe`](@ref) it is exactly the
+  number of trial steps ``\alpha > 0``: every merit evaluation is either the ``\alpha = 0``
+  anchor or a counted trial. For the searches that *bracket* it includes what the bracketing
+  spent ([`bracket_minimum`](@ref), [`triple_point_finder`](@ref)) — that is where those searches
+  do their work, and on the path where a ceiling binds it is the whole of it, so a count omitting
+  it reported one evaluation, or none at all, for a search of any size. One of the evaluations it
+  then counts is the bracketing's own re-evaluation of the anchor, so for those methods the
+  number is the cost rather than exactly the number of distinct positive steps,
 - `φ₀`, `d₀`: the merit and its derivative at the anchor ``\alpha = 0``,
 - `φ`: the merit at the returned step,
 - `τ`: the round-off resolution of the merit (see [`armijo_tolerance`](@ref)), against which
@@ -224,7 +228,7 @@ function check_anchor(φ₀::T, d₀::T, α::T, αmax::T=T(Inf)) where {T}
 end
 
 @doc raw"""
-    capped_status(prob, params, αmax, φ₀, d₀, τ)
+    capped_status(prob, params, αmax, φ₀, d₀, τ, n=0)
 
 The [`LinesearchStatus`](@ref) of a search whose bracketing reached the ceiling `αmax` (see
 [`linesearch_αmax`](@ref)) with the merit still falling. The turning point then lies beyond the
@@ -238,11 +242,16 @@ evaluated at `αmax` and classified by exactly the rule every other returned ste
 this case arises, ``\varphi(\alpha_\mathrm{max})`` is genuinely lower and the step genuinely
 decreases the merit — and a caller that wants to know whether its ceiling bound the search can
 compare the ceiling it supplied against [`steplength`](@ref).
+
+`n` is what the bracketing that reached the ceiling spent, which the caller gets from the
+bracketing core (see [`_bracket_core`](@ref)). It has to be passed in rather than assumed, because
+on this path the bracketing *is* the search: reporting only the single evaluation made here would
+make [`trials`](@ref) say a capped search cost one step whatever it actually cost.
 """
-function capped_status(prob, params, αmax::T, φ₀::T, d₀::T, τ::T) where {T}
+function capped_status(prob, params, αmax::T, φ₀::T, d₀::T, τ::T, n::Int=0) where {T}
     φ = value(prob, αmax, params)
     LinesearchStatus{T}(αmax, φ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
-        1, φ₀, d₀, φ, τ, zero(T))
+        n + 1, φ₀, d₀, φ, τ, zero(T))
 end
 
 @doc raw"""

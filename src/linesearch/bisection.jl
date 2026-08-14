@@ -345,13 +345,13 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # α is on the descent side: grow the bracket from 0, seeding the step scale from |α|
         # (clamped) instead of the fixed default.
         s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
-        lo, hi, bstatus = _bracket_minimum_core(prob, params, zero(T), s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        lo, hi, nb, bstatus = _bracket_minimum_core(prob, params, zero(T), s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
         # The bracket ends at the ceiling with the merit still falling across it, so the minimiser
         # lies beyond the largest step the caller allows and that step is the best admissible one.
         # There is nothing to bisect: the derivative keeps its sign on `[0, αmax]` by construction,
         # so bisection would report `BISECTION_NOBRACKET` and hand back an endpoint chosen by
         # `|φ′|` rather than by the merit.
-        bstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ)
+        bstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, nb)
         # `_bracket_minimum_core` reports `:unbracketable` only when `nmax` steps found no bracket
         # in either direction, i.e. for a merit that keeps decreasing. There is then no interval to
         # bisect — but that is a failure to *report*, not a round-off floor: calling it a floor
@@ -362,17 +362,19 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # message — and for a merit that descends forever it is exactly wrong. (The `check_anchor`
         # returns do fill `φ` with `φ₀`, deliberately: the whole point of an ascent or stationary
         # anchor is that no trial step is worth an evaluation.)
-        bstatus === :unbracketable && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, value(prob, α, params), τ, zero(T))
+        bstatus === :unbracketable && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, nb + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
         # `_bisect_for_minimum` and not `_bisect_on`: this bracket is the one that can be oriented
         # for a *maximum*, because `bracket_minimum` samples φ and never φ′.
-        _bisect_for_minimum(ls, lo, hi, params)
+        # The bracketing's evaluations are this search's own, so they are carried into `trials`.
+        αb, bb, nbis = _bisect_for_minimum(ls, lo, hi, params)
+        (αb, bb, nb + nbis)
     end
     # A spent budget is reported through the status rather than logged here, so that
     # `linesearch_warnings` remains the only place a line search emits messages. Note that this
     # is *only* the budget case: a failed bracket carries on below, because the endpoint it
     # returns may still improve the merit and there is no reason to throw that away.
     bres === BISECTION_EXHAUSTED &&
-        return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
+        return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n + 1, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
 
     # `bracket_minimum` flips direction when the merit rises to the right of its start, so the
     # bracket — and hence the bisected result — can lie left of zero. A negative step is not a
@@ -383,8 +385,9 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # bracket truncated at the ceiling as an ordinary one, so this retry would bisect an
         # interval over which φ′ keeps its sign — the one path in this method that could not reach
         # `capped_status`.
-        rlo, rhi, rstatus = _bracket_minimum_core(prob, params, zero(T), T(DEFAULT_BRACKETING_s), T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
-        rstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ)
+        rlo, rhi, nrb, rstatus = _bracket_minimum_core(prob, params, zero(T), T(DEFAULT_BRACKETING_s), T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        rstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, n + nrb)
+        n += nrb
         if rstatus !== :unbracketable
             αres, bretry, nretry = _bisect_for_minimum(ls, rlo, rhi, params)
             n += nretry
@@ -414,13 +417,15 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # anchor *does* descend. As on the no-bracket path above, `φ` is the merit at the step handed
     # back and not `φ₀`: the caller's `α` is what is returned here, and nothing has measured the
     # merit there.
-    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n, φ₀, d₀, value(prob, α, params), τ, zero(T))
+    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
 
     # The bracketing stops at the ceiling and bisection only narrows the interval it is given, so
     # this cannot bind; it is here so that the α ≤ αmax half of the contract is guaranteed by this
     # function rather than inferred from the helpers that feed it.
     αres = min(αres, αmax)
+    # Counted like every other evaluation at a trial step α > 0; see the `trials` field.
     φres = value(prob, αres, params)
+    n += 1
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : nodecrease,
         n, φ₀, d₀, φres, τ, zero(T))
 end
