@@ -6,8 +6,10 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 Two defects reported from downstream by
 [GeometricOptimizers.jl](https://github.com/JuliaGNI/GeometricOptimizers.jl), filed there as **D3**
-and **D4**. **Breaking**: a `NonlinearSolver` no longer emits line-search warnings from inside its
-iteration, and `NonlinearSolverStatus` gains a field.
+and **D4**, and the two reporting defects a review of that work turned up. **Breaking**: a
+`NonlinearSolver` no longer emits line-search warnings from inside its iteration,
+`NonlinearSolverStatus` gains a field, and a `LinesearchMethod` now implements `solve_with_status`
+rather than `solve`.
 
 ### `Bisection` no longer reports success when it cannot bracket
 
@@ -91,7 +93,35 @@ caps existed to hold it back.
 - The stagnation and no-progress messages of `nonlinear_solver_warnings` name what the line search
   reported and how often ("the line search reported `LINESEARCH_NO_DESCENT` on 194 of the 200
   step(s)"), so a failed solve names the cause and not only the symptom. A solve that converged
-  despite line-search failures says the same at `verbosity ≥ 2`, as an `@info`.
+  despite line-search failures says the same at `verbosity ≥ 2`, as an `@info` — but only for a
+  failure other than `LINESEARCH_FLOOR`. The last step of a converged solve reaches the merit's
+  round-off floor as a matter of course, so counting it announced that *every* healthy solve "did
+  not go smoothly", which is exactly the noise `linesearch_reason` exists to avoid.
+
+### A line search is implemented by `solve_with_status`, and `solve` is derived
+
+The layering above held for the six built-in methods because each implemented `solve_with_status`
+and defined the same three-line `solve` on top of it. It did not hold for anyone else: the *generic*
+fallback ran the other way — `solve_with_status(ls, α, params) = LinesearchStatus(solve(ls, α,
+params))` — so a third-party method that implemented only `solve` was reached through `solve` from
+inside every iteration of a solve and emitted its messages there, which is the one thing the
+contract in `LinesearchMethod` promises does not happen. And now without a `maxlog` to bound it.
+
+- `solve(ls::Linesearch, α, params)` is **one derived definition** for every method:
+  `solve_with_status`, then `linesearch_warnings`, then `steplength`. The six identical per-method
+  definitions are gone, and so is the "Solve method missing" stub they were dispatched around. `α`
+  is converted to the element type of the `Linesearch`, so `solve(ls, 1)` now works.
+- The generic `solve_with_status` raises instead of deriving a status from `solve`, naming the
+  method and the signature it owes. **Breaking** for a `LinesearchMethod` that implements only
+  `solve`; such a method moves its body into `solve_with_status` and gets `solve` back for free.
+  (GeometricOptimizers' `DecayingStatic` implements both and is unaffected.)
+- `Bisection` reports the merit it *measured* at the step it hands back. Two of its returns — no
+  bracket at all, and a bisection that landed on a non-positive step — filled the `φ` field of the
+  `LinesearchStatus` with `φ(0)`, which `linesearch_exhausted_reason` then interpolated as "the
+  merit changed by 0.0" for a merit nothing had evaluated. For `φ(α) = 1 − α` it reported
+  `α = 1.0, φ(α) = 1.0` where the value is `0.0`. Costs one merit evaluation on a path that has
+  already failed. The `check_anchor` returns still report `φ(0)`, deliberately: the point of an
+  ascent or stationary anchor is that no trial step is worth an evaluation.
 
 ### The solver's own report backs off instead of going silent
 
@@ -1041,23 +1071,6 @@ section and into the release that fixed it.
 
 ### Introduced or left standing by 0.12.0
 
-- **The status can misreport ``\varphi(\alpha)`` when the merit cannot be bracketed at all.** When
-  `bracket_minimum` returns `nothing`, `Bisection`'s `solve_with_status` returns a
-  `LinesearchStatus` whose `φ` field is filled with ``\varphi(0)`` rather than the merit at the
-  ``\alpha`` it hands back. Reproducer: ``\varphi(\alpha) = 1 - \alpha`` descends forever, and the
-  status reports `α = 1.0, φ(α) = 1.0` where the true value is `0.0`. Nothing acts on that field —
-  the outcome is decided before it is filled — but `linesearch_exhausted_reason` interpolates the
-  difference into its message, where it reads as "the merit did not change" when in fact it was
-  never measured. Pre-existing, not a regression. The honest fix is to evaluate the merit at the
-  returned step, which costs one evaluation on a path that is already a failure.
-- **A third-party `LinesearchMethod` still reports from inside a solve.** The layering that 0.12.0
-  established — a program calls `solve_with_status` and gets no messages — holds because all six
-  built-in methods implement `solve_with_status` directly. The generic fallback does not: it calls
-  `solve`, which calls `linesearch_warnings`. So a downstream method that implements only `solve`
-  reinstates the per-iteration message the release removed, and now without a `maxlog` to bound it.
-  Inverting the fallback (have the default `solve` call `solve_with_status`) would fix it, but the
-  default `solve` is also the documented extension point, so this needs a decision about which of
-  the two a method is expected to define.
 - **`should_report!` does not promise every occurrence, and its counters are global.** A repeating
   diagnosis is reported on occurrences 1, 2, 4, 8, 16 … — occurrence 10 is silent. This is the
   intended trade (see its docstring) and not a defect, but it *is* a behaviour a caller can be

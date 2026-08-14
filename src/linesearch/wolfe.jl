@@ -120,18 +120,12 @@ function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseConditio
 end
 
 """
-    solve(ls::Linesearch{T,<:StrongWolfe}, α, params)
+    solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α, params)
 
-Run the strong-Wolfe bracketing line search starting from the trial step `α`, report the
-outcome through [`linesearch_warnings`](@ref) and return the accepted step length.
-See [`StrongWolfe`](@ref) and [`solve_with_status`](@ref).
+Run the strong-Wolfe bracketing line search from the trial step `α` and return the
+[`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
+[`StrongWolfe`](@ref).
 """
-function solve(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) where {T}
-    status = solve_with_status(ls, α, params)
-    linesearch_warnings(status, ls, params)
-    steplength(status)
-end
-
 function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) where {T}
     m = method(ls)
     c₁ = m.c₁

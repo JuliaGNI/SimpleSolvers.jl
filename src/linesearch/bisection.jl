@@ -219,18 +219,12 @@ _bisect_on(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params) where {T} 
     _bisection_core(problem(ls).D, α₀, α₁, params, config(ls))
 
 """
-    solve(ls::Linesearch{T,<:Bisection}, α, params)
+    solve_with_status(ls::Linesearch{T,<:Bisection}, α, params)
 
-Bisect the derivative of the merit to approximate the line minimiser, report the outcome
-through [`linesearch_warnings`](@ref) and return the step length. See [`Bisection`](@ref) and
-[`solve_with_status`](@ref).
+Bisect the derivative of the merit to approximate the line minimiser and return the
+[`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
+[`Bisection`](@ref).
 """
-function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
-    status = solve_with_status(ls, α, params)
-    linesearch_warnings(status, ls, params)
-    steplength(status)
-end
-
 function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
     prob = problem(ls)
     φ₀ = value(prob, zero(T), params)
@@ -256,7 +250,13 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # direction, i.e. for a merit that keeps decreasing. There is then no interval to bisect —
         # but that is a failure to *report*, not a round-off floor: calling it a floor would make
         # the outer iteration count a descending merit as stagnation.
-        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, φ₀, τ, zero(T))
+        # The merit *is* evaluated at the step handed back, at the cost of one evaluation on a path
+        # that has already failed. Filling `φ` with `φ₀` instead would be a claim that the merit did
+        # not change, which is what `linesearch_exhausted_reason` would then interpolate into its
+        # message — and for a merit that descends forever it is exactly wrong. (The `check_anchor`
+        # returns do fill `φ` with `φ₀`, deliberately: the whole point of an ascent or stationary
+        # anchor is that no trial step is worth an evaluation.)
+        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, value(prob, α, params), τ, zero(T))
         _bisect_on(ls, bracket..., params)
     end
     # A spent budget is reported through the status rather than logged here, so that
@@ -277,6 +277,13 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
             n += nretry
             # The retry's own verdict counts too: a retry that could not bracket either must not
             # be allowed to claim the floor below, for exactly the reason the first one may not.
+            # Note that this keeps the *worse* of the two verdicts rather than replacing the first
+            # with the retry's, even though `αres` now comes wholly from the retry. That is
+            # deliberate. The two disagree only when a failed bracket is followed by a converged
+            # retry, which needs φ′ to be inconsistent with φ (a derivative that agrees with the
+            # merit changes sign inside a bracket `bracket_minimum` found, so the first bisection
+            # would have converged) — and `LINESEARCH_EXHAUSTED`, whose reported reason is exactly
+            # "φ′(0) is inconsistent with the merit", is then the better diagnosis of the two.
             bretry === BISECTION_CONVERGED || (bres = bretry)
         end
     end
@@ -291,8 +298,10 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
 
     # Still non-positive: no positive step improves the merit as far as this search can tell.
     # That is the floor, not a non-descent anchor — `check_anchor` established above that the
-    # anchor *does* descend.
-    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n, φ₀, d₀, φ₀, τ, zero(T))
+    # anchor *does* descend. As on the no-bracket path above, `φ` is the merit at the step handed
+    # back and not `φ₀`: the caller's `α` is what is returned here, and nothing has measured the
+    # merit there.
+    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n, φ₀, d₀, value(prob, α, params), τ, zero(T))
 
     φres = value(prob, αres, params)
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : nodecrease,

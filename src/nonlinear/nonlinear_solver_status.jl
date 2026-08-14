@@ -99,7 +99,7 @@ linesearch_failures(status::NonlinearSolverStatus) =
     sum(oc -> isbenign(oc) ? 0 : status.ls_outcomes[linesearch_index(oc)], instances(LinesearchOutcome))
 
 """
-    dominant_linesearch_outcome(status)
+    dominant_linesearch_outcome(status, count_floor=true)
 
 The non-[`isbenign`](@ref) [`LinesearchOutcome`](@ref) the line search reported most often during
 the solve, or `nothing` if it reported none. This is what
@@ -111,12 +111,18 @@ Ties go to the outcome declared first in [`LinesearchOutcome`](@ref), which orde
 benign end (`LINESEARCH_FLOOR`, the merit is simply irreducible) towards the actionable one
 (`LINESEARCH_NO_DESCENT`, the direction is wrong and the [`Jacobian`](@ref) is the suspect) — so a
 tie is broken *away* from the more alarming diagnosis rather than towards it.
+
+`count_floor = false` skips `LINESEARCH_FLOOR`, which is how a *converged* solve is asked whether
+anything went wrong: reaching the merit's round-off floor on the last step is how a solve converges,
+so for that question the floor is not a failure at all. It is the tie rule above that makes the
+distinction matter — a converged solve that floored once and was exhausted once would otherwise be
+explained by the floor, which is the half of it that is expected.
 """
-function dominant_linesearch_outcome(status::NonlinearSolverStatus)
+function dominant_linesearch_outcome(status::NonlinearSolverStatus, count_floor::Bool=true)
     best = nothing
     count = 0
     for oc in instances(LinesearchOutcome)
-        isbenign(oc) && continue
+        (isbenign(oc) || (!count_floor && oc === LINESEARCH_FLOOR)) && continue
         n = status.ls_outcomes[linesearch_index(oc)]
         n > count && ((best, count) = (oc, n))
     end
@@ -567,10 +573,14 @@ function no_progress_reason(status::NonlinearSolverStatus, config::Options)
 end
 
 @doc raw"""
-    linesearch_reason(status, config)
+    linesearch_reason(status, config, oc=dominant_linesearch_outcome(status))
 
 The clause [`nonlinear_solver_warnings`](@ref) appends to explain a failed solve in terms of what
-its line search reported, or `""` when it reported nothing but success.
+its line search reported, or `""` when it reported nothing but success. `oc` is the outcome to
+explain — by default the dominant one, and for a converged solve the dominant one *other than*
+`LINESEARCH_FLOOR`, which is what made that message fire (see
+[`dominant_linesearch_outcome`](@ref)); the clause has to name the outcome the caller acted on,
+not a different one that happens to be as frequent.
 
 This is the *only* thing said about the line search during a solve. A line search does not log
 from inside the iteration — it reports to the solver, which tallies the outcomes (see
@@ -582,8 +592,8 @@ is noise from the last step of an otherwise healthy solve.
 Like `no_progress_reason` and `linesearch_exhausted_reason`, this is called from
 *inside* the `@warn` message so the string is built only for a message that is actually shown.
 """
-function linesearch_reason(status::NonlinearSolverStatus, config::Options)
-    oc = dominant_linesearch_outcome(status)
+function linesearch_reason(status::NonlinearSolverStatus, config::Options,
+    oc::Union{LinesearchOutcome,Nothing}=dominant_linesearch_outcome(status))
     isnothing(oc) && return ""
     n = linesearch_outcomes(status)[linesearch_index(oc)]
     " The line search reported $(oc) on $(n) of the $(status.iterations) step(s)" *
@@ -620,7 +630,9 @@ A line search emits nothing during a solve: it reports to the solver through the
 tallies the outcomes (see [`record_linesearch!`](@ref)). So the two failure messages above carry
 the clause [`linesearch_reason`](@ref) builds, which names the outcome the line search reported
 most often and how often — the cause behind the symptom they otherwise report on their own. A
-solve that converged anyway says the same thing at `verbosity ≥ 2`, as an `@info`.
+solve that converged anyway says the same thing at `verbosity ≥ 2`, as an `@info`, and only for a
+failure that is *not* `LINESEARCH_FLOOR`: the last step of a converged solve reaches the merit's
+round-off floor as a matter of course, so counting that would report every healthy solve.
 
 To *act* on the outcome rather than read about it, use [`solve_with_status!`](@ref) and the tally
 on the returned [`NonlinearSolverStatus`](@ref); see [`linesearch_outcomes`](@ref).
@@ -628,11 +640,11 @@ on the returned [`NonlinearSolverStatus`](@ref); see [`linesearch_outcomes`](@re
 # Rate limiting
 
 The three repeatable messages are gated on [`should_report!`](@ref), which reports the 1st, 2nd,
-4th, 8th … occurrence of a diagnosis rather than the first three and then nothing ever again.
-Their keys include the dominant line-search outcome, so a solve that starts failing for a new
-reason is reported at once. The trade-off — a *repeating* diagnosis is not reported on every
-occurrence — is spelled out in that docstring. `verbosity = 0` still silences the solver
-completely.
+4th, 8th … occurrence of a diagnosis rather than the first three and then nothing ever again. The
+keys of the two *diagnoses* carry the dominant line-search outcome, so a solve that starts failing
+for a new reason is reported at once; the bare iteration count has no cause to key on and uses a
+plain one. The trade-off — a *repeating* diagnosis is not reported on every occurrence — is spelled
+out in that docstring. `verbosity = 0` still silences the solver completely.
 """
 function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Options)
     # Stagnation is the more specific diagnosis and is reported below, so it suppresses the
@@ -681,11 +693,21 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     # A solve that *converged* despite a line search that kept failing got where it was going, so
     # this is not a warning about the result — but the route it took is worth seeing when you are
     # already looking, and it is the only trace of the line search a solve leaves. `verbosity ≥ 2`,
-    # the same gate `LINESEARCH_FLOOR` and `LINESEARCH_STATIONARY` use, and for the same reason:
-    # the last step of a converged solve reports a floor as a matter of course.
-    (isconverged(status) && !stagnated && !noprogress && config.verbosity ≥ 2 &&
-     linesearch_failures(status) > 0) &&
-        (@info "Nonlinear solver converged after $(status.iterations) iterations to rfₐ = $(status.rfₐ), but not every step went smoothly.$(linesearch_reason(status, config))")
+    # the same gate `LINESEARCH_FLOOR` and `LINESEARCH_STATIONARY` use.
+    #
+    # `LINESEARCH_FLOOR` does not count towards it, although `linesearch_failures` counts it: the
+    # last step of a converged solve reports the merit's round-off floor as a matter of course — a
+    # solve that reached its tolerance did so by making the residual as small as the arithmetic
+    # allows — so a floor here is the healthy case, and counting it would announce that *every*
+    # converged solve did not go smoothly. That is the standard `linesearch_reason` states: one
+    # failure is noise from the last step, a count is evidence. It is also what `isbenign`
+    # promises — that the tally is named only for a solve that did not converge — and the promise
+    # holds for the two messages above, which fire only when it did not.
+    # The same outcome is handed to `linesearch_reason`, so the clause names what made the message
+    # fire rather than the floor it is deliberately ignoring.
+    rough = dominant_linesearch_outcome(status, false)
+    (isconverged(status) && !stagnated && !noprogress && config.verbosity ≥ 2 && !isnothing(rough)) &&
+        (@info "Nonlinear solver converged after $(status.iterations) iterations to rfₐ = $(status.rfₐ), but not every step went smoothly.$(linesearch_reason(status, config, rough))")
 
     nothing
 end

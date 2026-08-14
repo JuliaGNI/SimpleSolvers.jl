@@ -49,18 +49,12 @@ end
 Quadratic(::Type{T}, ::SolverMethod) where {T} = Quadratic(T)
 
 """
-    solve(ls::Linesearch{T,<:Quadratic}, α, params)
+    solve_with_status(ls::Linesearch{T,<:Quadratic}, α, params)
 
-Fit successive quadratics to approximate the line minimiser, report the outcome through
-[`linesearch_warnings`](@ref) and return the step length. See [`Quadratic`](@ref) and
-[`solve_with_status`](@ref).
+Fit successive quadratics to approximate the line minimiser and return the
+[`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
+[`Quadratic`](@ref).
 """
-function solve(ls::Linesearch{T,<:Quadratic}, α::T, params=NullParameters()) where {T}
-    status = solve_with_status(ls, α, params)
-    linesearch_warnings(status, ls, params)
-    steplength(status)
-end
-
 function solve_with_status(ls::Linesearch{T,<:Quadratic}, α₀::T, params=NullParameters()) where {T}
     φ₀ = value(problem(ls), zero(T), params)
     d₀ = derivative(problem(ls), zero(T), params)

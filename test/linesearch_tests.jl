@@ -39,6 +39,17 @@ function make_linesearch_problem(x₀::Number)
     LinesearchProblem{typeof(x₀)}(_f, _d)
 end
 
+# Two stand-ins for a downstream `LinesearchMethod`, used to pin the extension point: a method
+# implements `solve_with_status` and gets `solve` derived from it, and one that implements neither
+# is told which of the two it owes instead of recursing between the generic definitions.
+struct ToyLinesearch{T} <: LinesearchMethod{T} end
+ToyLinesearch(::Type{T}=Float64) where {T} = ToyLinesearch{T}()
+SimpleSolvers.solve_with_status(::Linesearch{T,<:ToyLinesearch}, α::T, params=SimpleSolvers.NullParameters()) where {T} =
+    LinesearchStatus{T}(T(0.25), LINESEARCH_EXHAUSTED, 1, one(T), -one(T), one(T), zero(T), zero(T))
+
+struct MuteLinesearch{T} <: LinesearchMethod{T} end
+MuteLinesearch(::Type{T}=Float64) where {T} = MuteLinesearch{T}()
+
 function test_linesearch(method::LinesearchMethod, n::Integer=1)
     x₀ = -3.0
     x₁ = +3.0
@@ -423,7 +434,7 @@ end
     @test n[] == 1
 end
 
-@testset "$(rpad("Backtracking: τ_ulps validation and generic solve_with_status fallback", 80))" begin
+@testset "$(rpad("Backtracking: τ_ulps validation, and solve is derived from the status", 80))" begin
     @test_throws AssertionError Backtracking(; τ_ulps=-1.0)
     @test Backtracking(; τ_ulps=0.0) isa Backtracking
     @test Backtracking().τ_ulps == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
@@ -433,9 +444,11 @@ end
     st = solve_with_status(Linesearch(noise, Backtracking(; τ_ulps=0.0); verbosity=0), 1.0)
     @test steplength(st) ≤ eps(1.0)
 
-    # Every built-in method reports a real outcome now, so none of them relies on the generic
-    # `LINESEARCH_UNKNOWN` fallback any more.  `Static` is the exception by nature: it ignores
-    # the caller's step and never evaluates the merit, so it has established nothing.
+    # Every built-in method reports a real outcome, and `solve` is *derived* from it — one
+    # definition for all of them, in `linesearch.jl` — so the two agree by construction rather
+    # than because six copies of the same three lines happen to.  `Static` is the exception by
+    # nature: it ignores the caller's step and never evaluates the merit, so it has established
+    # nothing and reports `LINESEARCH_UNKNOWN`, which `linesearch_warnings` passes over in silence.
     prob = LinesearchProblem{Float64}((α, _) -> (α - 0.7)^2, (α, _) -> 2 * (α - 0.7))
     for m in (Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe(), Backtracking())
         ls = Linesearch(prob, m; verbosity=0)
@@ -453,8 +466,25 @@ end
     @test !isfloor(ststatic)
     @test steplength(ststatic) == solve(lstatic, 1.0)
 
-    # The generic `solve_with_status` fallback is kept for user-defined `LinesearchMethod`s
-    # (it reports `LINESEARCH_UNKNOWN`), but no built-in method dispatches to it any more.
+    # A user-defined method implements `solve_with_status` and gets `solve` for free, with the
+    # report and the α > 0 contract that come with it. This is the direction that makes the
+    # contract structural: there is no path by which the package calls a method's own `solve`, so
+    # a method cannot reinstate the per-iteration message a solve must not emit.
+    ls_toy = Linesearch(prob, ToyLinesearch(); verbosity=1)
+    @test solve(ls_toy, 1.0) == 0.25
+    @test outcome(solve_with_status(ls_toy, 1.0)) == LINESEARCH_EXHAUSTED
+    @test logged_any(() -> solve(ls_toy, 1.0), "no step satisfied the sufficient decrease")
+    @test !logged_any(() -> solve_with_status(ls_toy, 1.0), "no step satisfied the sufficient decrease")
+
+    # ... and a method that implements neither says which one it owes, rather than recursing
+    # between the two generic definitions.
+    ls_mute = Linesearch(prob, MuteLinesearch(); verbosity=0)
+    @test_throws "does not implement `solve_with_status`" solve_with_status(ls_mute, 1.0)
+    @test_throws "does not implement `solve_with_status`" solve(ls_mute, 1.0)
+
+    # `α` is converted to the element type of the `Linesearch`, so a caller does not have to spell
+    # out the precision of a step that has no fractional part.
+    @test solve(Linesearch(prob, Backtracking(); verbosity=0), 1) == 1.0
 end
 
 @testset "$(rpad("with_config replaces the Options and keeps problem and method", 80))" begin
@@ -792,6 +822,18 @@ end
     @test outcome(stbad) ≠ LINESEARCH_FLOOR
     @test !SimpleSolvers.isfloor(stbad)
     @test steplength(stbad) > 0.0      # the α > 0 contract holds either way
+
+    # Both of these return the caller's α rather than a step of their own, and the status says what
+    # the merit *is* there rather than repeating φ(0). Filling `φ` with `φ₀` used to make
+    # `linesearch_exhausted_reason` report "the merit changed by 0.0" for a merit nothing had
+    # measured — most visibly for one that descends forever, where `bracket_minimum` finds no
+    # bracket at all and the true value is as far from φ(0) as the step is long.
+    @test stbad.φ == (α -> (α + 1.0)^2)(steplength(stbad))
+    forever = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> -1.0)
+    stf = solve_with_status(Linesearch(forever, Bisection(); verbosity=0), 1.0)
+    @test outcome(stf) === LINESEARCH_EXHAUSTED
+    @test stf.φ == 1.0 - steplength(stf)   # was φ₀ = 1.0, i.e. "the merit did not change"
+    @test stf.φ < stf.φ₀
 end
 
 @testset "$(rpad("bisection interval/config disambiguation", 80))" begin
@@ -1244,11 +1286,11 @@ end
 end
 
 @testset "$(rpad("the linesearch messages are compiled once, not once per solver", 80))" begin
-    # `linesearch_warnings` is called from `solver_step!` on every iteration of every solve, and
-    # it is specialized on the `Linesearch` — hence on the closure types of its
-    # `LinesearchProblem`, hence once per *problem* a solver is built for. The messages therefore
-    # live behind the `report_linesearch_status` barrier, whose signature mentions no closure type;
-    # see its docstring.
+    # `linesearch_warnings` is called from `solve`, i.e. from every direct call to a line search,
+    # and it is specialized on the `Linesearch` — hence on the closure types of its
+    # `LinesearchProblem`, hence once per *problem* a line search is built for. The messages
+    # therefore live behind the `report_linesearch_status` barrier, whose signature mentions no
+    # closure type; see its docstring.
 
     # Half one: the specialization set is bounded by the *signature*. Julia specializes on the
     # concrete types of the arguments, so if no parameter type can admit a `Linesearch` — which
@@ -1321,10 +1363,10 @@ end
 @testset "$(rpad("every clause of a linesearch message is built only when it is shown", 80))" begin
     # The `αmin` clause of `LINESEARCH_FLOOR` and both wordings of `LINESEARCH_EXHAUSTED` are
     # interpolated inside their `@warn` rather than into a temporary before it, so that a message
-    # the verbosity gate or `maxlog` discards costs nothing (see `report_linesearch_status`). The
-    # exact texts are pinned here because that laziness is easy to undo by rewriting the
-    # interpolation, and easy to undo *silently*. `Test.TestLogger` records every message regardless
-    # of `maxlog`, which is keyed on the source location and therefore process-global.
+    # the verbosity gate discards costs nothing (see `report_linesearch_status`) — and the
+    # overwhelmingly common case is a caller running at a verbosity that discards it. The exact
+    # texts are pinned here because that laziness is easy to undo by rewriting the interpolation,
+    # and easy to undo *silently*.
     reported(st, v) = () -> SimpleSolvers.report_linesearch_status(st, :Backtracking,
         Options(Float64; verbosity=v, linesearch_max_iterations=7))
 

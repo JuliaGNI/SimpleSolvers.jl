@@ -25,15 +25,11 @@ end
 Static(::Type{T}=Float64; α=one(T)) where {T} = Static{T}(α)
 Static(::Type{T}, ::SolverMethod) where {T} = Static(T)
 
-function solve(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T}
-    method(ls).α
-end
-
 # `Static` ignores the caller's trial step and cannot fail, so it has nothing to report; the
 # outcome is `LINESEARCH_UNKNOWN` rather than `LINESEARCH_DECREASED` because no merit is ever
-# evaluated and hence no decrease has been established. It implements `solve_with_status`
-# anyway so that every built-in method goes through the same entry point (see
-# `solve_with_status`).
+# evaluated and hence no decrease has been established. `linesearch_warnings` passes
+# `LINESEARCH_UNKNOWN` over in silence, so the derived `solve` returns `method(ls).α` and says
+# nothing — which is what the hand-written `solve` this replaced did.
 solve_with_status(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T} =
     LinesearchStatus(method(ls).α, LINESEARCH_UNKNOWN)
 

@@ -24,8 +24,9 @@ returned by [`solve_with_status`](@ref).
   finite. No ``\alpha`` can satisfy the sufficient decrease condition.
 - `LINESEARCH_STATIONARY`: ``\varphi'(0) = 0``, e.g. a vanishing direction at an exact root.
   Benign — there is nothing to search for.
-- `LINESEARCH_UNKNOWN`: the method does not report an outcome (the generic fallback of
-  [`solve_with_status`](@ref)).
+- `LINESEARCH_UNKNOWN`: the method does not report an outcome — [`Static`](@ref), which
+  evaluates no merit and so has established nothing, and any third-party method that chooses not
+  to report one.
 """
 @enum LinesearchOutcome::Int8 begin
     LINESEARCH_DECREASED
@@ -122,8 +123,9 @@ end
     LinesearchStatus(α, outcome=LINESEARCH_UNKNOWN)
 
 Construct a [`LinesearchStatus`](@ref) that carries only the step length and the
-[`LinesearchOutcome`](@ref); the remaining diagnostics are filled with `NaN`/zero. Used by
-the generic fallback of [`solve_with_status`](@ref) for methods that do not report them.
+[`LinesearchOutcome`](@ref); the remaining diagnostics are filled with `NaN`/zero. For a method
+that does not measure them — [`Static`](@ref), or a third-party method whose
+[`solve_with_status`](@ref) has nothing more to say.
 """
 LinesearchStatus(α::T, outcome::LinesearchOutcome=LINESEARCH_UNKNOWN) where {T} =
     LinesearchStatus{T}(α, outcome, 0, T(NaN), T(NaN), T(NaN), zero(T), zero(T))
@@ -217,19 +219,36 @@ function check_anchor(φ₀::T, d₀::T, α::T) where {T}
     end
 end
 
-"""
+@doc raw"""
     solve_with_status(ls, α, params=NullParameters())
 
 Like [`solve`](@ref), but return a [`LinesearchStatus`](@ref) — the step length *plus* the
 reason the search stopped — and emit no log messages. Use [`linesearch_warnings`](@ref) to
-report the status.
+report the status; that is all [`solve`](@ref) adds.
 
-Only [`Backtracking`](@ref) reports a genuine [`LinesearchOutcome`](@ref); the generic
-fallback calls [`solve`](@ref) and reports `LINESEARCH_UNKNOWN`, so a caller may use
-`solve_with_status` uniformly for every [`LinesearchMethod`](@ref).
+This is what a *program* calls, and it is the [`LinesearchMethod`](@ref) extension point: every
+built-in method (all six of [`Backtracking`](@ref), [`StrongWolfe`](@ref), [`Bisection`](@ref),
+[`Quadratic`](@ref), [`BierlaireQuadratic`](@ref) and [`Static`](@ref)) implements *this*, and
+gets [`solve`](@ref) derived from it. A method that reports no outcome of its own returns
+`LINESEARCH_UNKNOWN`, as [`Static`](@ref) does.
+
+!!! warning "A method must implement this"
+    There is no fallback: the generic method below raises rather than deriving a status from
+    [`solve`](@ref). It used to do exactly that, and the derivation ran the wrong way — a method
+    that defined only `solve` was then reached *through* `solve` from inside every iteration of a
+    [`NonlinearSolver`](@ref), and emitted its messages there, which is the one thing the contract
+    in [`LinesearchMethod`](@ref) promises does not happen. Deriving `solve` from this instead
+    makes that promise structural. A third-party method that defines only `solve` therefore has to
+    move its body here; the boilerplate it used to carry (`solve_with_status`, then
+    [`linesearch_warnings`](@ref), then [`steplength`](@ref)) is what it gets for free in exchange.
 """
-solve_with_status(ls::Linesearch{T}, α::T, params=NullParameters()) where {T} =
-    LinesearchStatus(solve(ls, α, params))
+function solve_with_status(ls::Linesearch{T}, α::T, params=NullParameters()) where {T}
+    throw(ArgumentError("$(nameof(typeof(method(ls)))) does not implement `solve_with_status`, " *
+                        "which is what a LinesearchMethod implements; `solve` is derived from it. " *
+                        "Define `solve_with_status(::Linesearch{T,<:$(nameof(typeof(method(ls))))}, α::T, params)` " *
+                        "returning a LinesearchStatus (use `LinesearchStatus(α, LINESEARCH_UNKNOWN)` " *
+                        "if the method has no outcome to report)."))
+end
 
 """
     curvature_diagnostic(status, ls, params)
@@ -320,12 +339,13 @@ Emit the messages for a [`LinesearchStatus`](@ref); the reporting half of
 # Implementation
 
 This is a function barrier, and its signature is what makes it one. [`linesearch_warnings`](@ref)
-is called from [`solver_step!`](@ref) on every iteration of every solve, and takes a
-[`Linesearch`](@ref) — which carries the closure types of its [`LinesearchProblem`](@ref) — and a
-`NamedTuple` of parameters, so it is specialized once per *problem* a solver is built for. A
-message in its body is specialized with it, and all of the `Base.CoreLogging` and
-string-interpolation code that `@warn` expands to is re-inferred and re-codegen'd for each one,
-which on a caller that builds one solver per tableau dominates the cost of the whole solve.
+is called from [`solve`](@ref) — every direct call to a line search, and nothing else since
+[`solver_step!`](@ref) stopped reporting per iteration — and takes a [`Linesearch`](@ref), which
+carries the closure types of its [`LinesearchProblem`](@ref), and a `NamedTuple` of parameters. So
+it is specialized once per *problem* a line search is built for. A message in its body is
+specialized with it, and all of the `Base.CoreLogging` and string-interpolation code that `@warn`
+expands to is re-inferred and re-codegen'd for each one, which on a caller that builds one line
+search per tableau dominates the cost of the calls themselves.
 
 Taking `name` and `config`, and nothing whose type can vary per solver, bounds the specializations
 of this function to one per element-type combination for the whole session.

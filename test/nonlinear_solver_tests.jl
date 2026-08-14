@@ -1774,8 +1774,8 @@ end
 
     # Now that the gates live in the reporters rather than at the site that decides to report, pin
     # them: each message fires at its documented verbosity and is silent one below. Neither of the
-    # two below carries `maxlog`, so unlike the line-search messages this is repeatable within a
-    # session.
+    # two below is rate limited, so this is repeatable within a session — unlike the three messages
+    # of `nonlinear_solver_warnings`, which back off through `should_report!`.
     #
     # `report_dogleg_underflow` is not pinned this way: a collapsed trust-region radius needs a
     # merit that is finite and non-decreasing along every direction the method tries, and every
@@ -1923,4 +1923,54 @@ end
     record_linesearch!(fresh, LINESEARCH_FLOOR)
     st = NonlinearSolverStatus(fresh, Options())
     @test dominant_linesearch_outcome(st) === LINESEARCH_FLOOR
+end
+
+@testset "$(rpad("a converged solve reports the line search only when it went wrong", 80))" begin
+    # The last step of a converged solve reaches the merit's round-off floor as a matter of course
+    # — that is *how* it converged — so `LINESEARCH_FLOOR` in the tally of a converged solve is the
+    # healthy case. Reporting on the tally as a whole announced that every textbook solve "did not
+    # go smoothly", which is the noise `linesearch_reason` itself defines: one failure is the last
+    # step, a count is evidence. So the converged report counts the outcomes that are *not* the
+    # expected floor.
+    converged = NonlinearSolverState([1.0])
+    initialize!(converged, [1.0], [0.0])
+    update!(converged, [1.0], [0.0])
+    update!(converged, [1.0], [0.0])
+
+    for _ in 1:3
+        record_linesearch!(converged, LINESEARCH_DECREASED)
+    end
+    record_linesearch!(converged, LINESEARCH_FLOOR)
+    floored = NonlinearSolverStatus(converged, Options(Float64; verbosity=2))
+    @test isconverged(floored)
+    @test linesearch_failures(floored) == 1          # the floor still counts in the tally ...
+    @test !logged_any(() -> nonlinear_solver_warnings(floored, Options(Float64; verbosity=2)),
+        "not every step went smoothly")               # ... but is not news about a converged solve
+
+    # A step the search could not resolve at all is news, however, and it is the only trace of the
+    # line search a solve leaves.
+    record_linesearch!(converged, LINESEARCH_EXHAUSTED)
+    rough = NonlinearSolverStatus(converged, Options(Float64; verbosity=2))
+    @test isconverged(rough)
+    @test logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=2)),
+        "not every step went smoothly")
+    @test logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=2)),
+        "LINESEARCH_EXHAUSTED")
+    # ... at `verbosity ≥ 2` only, the same gate the floor and stationary outcomes use.
+    @test !logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=1)),
+        "not every step went smoothly")
+
+    # End to end, on the solve the package's own doctests use: nothing at all is said about the
+    # line search, at any verbosity, for a solve that simply worked.
+    F(y, x, params) = y .= x .^ 2 .- 2
+    healthy() = function ()
+        x = ones(3)
+        s = NewtonSolver(x, F, zero(x); verbosity=2)
+        state = SolverState(s)
+        solve!(x, s, state)
+        @test linesearch_outcomes(status(s, state))[linesearch_index(LINESEARCH_FLOOR)] > 0
+    end
+    reset_warning_counts!()
+    @test !logged_any(healthy(), "not every step went smoothly")
+    @test !logged_any(healthy(), "line search")
 end
