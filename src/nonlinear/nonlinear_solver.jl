@@ -256,7 +256,11 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
     # just evaluated at the current iterate — see `linesearch_problem`.
     lsparams = (x=x, parameters=params, φ₀=L2norm(value(state)))
     lsstatus = solve_with_status(linesearch(s), one(T), lsparams)
-    linesearch_warnings(lsstatus, linesearch(s), lsparams)
+    # `solve_with_status` and not `solve`: a line search reports to its *caller*, and only a caller
+    # who invoked it directly is a user. So nothing is logged from inside this loop — the outcome is
+    # tallied instead, and the solve explains itself once, at the end, through
+    # `nonlinear_solver_warnings`. See `record_linesearch!` for why that is the right layer.
+    record_linesearch!(state, outcome(lsstatus))
 
     # A line search that reports the merit's round-off floor or a non-descent anchor knows the
     # iteration cannot make progress along this direction, one iteration before the step-based

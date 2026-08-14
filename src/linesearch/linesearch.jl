@@ -25,8 +25,11 @@ Every method reached through [`solve`](@ref) or [`solve_with_status`](@ref) guar
    outer iterate (`x .+= 0 .* d`), and never a negative step: ``\\alpha`` scales a direction
    that has already been chosen, so its sign is not the line search's to decide.
 3. **It reports through [`linesearch_warnings`](@ref) only** — one message site and one
-   verbosity policy for all methods (genuine failure at `verbosity ≥ 1`, rate limited; the
-   benign round-off-floor and stationary outcomes at `≥ 2`).
+   verbosity policy for all methods (genuine failure at `verbosity ≥ 1`; the benign
+   round-off-floor and stationary outcomes at `≥ 2`). And it reports there only when the *user*
+   called it: a program calls [`solve_with_status`](@ref), acts on the
+   [`LinesearchStatus`](@ref) and sees no messages at all. A [`NonlinearSolver`](@ref) is such a
+   program — see [`record_linesearch!`](@ref).
 4. **A non-finite or ascending anchor is reported, not assumed away** — see
    [`check_anchor`](@ref).
 5. **It terminates in a bounded number of merit evaluations, independently of the merit's

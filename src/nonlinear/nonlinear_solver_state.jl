@@ -10,7 +10,7 @@ The `NonlinearSolverState` to be used together with a [`NonlinearSolver`](@ref).
 
 ```jldoctest; setup = :(using SimpleSolvers)
 julia> state = NonlinearSolverState(zeros(3))
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], NaN, 0, false, NaN, 0)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], NaN, 0, false, NaN, 0, [0, 0, 0, 0, 0, 0])
 ```
 """
 mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T}} <: AbstractSolverState
@@ -39,6 +39,10 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
                                # that, exactly like `stalls`, it stays at zero for an iteration
                                # that never records.
 
+    ls_outcomes::MVector{NLINESEARCH_OUTCOMES,Int}  # how often each `LinesearchOutcome` was
+                               # reported during this solve, indexed by `Int(oc) + 1`; maintained
+                               # by `record_linesearch!` and read by `NonlinearSolverStatus`
+
     function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=X) where {T}
         x = zero(X)
         x̄ = zero(X)
@@ -50,7 +54,8 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
         y .= T(NaN)
         ȳ .= T(NaN)
 
-        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0)
+        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0,
+            zeros(MVector{NLINESEARCH_OUTCOMES,Int}))
     end
 end
 
@@ -105,6 +110,10 @@ function initialize!(state::NonlinearSolverState{T}, x::AbstractVector{T}, y::Ab
     # where it started, so `iterations_since_progress` counts from iteration 0.
     state.rf_ref = state.r₀
     state.iters_since_progress = 0
+    # Per solve, exactly like `stalls`: what the line search reported during the *previous* solve
+    # says nothing about this one, and `nonlinear_solver_warnings` reads the tally to explain the
+    # solve that has just finished.
+    fill!(state.ls_outcomes, 0)
 end
 
 """
@@ -173,6 +182,53 @@ function record_progress!(state::NonlinearSolverState, config::Options, rfₐ::N
 end
 
 """
+    linesearch_outcomes(state)
+
+Return the tally of [`LinesearchOutcome`](@ref)s reported during this solve, indexed by
+[`linesearch_index`](@ref). Maintained by [`record_linesearch!`](@ref) and reset per solve by
+[`initialize!`](@ref); [`NonlinearSolverStatus`](@ref) carries a copy of it out to the caller.
+"""
+linesearch_outcomes(state::NonlinearSolverState) = state.ls_outcomes
+
+@doc raw"""
+    record_linesearch!(state, oc)
+
+Count one [`LinesearchOutcome`](@ref) `oc` into the tally of
+`state::`[`NonlinearSolverState`](@ref). Called once per [`solver_step!`](@ref) that consults a
+line search, and — like [`record_stall!`](@ref) and [`record_progress!`](@ref) — a measurement
+rather than a predicate, so it must be called exactly once per such step.
+
+This is the channel by which a line-search failure reaches the user. A line search reports to its
+*caller* through the [`LinesearchStatus`](@ref) that [`solve_with_status`](@ref) returns and emits
+nothing; only a caller who invoked [`solve`](@ref) directly is a user, and only that path goes
+through [`linesearch_warnings`](@ref). A [`NonlinearSolver`](@ref) is not that caller — it
+*consumes* the status ([`flag_stall!`](@ref), and it declines to step along a
+`LINESEARCH_NO_DESCENT` direction) and accumulates it here, so that the solve explains itself once,
+at the end, through [`nonlinear_solver_warnings`](@ref), instead of once per iteration.
+
+That is not a cosmetic difference. A solve that cannot make progress asks the line search for an
+impossible decrease at *every* one of its iterations, so reporting per iteration turned a single
+diagnosis into thousands of identical messages — which is what the `maxlog` caps used to hold back,
+at the price of being keyed on source location and therefore process-global: once spent, they
+stayed spent for the rest of the session, and a genuine failure in a later solve was silent. Not
+reporting from inside the loop removes the flood at its source, so no cap is needed and nothing
+goes permanently silent.
+"""
+function record_linesearch!(state::NonlinearSolverState, oc::LinesearchOutcome)
+    state.ls_outcomes[linesearch_index(oc)] += 1
+    state
+end
+
+"""
+    linesearch_failures(state)
+
+The number of steps in this solve whose line search reported a failure, i.e. the tally of
+[`linesearch_outcomes`](@ref) summed over the outcomes that are not [`isbenign`](@ref).
+"""
+linesearch_failures(state::NonlinearSolverState) =
+    sum(oc -> isbenign(oc) ? 0 : state.ls_outcomes[linesearch_index(oc)], instances(LinesearchOutcome))
+
+"""
     flag_stall!(state)
 
 Record that the line search of the current step reported that it cannot make progress along
@@ -228,10 +284,10 @@ julia> y = zero(x); f(y, x, NullParameters())
  0.06120871905481365
 
 julia> state = NonlinearSolverState(x)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN], [NaN], [NaN], [NaN], NaN, 0, false, NaN, 0)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN], [NaN], [NaN], [NaN], NaN, 0, false, NaN, 0, [0, 0, 0, 0, 0, 0])
 
 julia> update!(state, x, y)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.25], [NaN], [0.06120871905481365], [NaN], NaN, 0, false, NaN, 0)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.25], [NaN], [0.06120871905481365], [NaN], NaN, 0, false, NaN, 0, [0, 0, 0, 0, 0, 0])
 
 julia> x = ones(1) / 2
 1-element Vector{Float64}:
@@ -242,7 +298,7 @@ julia> f(y, x, NullParameters())
  0.0
 
 julia> update!(state, x, y)
-NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.5], [0.25], [0.0], [0.06120871905481365], NaN, 0, false, NaN, 0)
+NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [0.5], [0.25], [0.0], [0.06120871905481365], NaN, 0, false, NaN, 0, [0, 0, 0, 0, 0, 0])
 ```
 
 The [`NonlinearSolverState`](@ref) stores the previous solution, the previous value, the current solution and the current value.

@@ -717,13 +717,13 @@ end
     froot(α, _) = α - 1.0
     @test bisection(froot, 0.0, 2.0) ≈ 1.0 atol = 1e-6
 
-    # No sign change over the bracket: rather than silently collapsing onto α₁
-    # or erroring (which would break the line search once the
-    # derivative has flattened at a minimum), `bisection` returns the endpoint
-    # closest to a root (smallest |f|).
+    # No sign change over the bracket: rather than silently collapsing onto α₁ or erroring (which
+    # would abort the enclosing solve), `bisection` returns the endpoint closest to a root
+    # (smallest |f|) *and reports the failure* — silenced here, and asserted on its own below.
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
-    @test bisection(fpos, 0.0, 1.0) == 0.0    # |f(0)| = 1 < |f(1)| = 2
-    @test bisection(fpos, 1.0, 0.0) == 0.0    # endpoints get flipped internally
+    quiet = Options(Float64; verbosity=0)
+    @test bisection(fpos, 0.0, 1.0, NullParameters(), quiet) == 0.0    # |f(0)| = 1 < |f(1)| = 2
+    @test bisection(fpos, 1.0, 0.0, NullParameters(), quiet) == 0.0    # endpoints flipped internally
 
     # The debug `println` and hard `error("Max iteration number exceeded")` were
     # A tight tolerance forces exhaustion here.
@@ -732,6 +732,66 @@ end
     local αbest
     @test (αbest = bisection(fslow, 0.0, 1.0, NullParameters(), cfg)) isa Float64
     @test 0.0 ≤ αbest ≤ 1.0
+end
+
+@testset "$(rpad("_bisection_core tells a located root from a failed bracket", 80))" begin
+    # The three outcomes are distinct, and "no sign change" is not one of the successes. Folding it
+    # into `converged = true` is what let an unbracketable derivative be claimed as a line
+    # minimiser and then classified as `LINESEARCH_FLOOR` — see the `Bisection` testset below.
+    froot(α, _) = α - 1.0
+    fpos(α, _) = α + 1.0
+    fslow(α, _) = α - 1 / 3
+
+    @test SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())[2] ===
+          SimpleSolvers.BISECTION_CONVERGED
+    @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[2] ===
+          SimpleSolvers.BISECTION_NOBRACKET
+    @test SimpleSolvers._bisection_core(fslow, 0.0, 1.0, NullParameters(),
+        Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0))[2] ===
+          SimpleSolvers.BISECTION_EXHAUSTED
+
+    # The endpoint flip does not change the verdict, and the returned value is unchanged from
+    # before: the endpoint with the smallest |f|. Only the claim made about it is.
+    α, oc, _ = SimpleSolvers._bisection_core(fpos, 1.0, 0.0, NullParameters(), Options())
+    @test oc === SimpleSolvers.BISECTION_NOBRACKET
+    @test α == 0.0
+
+    # And the outcome is inferred, not boxed — it is on the line search's hot path.
+    @test (@inferred SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())) isa
+          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int}
+end
+
+@testset "$(rpad("a Bisection that cannot bracket never reports a floor", 80))" begin
+    # `LINESEARCH_FLOOR` asserts that *no* line search can make progress along this direction, and
+    # the outer iteration acts on it: `flag_stall!`, then `max_stalls`. A bisection that could not
+    # bracket φ′ has established nothing of the kind, so it may not make that claim (issue: the
+    # `converged = true` of the no-sign-change branch). It reports what the *merit* says instead.
+    #
+    # `Bisection` bisects φ′ but brackets on φ, so the case arises whenever the two disagree —
+    # which is the realistic one: a stale or regularized Jacobian, an inexact linear solve, a
+    # non-smooth merit. Both problems below state it outright, with a φ that has a proper minimum
+    # and a "derivative" that never changes sign, so `bracket_minimum` succeeds and the bisection
+    # it hands the bracket to cannot start.
+
+    # The minimum of φ lies at α = 1, so the search still finds a step that improves the merit.
+    # A genuine decrease stays reported as a decrease — the failed bracket is not held against it.
+    ok = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> -1.0)
+    st = solve_with_status(Linesearch(ok, Bisection(); verbosity=0), 1.0)
+    @test outcome(st) === LINESEARCH_DECREASED
+    @test steplength(st) > 0.0
+    @test st.φ ≤ st.φ₀ - st.τ
+
+    # The minimum of φ lies at α = -1, so no positive step improves the merit. This is the case
+    # the defect turned into `LINESEARCH_FLOOR`: the endpoint of a bracket that never was got
+    # claimed as the line minimiser, and the outer iteration counted the step towards `max_stalls`
+    # (`flag_stall!` in `solver_step!`) on the strength of that claim. It is `LINESEARCH_EXHAUSTED`
+    # — no acceptable step was *found*, which leaves open that one exists.
+    bad = LinesearchProblem{Float64}((α, _) -> (α + 1.0)^2, (α, _) -> -1.0)
+    stbad = solve_with_status(Linesearch(bad, Bisection(); verbosity=0), 0.01)
+    @test outcome(stbad) === LINESEARCH_EXHAUSTED
+    @test outcome(stbad) ≠ LINESEARCH_FLOOR
+    @test !SimpleSolvers.isfloor(stbad)
+    @test steplength(stbad) > 0.0      # the α > 0 contract holds either way
 end
 
 @testset "$(rpad("bisection interval/config disambiguation", 80))" begin
@@ -1219,8 +1279,16 @@ end
         @test !has_logging_code(f)
     end
 
-    # The barrier really is on the path a solve takes, for every method, and stays quiet when there
-    # is nothing to report.
+    # The barrier really is on the path a *direct* `solve(ls, α)` takes, for every method — that is
+    # the only path that reaches it, since a solver consults `solve_with_status` and reports through
+    # `nonlinear_solver_warnings` instead — and it stays quiet when there is nothing to report.
+    for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        lsp = Linesearch(make_linesearch_problem(-3.0), ls; verbosity=1)
+        @test (@test_logs solve(lsp, 1.0)) > 0.0
+    end
+
+    # ... and a solve is quiet too, for every method, now that the line search does not report from
+    # inside the iteration at all.
     F(y, x, params) = y .= x .^ 2 .- 2
     for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
         x = ones(3)
@@ -1232,17 +1300,22 @@ end
     # The two `bisection` messages moved into reporters of their own, so their verbosity gates are
     # no longer visible at the site that decides to report. Pin them: each fires at its documented
     # level and is silent one below. Neither carries `maxlog`, so this is repeatable within a
-    # session, unlike the line-search messages.
+    # session.
     fslow(α, _) = α - 1 / 3
     nonconvergence(v) = () -> bisection(fslow, 0.0, 1.0, NullParameters(),
         Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=v))
     @test logged_any(nonconvergence(1), "did not converge within")
     @test !logged_any(nonconvergence(0), "did not converge within")
 
+    # `nobracket` sits at `verbosity ≥ 1`, not 2. It used to be gated at 2 because the *line
+    # search* routed through `bisection` and a flat derivative at a minimum made the message a
+    # false alarm; it no longer does — `_bisect_on` calls `_bisection_core` and reports through its
+    # `LinesearchStatus` — so the only caller left is a user asking for a root, and "there is no
+    # root in your interval" is a genuine failure for them.
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
     nobracket(v) = () -> bisection(fpos, 0.0, 1.0, NullParameters(), Options(Float64; verbosity=v))
-    @test logged_any(nobracket(2), "shows no sign change")
-    @test !logged_any(nobracket(1), "shows no sign change")
+    @test logged_any(nobracket(1), "shows no sign change")
+    @test !logged_any(nobracket(0), "shows no sign change")
 end
 
 @testset "$(rpad("every clause of a linesearch message is built only when it is shown", 80))" begin
