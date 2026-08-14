@@ -21,8 +21,10 @@ single operation for a large residual. A caller who drives `solver_step!` by han
 a state whose `value` is stale must not supply it.
 
 It may carry an optional `αmax` field too, the caller's ceiling on the step length; see
-[`linesearch_αmax`](@ref), which documents why that one has to be per call. Both are read
-through a `hasproperty` guard resolved at compile time, so supplying neither costs nothing.
+[`linesearch_αmax`](@ref), which documents why that one has to be per call. That one is read by
+the *method* rather than by these closures, through a `hasproperty` guard, as `φ₀` is read here
+through a `haskey` one. Both are resolved from the parameter type at compile time, so supplying
+neither costs nothing.
 """
 function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
     # private scratch buffers for the line search (see the docstring for why)

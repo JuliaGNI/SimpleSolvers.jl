@@ -56,7 +56,7 @@ The **caller's** ceiling is an optional `αmax` field of the `params` passed to
 [`solve`](@ref)/[`solve_with_status`](@ref):
 
 ```julia
-solve_with_status(ls, one(T), (x = x, αmax = 2π / norm(direction)))
+solve_with_status(ls, one(T), (x = x, parameters = params, αmax = 2π / norm(direction)))
 ```
 
 This one has to be per call because the scale it comes from is not a property of the merit. On the

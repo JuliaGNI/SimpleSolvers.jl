@@ -250,13 +250,13 @@ from a bisection that actually converged.
 struct Bisection{T} <: LinesearchMethod{T}
     αmax::T
 
-    function Bisection{T}(αmax::T=T(DEFAULT_LINESEARCH_αmax)) where {T}
+    function Bisection{T}(αmax::T=default_linesearch_αmax(T)) where {T}
         @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
         new{T}(αmax)
     end
 end
 
-Bisection(::Type{T}=Float64; αmax=T(DEFAULT_LINESEARCH_αmax)) where {T} = Bisection{T}(T(αmax))
+Bisection(::Type{T}=Float64; αmax=default_linesearch_αmax(T)) where {T} = Bisection{T}(T(αmax))
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
 method_αmax(m::Bisection) = m.αmax
@@ -379,9 +379,14 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # meaningful step length along a direction (see the α > 0 contract), so retry once from the
     # α = 0 anchor, which `check_anchor` has established is decreasing.
     if αres ≤ zero(T)
-        bracket = bracket_minimum(prob, params, zero(T), T(DEFAULT_BRACKETING_s), T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
-        if !isnothing(bracket)
-            αres, bretry, nretry = _bisect_for_minimum(ls, bracket..., params)
+        # `_bracket_minimum_core` and not the public `bracket_minimum`: the latter reports a
+        # bracket truncated at the ceiling as an ordinary one, so this retry would bisect an
+        # interval over which φ′ keeps its sign — the one path in this method that could not reach
+        # `capped_status`.
+        rlo, rhi, rstatus = _bracket_minimum_core(prob, params, zero(T), T(DEFAULT_BRACKETING_s), T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        rstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ)
+        if rstatus !== :unbracketable
+            αres, bretry, nretry = _bisect_for_minimum(ls, rlo, rhi, params)
             n += nretry
             # The retry's own verdict counts too: a retry that could not bracket either must not
             # be allowed to claim the floor below, for exactly the reason the first one may not.
@@ -424,7 +429,7 @@ Base.show(io::IO, ls::Bisection) = print(io, "Bisection with αmax = $(ls.αmax)
 
 function change_precision(::Type{T}, method::Bisection) where {T}
     T ≠ eltype(method) || return method
-    Bisection{T}(T(method.αmax))
+    Bisection{T}(convert_αmax(T, method.αmax))
 end
 
 Base.isapprox(b₁::Bisection{T}, b₂::Bisection{T}; kwargs...) where {T} = isapprox(b₁.αmax, b₂.αmax; kwargs...)

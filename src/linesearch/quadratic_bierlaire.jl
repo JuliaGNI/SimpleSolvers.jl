@@ -60,7 +60,7 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ξ::T
     αmax::T
 
-    function BierlaireQuadratic{T}(ε::T, ξ::T, αmax::T=T(DEFAULT_LINESEARCH_αmax)) where {T}
+    function BierlaireQuadratic{T}(ε::T, ξ::T, αmax::T=default_linesearch_αmax(T)) where {T}
         @assert ε > 0 "Precision ε must be positive."
         @assert ξ > 0 "Derivative threshold ξ must be positive."
         @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
@@ -71,7 +71,7 @@ end
 function BierlaireQuadratic(::Type{T}=Float64;
     ε=default_precision(T),
     ξ=default_precision(T),
-    αmax=T(DEFAULT_LINESEARCH_αmax)
+    αmax=default_linesearch_αmax(T)
 ) where {T}
     BierlaireQuadratic{T}(ε, ξ, αmax)
 end
@@ -203,7 +203,7 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     # `check_anchor` has established is decreasing. See issue #164.
     start = (α₀ > zero(T) && derivative(prob, α₀, params) < zero(T)) ? α₀ : zero(T)
     # A start at or beyond the ceiling leaves nothing to bracket; the ceiling is the answer, and
-    # `_capped_status` is what says so with the merit measured there.
+    # `capped_status` is what says so with the merit measured there.
     start < αmax || return capped_status(prob, params, αmax, φ₀, d₀, τ)
     # `_triple_point_core` rather than `triple_point_finder`: its concrete return type costs no
     # allocation, and this runs once per line search.
@@ -247,9 +247,9 @@ Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with 
 function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
     T ≠ AT || return method
     if method.ε == default_precision(AT) && method.ξ == default_precision(AT)
-        BierlaireQuadratic{T}(default_precision(T), default_precision(T), T(method.αmax))
+        BierlaireQuadratic{T}(default_precision(T), default_precision(T), convert_αmax(T, method.αmax))
     else
-        BierlaireQuadratic{T}(T(method.ε), T(method.ξ), T(method.αmax))
+        BierlaireQuadratic{T}(T(method.ε), T(method.ξ), convert_αmax(T, method.αmax))
     end
 end
 

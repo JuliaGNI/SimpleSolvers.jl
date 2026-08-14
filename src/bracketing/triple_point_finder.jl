@@ -33,7 +33,9 @@ Find three points `a < b < c` (strictly ordered in position) with `f(a) ≥ f(b)
 
     A third status, `:capped`, is not a failure at all: the search reached the ceiling `αmax` (see
     [`linesearch_αmax`](@ref)) while `f` was still falling, so the turning point lies beyond the
-    largest step the caller allows and that ceiling *is* the answer.
+    largest step the caller allows and that ceiling *is* the answer. It is reachable only through
+    `_triple_point_core`, which is where the `αmax` argument lives; `triple_point_finder` itself
+    takes no ceiling and therefore never reports it.
 
 # Implementation
 
@@ -116,8 +118,12 @@ function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_c
         # — with `xₖ₊₁ > xₖ` alongside it, since a ceiling at or below `xₖ` cannot order one.
         if xₖ₊₁ ≥ αmax
             xₖ₊₁ = αmax
+            # A ceiling at or below `xₖ` cannot order a triple, and when it is *equal* to `xₖ` —
+            # which it is whenever the first probe was clamped to it — `fxₖ` already is the merit
+            # there, so evaluating again would only pay for a value in hand.
+            xₖ₊₁ > xₖ || return (xₖ₋₁, xₖ, xₖ₊₁, :capped)
             fxₖ₊₁ = f(xₖ₊₁)
-            return (xₖ₋₁, xₖ, xₖ₊₁, (xₖ₊₁ > xₖ && fxₖ₊₁ > fxₖ) ? :ok : :capped)
+            return (xₖ₋₁, xₖ, xₖ₊₁, fxₖ₊₁ > fxₖ ? :ok : :capped)
         end
         fxₖ₊₁ = f(xₖ₊₁)
         if fxₖ₊₁ > fxₖ

@@ -35,7 +35,7 @@ struct Quadratic{T} <: LinesearchMethod{T}
     s_reduction::T
     αmax::T
 
-    function Quadratic{T}(ε::T, s::T, s_reduction::T, αmax::T=T(DEFAULT_LINESEARCH_αmax)) where {T}
+    function Quadratic{T}(ε::T, s::T, s_reduction::T, αmax::T=default_linesearch_αmax(T)) where {T}
         @assert ε > 0 "Precision ε must be positive."
         @assert s > 0 "Bracketing step s must be positive."
         @assert 0 < s_reduction < 1 "Bracketing step reduction factor must satisfy 0 < s_reduction < 1."
@@ -48,7 +48,7 @@ function Quadratic(::Type{T}=Float64;
     ε=default_precision(T),
     s=T(DEFAULT_BRACKETING_s),
     s_reduction=T(DEFAULT_s_REDUCTION),
-    αmax=T(DEFAULT_LINESEARCH_αmax)
+    αmax=default_linesearch_αmax(T)
 ) where {T}
     Quadratic{T}(ε, s, s_reduction, αmax)
 end
@@ -162,7 +162,7 @@ Base.show(io::IO, ls::Quadratic) = print(io, "Quadratic Polynomial with ε = $(l
 
 function change_precision(::Type{T}, method::Quadratic) where {T}
     T ≠ eltype(method) || return method
-    Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction), T(method.αmax))
+    Quadratic{T}(T(method.ε), T(method.s), T(method.s_reduction), convert_αmax(T, method.αmax))
 end
 
 function Base.isapprox(qu₁::Quadratic{T}, qu₂::Quadratic{T}; kwargs...) where {T}

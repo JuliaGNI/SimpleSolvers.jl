@@ -20,7 +20,9 @@ Every method reached through [`solve`](@ref) or [`solve_with_status`](@ref) guar
 1. **It never throws.** A situation it cannot handle is *reported*, never raised — a line
    search must not abort the enclosing solve. Bracketing helpers signal failure with `nothing`
    (see [`bracket_minimum`](@ref), [`triple_point_finder`](@ref)) and the method maps that onto
-   a [`LinesearchOutcome`](@ref).
+   a [`LinesearchOutcome`](@ref). The one deliberate exception is a caller error rather than a
+   situation arising from the merit: a `params.αmax` that is not a usable ceiling raises an
+   `ArgumentError` before any evaluation — see [`linesearch_αmax`](@ref).
 2. **It returns ``\\alpha > 0``.** Never the ``\\alpha = 0`` anchor, which would freeze the
    outer iterate (`x .+= 0 .* d`), and never a negative step: ``\\alpha`` scales a direction
    that has already been chosen, so its sign is not the line search's to decide.
@@ -103,8 +105,11 @@ resolved at compile time, so a caller that supplies nothing pays nothing.
 # Example
 
 ```julia
-solve_with_status(ls, one(T), (x = x, state = state, αmax = 2π / norm(direction)))
+solve_with_status(ls, one(T), (x = x, parameters = params, αmax = 2π / norm(direction)))
 ```
+
+The other fields are the ones the merit closures of [`linesearch_problem`](@ref) read; `αmax` is
+additional and independent of them.
 
 !!! info "A ceiling is not a failure"
     A search that stops at the ceiling returns it, with the merit *measured* there and classified

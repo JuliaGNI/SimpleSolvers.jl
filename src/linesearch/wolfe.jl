@@ -5,7 +5,8 @@ Default upper bound on the step length for the bracketing phase of
 [`StrongWolfe`](@ref). This is [`DEFAULT_LINESEARCH_αmax`](@ref), which every method's ceiling now
 defaults to: the field was `StrongWolfe`'s alone until the bracketing searches were found to
 extrapolate without one, and defining this as that constant is what keeps the two from drifting
-apart.
+apart. The constructor obtains it through [`default_linesearch_αmax`](@ref), which saturates it at
+`floatmax(T)` rather than overflowing to `Inf` in `Float16`.
 """
 const DEFAULT_WOLFE_αmax = DEFAULT_LINESEARCH_αmax
 
@@ -61,7 +62,7 @@ end
 function StrongWolfe(::Type{T}=Float64;
     c₁=T(DEFAULT_WOLFE_c₁),
     c₂=T(DEFAULT_WOLFE_c₂),
-    αmax=T(DEFAULT_WOLFE_αmax)
+    αmax=default_linesearch_αmax(T)
 ) where {T}
     StrongWolfe{T}(c₁, c₂, αmax)
 end
@@ -74,7 +75,7 @@ Base.show(io::IO, ls::StrongWolfe) = print(io, "StrongWolfe with c₁ = $(ls.c�
 
 function change_precision(::Type{T}, method::StrongWolfe) where {T}
     T ≠ eltype(method) || return method
-    StrongWolfe{T}(T(method.c₁), T(method.c₂), T(method.αmax))
+    StrongWolfe{T}(T(method.c₁), T(method.c₂), convert_αmax(T, method.αmax))
 end
 
 function Base.isapprox(w₁::StrongWolfe{T}, w₂::StrongWolfe{T}; kwargs...) where {T}

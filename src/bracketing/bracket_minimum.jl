@@ -73,7 +73,7 @@ struct BracketRootCriterion <: BracketingCriterion end
 (::BracketRootCriterion)(yb::T, yc::T) where {T<:Number} = yc * yb ≤ zero(T)
 
 """
-    bracket(f, x, bc, s, k, nmax)
+    bracket(f, x, bc, s, k, nmax, αmax)
 
 Grow a bracket outward from `x` (in steps scaled by `k`, starting from `s`) until
 the [`BracketingCriterion`](@ref) `bc` is satisfied. Used by [`bracket_minimum`](@ref)
@@ -137,6 +137,14 @@ function _bracket_core(f::Callable, x::T, bc::BracketingCriterion, s::T, k::T, n
             # and evaluating it is what lets the search report the merit at the step it returns.
             c = αmax
             c > a || return (a, a, :capped)
+            # …unless `b` is already *at* the ceiling, which it is whenever the first probe was
+            # clamped to it (`s ≥ αmax - x`, so any caller ceiling at or below the initial step).
+            # There is then nothing further to the right to probe, and probing anyway compares the
+            # point with itself: `yc == yb` satisfies `BracketMinimumCriterion` (`yc ≥ yb`), so the
+            # truncation would be reported as `:ok` — a turning point that is one point counted
+            # twice — and the caller would bisect a derivative, or fit a polynomial, on an interval
+            # over which the merit only falls.
+            c > b || return (a, b, :capped)
             yc = f(c)
             return (a, c, bc(yb, yc) ? :ok : :capped)
         end
@@ -168,7 +176,10 @@ This bracketing algorithm is taken from [kochenderfer2019algorithms](@cite). Als
 - `x`: the starting point,
 - `s`: by default [`DEFAULT_BRACKETING_s`](@ref),
 - `k`: by default [`DEFAULT_BRACKETING_k`](@ref),
-- `nmax`: by default [`DEFAULT_BRACKETING_nmax`](@ref).
+- `nmax`: by default [`DEFAULT_BRACKETING_nmax`](@ref),
+- `αmax`: how far to the *right* the search may probe, by default `Inf` (see
+  [`linesearch_αmax`](@ref)). A bracket truncated by it is returned like any other, so a caller
+  that has to tell the two apart uses `_bracket_minimum_core`.
 
 # Extended help
 
@@ -242,6 +253,13 @@ function _bracket_minimum_core(f::Callable, x::T, s::T, k::T, nmax::Integer, αm
         a, b = b, a
         ya, yb = yb, ya
         s = -s
+    elseif s > zero(T) && b ≥ αmax && b > a
+        # The direction probe was clamped to the ceiling *and* the merit fell to it, so there is
+        # nothing further to the right that the caller allows: the bracket ends here. Returning
+        # now rather than handing this to `_bracket_core` is what keeps the ceiling from being
+        # evaluated twice — this function and `_bracket_core` both probe `a + s`, and clamped to
+        # the same ceiling that is the same point.
+        return (a, b, :capped)
     end
 
     _bracket_core(f, a, BracketMinimumCriterion(), s, k, nmax, αmax)
@@ -263,7 +281,7 @@ _bracket_minimum_core(prob::LinesearchProblem{T}, params, x::T, s::T, k::T=T(DEF
     _bracket_minimum_core(x -> value(prob, x, params), x, s, k, nmax, αmax)
 
 @doc raw"""
-    bracket_minimum_with_fixed_point(f, x, s, k, nmax)
+    bracket_minimum_with_fixed_point(f, x, s, k, nmax, αmax)
 
 Find a bracket while keeping the left side (i.e. `x`) fixed.
 
@@ -343,6 +361,11 @@ function _bracket_minimum_with_fixed_point_core(f::Callable, x::T, s::T, k::T, n
         # search runs rightward, and the ceiling itself is probed rather than skipped over.
         if s > zero(T) && bnext ≥ αmax
             αmax > a || return (a, a, ya, ya, :capped)
+            # `b` is already at the ceiling whenever the first probe was clamped to it, and then
+            # `yb` (which equals `ybprev` here — every iteration ends by copying one into the
+            # other) *is* the merit at `αmax`. Re-evaluating it would tie with itself, and a tie
+            # reads as a turning point; see the same guard in `_bracket_core`.
+            αmax > b || return (a, b, ya, yb, :capped)
             b = αmax
             yb = f(b)
             return (a, b, ya, yb, bc(ybprev, yb) ? :ok : :capped)

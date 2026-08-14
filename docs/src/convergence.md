@@ -124,7 +124,9 @@ applicable* — for the bracketing and minimising searches, which do not shrink.
 Reaching a method through [`solve`](@ref) or [`solve_with_status`](@ref) guarantees six things; see
 [`LinesearchMethod`](@ref) for the full statement:
 
-1. **it never throws** — a situation it cannot handle is reported, not raised;
+1. **it never throws** — a situation it cannot handle is reported, not raised, the one exception
+   being a `params.αmax` that is not a usable ceiling, which is a caller error and raises before
+   any evaluation;
 2. **it returns ``\alpha > 0``** — never the anchor, never a negative step;
 3. **it reports through [`SimpleSolvers.linesearch_warnings`](@ref) only**, and only when the
    *user* called it;

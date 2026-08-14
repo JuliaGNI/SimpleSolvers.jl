@@ -1123,6 +1123,57 @@ end
     # derived from one (2π / ‖δ‖, say) degenerates to for a vanishing direction. The method's own
     # ceiling then stands, so it cannot produce an unbounded step either.
     @test steplength(solve_with_status(Linesearch(far, Quadratic(); verbosity=0), 1.0, (αmax=Inf,))) == αmax
+
+    # When the merit only falls, the ceiling *is* the best admissible step and every minimising
+    # search has to return it — including at the ceilings a caller with a geometric bound actually
+    # supplies.  `Bisection` seeds its bracketing step from the trial step (`s = clamp(|α|, 0.01, 1)`,
+    # so `1` for `α = 1`), which put every ceiling ≤ 1 on the wrong side of the first probe: the
+    # truncated bracket tied with itself, was reported as a found one, and the search fell through
+    # to a `BISECTION_NOBRACKET` and its retry.  Measured on this merit, it returned 0.32 for a
+    # ceiling of 1.0 and 0.16 for one of 0.5 — a third of the step it was allowed — for 15 merit
+    # evaluations, and `LINESEARCH_EXHAUSTED` at 0.005.
+    descending = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> -1.0)
+    for m in minimising, ceiling in (2.0, 1.0, 0.5, 0.05, 0.005)
+        probed = Float64[]
+        watched = LinesearchProblem{Float64}((α, _) -> (push!(probed, α); 1.0 - α), (α, _) -> -1.0)
+        st = solve_with_status(Linesearch(watched, m; verbosity=0), 1.0, (αmax=ceiling,))
+        @test steplength(st) == ceiling
+        @test outcome(st) === LINESEARCH_DECREASED
+        @test st.φ == 1.0 - ceiling            # the merit at the step handed back
+        @test maximum(probed) ≤ ceiling
+    end
+    # …and the merit is not evaluated where nothing needs it: the whole search costs a handful of
+    # evaluations rather than the dozen the fall-through spent.
+    for m in minimising
+        n = Ref(0)
+        counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; 1.0 - α), (α, _) -> -1.0)
+        solve_with_status(Linesearch(counted, m; verbosity=0), 1.0, (αmax=0.5,))
+        @test n[] ≤ 6
+    end
+    @test steplength(solve_with_status(Linesearch(descending, Static(); verbosity=0), 1.0, (αmax=0.5,))) == 0.5
+end
+
+# `DEFAULT_LINESEARCH_αmax` is 2^16, which is *above* `floatmax(Float16) = 65504`, so the plain
+# `T(DEFAULT_LINESEARCH_αmax)` the constructors used overflowed to `Inf` — and a `Float16` line
+# search then carried no ceiling at all, i.e. the defect the field exists to fix was absent in the
+# one precision this package special-cases everywhere else (`armijo_ulps`, `linesearch_iterations`,
+# `default_precision`).
+@testset "$(rpad("the default ceiling survives Float16", 80))" begin
+    for T in (Float64, Float32, Float16)
+        @test isfinite(SimpleSolvers.default_linesearch_αmax(T))
+        for m in (Bisection(T), Quadratic(T), BierlaireQuadratic(T), StrongWolfe(T))
+            @test SimpleSolvers.method_αmax(m) === SimpleSolvers.default_linesearch_αmax(T)
+            @test isfinite(SimpleSolvers.method_αmax(m))
+        end
+    end
+    @test SimpleSolvers.default_linesearch_αmax(Float16) == floatmax(Float16)
+    @test SimpleSolvers.default_linesearch_αmax(Float64) == SimpleSolvers.DEFAULT_LINESEARCH_αmax
+
+    # `change_precision` saturates a finite ceiling for the same reason, but must leave an explicit
+    # `Inf` alone: that one is not an overflow but a statement — "no ceiling of my own".
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection())) == floatmax(Float16)
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection(; αmax=Inf))) == Inf
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, StrongWolfe())) == floatmax(Float16)
 end
 
 # The bracketing helpers report a truncated bracket as such rather than as a found one: the fits
@@ -1156,6 +1207,38 @@ end
     # so only the right end is pinned to the ceiling.
     @test bracket_minimum(descending, 0.0, 0.01, 2.0, 100, 5.0)[2] == 5.0
     @test isnothing(bracket_minimum(descending, 0.0, 0.01, 2.0, 100, Inf))
+
+    # A ceiling at or *below* the bracketing step `s` is the case that matters, because it is the
+    # regime a caller with a geometric bound of its own lands in — and `Bisection` seeds `s` from
+    # the trial step, so `s = 1` for the usual `α = 1`.  The first probe is clamped to the ceiling
+    # there, so the loop's probe lands on the same point: comparing it with itself is a *tie*,
+    # and a tie satisfies `BracketMinimumCriterion` (`yc ≥ yb`), which used to report the
+    # truncation as `:ok` — a turning point that is one point counted twice.  The caller then
+    # fitted a polynomial, or bisected a derivative, on an interval over which the merit only
+    # falls, and the whole `:capped` route was unreachable below `s`.
+    for (s, ceiling) in ((1.0, 1.0), (1.0, 0.5), (0.01, 0.005), (0.01, 0.01))
+        @test SimpleSolvers._bracket_minimum_core(descending, 0.0, s, 2.0, 100, ceiling) ==
+              (0.0, ceiling, :capped)
+        let (_, b, _, _, status) = SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, s, 2.0, 100, ceiling)
+            @test (b, status) == (ceiling, :capped)
+        end
+        let (_, _, c, status) = SimpleSolvers._triple_point_core(descending, 0.0, s, 100, 1, ceiling)
+            @test (c, status) == (ceiling, :capped)
+        end
+        # …and the point at the ceiling is asked for exactly once, not twice.
+        for core in (SimpleSolvers._bracket_minimum_core,
+            SimpleSolvers._bracket_minimum_with_fixed_point_core)
+            probed = Float64[]
+            core(x -> (push!(probed, x); descending(x)), 0.0, s, 2.0, 100, ceiling)
+            @test count(==(ceiling), probed) == 1
+        end
+        probed = Float64[]
+        SimpleSolvers._triple_point_core(x -> (push!(probed, x); descending(x)), 0.0, s, 100, 1, ceiling)
+        @test count(==(ceiling), probed) == 1
+    end
+    # A turning point *at* the ceiling is still a genuine bracket and must not be swallowed by the
+    # guard above: it is only a tie against the same point that is not one.
+    @test SimpleSolvers._bracket_minimum_core(turning, 0.0, 1.0, 2.0, 100, 2.0)[end] === :ok
 end
 
 # Check that `bracket_minimum_with_fixed_point` returns the

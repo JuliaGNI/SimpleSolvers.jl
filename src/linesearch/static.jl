@@ -17,6 +17,12 @@ Static()
 
 Static with α = 1.0.
 ```
+
+!!! info "The caller's ceiling still binds"
+    `Static` has no `αmax` field — the whole point of the method is that `α` is the caller's to
+    fix — but a `params.αmax` clamps the step it hands back, since a caller that says no step
+    above a given length is admissible means this one too. See
+    [`SimpleSolvers.linesearch_αmax`](@ref).
 """
 struct Static{T<:Number} <: LinesearchMethod{T}
     α::T
