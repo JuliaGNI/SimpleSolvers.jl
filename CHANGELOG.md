@@ -168,6 +168,77 @@ it) whereas `LINESEARCH_EXHAUSTED` claims only that this one did not; and `LINES
 is a Jacobian problem, not a tolerance problem. The page closes with a table of every `Options`
 field that participates, its default, and which criterion it governs.
 
+### `Bisection` converges onto a minimum, never onto a maximum
+
+The sibling of the entry below, and the second of the two routes by which `Bisection` could claim
+`LINESEARCH_FLOOR` without having earned it. That entry closed the route through a *failed* bracket;
+this one closes the route through a **successful** one.
+
+#### The gap
+
+`Bisection` drives on the *sign* of `φ′`, so it converges to whichever crossing the sign of `φ′` at
+its left endpoint selects — and that sign is invariant under the halving. `y₀` is reassigned only on
+the branch where `y₀ * y > 0`, so it never changes sign and `y₁` keeps the opposite one throughout.
+From `φ′(lo) < 0` the interval shrinks onto a `- → +` crossing, which is a minimum; from
+`φ′(lo) > 0` onto a `+ → -` crossing, which is a **maximum**.
+
+Nothing ruled the second out. `bracket_minimum` brackets a minimum in **value** — it samples `φ` and
+never `φ′` — so on a non-convex ray its interval can enclose several stationary points and its left
+endpoint can sit past one of them. Landing on a maximum was not caught: the step was classified by
+the merit like any other, so it came back as `LINESEARCH_DECREASED` when it happened to improve `φ`
+and as `LINESEARCH_FLOOR` when it did not. The second is the overclaim, because `LINESEARCH_FLOOR`
+is a claim about the *direction* — that no line search can progress along it — which the outer
+iteration acts on through `flag_stall!` and `max_stalls`. GeometricOptimizers observed exactly this
+(`_BFGS` + `Bisection` + `Geodesic`: `LINESEARCH_FLOOR` reported with `φ(1) = φ(0)`, and the step
+taken regardless).
+
+#### Fixed
+
+- `_bisection_core` returns the value of `f` at the (sorted) **left endpoint** as a fourth element.
+  It is returned rather than recomputed because its sign is the invariant above, so it names which
+  kind of crossing the bisection is heading for before the bisection has finished heading there.
+- `SimpleSolvers._bisect_for_minimum` is what `Bisection` now bisects through. When
+  `φ′(lo) > 0` it discards the interval and bisects `[0, lo]` instead, which brackets a minimum **by
+  construction**: `check_anchor` has already established `φ′(0) < 0`, and `φ′(lo) > 0` supplies the
+  opposite sign at the other end. The minimum it then finds is the *earlier* one, nearer the anchor,
+  which is the one a line search wants. The same condition also repairs a `BISECTION_NOBRACKET`
+  whose interval ascends at `lo` — there too a minimum lies in `(0, lo)`.
+- The repair's verdict **replaces** the first bisection's rather than being merged with it, unlike
+  the negative-step retry below. The two disagree here because the bracket was in the wrong place,
+  which is precisely what the orientation detected — not because `φ′` is inconsistent with `φ`.
+
+#### Cost
+
+**None on a ray that does not need it.** The orientation is read off a value `_bisection_core`
+computes anyway, so a correctly oriented bracket is recognised without one extra evaluation of `φ′`
+— which for the `‖F‖²` merit of a `NonlinearSolver` is a full Jacobian. Only the pathological ray
+pays, and it pays for one further bisection. Asserted directly: over three intervals the repaired
+path returns the same step, the same verdict and the same evaluation count as the unrepaired one,
+and makes the same number of derivative evaluations.
+
+The overshoot branch is oriented by construction and always was — it bisects `[0, α]` with
+`φ′(0) < 0` at the left end — so it is unaffected; it now says so through the same helper rather
+than by implication.
+
+#### Measured
+
+On `φ(α) = (α-1)²` with `φ′` given its own shape (a minimum at `0.3`, a maximum at `2.0`) — the
+realistic case, since `Bisection` bisects `φ′` while bracketing on `φ` and the two disagree exactly
+when something is wrong — `bracket_minimum` returns `[0.64, 2.56]`, which ascends at `0.64` and
+descends at `2.56`. Bisecting it lands on `α = 2.0`, the maximum, where `φ(2) = φ(0)` exactly:
+`LINESEARCH_FLOOR`, the downstream symptom reproduced. Repaired, the search returns `α = 0.3` with
+`LINESEARCH_DECREASED` and `φ = 0.49` against `φ(0) = 1.0`.
+
+The orientation is not exotic. Over 300 random starting points on the `exp(x)(x³ − 5x² + 2x) + 2`
+root-finding fixture with `Bisection` as the `NewtonSolver` line search — a genuinely non-convex
+merit, so `bracket_minimum`'s interval really can enclose more than one stationary point — **13 of
+the 300 solves now converge to a different root** than before. Not a worse one: all 300 converge in
+both cases, the same eight distinct roots are reached, and the distribution of `|F|` at the returned
+iterate is bit-identical (median `6.7e-16`, 95th percentile `1.4e-13`, worst `2.7e-12`, all 300
+below `1e-10`). Total iterations drop from 698 to 687, with the worst case unchanged at 4. So on a
+merit with one minimum nothing moves at all, and on one with several the search now picks among them
+by orientation rather than by whichever the value-bracket happened to enclose.
+
 ### `Bisection` no longer reports success when it cannot bracket
 
 #### The gap
@@ -1211,18 +1282,6 @@ section and into the release that fixed it.
 Of their reports, **D3**, **D4** and **D6** are addressed in 0.12.0 and are written up there; what
 follows is what is left.
 
-- **`Bisection` can converge onto a *maximum*.** The 0.12.0 fix closed the route by which a
-  *failed* bracket became `LINESEARCH_FLOOR`; it did not touch the route by which a *successful*
-  one does. `bracket_minimum` brackets a minimum in **value**, which on a non-convex ray can
-  enclose several stationary points, and the bisection of ``\varphi'`` inside it may settle on any
-  of them. Landing on a maximum is not caught: the step is classified by the merit like any other,
-  so it is `LINESEARCH_DECREASED` when it happens to improve ``\varphi`` and `LINESEARCH_FLOOR`
-  when it does not — the same overclaim, reached by a different path. GeometricOptimizers observed
-  exactly this (`_BFGS` + `Bisection` + `Geodesic`: `LINESEARCH_FLOOR` with ``\varphi(1) =
-  \varphi(0)``, and the step taken regardless). A second-order check at the located root, or
-  rejecting a root with ``\varphi'' < 0`` and re-bracketing, would close it. Left out because it
-  changes what the method *searches for*, not merely what it *reports*, which is a larger change
-  than the reporting defect that prompted 0.12.0.
 - **`store_trace`, `show_trace` and `extended_trace` have no readers.** `grep` over `src/` finds
   them only in `Options` itself — they are accepted, printed by `show(::Options)`, and then
   ignored, so a caller who sets one gets silence rather than a trace or an error.

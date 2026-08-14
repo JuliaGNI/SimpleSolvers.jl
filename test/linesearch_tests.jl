@@ -788,7 +788,83 @@ end
 
     # And the outcome is inferred, not boxed — it is on the line search's hot path.
     @test (@inferred SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())) isa
-          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int}
+          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int,Float64}
+
+    # The fourth element is `f` at the *left* endpoint, and it is there because its sign is
+    # invariant under the halving: the interval shrinks onto a crossing whose direction the
+    # starting interval already fixed. It is reported after the endpoint flip, i.e. it belongs to
+    # the smaller endpoint whichever order the caller passed them in.
+    @test SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())[4] == froot(0.0, nothing)
+    @test SimpleSolvers._bisection_core(froot, 2.0, 0.0, NullParameters(), Options())[4] == froot(0.0, nothing)
+    @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[4] == fpos(0.0, nothing)
+end
+
+@testset "$(rpad("a Bisection converges onto a minimum, never onto a maximum", 80))" begin
+    # `bracket_minimum` brackets a minimum in *value*: it samples φ and never φ′, so on a
+    # non-convex ray its interval can enclose several stationary points and its left endpoint can
+    # sit past one of them. The bisection inside it then converges to whichever crossing the sign
+    # of φ′ at that left endpoint selects — and from φ′(lo) > 0 that crossing is a *maximum*.
+    #
+    # This was not caught: the step was classified by the merit like any other, so it came back as
+    # `LINESEARCH_DECREASED` when it happened to improve φ and `LINESEARCH_FLOOR` when it did not.
+    # The second is the overclaim — `LINESEARCH_FLOOR` asserts that *no* line search can progress
+    # along this direction, and the outer iteration acts on it via `flag_stall!` and `max_stalls`.
+    # GeometricOptimizers observed exactly that (`_BFGS` + `Bisection` + `Geodesic`:
+    # `LINESEARCH_FLOOR` with φ(1) = φ(0), and the step taken regardless).
+    #
+    # φ has its minimum at α = 1; φ′ is given its own shape, with a minimum at α = 0.3 and a
+    # maximum at α = 2 — the realistic case, since `Bisection` bisects φ′ while bracketing on φ and
+    # the two disagree exactly when something is wrong (a stale or regularized Jacobian, an inexact
+    # linear solve, a non-smooth merit).
+    φ(a) = (a - 1.0)^2
+    D(a) = -(a - 0.3) * (a - 2.0)
+    prob = LinesearchProblem{Float64}((a, _) -> φ(a), (a, _) -> D(a))
+    ls = Linesearch(prob, Bisection(); verbosity=0)
+
+    # The bracket really is the pathological one: it ascends at its left endpoint and descends at
+    # its right, so the sign change it contains belongs to the maximum.
+    lo, hi = SimpleSolvers.bracket_minimum(φ, 0.0, 0.01)
+    @test (lo, hi) == (0.64, 2.56)
+    @test D(0.0) < 0.0 && D(lo) > 0.0 && D(hi) < 0.0
+
+    # Bisecting it as such lands on the maximum at α = 2, where the merit equals φ(0) exactly — the
+    # step that used to be handed back and claimed as the line minimiser.
+    αmax_root, ocmax, _, ylo = SimpleSolvers._bisect_on(ls, lo, hi, NullParameters())
+    @test ocmax === SimpleSolvers.BISECTION_CONVERGED
+    @test αmax_root ≈ 2.0 atol = 1e-8
+    @test ylo > 0.0                       # the orientation that gives it away
+    @test φ(αmax_root) == φ(0.0)          # no decrease at all, yet a "located root"
+
+    # Repaired, it bisects [0, lo] instead — oriented for a minimum by construction, since
+    # `check_anchor` has established φ′(0) < 0 — and finds the *earlier* minimum at α = 0.3.
+    αmin_root, ocmin, _ = SimpleSolvers._bisect_for_minimum(ls, lo, hi, NullParameters())
+    @test ocmin === SimpleSolvers.BISECTION_CONVERGED
+    @test αmin_root ≈ 0.3 atol = 1e-8
+
+    # End to end: a genuine decrease, reported as one.
+    st = solve_with_status(ls, 0.01)
+    @test steplength(st) ≈ 0.3 atol = 1e-8
+    @test outcome(st) === LINESEARCH_DECREASED
+    @test !isfloor(st)
+    @test st.φ ≤ st.φ₀ - st.τ
+
+    # A correctly oriented bracket is left exactly as it was, and — the reason the check is
+    # affordable at all — without one extra evaluation of φ′, which for the ‖F‖² merit of a
+    # `NonlinearSolver` is a full Jacobian. `ylo` is a value the bisection computes anyway.
+    convex = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> 2(a - 1.0))
+    lsc = Linesearch(convex, Bisection(); verbosity=0)
+    for (a, b) in ((0.0, 3.0), (0.5, 4.0), (0.64, 2.56))
+        probed = Ref(0)
+        counted = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> (probed[] += 1; 2(a - 1.0)))
+        lscount = Linesearch(counted, Bisection(); verbosity=0)
+        plain = SimpleSolvers._bisect_on(lscount, a, b, NullParameters())
+        n_plain = probed[]
+        probed[] = 0
+        repaired = SimpleSolvers._bisect_for_minimum(lscount, a, b, NullParameters())
+        @test repaired == plain[1:3]      # same step, same verdict, same evaluation count
+        @test probed[] == n_plain         # and the orientation check itself costs nothing
+    end
+    @test solve(lsc, 1.0) ≈ 1.0 atol = ∛(2eps())
 end
 
 @testset "$(rpad("a Bisection that cannot bracket never reports a floor", 80))" begin

@@ -72,6 +72,32 @@ conflating either one makes a solve report the wrong cause:
   [`SimpleSolvers.solver_step!`](@ref) does exactly that rather than shrinking a step that cannot
   help.
 
+!!! info "What a `DECREASED` does and does not claim"
+    It claims a decrease exceeding ``\tau``, and nothing more. [`Backtracking`](@ref) and
+    [`StrongWolfe`](@ref) additionally verify their Wolfe condition before returning; the minimising
+    searches ([`Bisection`](@ref), [`Quadratic`](@ref), [`BierlaireQuadratic`](@ref)) approximate the
+    line minimiser and test no such condition. The ``\tau``-exceeding decrease is the guarantee they
+    all share.
+
+### Which stationary point a minimising search finds
+
+[`Bisection`](@ref) drives on the *sign* of ``\varphi'``, and a bisection converges to whichever
+crossing the sign at its left endpoint selects — a sign that is invariant under the halving. From
+``\varphi'(\mathrm{lo}) < 0`` the interval shrinks onto a ``-\to+`` crossing, a **minimum**; from
+``\varphi'(\mathrm{lo}) > 0`` onto a ``+\to-`` crossing, a **maximum**.
+
+Nothing in [`bracket_minimum`](@ref) rules the second out: it brackets a minimum in *value*,
+sampling ``\varphi`` and never ``\varphi'``, so on a non-convex ray its interval can enclose several
+stationary points and its left endpoint can sit past one of them. The orientation is therefore
+checked, and repaired by bisecting ``[0, \mathrm{lo}]`` instead — an interval that brackets a
+minimum by construction, since [`SimpleSolvers.check_anchor`](@ref) has established
+``\varphi'(0) < 0``. See `SimpleSolvers._bisect_for_minimum`.
+
+This matters for the criteria on this page rather than only for the answer. A step at a maximum is
+classified by the merit like any other, so an unrepaired search reported `LINESEARCH_FLOOR` whenever
+that step failed to improve ``\varphi`` — and `LINESEARCH_FLOOR` is a claim about the *direction*,
+which the outer iteration acts on.
+
 ### The anchor policy
 
 Before any method searches, it validates the ``\alpha = 0`` anchor through the single shared
