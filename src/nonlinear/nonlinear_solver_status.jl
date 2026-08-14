@@ -18,6 +18,16 @@ Stores absolute and successive residuals for `x` and `f`. It is used as a diagno
 - `f_increased::Bool`
 - `stalled::Bool`: the *last* step stalled, see [`stalled_step`](@ref)
 - `not_progressing::Bool`: the iteration is not getting anywhere, see [`no_progress`](@ref)
+- `ls_outcomes`: how often the line search reported each [`LinesearchOutcome`](@ref) during the
+  solve, indexed by [`linesearch_index`](@ref); see [`linesearch_outcomes`](@ref) and
+  [`linesearch_failures`](@ref)
+
+!!! info "The line-search tally is the programmatic channel"
+    A line search does not log from inside a solve — it reports to the solver, which accumulates
+    the outcomes here (see [`record_linesearch!`](@ref)). A caller that wants to *act* on a
+    rejected line search rather than read about it — restart an approximate Hessian, fall back to
+    steepest descent — reads this tally instead of scraping the log. That is what
+    [`solve_with_status!`](@ref) is for.
 
 # Examples
 
@@ -50,6 +60,73 @@ struct NonlinearSolverStatus{T}
     f_increased::Bool
     stalled::Bool
     not_progressing::Bool
+
+    # An `NTuple` and not the `MVector` the state keeps: the status is immutable and is built more
+    # than once per iteration (see `record_progress!`), so it takes a snapshot rather than a handle
+    # on a buffer that keeps changing under it.
+    ls_outcomes::NTuple{NLINESEARCH_OUTCOMES,Int}
+end
+
+"""
+    linesearch_outcomes(status)
+
+Return the tally of [`LinesearchOutcome`](@ref)s the line search reported during the solve,
+indexed by [`linesearch_index`](@ref). See [`record_linesearch!`](@ref) for why this, and not the
+log, is how a caller learns that the line search was rejected.
+
+# Examples
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: linesearch_outcomes, linesearch_index)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> x = [1.0];
+
+julia> st = solve_with_status!(x, NonlinearProblem(F, zero(x)), Newton(); verbosity = 0);
+
+julia> linesearch_outcomes(st)[linesearch_index(LINESEARCH_NO_DESCENT)]
+0
+```
+"""
+linesearch_outcomes(status::NonlinearSolverStatus) = status.ls_outcomes
+
+"""
+    linesearch_failures(status)
+
+The number of steps whose line search reported a failure, i.e. [`linesearch_outcomes`](@ref)
+summed over the outcomes that are not [`isbenign`](@ref).
+"""
+linesearch_failures(status::NonlinearSolverStatus) =
+    sum(oc -> isbenign(oc) ? 0 : status.ls_outcomes[linesearch_index(oc)], instances(LinesearchOutcome))
+
+"""
+    dominant_linesearch_outcome(status, count_floor=true)
+
+The non-[`isbenign`](@ref) [`LinesearchOutcome`](@ref) the line search reported most often during
+the solve, or `nothing` if it reported none. This is what
+[`nonlinear_solver_warnings`](@ref) names when it explains a solve that did not converge: a solve
+whose line search failed does so for one reason nearly every time, and naming that one reason is
+more use than a histogram.
+
+Ties go to the outcome declared first in [`LinesearchOutcome`](@ref), which orders them from the
+benign end (`LINESEARCH_FLOOR`, the merit is simply irreducible) towards the actionable one
+(`LINESEARCH_NO_DESCENT`, the direction is wrong and the [`Jacobian`](@ref) is the suspect) — so a
+tie is broken *away* from the more alarming diagnosis rather than towards it.
+
+`count_floor = false` skips `LINESEARCH_FLOOR`, which is how a *converged* solve is asked whether
+anything went wrong: reaching the merit's round-off floor on the last step is how a solve converges,
+so for that question the floor is not a failure at all. It is the tie rule above that makes the
+distinction matter — a converged solve that floored once and was exhausted once would otherwise be
+explained by the floor, which is the half of it that is expected.
+"""
+function dominant_linesearch_outcome(status::NonlinearSolverStatus, count_floor::Bool=true)
+    best = nothing
+    count = 0
+    for oc in instances(LinesearchOutcome)
+        (isbenign(oc) || (!count_floor && oc === LINESEARCH_FLOOR)) && continue
+        n = status.ls_outcomes[linesearch_index(oc)]
+        n > count && ((best, count) = (oc, n))
+    end
+    best
 end
 
 @doc raw"""
@@ -292,7 +369,8 @@ function NonlinearSolverStatus(state::NonlinearSolverState{T}, config::Options{T
     # convergence question: it reads a measurement taken once per iteration by `record_progress!`
     # instead of the residuals of the current step.
     NonlinearSolverStatus{T}(iteration_number(state), stall_number(state), iterations_since_progress(state),
-        rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased, stalled, no_progress(rfₐ, config, state))
+        rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased, stalled, no_progress(rfₐ, config, state),
+        Tuple(linesearch_outcomes(state)))
 end
 
 # The stall and no-progress lines are appended only when they are relevant, so the printout of a
@@ -494,6 +572,38 @@ function no_progress_reason(status::NonlinearSolverStatus, config::Options)
     "spent its full budget of max_iterations = $(config.max_iterations) iterations without converging: the residual rfₐ = $(status.rfₐ) did not improve by the factor f_stall_factor = $(config.f_stall_factor) in the last $(status.iterations_since_progress) of them, so either it is on a floor this problem imposes — in which case a larger budget will not help — or it is converging far too slowly for the budget it was given. Set f_stall_window to stop at that point instead of spending the whole budget"
 end
 
+@doc raw"""
+    linesearch_reason(status, config, oc=dominant_linesearch_outcome(status))
+
+The clause [`nonlinear_solver_warnings`](@ref) appends to explain a failed solve in terms of what
+its line search reported, or `""` when it reported nothing but success. `oc` is the outcome to
+explain — by default the dominant one, and for a converged solve the dominant one *other than*
+`LINESEARCH_FLOOR`, which is what made that message fire (see
+[`dominant_linesearch_outcome`](@ref)); the clause has to name the outcome the caller acted on,
+not a different one that happens to be as frequent.
+
+This is the *only* thing said about the line search during a solve. A line search does not log
+from inside the iteration — it reports to the solver, which tallies the outcomes (see
+[`record_linesearch!`](@ref)) — so without this clause a solve that stagnated because every one of
+its steps was rejected would name the symptom and not the cause. A count is what makes it
+evidence: "the line search rejected 194 of 200 steps" is a diagnosis, "the line search failed once"
+is noise from the last step of an otherwise healthy solve.
+
+Like `no_progress_reason` and `linesearch_exhausted_reason`, this is called from
+*inside* the `@warn` message so the string is built only for a message that is actually shown.
+"""
+function linesearch_reason(status::NonlinearSolverStatus, config::Options,
+    oc::Union{LinesearchOutcome,Nothing}=dominant_linesearch_outcome(status))
+    isnothing(oc) && return ""
+    n = linesearch_outcomes(status)[linesearch_index(oc)]
+    " The line search reported $(oc) on $(n) of the $(status.iterations) step(s)" *
+    (oc === LINESEARCH_NO_DESCENT ?
+     ", i.e. φ'(0) > 0 — the direction was not a descent direction at all, which points at the Jacobian rather than at the tolerance: a stale one under refactorize > 1, a nonzero regularization_factor, or an inexact linear solve." :
+     oc === LINESEARCH_EXHAUSTED ?
+     ", i.e. the merit does vary but no trial step was acceptable, so either φ'(0) is inconsistent with φ (a stale or regularized Jacobian, an inexact linear solve, or a non-smooth problem) or linesearch_max_iterations = $(config.linesearch_max_iterations) was too small." :
+     ", i.e. no trial step changed the merit by more than its round-off resolution — the same floor this message reports one level up.")
+end
+
 """
     nonlinear_solver_warnings(status, config)
 
@@ -512,6 +622,29 @@ The three "this solve did not do what you asked" messages are mutually exclusive
 first: stagnation (the iterate froze) wins over lack of progress (the iterate moves but the
 residual is going nowhere), which in turn replaces the bare iteration count — which on its own
 names a symptom and no cause, and was the only thing a non-progressing solve used to report.
+
+# The line search reports here, not from inside the loop
+
+A line search emits nothing during a solve: it reports to the solver through the
+[`LinesearchStatus`](@ref) that [`solve_with_status`](@ref) returns, and [`solver_step!`](@ref)
+tallies the outcomes (see [`record_linesearch!`](@ref)). So the two failure messages above carry
+the clause [`linesearch_reason`](@ref) builds, which names the outcome the line search reported
+most often and how often — the cause behind the symptom they otherwise report on their own. A
+solve that converged anyway says the same thing at `verbosity ≥ 2`, as an `@info`, and only for a
+failure that is *not* `LINESEARCH_FLOOR`: the last step of a converged solve reaches the merit's
+round-off floor as a matter of course, so counting that would report every healthy solve.
+
+To *act* on the outcome rather than read about it, use [`solve_with_status!`](@ref) and the tally
+on the returned [`NonlinearSolverStatus`](@ref); see [`linesearch_outcomes`](@ref).
+
+# Rate limiting
+
+The three repeatable messages are gated on [`should_report!`](@ref), which reports the 1st, 2nd,
+4th, 8th … occurrence of a diagnosis rather than the first three and then nothing ever again. The
+keys of the two *diagnoses* carry the dominant line-search outcome, so a solve that starts failing
+for a new reason is reported at once; the bare iteration count has no cause to key on and uses a
+plain one. The trade-off — a *repeating* diagnosis is not reported on every occurrence — is spelled
+out in that docstring. `verbosity = 0` still silences the solver completely.
 """
 function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Options)
     # Stagnation is the more specific diagnosis and is reported below, so it suppresses the
@@ -523,33 +656,58 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
                  (isnotprogressing(status) ||
                   (status.iterations ≥ config.max_iterations && spent_without_progress(status)))
 
+    # A solve that failed usually failed the same way at every step, so the dominant line-search
+    # outcome is both the cause worth naming and the right thing to key the backoff on: a solve that
+    # starts failing for a *new* reason is a new diagnosis and is reported at once, rather than
+    # inheriting the suppressed counter of the old one.
+    lskey = something(dominant_linesearch_outcome(status), :none)
+
     # The bare count names a symptom and no cause, so either of the two diagnoses below replaces it
     # rather than joining it — the mutual exclusivity the docstring promises.
-    # `maxlog` for the same reason the messages below have one: a caller that drives `solve!` in a
+    # Rate limited for the same reason the messages below are: a caller that drives `solve!` in a
     # loop would otherwise get this once per step for as long as the problem stays unattainable.
     (config.warn_iterations > 0 && status.iterations ≥ config.warn_iterations &&
-     !noprogress && !stagnated) &&
-        (@warn "Solver took $(status.iterations) iterations." maxlog = 3)
+     !noprogress && !stagnated && should_report!(:iterations)) &&
+        (@warn "Solver took $(status.iterations) iterations.")
     # Same shape as the stagnation message: say what the solve achieved, what was asked of it, and
     # how to make the request attainable. The distinguishing news is that the iterate is *not*
     # stuck — the steps are healthy and the residual is simply not heading for the tolerance —
     # which points at the problem rather than at the solver or the precision.
-    (noprogress && config.verbosity ≥ 1) &&
-        (@warn "Nonlinear solver $(no_progress_reason(status, config)). The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖).$(status.stalled ? "" : " The iterate has not frozen (the last step was rxₛ = $(status.rxₛ)), so this is not the round-off floor of x that stagnation detection reports; a residual that is not heading for the tolerance while the steps are healthy usually means a floor of the problem itself — a model, discretisation or ansatz error that F cannot resolve, and that no eps-scaled tolerance can bound.") If rfₐ is accurate enough for you, raise f_abstol above it; otherwise improve the approximation F is built on until its floor lies below the tolerance you need. Set verbosity = 0 to silence this." maxlog = 3)
+    (noprogress && config.verbosity ≥ 1 && should_report!(Symbol(:noprogress_, lskey))) &&
+        (@warn "Nonlinear solver $(no_progress_reason(status, config)). The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖).$(status.stalled ? "" : " The iterate has not frozen (the last step was rxₛ = $(status.rxₛ)), so this is not the round-off floor of x that stagnation detection reports; a residual that is not heading for the tolerance while the steps are healthy usually means a floor of the problem itself — a model, discretisation or ansatz error that F cannot resolve, and that no eps-scaled tolerance can bound.")$(linesearch_reason(status, config)) If rfₐ is accurate enough for you, raise f_abstol above it; otherwise improve the approximation F is built on until its floor lies below the tolerance you need. Set verbosity = 0 to silence this.")
     # A stagnated solve is not an error, but it did not achieve what was asked of it, so say
     # what it *did* achieve and how to make the request attainable. This replaces the former
     # pair of misleading messages (a line-search warning per iteration plus "Solver took 1000
     # iterations."), neither of which named the actual problem.
-    # `maxlog` for the same reason every line-search message has one: a caller that drives
-    # `solve!` in a loop — a time-stepping integrator, say — would otherwise get this once per
-    # step for as long as the problem stays unattainable, which is the message flood this
-    # replaced. Note that `maxlog` is keyed on the source location and so is process-global, not
-    # per solve; see `linesearch_warnings`.
-    (stagnated && config.verbosity ≥ 1) &&
-        (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖). If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this." maxlog = 3)
+    # Rate limited because a caller that drives `solve!` in a loop — a time-stepping integrator,
+    # say — would otherwise get this once per step for as long as the problem stays unattainable,
+    # which is the message flood this replaced. `should_report!` and not `maxlog`: the latter is
+    # keyed on the source location, so its budget is process-global *and* never reset, which left a
+    # genuinely new failure late in a long run unreported. See `should_report!`.
+    (stagnated && config.verbosity ≥ 1 && should_report!(Symbol(:stagnated_, lskey))) &&
+        (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖).$(linesearch_reason(status, config)) If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this.")
     (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
     (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
     (havenonfinite(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs or Infs in solution or function value.")
+
+    # A solve that *converged* despite a line search that kept failing got where it was going, so
+    # this is not a warning about the result — but the route it took is worth seeing when you are
+    # already looking, and it is the only trace of the line search a solve leaves. `verbosity ≥ 2`,
+    # the same gate `LINESEARCH_FLOOR` and `LINESEARCH_STATIONARY` use.
+    #
+    # `LINESEARCH_FLOOR` does not count towards it, although `linesearch_failures` counts it: the
+    # last step of a converged solve reports the merit's round-off floor as a matter of course — a
+    # solve that reached its tolerance did so by making the residual as small as the arithmetic
+    # allows — so a floor here is the healthy case, and counting it would announce that *every*
+    # converged solve did not go smoothly. That is the standard `linesearch_reason` states: one
+    # failure is noise from the last step, a count is evidence. It is also what `isbenign`
+    # promises — that the tally is named only for a solve that did not converge — and the promise
+    # holds for the two messages above, which fire only when it did not.
+    # The same outcome is handed to `linesearch_reason`, so the clause names what made the message
+    # fire rather than the floor it is deliberately ignoring.
+    rough = dominant_linesearch_outcome(status, false)
+    (isconverged(status) && !stagnated && !noprogress && config.verbosity ≥ 2 && !isnothing(rough)) &&
+        (@info "Nonlinear solver converged after $(status.iterations) iterations to rfₐ = $(status.rfₐ), but not every step went smoothly.$(linesearch_reason(status, config, rough))")
 
     nothing
 end

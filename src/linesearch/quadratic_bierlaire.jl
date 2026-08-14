@@ -153,18 +153,12 @@ function _bierlaire_fit(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T
 end
 
 """
-    solve(ls::Linesearch{T,<:BierlaireQuadratic}, α, params)
+    solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α, params)
 
-Fit successive quadratics through three bracketing points to approximate the line minimiser,
-report the outcome through [`linesearch_warnings`](@ref) and return the step length. See
-[`BierlaireQuadratic`](@ref) and [`solve_with_status`](@ref).
+Fit successive quadratics through three bracketing points to approximate the line minimiser and
+return the [`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the
+report; see [`BierlaireQuadratic`](@ref).
 """
-function solve(ls::Linesearch{T,<:BierlaireQuadratic}, α::T, params=NullParameters()) where {T}
-    status = solve_with_status(ls, α, params)
-    linesearch_warnings(status, ls, params)
-    steplength(status)
-end
-
 function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
     prob = problem(ls)
     φ₀ = value(prob, zero(T), params)

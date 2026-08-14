@@ -25,8 +25,13 @@ Every method reached through [`solve`](@ref) or [`solve_with_status`](@ref) guar
    outer iterate (`x .+= 0 .* d`), and never a negative step: ``\\alpha`` scales a direction
    that has already been chosen, so its sign is not the line search's to decide.
 3. **It reports through [`linesearch_warnings`](@ref) only** — one message site and one
-   verbosity policy for all methods (genuine failure at `verbosity ≥ 1`, rate limited; the
-   benign round-off-floor and stationary outcomes at `≥ 2`).
+   verbosity policy for all methods (genuine failure at `verbosity ≥ 1`; the benign
+   round-off-floor and stationary outcomes at `≥ 2`). And it reports there only when the *user*
+   called it: a program calls [`solve_with_status`](@ref), acts on the
+   [`LinesearchStatus`](@ref) and sees no messages at all. A [`NonlinearSolver`](@ref) is such a
+   program — see [`record_linesearch!`](@ref). This is structural rather than a convention a
+   method has to keep: a method implements `solve_with_status`, and [`solve`](@ref) is derived
+   from it once, for all methods, as that call plus the report.
 4. **A non-finite or ascending anchor is reported, not assumed away** — see
    [`check_anchor`](@ref).
 5. **It terminates in a bounded number of merit evaluations, independently of the merit's
@@ -134,12 +139,35 @@ method(s::Linesearch) = s.method
 """
     solve(linesearch, α, params=NullParameters())
 
-Solve the [`LinesearchProblem`](@ref) (contained in [`Linesearch`](@ref)) starting at `α`.
+Solve the [`LinesearchProblem`](@ref) (contained in [`Linesearch`](@ref)) starting at `α`,
+report the outcome through [`linesearch_warnings`](@ref) and return the step length.
 
 The argument `params` needs to be of an appropriate form expected by the respective [`LinesearchProblem`](@ref).
 
+Use [`solve_with_status`](@ref) to obtain the [`LinesearchStatus`](@ref) instead: a caller that
+has to tell "I found a decreasing step" from "the merit is at its round-off floor and nothing
+can decrease it" cannot do so from the step length alone — and it is the call that emits no
+messages, which is what a *program* wants (see [`record_linesearch!`](@ref)).
+
 See [`linesearch_problem`](@ref).
+
+# Implementation
+
+This is *derived*, and it is the only definition: a [`LinesearchMethod`](@ref) implements
+[`solve_with_status`](@ref), and `solve` is that plus the report. It used to be the other way
+round — every method defined this same three-line body, and a method that defined only `solve`
+got `solve_with_status` from a fallback that called it. That fallback made the layering of the
+contract unenforceable: a third-party method reached through `solve` emits its messages from
+wherever it is called, including from inside every iteration of a [`NonlinearSolver`](@ref),
+which is precisely what a program must not see. With the direction reversed, there is no path
+by which the package calls a method's `solve` during a solve, so the guarantee holds by
+construction rather than by convention.
+
+`α` is converted to the element type of the `Linesearch` here, as the problem-taking method
+above does, so `solve(ls, 1)` on a `Linesearch{Float64}` means what it looks like it means.
 """
-function solve(::Linesearch{T,MET}, α, params=NullParameters()) where {T, MET<:LinesearchMethod{T}}
-    error("Solve method missing for $(MET).")
+function solve(ls::Linesearch{T}, α, params=NullParameters()) where {T}
+    status = solve_with_status(ls, T(α), params)
+    linesearch_warnings(status, ls, params)
+    steplength(status)
 end

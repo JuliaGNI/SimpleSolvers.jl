@@ -2,6 +2,141 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.12.0]
+
+Two defects reported from downstream by
+[GeometricOptimizers.jl](https://github.com/JuliaGNI/GeometricOptimizers.jl), filed there as **D3**
+and **D4**, and the two reporting defects a review of that work turned up. **Breaking**: a
+`NonlinearSolver` no longer emits line-search warnings from inside its iteration,
+`NonlinearSolverStatus` gains a field, and a `LinesearchMethod` now implements `solve_with_status`
+rather than `solve`.
+
+### `Bisection` no longer reports success when it cannot bracket
+
+#### The gap
+
+`_bisection_core` returned `(α, converged::Bool, n)` and set `converged = true` on the branch that
+handles *no sign change between the endpoints*:
+
+```julia
+if y₀ * y₁ > zero(y₀)                                  # no sign change
+    report_bisection_nobracket(α₀, α₁, y₀, y₁, config)
+    return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), true, n      # ← converged = true
+end
+```
+
+The intent was that a flat derivative at a minimum is benign. The effect was that the core could
+not tell *"found the root"* from *"gave up"*, and the endpoint of a bracket that never existed was
+handed on as if it were the located line minimiser.
+
+That claim then propagated. `Bisection` bisects ``\varphi'`` but brackets on ``\varphi``, so the
+two disagree exactly when something is wrong — a stale or regularized Jacobian, an inexact linear
+solve, a non-smooth merit. In that case the returned endpoint typically does not improve the merit
+either, and the search classified it as `LINESEARCH_FLOOR`: *"no line search can make progress
+here"*. The outer iteration acts on that (`flag_stall!`, then `max_stalls`), so a failure to
+bracket was being read as a property of the problem. Downstream it contributed to a diverging
+`_BFGS` + `Bisection` + `Geodesic` run in which the step was taken regardless.
+
+#### Changed
+
+- `_bisection_core` now returns a `BisectionOutcome` — `BISECTION_CONVERGED`,
+  `BISECTION_NOBRACKET` or `BISECTION_EXHAUSTED` — in place of the `Bool`. Internal, like the
+  `Symbol` that `_triple_point_core` returns. The `α` it returns is unchanged in every case.
+- `bisection` dispatches on it, so a spent budget and a failed bracket get the wording that fits
+  each (*"I did not narrow the interval far enough"* versus *"there is no root in it at all"*;
+  only the first is fixed by a larger budget).
+- The `Bisection` **line search** classifies a failed bracket by the merit alone, with
+  `LINESEARCH_FLOOR` disallowed: `LINESEARCH_DECREASED` when the returned step still beats
+  ``\varphi(0)`` by more than ``\tau``, `LINESEARCH_EXHAUSTED` when it does not. `LINESEARCH_FLOOR`
+  is now reachable only from a bisection that actually converged. The retry from the ``\alpha = 0``
+  anchor carries its own verdict through for the same reason; it used to be discarded.
+- The standalone `bisection`'s no-bracket warning moved from `verbosity ≥ 2` to `≥ 1`. It sat at 2
+  only because of the benign line-search case, and the line search no longer routes through
+  `bisection` — it calls `_bisection_core` and reports through its `LinesearchStatus`. For a
+  caller asking for a root, "there is no root in your interval" is a genuine failure.
+
+### A line search reports to its caller, not to the user
+
+#### The gap
+
+The `maxlog` caps on the line-search warnings were keyed on the *source location* of the `@warn`,
+so they were process-global and were never reset between `solve!` calls. Once spent, a message was
+gone for the rest of the session, including for later solves of entirely different problems — a
+genuine line-search failure in the tenth solve of a run was silent. This mattered because the log
+was the only channel by which a rejected line search was visible at all.
+
+The caps were a symptom. The channel split already existed — `solve_with_status` returns a
+`LinesearchStatus` and emits nothing, `solve` adds `linesearch_warnings` — but `solver_step!`
+called `solve_with_status` and then `linesearch_warnings` *anyway*, once per outer iteration. A
+solve that cannot make progress asks the line search for an impossible decrease at every one of its
+iterations, so that call is what turned one diagnosis into thousands of identical messages, and the
+caps existed to hold it back.
+
+#### Changed
+
+- `solver_step!` no longer calls `linesearch_warnings`. A line search now reports to its *caller*
+  through `LinesearchStatus`, and to the *user* only when the user called `solve(ls, α)` directly.
+  One direct call yields one message, so there is nothing left to rate limit and the three
+  `maxlog` caps in `report_linesearch_status` are **removed** rather than reimplemented.
+- One deliberate loss: a solver at `verbosity ≥ 2` no longer gets `curvature_diagnostic` per
+  iteration, which cost a full Jacobian evaluation each time.
+
+#### Added
+
+- `NonlinearSolverState` tallies the `LinesearchOutcome` of every step (`record_linesearch!`),
+  reset per solve by `initialize!` exactly like `stalls`.
+- `NonlinearSolverStatus` carries a snapshot of that tally, read with `linesearch_outcomes`,
+  `linesearch_failures` and `dominant_linesearch_outcome`. This is the programmatic channel the
+  package lacked: a caller that wants to *act* on a rejected line search — restart an approximate
+  Hessian, fall back to steepest descent — reads the status instead of scraping the log. Not
+  exported, per the convention the other status predicates follow.
+- The stagnation and no-progress messages of `nonlinear_solver_warnings` name what the line search
+  reported and how often ("the line search reported `LINESEARCH_NO_DESCENT` on 194 of the 200
+  step(s)"), so a failed solve names the cause and not only the symptom. A solve that converged
+  despite line-search failures says the same at `verbosity ≥ 2`, as an `@info` — but only for a
+  failure other than `LINESEARCH_FLOOR`. The last step of a converged solve reaches the merit's
+  round-off floor as a matter of course, so counting it announced that *every* healthy solve "did
+  not go smoothly", which is exactly the noise `linesearch_reason` exists to avoid.
+
+### A line search is implemented by `solve_with_status`, and `solve` is derived
+
+The layering above held for the six built-in methods because each implemented `solve_with_status`
+and defined the same three-line `solve` on top of it. It did not hold for anyone else: the *generic*
+fallback ran the other way — `solve_with_status(ls, α, params) = LinesearchStatus(solve(ls, α,
+params))` — so a third-party method that implemented only `solve` was reached through `solve` from
+inside every iteration of a solve and emitted its messages there, which is the one thing the
+contract in `LinesearchMethod` promises does not happen. And now without a `maxlog` to bound it.
+
+- `solve(ls::Linesearch, α, params)` is **one derived definition** for every method:
+  `solve_with_status`, then `linesearch_warnings`, then `steplength`. The six identical per-method
+  definitions are gone, and so is the "Solve method missing" stub they were dispatched around. `α`
+  is converted to the element type of the `Linesearch`, so `solve(ls, 1)` now works.
+- The generic `solve_with_status` raises instead of deriving a status from `solve`, naming the
+  method and the signature it owes. **Breaking** for a `LinesearchMethod` that implements only
+  `solve`; such a method moves its body into `solve_with_status` and gets `solve` back for free.
+  (GeometricOptimizers' `DecayingStatic` implements both and is unaffected.)
+- `Bisection` reports the merit it *measured* at the step it hands back. Two of its returns — no
+  bracket at all, and a bisection that landed on a non-positive step — filled the `φ` field of the
+  `LinesearchStatus` with `φ(0)`, which `linesearch_exhausted_reason` then interpolated as "the
+  merit changed by 0.0" for a merit nothing had evaluated. For `φ(α) = 1 − α` it reported
+  `α = 1.0, φ(α) = 1.0` where the value is `0.0`. Costs one merit evaluation on a path that has
+  already failed. The `check_anchor` returns still report `φ(0)`, deliberately: the point of an
+  ascent or stationary anchor is that no trial step is worth an evaluation.
+
+### The solver's own report backs off instead of going silent
+
+`nonlinear_solver_warnings` fires once per `solve!` and is the one place a cross-solve cap is still
+needed — a time-stepping loop over an unattainable tolerance would otherwise report at every step.
+Its three repeatable messages are now gated on `should_report!`, which reports the 1st, 2nd, 4th,
+8th … occurrence of a diagnosis rather than the first three and then nothing ever again. Keys
+include the dominant line-search outcome, so a solve that starts failing for a *new* reason is
+reported at once.
+
+Be clear about the trade: a *repeating* diagnosis is reported on occurrences 1, 2, 4, 8, 16 …, so
+occurrence 10 is silent and occurrence 16 is not. Every occurrence is not promised — that would be
+the flood back. `verbosity = 0` still silences a solver completely, and the status is still the way
+to act on an outcome rather than read about it. `reset_warning_counts!` clears the counters.
+
 ## [0.11.0]
 
 Four independent changes. **Breaking**: `Backtracking` loses its `α₀` key and its positional
@@ -905,3 +1040,42 @@ Second review pass (seven further correctness fixes):
 - `StrongWolfe` now composes the shared `SufficientDecreaseCondition` and
   `CurvatureCondition(…, Val(:Strong))` (issue #166) instead of re-implementing the
   Wolfe inequalities inline; the evaluation count and behavior are unchanged.
+
+---
+
+## Open Issues
+
+Problems that surfaced while working on a release but were **not** fixed in it. Each entry says
+what is wrong, how it was established, and why it was left. When one is fixed, move it out of this
+section and into the release that fixed it.
+
+### Reported by GeometricOptimizers.jl, not addressed in 0.12.0
+
+- **`Bisection` can converge onto a *maximum*.** The 0.12.0 fix closed the route by which a
+  *failed* bracket became `LINESEARCH_FLOOR`; it did not touch the route by which a *successful*
+  one does. `bracket_minimum` brackets a minimum in **value**, which on a non-convex ray can
+  enclose several stationary points, and the bisection of ``\varphi'`` inside it may settle on any
+  of them. Landing on a maximum is not caught: the step is classified by the merit like any other,
+  so it is `LINESEARCH_DECREASED` when it happens to improve ``\varphi`` and `LINESEARCH_FLOOR`
+  when it does not — the same overclaim, reached by a different path. GeometricOptimizers observed
+  exactly this (`_BFGS` + `Bisection` + `Geodesic`: `LINESEARCH_FLOOR` with ``\varphi(1) =
+  \varphi(0)``, and the step taken regardless). A second-order check at the located root, or
+  rejecting a root with ``\varphi'' < 0`` and re-bracketing, would close it. Left out because it
+  changes what the method *searches for*, not merely what it *reports*, which is a larger change
+  than the reporting defect that prompted 0.12.0.
+- **`store_trace`, `show_trace` and `extended_trace` have no readers.** `grep` over `src/` finds
+  them only in `Options` itself — they are accepted, printed by `show(::Options)`, and then
+  ignored, so a caller who sets one gets silence rather than a trace or an error.
+  GeometricOptimizers implements `store_trace` itself for this reason. Either implement them or
+  remove them; both are breaking, so neither belongs in a release driven by something else.
+
+### Introduced or left standing by 0.12.0
+
+- **`should_report!` does not promise every occurrence, and its counters are global.** A repeating
+  diagnosis is reported on occurrences 1, 2, 4, 8, 16 … — occurrence 10 is silent. This is the
+  intended trade (see its docstring) and not a defect, but it *is* a behaviour a caller can be
+  surprised by, and there is no `Options` knob to opt out of it: the only controls are
+  `verbosity = 0` and `reset_warning_counts!`. The counters are also process-global and shared
+  across unrelated solvers, which is deliberate — a per-solver counter would reset on every step of
+  a loop that rebuilds its solver, which is exactly the flood the cap exists for — but it means two
+  independent solves can suppress each other's reports.

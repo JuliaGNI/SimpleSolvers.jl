@@ -39,6 +39,17 @@ function make_linesearch_problem(x₀::Number)
     LinesearchProblem{typeof(x₀)}(_f, _d)
 end
 
+# Two stand-ins for a downstream `LinesearchMethod`, used to pin the extension point: a method
+# implements `solve_with_status` and gets `solve` derived from it, and one that implements neither
+# is told which of the two it owes instead of recursing between the generic definitions.
+struct ToyLinesearch{T} <: LinesearchMethod{T} end
+ToyLinesearch(::Type{T}=Float64) where {T} = ToyLinesearch{T}()
+SimpleSolvers.solve_with_status(::Linesearch{T,<:ToyLinesearch}, α::T, params=SimpleSolvers.NullParameters()) where {T} =
+    LinesearchStatus{T}(T(0.25), LINESEARCH_EXHAUSTED, 1, one(T), -one(T), one(T), zero(T), zero(T))
+
+struct MuteLinesearch{T} <: LinesearchMethod{T} end
+MuteLinesearch(::Type{T}=Float64) where {T} = MuteLinesearch{T}()
+
 function test_linesearch(method::LinesearchMethod, n::Integer=1)
     x₀ = -3.0
     x₁ = +3.0
@@ -423,7 +434,7 @@ end
     @test n[] == 1
 end
 
-@testset "$(rpad("Backtracking: τ_ulps validation and generic solve_with_status fallback", 80))" begin
+@testset "$(rpad("Backtracking: τ_ulps validation, and solve is derived from the status", 80))" begin
     @test_throws AssertionError Backtracking(; τ_ulps=-1.0)
     @test Backtracking(; τ_ulps=0.0) isa Backtracking
     @test Backtracking().τ_ulps == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
@@ -433,9 +444,11 @@ end
     st = solve_with_status(Linesearch(noise, Backtracking(; τ_ulps=0.0); verbosity=0), 1.0)
     @test steplength(st) ≤ eps(1.0)
 
-    # Every built-in method reports a real outcome now, so none of them relies on the generic
-    # `LINESEARCH_UNKNOWN` fallback any more.  `Static` is the exception by nature: it ignores
-    # the caller's step and never evaluates the merit, so it has established nothing.
+    # Every built-in method reports a real outcome, and `solve` is *derived* from it — one
+    # definition for all of them, in `linesearch.jl` — so the two agree by construction rather
+    # than because six copies of the same three lines happen to.  `Static` is the exception by
+    # nature: it ignores the caller's step and never evaluates the merit, so it has established
+    # nothing and reports `LINESEARCH_UNKNOWN`, which `linesearch_warnings` passes over in silence.
     prob = LinesearchProblem{Float64}((α, _) -> (α - 0.7)^2, (α, _) -> 2 * (α - 0.7))
     for m in (Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe(), Backtracking())
         ls = Linesearch(prob, m; verbosity=0)
@@ -453,8 +466,25 @@ end
     @test !isfloor(ststatic)
     @test steplength(ststatic) == solve(lstatic, 1.0)
 
-    # The generic `solve_with_status` fallback is kept for user-defined `LinesearchMethod`s
-    # (it reports `LINESEARCH_UNKNOWN`), but no built-in method dispatches to it any more.
+    # A user-defined method implements `solve_with_status` and gets `solve` for free, with the
+    # report and the α > 0 contract that come with it. This is the direction that makes the
+    # contract structural: there is no path by which the package calls a method's own `solve`, so
+    # a method cannot reinstate the per-iteration message a solve must not emit.
+    ls_toy = Linesearch(prob, ToyLinesearch(); verbosity=1)
+    @test solve(ls_toy, 1.0) == 0.25
+    @test outcome(solve_with_status(ls_toy, 1.0)) == LINESEARCH_EXHAUSTED
+    @test logged_any(() -> solve(ls_toy, 1.0), "no step satisfied the sufficient decrease")
+    @test !logged_any(() -> solve_with_status(ls_toy, 1.0), "no step satisfied the sufficient decrease")
+
+    # ... and a method that implements neither says which one it owes, rather than recursing
+    # between the two generic definitions.
+    ls_mute = Linesearch(prob, MuteLinesearch(); verbosity=0)
+    @test_throws "does not implement `solve_with_status`" solve_with_status(ls_mute, 1.0)
+    @test_throws "does not implement `solve_with_status`" solve(ls_mute, 1.0)
+
+    # `α` is converted to the element type of the `Linesearch`, so a caller does not have to spell
+    # out the precision of a step that has no fractional part.
+    @test solve(Linesearch(prob, Backtracking(); verbosity=0), 1) == 1.0
 end
 
 @testset "$(rpad("with_config replaces the Options and keeps problem and method", 80))" begin
@@ -717,13 +747,13 @@ end
     froot(α, _) = α - 1.0
     @test bisection(froot, 0.0, 2.0) ≈ 1.0 atol = 1e-6
 
-    # No sign change over the bracket: rather than silently collapsing onto α₁
-    # or erroring (which would break the line search once the
-    # derivative has flattened at a minimum), `bisection` returns the endpoint
-    # closest to a root (smallest |f|).
+    # No sign change over the bracket: rather than silently collapsing onto α₁ or erroring (which
+    # would abort the enclosing solve), `bisection` returns the endpoint closest to a root
+    # (smallest |f|) *and reports the failure* — silenced here, and asserted on its own below.
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
-    @test bisection(fpos, 0.0, 1.0) == 0.0    # |f(0)| = 1 < |f(1)| = 2
-    @test bisection(fpos, 1.0, 0.0) == 0.0    # endpoints get flipped internally
+    quiet = Options(Float64; verbosity=0)
+    @test bisection(fpos, 0.0, 1.0, NullParameters(), quiet) == 0.0    # |f(0)| = 1 < |f(1)| = 2
+    @test bisection(fpos, 1.0, 0.0, NullParameters(), quiet) == 0.0    # endpoints flipped internally
 
     # The debug `println` and hard `error("Max iteration number exceeded")` were
     # A tight tolerance forces exhaustion here.
@@ -732,6 +762,78 @@ end
     local αbest
     @test (αbest = bisection(fslow, 0.0, 1.0, NullParameters(), cfg)) isa Float64
     @test 0.0 ≤ αbest ≤ 1.0
+end
+
+@testset "$(rpad("_bisection_core tells a located root from a failed bracket", 80))" begin
+    # The three outcomes are distinct, and "no sign change" is not one of the successes. Folding it
+    # into `converged = true` is what let an unbracketable derivative be claimed as a line
+    # minimiser and then classified as `LINESEARCH_FLOOR` — see the `Bisection` testset below.
+    froot(α, _) = α - 1.0
+    fpos(α, _) = α + 1.0
+    fslow(α, _) = α - 1 / 3
+
+    @test SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())[2] ===
+          SimpleSolvers.BISECTION_CONVERGED
+    @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[2] ===
+          SimpleSolvers.BISECTION_NOBRACKET
+    @test SimpleSolvers._bisection_core(fslow, 0.0, 1.0, NullParameters(),
+        Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0))[2] ===
+          SimpleSolvers.BISECTION_EXHAUSTED
+
+    # The endpoint flip does not change the verdict, and the returned value is unchanged from
+    # before: the endpoint with the smallest |f|. Only the claim made about it is.
+    α, oc, _ = SimpleSolvers._bisection_core(fpos, 1.0, 0.0, NullParameters(), Options())
+    @test oc === SimpleSolvers.BISECTION_NOBRACKET
+    @test α == 0.0
+
+    # And the outcome is inferred, not boxed — it is on the line search's hot path.
+    @test (@inferred SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())) isa
+          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int}
+end
+
+@testset "$(rpad("a Bisection that cannot bracket never reports a floor", 80))" begin
+    # `LINESEARCH_FLOOR` asserts that *no* line search can make progress along this direction, and
+    # the outer iteration acts on it: `flag_stall!`, then `max_stalls`. A bisection that could not
+    # bracket φ′ has established nothing of the kind, so it may not make that claim (issue: the
+    # `converged = true` of the no-sign-change branch). It reports what the *merit* says instead.
+    #
+    # `Bisection` bisects φ′ but brackets on φ, so the case arises whenever the two disagree —
+    # which is the realistic one: a stale or regularized Jacobian, an inexact linear solve, a
+    # non-smooth merit. Both problems below state it outright, with a φ that has a proper minimum
+    # and a "derivative" that never changes sign, so `bracket_minimum` succeeds and the bisection
+    # it hands the bracket to cannot start.
+
+    # The minimum of φ lies at α = 1, so the search still finds a step that improves the merit.
+    # A genuine decrease stays reported as a decrease — the failed bracket is not held against it.
+    ok = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> -1.0)
+    st = solve_with_status(Linesearch(ok, Bisection(); verbosity=0), 1.0)
+    @test outcome(st) === LINESEARCH_DECREASED
+    @test steplength(st) > 0.0
+    @test st.φ ≤ st.φ₀ - st.τ
+
+    # The minimum of φ lies at α = -1, so no positive step improves the merit. This is the case
+    # the defect turned into `LINESEARCH_FLOOR`: the endpoint of a bracket that never was got
+    # claimed as the line minimiser, and the outer iteration counted the step towards `max_stalls`
+    # (`flag_stall!` in `solver_step!`) on the strength of that claim. It is `LINESEARCH_EXHAUSTED`
+    # — no acceptable step was *found*, which leaves open that one exists.
+    bad = LinesearchProblem{Float64}((α, _) -> (α + 1.0)^2, (α, _) -> -1.0)
+    stbad = solve_with_status(Linesearch(bad, Bisection(); verbosity=0), 0.01)
+    @test outcome(stbad) === LINESEARCH_EXHAUSTED
+    @test outcome(stbad) ≠ LINESEARCH_FLOOR
+    @test !SimpleSolvers.isfloor(stbad)
+    @test steplength(stbad) > 0.0      # the α > 0 contract holds either way
+
+    # Both of these return the caller's α rather than a step of their own, and the status says what
+    # the merit *is* there rather than repeating φ(0). Filling `φ` with `φ₀` used to make
+    # `linesearch_exhausted_reason` report "the merit changed by 0.0" for a merit nothing had
+    # measured — most visibly for one that descends forever, where `bracket_minimum` finds no
+    # bracket at all and the true value is as far from φ(0) as the step is long.
+    @test stbad.φ == (α -> (α + 1.0)^2)(steplength(stbad))
+    forever = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> -1.0)
+    stf = solve_with_status(Linesearch(forever, Bisection(); verbosity=0), 1.0)
+    @test outcome(stf) === LINESEARCH_EXHAUSTED
+    @test stf.φ == 1.0 - steplength(stf)   # was φ₀ = 1.0, i.e. "the merit did not change"
+    @test stf.φ < stf.φ₀
 end
 
 @testset "$(rpad("bisection interval/config disambiguation", 80))" begin
@@ -1184,11 +1286,11 @@ end
 end
 
 @testset "$(rpad("the linesearch messages are compiled once, not once per solver", 80))" begin
-    # `linesearch_warnings` is called from `solver_step!` on every iteration of every solve, and
-    # it is specialized on the `Linesearch` — hence on the closure types of its
-    # `LinesearchProblem`, hence once per *problem* a solver is built for. The messages therefore
-    # live behind the `report_linesearch_status` barrier, whose signature mentions no closure type;
-    # see its docstring.
+    # `linesearch_warnings` is called from `solve`, i.e. from every direct call to a line search,
+    # and it is specialized on the `Linesearch` — hence on the closure types of its
+    # `LinesearchProblem`, hence once per *problem* a line search is built for. The messages
+    # therefore live behind the `report_linesearch_status` barrier, whose signature mentions no
+    # closure type; see its docstring.
 
     # Half one: the specialization set is bounded by the *signature*. Julia specializes on the
     # concrete types of the arguments, so if no parameter type can admit a `Linesearch` — which
@@ -1219,8 +1321,16 @@ end
         @test !has_logging_code(f)
     end
 
-    # The barrier really is on the path a solve takes, for every method, and stays quiet when there
-    # is nothing to report.
+    # The barrier really is on the path a *direct* `solve(ls, α)` takes, for every method — that is
+    # the only path that reaches it, since a solver consults `solve_with_status` and reports through
+    # `nonlinear_solver_warnings` instead — and it stays quiet when there is nothing to report.
+    for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
+        lsp = Linesearch(make_linesearch_problem(-3.0), ls; verbosity=1)
+        @test (@test_logs solve(lsp, 1.0)) > 0.0
+    end
+
+    # ... and a solve is quiet too, for every method, now that the line search does not report from
+    # inside the iteration at all.
     F(y, x, params) = y .= x .^ 2 .- 2
     for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
         x = ones(3)
@@ -1232,26 +1342,31 @@ end
     # The two `bisection` messages moved into reporters of their own, so their verbosity gates are
     # no longer visible at the site that decides to report. Pin them: each fires at its documented
     # level and is silent one below. Neither carries `maxlog`, so this is repeatable within a
-    # session, unlike the line-search messages.
+    # session.
     fslow(α, _) = α - 1 / 3
     nonconvergence(v) = () -> bisection(fslow, 0.0, 1.0, NullParameters(),
         Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=v))
     @test logged_any(nonconvergence(1), "did not converge within")
     @test !logged_any(nonconvergence(0), "did not converge within")
 
+    # `nobracket` sits at `verbosity ≥ 1`, not 2. It used to be gated at 2 because the *line
+    # search* routed through `bisection` and a flat derivative at a minimum made the message a
+    # false alarm; it no longer does — `_bisect_on` calls `_bisection_core` and reports through its
+    # `LinesearchStatus` — so the only caller left is a user asking for a root, and "there is no
+    # root in your interval" is a genuine failure for them.
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
     nobracket(v) = () -> bisection(fpos, 0.0, 1.0, NullParameters(), Options(Float64; verbosity=v))
-    @test logged_any(nobracket(2), "shows no sign change")
-    @test !logged_any(nobracket(1), "shows no sign change")
+    @test logged_any(nobracket(1), "shows no sign change")
+    @test !logged_any(nobracket(0), "shows no sign change")
 end
 
 @testset "$(rpad("every clause of a linesearch message is built only when it is shown", 80))" begin
     # The `αmin` clause of `LINESEARCH_FLOOR` and both wordings of `LINESEARCH_EXHAUSTED` are
     # interpolated inside their `@warn` rather than into a temporary before it, so that a message
-    # the verbosity gate or `maxlog` discards costs nothing (see `report_linesearch_status`). The
-    # exact texts are pinned here because that laziness is easy to undo by rewriting the
-    # interpolation, and easy to undo *silently*. `Test.TestLogger` records every message regardless
-    # of `maxlog`, which is keyed on the source location and therefore process-global.
+    # the verbosity gate discards costs nothing (see `report_linesearch_status`) — and the
+    # overwhelmingly common case is a caller running at a verbosity that discards it. The exact
+    # texts are pinned here because that laziness is easy to undo by rewriting the interpolation,
+    # and easy to undo *silently*.
     reported(st, v) = () -> SimpleSolvers.report_linesearch_status(st, :Backtracking,
         Options(Float64; verbosity=v, linesearch_max_iterations=7))
 

@@ -10,6 +10,8 @@ using SimpleSolvers: config, linesearch, stall_number, record_stall!, flag_stall
 using SimpleSolvers: iterations_since_progress, record_progress!, no_progress
 using SimpleSolvers: compute_new_iterate!, increase_iteration_number!, Bisection, Quadratic,
     StrongWolfe, Backtracking, steplength, solve_with_status
+using SimpleSolvers: should_report!, reset_warning_counts!, linesearch_outcomes,
+    linesearch_failures, linesearch_index, dominant_linesearch_outcome, record_linesearch!
 using Test
 using Random
 using ForwardDiff
@@ -1128,6 +1130,10 @@ end
         # expanding here, so the residual safeguard damps α to nothing and the residual sits at
         # 10.4 for all 1000 iterations — a solve that makes no progress, which is what is now
         # reported instead of the bare "Solver took … iterations." (see `spent_without_progress`).
+        # The report is rate limited by `should_report!` (1st, 2nd, 4th … occurrence), and unlike
+        # `maxlog` — which suppresses inside the logger, where `TestLogger` still sees it — a
+        # suppressed message is never emitted, so the count has to start from a known point.
+        reset_warning_counts!()
         @test_logs (:warn, r"spent its full budget .* did not improve") match_mode = :any solve!(x0, solver)
         @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
 
@@ -1194,7 +1200,34 @@ end
     # requested tolerance
     x2 = [1.0]
     s2 = NewtonSolver(x2, Ffloor, zero(x2); f_abstol=1e-20, f_reltol=0.0)
+    reset_warning_counts!()
     @test_logs (:warn, r"stagnated") match_mode = :any solve!(x2, s2, SolverState(s2))
+
+    # ... and it names what the line search reported, which is the only trace the line search
+    # leaves: it does not log from inside the iteration, it reports to the solver (see
+    # `record_linesearch!`). Without this clause the message would name the symptom and no cause.
+    x2b = [1.0]
+    s2b = NewtonSolver(x2b, Ffloor, zero(x2b); f_abstol=1e-20, f_reltol=0.0)
+    state2b = SolverState(s2b)
+    reset_warning_counts!()
+    @test_logs (:warn, r"The line search reported LINESEARCH_FLOOR on \d+ of the \d+ step\(s\)") match_mode = :any solve!(x2b, s2b, state2b)
+
+    # The same information, programmatically — this is what a caller acts on, rather than the log.
+    stb = status(s2b, state2b)
+    @test linesearch_failures(stb) > 0
+    @test dominant_linesearch_outcome(stb) === LINESEARCH_FLOOR
+    @test linesearch_outcomes(stb)[linesearch_index(LINESEARCH_FLOOR)] > 0
+    @test sum(linesearch_outcomes(stb)) == iteration_number(state2b)
+
+    # And no line-search message escapes the solve itself: the flood the caps used to hold back
+    # is gone at its source, not rate limited.
+    x2c = [1.0]
+    s2c = NewtonSolver(x2c, Ffloor, zero(x2c); f_abstol=1e-20, f_reltol=0.0, verbosity=2)
+    reset_warning_counts!()
+    logs2c, _ = Test.collect_test_logs() do
+        solve!(x2c, s2c, SolverState(s2c))
+    end
+    @test !any(r -> occursin("line search: ", string(r.message)), logs2c)
 
     # ... and it *replaces* the bare iteration count rather than joining it. This solve stagnates
     # after three iterations, so it only reaches `warn_iterations` when that is set below them;
@@ -1202,6 +1235,7 @@ end
     # `nonlinear_solver_warnings` promises would go untested.
     x4 = [1.0]
     s4 = NewtonSolver(x4, Ffloor, zero(x4); f_abstol=1e-20, f_reltol=0.0, warn_iterations=1)
+    reset_warning_counts!()
     logs, _ = Test.collect_test_logs() do
         solve!(x4, s4, SolverState(s4))
     end
@@ -1435,6 +1469,7 @@ end
     # of the bare "Solver took … iterations." that used to be the only signal
     x2 = [0.0]
     s2 = PicardSolver(x2, Ffloor, zero(x2))
+    reset_warning_counts!()
     @test_logs (:warn, r"spent its full budget .* did not improve by the factor") match_mode = :any solve!(x2, s2, SolverState(s2))
 
     # `f_stall_window` turns the report into a stopping criterion
@@ -1451,6 +1486,7 @@ end
 
     x4 = [0.0]
     s4 = PicardSolver(x4, Ffloor, zero(x4); f_stall_window=20)
+    reset_warning_counts!()
     @test_logs (:warn, r"gave up after 20 iterations") match_mode = :any solve!(x4, s4, SolverState(s4))
 
     # A slow but healthy solve must survive the same window: this one contracts by 0.9 per
@@ -1738,8 +1774,8 @@ end
 
     # Now that the gates live in the reporters rather than at the site that decides to report, pin
     # them: each message fires at its documented verbosity and is silent one below. Neither of the
-    # two below carries `maxlog`, so unlike the line-search messages this is repeatable within a
-    # session.
+    # two below is rate limited, so this is repeatable within a session — unlike the three messages
+    # of `nonlinear_solver_warnings`, which back off through `should_report!`.
     #
     # `report_dogleg_underflow` is not pinned this way: a collapsed trust-region radius needs a
     # merit that is finite and non-decreasing along every direction the method tries, and every
@@ -1801,4 +1837,140 @@ end
     end
     @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
     @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
+end
+
+@testset "$(rpad("the solver report backs off geometrically instead of going silent", 80))" begin
+    # `maxlog` is keyed on the source location of the `@warn`, so its budget was process-global
+    # *and* was never reset between solves: after three reports the message was gone for the rest
+    # of the session, and a genuine failure in the tenth solve of a run was silent. `should_report!`
+    # reports the 1st, 2nd, 4th, 8th … occurrence instead — O(log N) messages over N solves, and no
+    # point beyond which nothing is ever said again.
+    reset_warning_counts!()
+    @test [should_report!(:probe) for _ in 1:16] ==
+          [true, true, false, true, false, false, false, true,
+        false, false, false, false, false, false, false, true]
+
+    # A *different* diagnosis is reported at once, however late it turns up — its own counter is
+    # still at zero. This is the half of the defect that mattered: a run that was healthy for ten
+    # thousand steps and then was not says so.
+    @test should_report!(:probe_other)
+
+    # Which is why the keys carry the dominant line-search outcome: a solve that starts stagnating
+    # for a new reason is a new diagnosis, not a continuation of the old one.
+    reset_warning_counts!()
+    @test should_report!(Symbol(:stagnated_, LINESEARCH_FLOOR))
+    @test should_report!(Symbol(:stagnated_, LINESEARCH_NO_DESCENT))
+
+    # End to end: the same unattainable solve repeated is not reported every time ...
+    Ffloor(y, x, params) = y .= ((1e8 .+ x) .- 1e8) .- 1e-9
+    function stagnation_reports(n)
+        reset_warning_counts!()
+        count = 0
+        for _ in 1:n
+            x = [1.0]
+            s = NewtonSolver(x, Ffloor, zero(x); f_abstol=1e-20, f_reltol=0.0)
+            logs, _ = Test.collect_test_logs() do
+                solve!(x, s, SolverState(s))
+            end
+            count += any(r -> occursin("stagnated", string(r.message)), logs)
+        end
+        count
+    end
+    @test stagnation_reports(1) == 1
+    @test stagnation_reports(16) == 5      # solves 1, 2, 4, 8, 16
+    @test stagnation_reports(4) == 3       # solves 1, 2, 4
+end
+
+@testset "$(rpad("the line-search tally is per solve and covers every step", 80))" begin
+    # The tally lives in the state and is reset by `initialize!`, exactly like `stalls`: what the
+    # line search reported during the *previous* solve says nothing about this one.
+    F(y, x, params) = y .= x .^ 2 .- 2
+    x = [1.0, 1.0]
+    s = NewtonSolver(x, F, zero(x); verbosity=0)
+    state = SolverState(s)
+
+    solve!(x, s, state)
+    first = collect(linesearch_outcomes(status(s, state)))
+    @test sum(first) == iteration_number(state)
+
+    x .= 1.0
+    solve!(x, s, state)
+    @test collect(linesearch_outcomes(status(s, state))) == first   # reset, not accumulated
+
+    # A hand-rolled iteration that never initializes keeps it at zero, the same guarantee
+    # `stall_number` gives.
+    fresh = NonlinearSolverState(x)
+    @test all(iszero, linesearch_outcomes(fresh))
+    @test linesearch_failures(fresh) == 0
+
+    # `record_linesearch!` counts by outcome, and `linesearch_failures` counts only the outcomes
+    # that are not benign.
+    record_linesearch!(fresh, LINESEARCH_DECREASED)
+    record_linesearch!(fresh, LINESEARCH_NO_DESCENT)
+    record_linesearch!(fresh, LINESEARCH_NO_DESCENT)
+    record_linesearch!(fresh, LINESEARCH_STATIONARY)
+    @test linesearch_outcomes(fresh)[linesearch_index(LINESEARCH_NO_DESCENT)] == 2
+    @test linesearch_failures(fresh) == 2
+    @test SimpleSolvers.isbenign(LINESEARCH_DECREASED)
+    @test SimpleSolvers.isbenign(LINESEARCH_STATIONARY)
+    @test SimpleSolvers.isbenign(LINESEARCH_UNKNOWN)
+    @test !SimpleSolvers.isbenign(LINESEARCH_FLOOR)
+    @test !SimpleSolvers.isbenign(LINESEARCH_EXHAUSTED)
+    @test !SimpleSolvers.isbenign(LINESEARCH_NO_DESCENT)
+
+    # Ties go to the outcome declared first, i.e. away from the more alarming diagnosis.
+    record_linesearch!(fresh, LINESEARCH_FLOOR)
+    record_linesearch!(fresh, LINESEARCH_FLOOR)
+    st = NonlinearSolverStatus(fresh, Options())
+    @test dominant_linesearch_outcome(st) === LINESEARCH_FLOOR
+end
+
+@testset "$(rpad("a converged solve reports the line search only when it went wrong", 80))" begin
+    # The last step of a converged solve reaches the merit's round-off floor as a matter of course
+    # — that is *how* it converged — so `LINESEARCH_FLOOR` in the tally of a converged solve is the
+    # healthy case. Reporting on the tally as a whole announced that every textbook solve "did not
+    # go smoothly", which is the noise `linesearch_reason` itself defines: one failure is the last
+    # step, a count is evidence. So the converged report counts the outcomes that are *not* the
+    # expected floor.
+    converged = NonlinearSolverState([1.0])
+    initialize!(converged, [1.0], [0.0])
+    update!(converged, [1.0], [0.0])
+    update!(converged, [1.0], [0.0])
+
+    for _ in 1:3
+        record_linesearch!(converged, LINESEARCH_DECREASED)
+    end
+    record_linesearch!(converged, LINESEARCH_FLOOR)
+    floored = NonlinearSolverStatus(converged, Options(Float64; verbosity=2))
+    @test isconverged(floored)
+    @test linesearch_failures(floored) == 1          # the floor still counts in the tally ...
+    @test !logged_any(() -> nonlinear_solver_warnings(floored, Options(Float64; verbosity=2)),
+        "not every step went smoothly")               # ... but is not news about a converged solve
+
+    # A step the search could not resolve at all is news, however, and it is the only trace of the
+    # line search a solve leaves.
+    record_linesearch!(converged, LINESEARCH_EXHAUSTED)
+    rough = NonlinearSolverStatus(converged, Options(Float64; verbosity=2))
+    @test isconverged(rough)
+    @test logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=2)),
+        "not every step went smoothly")
+    @test logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=2)),
+        "LINESEARCH_EXHAUSTED")
+    # ... at `verbosity ≥ 2` only, the same gate the floor and stationary outcomes use.
+    @test !logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=1)),
+        "not every step went smoothly")
+
+    # End to end, on the solve the package's own doctests use: nothing at all is said about the
+    # line search, at any verbosity, for a solve that simply worked.
+    F(y, x, params) = y .= x .^ 2 .- 2
+    healthy() = function ()
+        x = ones(3)
+        s = NewtonSolver(x, F, zero(x); verbosity=2)
+        state = SolverState(s)
+        solve!(x, s, state)
+        @test linesearch_outcomes(status(s, state))[linesearch_index(LINESEARCH_FLOOR)] > 0
+    end
+    reset_warning_counts!()
+    @test !logged_any(healthy(), "not every step went smoothly")
+    @test !logged_any(healthy(), "line search")
 end

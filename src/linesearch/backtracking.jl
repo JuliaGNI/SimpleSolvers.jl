@@ -378,21 +378,12 @@ function backtracking_expand(f, sdc::SufficientDecreaseCondition{T}, φ₀::T, d
 end
 
 """
-    solve(ls::Linesearch{T,<:Backtracking}, α, params)
+    solve_with_status(ls::Linesearch{T,<:Backtracking}, α, params)
 
-Run the backtracking line search from the trial step `α`, report the outcome through
-[`linesearch_warnings`](@ref) and return the accepted step length.
-
-Use [`solve_with_status`](@ref) to obtain the [`LinesearchStatus`](@ref) instead: a caller
-that has to tell "I found a decreasing step" from "the merit is at its round-off floor and
-nothing can decrease it" cannot do so from the step length alone.
+Run the backtracking line search from the trial step `α` and return the
+[`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
+[`Backtracking`](@ref).
 """
-function solve(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters()) where {T}
-    status = solve_with_status(ls, α, params)
-    linesearch_warnings(status, ls, params)
-    steplength(status)
-end
-
 function solve_with_status(ls::Linesearch{T,<:Backtracking}, α::T, params=NullParameters()) where {T}
     m = method(ls)
     f(a) = value(problem(ls), a, params)

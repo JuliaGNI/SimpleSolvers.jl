@@ -24,8 +24,9 @@ returned by [`solve_with_status`](@ref).
   finite. No ``\alpha`` can satisfy the sufficient decrease condition.
 - `LINESEARCH_STATIONARY`: ``\varphi'(0) = 0``, e.g. a vanishing direction at an exact root.
   Benign — there is nothing to search for.
-- `LINESEARCH_UNKNOWN`: the method does not report an outcome (the generic fallback of
-  [`solve_with_status`](@ref)).
+- `LINESEARCH_UNKNOWN`: the method does not report an outcome — [`Static`](@ref), which
+  evaluates no merit and so has established nothing, and any third-party method that chooses not
+  to report one.
 """
 @enum LinesearchOutcome::Int8 begin
     LINESEARCH_DECREASED
@@ -35,6 +36,44 @@ returned by [`solve_with_status`](@ref).
     LINESEARCH_STATIONARY
     LINESEARCH_UNKNOWN
 end
+
+"""
+    const NLINESEARCH_OUTCOMES
+
+The number of [`LinesearchOutcome`](@ref)s, i.e. the length of the tally a
+[`NonlinearSolverState`](@ref) keeps of the outcomes its line search reported (see
+[`record_linesearch!`](@ref)). A `const` rather than `length(instances(LinesearchOutcome))` at
+each use, because it is a type parameter of that tally's `MVector` and so has to be known to the
+compiler.
+"""
+const NLINESEARCH_OUTCOMES = length(instances(LinesearchOutcome))
+
+"""
+    linesearch_index(oc)
+
+The index of the [`LinesearchOutcome`](@ref) `oc` in a tally of length
+[`NLINESEARCH_OUTCOMES`](@ref) — the enum's value plus one, since the enum starts at zero and
+Julia indexes from one. See [`record_linesearch!`](@ref) and
+[`linesearch_outcomes`](@ref).
+"""
+linesearch_index(oc::LinesearchOutcome) = Int(oc) + 1
+
+"""
+    isbenign(oc)
+
+`true` for the [`LinesearchOutcome`](@ref)s that report no failure: `LINESEARCH_DECREASED` (a
+genuine decrease), `LINESEARCH_STATIONARY` (nothing to search for) and `LINESEARCH_UNKNOWN` (the
+method does not report one). The remaining three — `LINESEARCH_FLOOR`, `LINESEARCH_EXHAUSTED`
+and `LINESEARCH_NO_DESCENT` — are what [`linesearch_failures`](@ref) counts and what
+[`linesearch_warnings`](@ref) reports on.
+
+`LINESEARCH_FLOOR` counts as a failure here even though it is the *expected* final state of a
+converged solve, because whether it matters is the outer iteration's call and this is how the
+outer iteration is told: the tally is read by [`nonlinear_solver_warnings`](@ref), which names it
+only for a solve that did *not* converge.
+"""
+isbenign(oc::LinesearchOutcome) =
+    oc === LINESEARCH_DECREASED || oc === LINESEARCH_STATIONARY || oc === LINESEARCH_UNKNOWN
 
 @doc raw"""
     LinesearchStatus{T}
@@ -84,8 +123,9 @@ end
     LinesearchStatus(α, outcome=LINESEARCH_UNKNOWN)
 
 Construct a [`LinesearchStatus`](@ref) that carries only the step length and the
-[`LinesearchOutcome`](@ref); the remaining diagnostics are filled with `NaN`/zero. Used by
-the generic fallback of [`solve_with_status`](@ref) for methods that do not report them.
+[`LinesearchOutcome`](@ref); the remaining diagnostics are filled with `NaN`/zero. For a method
+that does not measure them — [`Static`](@ref), or a third-party method whose
+[`solve_with_status`](@ref) has nothing more to say.
 """
 LinesearchStatus(α::T, outcome::LinesearchOutcome=LINESEARCH_UNKNOWN) where {T} =
     LinesearchStatus{T}(α, outcome, 0, T(NaN), T(NaN), T(NaN), zero(T), zero(T))
@@ -179,19 +219,36 @@ function check_anchor(φ₀::T, d₀::T, α::T) where {T}
     end
 end
 
-"""
+@doc raw"""
     solve_with_status(ls, α, params=NullParameters())
 
 Like [`solve`](@ref), but return a [`LinesearchStatus`](@ref) — the step length *plus* the
 reason the search stopped — and emit no log messages. Use [`linesearch_warnings`](@ref) to
-report the status.
+report the status; that is all [`solve`](@ref) adds.
 
-Only [`Backtracking`](@ref) reports a genuine [`LinesearchOutcome`](@ref); the generic
-fallback calls [`solve`](@ref) and reports `LINESEARCH_UNKNOWN`, so a caller may use
-`solve_with_status` uniformly for every [`LinesearchMethod`](@ref).
+This is what a *program* calls, and it is the [`LinesearchMethod`](@ref) extension point: every
+built-in method (all six of [`Backtracking`](@ref), [`StrongWolfe`](@ref), [`Bisection`](@ref),
+[`Quadratic`](@ref), [`BierlaireQuadratic`](@ref) and [`Static`](@ref)) implements *this*, and
+gets [`solve`](@ref) derived from it. A method that reports no outcome of its own returns
+`LINESEARCH_UNKNOWN`, as [`Static`](@ref) does.
+
+!!! warning "A method must implement this"
+    There is no fallback: the generic method below raises rather than deriving a status from
+    [`solve`](@ref). It used to do exactly that, and the derivation ran the wrong way — a method
+    that defined only `solve` was then reached *through* `solve` from inside every iteration of a
+    [`NonlinearSolver`](@ref), and emitted its messages there, which is the one thing the contract
+    in [`LinesearchMethod`](@ref) promises does not happen. Deriving `solve` from this instead
+    makes that promise structural. A third-party method that defines only `solve` therefore has to
+    move its body here; the boilerplate it used to carry (`solve_with_status`, then
+    [`linesearch_warnings`](@ref), then [`steplength`](@ref)) is what it gets for free in exchange.
 """
-solve_with_status(ls::Linesearch{T}, α::T, params=NullParameters()) where {T} =
-    LinesearchStatus(solve(ls, α, params))
+function solve_with_status(ls::Linesearch{T}, α::T, params=NullParameters()) where {T}
+    throw(ArgumentError("$(nameof(typeof(method(ls)))) does not implement `solve_with_status`, " *
+                        "which is what a LinesearchMethod implements; `solve` is derived from it. " *
+                        "Define `solve_with_status(::Linesearch{T,<:$(nameof(typeof(method(ls))))}, α::T, params)` " *
+                        "returning a LinesearchStatus (use `LinesearchStatus(α, LINESEARCH_UNKNOWN)` " *
+                        "if the method has no outcome to report)."))
+end
 
 """
     curvature_diagnostic(status, ls, params)
@@ -201,6 +258,11 @@ Method-specific extra diagnostic emitted by [`linesearch_warnings`](@ref) at
 [`CurvatureCondition`](@ref), which costs a derivative evaluation — a full
 [`Jacobian`](@ref) for the line search problem of a [`NonlinearSolver`](@ref), hence the
 verbosity gate.
+
+Reached only from a direct [`solve`](@ref) call, since that is the only caller of
+[`linesearch_warnings`](@ref). A `NonlinearSolver` at `verbosity = 2` therefore no longer pays for
+this once per iteration; to see it for a step of a solve, call the line search on that step's
+problem directly.
 """
 curvature_diagnostic(::LinesearchStatus, ::Linesearch, params) = nothing
 
@@ -209,28 +271,38 @@ curvature_diagnostic(::LinesearchStatus, ::Linesearch, params) = nothing
 
 Report a [`LinesearchStatus`](@ref) obtained from [`solve_with_status`](@ref). Compare this
 to [`nonlinear_solver_warnings`](@ref). This is the *only* place where a line search emits
-log messages, so [`solve`](@ref) and [`solver_step!`](@ref) report identically.
+log messages, so every [`LinesearchMethod`](@ref) reports identically.
 
-Two things keep this quiet in normal use. `LINESEARCH_FLOOR` and `LINESEARCH_STATIONARY` are
-reported only at `verbosity ≥ 2`, because both are the *expected* final state of a converged
-solve — a residual that cannot be improved because it is already as small as the arithmetic
-allows. And the remaining outcomes are rate limited with `maxlog`, because a solve that cannot
-make progress asks the line search for an impossible decrease at every one of its iterations,
-which an unconditional warning turns into thousands of identical messages.
+`LINESEARCH_FLOOR` and `LINESEARCH_STATIONARY` are reported only at `verbosity ≥ 2`, because both
+are the *expected* final state of a converged solve — a residual that cannot be improved because it
+is already as small as the arithmetic allows.
 
-!!! warning "`maxlog` is per session, not per solve"
-    Julia keys `maxlog` on the *source location* of the `@warn`, so the caps in
-    [`report_linesearch_status`](@ref) are process-global and are **not** reset between `solve!`
-    calls — one source location for every solver in the session. Once a message has appeared its
-    quota is spent for the lifetime of the session, including for later solves of entirely
-    different problems. That is deliberate — a time-stepping loop calling `solve!` once per step
-    is precisely the case these caps exist for — but it does mean a genuinely new line-search
-    failure late in a long run can go unreported. Raise `verbosity` to 2 and re-run when
-    diagnosing one.
+!!! info "Who this is for"
+    This function is reached from [`solve`](@ref) and from nowhere else, which is what makes it
+    safe for it to report unconditionally. A line search has two callers and owes them different
+    things:
+
+    - a **program** — a [`NonlinearSolver`](@ref), an optimizer — calls
+      [`solve_with_status`](@ref), gets a [`LinesearchStatus`](@ref) it can act on, and gets no
+      messages. It is not the user, and a diagnosis it can read is worth more to it than one it
+      would have to scrape out of a log. What it does with the status is its own business:
+      [`solver_step!`](@ref) tallies it (see [`record_linesearch!`](@ref)) and lets
+      [`nonlinear_solver_warnings`](@ref) explain the solve once, at the end.
+    - a **user** calls `solve`, which is this path, and a single call yields a single message.
+
+    So there is nothing here to rate limit, and none of these messages carries a `maxlog`. They
+    used to, because [`solver_step!`](@ref) called this function once per iteration and a solve
+    that cannot make progress asks the line search for an impossible decrease at *every* one of
+    them — thousands of identical messages. But `maxlog` is keyed on the source location of the
+    `@warn`, so the caps were process-global and were never reset between `solve!` calls: once
+    spent, they were spent for the rest of the session, and a genuine line-search failure in a
+    later solve of a long run was silent. Not reporting from inside the loop removes the flood at
+    its source, so the caps are gone and nothing goes permanently silent.
 
 Whether an irreducible merit actually *matters* is the outer iteration's call, and
 [`nonlinear_solver_warnings`](@ref) makes it: it reports stagnation once, naming the residual
-that was achieved and the tolerance that was requested.
+that was achieved, the tolerance that was requested, and what the line search reported along the
+way.
 
 The messages themselves live in [`report_linesearch_status`](@ref) rather than here, which is a
 compile-time rather than a stylistic decision — see its docstring before merging them back.
@@ -262,17 +334,18 @@ end
     report_linesearch_status(status, name, config)
 
 Emit the messages for a [`LinesearchStatus`](@ref); the reporting half of
-[`linesearch_warnings`](@ref), whose docstring documents the verbosity and `maxlog` policy.
+[`linesearch_warnings`](@ref), whose docstring documents the verbosity policy and who it is for.
 
 # Implementation
 
 This is a function barrier, and its signature is what makes it one. [`linesearch_warnings`](@ref)
-is called from [`solver_step!`](@ref) on every iteration of every solve, and takes a
-[`Linesearch`](@ref) — which carries the closure types of its [`LinesearchProblem`](@ref) — and a
-`NamedTuple` of parameters, so it is specialized once per *problem* a solver is built for. A
-message in its body is specialized with it, and all of the `Base.CoreLogging` and
-string-interpolation code that `@warn` expands to is re-inferred and re-codegen'd for each one,
-which on a caller that builds one solver per tableau dominates the cost of the whole solve.
+is called from [`solve`](@ref) — every direct call to a line search, and nothing else since
+[`solver_step!`](@ref) stopped reporting per iteration — and takes a [`Linesearch`](@ref), which
+carries the closure types of its [`LinesearchProblem`](@ref), and a `NamedTuple` of parameters. So
+it is specialized once per *problem* a line search is built for. A message in its body is
+specialized with it, and all of the `Base.CoreLogging` and string-interpolation code that `@warn`
+expands to is re-inferred and re-codegen'd for each one, which on a caller that builds one line
+search per tableau dominates the cost of the calls themselves.
 
 Taking `name` and `config`, and nothing whose type can vary per solver, bounds the specializations
 of this function to one per element-type combination for the whole session.
@@ -310,13 +383,13 @@ written the same way.
         # `αmin` is a `Backtracking` quantity (zero means "not applicable", see `LinesearchStatus`),
         # so the clause naming it is only included when there is a value to name. It sits inside the
         # message rather than in a temporary before it: Julia evaluates a `@warn` message only once
-        # the verbosity gate and `maxlog` have both passed, and a stalling solve reports the same
-        # outcome on every iteration, so a temporary would be built and discarded each time.
-        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision." maxlog = 1
+        # the verbosity gate has passed, and the overwhelmingly common case is a caller running at
+        # a verbosity that discards it, so a temporary would be built and thrown away every time.
+        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision."
     elseif oc === LINESEARCH_EXHAUSTED
-        verbose ≥ 1 && @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(linesearch_exhausted_reason(status, config)). Returning α = $(steplength(status))." maxlog = 3
+        verbose ≥ 1 && @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(linesearch_exhausted_reason(status, config)). Returning α = $(steplength(status))."
     elseif oc === LINESEARCH_NO_DESCENT
-        verbose ≥ 1 && @warn "$(name) line search: φ'(0) = $(status.d₀) (with φ(0) = $(status.φ₀)) is not a descent direction, so no α can satisfy the sufficient decrease condition. Returning α = $(steplength(status))." maxlog = 3
+        verbose ≥ 1 && @warn "$(name) line search: φ'(0) = $(status.d₀) (with φ(0) = $(status.φ₀)) is not a descent direction, so no α can satisfy the sufficient decrease condition. Returning α = $(steplength(status))."
     elseif oc === LINESEARCH_STATIONARY
         verbose ≥ 2 && @warn "$(name) line search: φ'(0) = 0, the merit is stationary at α = 0. Returning α = $(steplength(status))."
     end

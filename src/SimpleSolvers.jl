@@ -90,9 +90,12 @@ export Backtracking,
     StrongWolfe
 
 # Types and enum values are exported; the predicates and accessors that go with them
-# (`steplength`, `outcome`, `trials`, `issufficient`, `isfloor`) are not, because they are
-# generic names that a package doing `using SimpleSolvers` may well want for itself. Reach them
-# as `SimpleSolvers.steplength` and friends.
+# (`steplength`, `outcome`, `trials`, `issufficient`, `isfloor`, `isbenign`, and the
+# `linesearch_outcomes`/`linesearch_failures`/`linesearch_index`/`dominant_linesearch_outcome`
+# quartet that reads the tally a `NonlinearSolverStatus` carries) are not, because they are
+# generic names that a package doing
+# `using SimpleSolvers` may well want for itself. Reach them as `SimpleSolvers.steplength` and
+# friends.
 export LinesearchStatus, LinesearchOutcome, solve_with_status
 export LINESEARCH_DECREASED,
     LINESEARCH_FLOOR,

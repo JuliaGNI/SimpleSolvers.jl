@@ -40,15 +40,19 @@ So the algorithm checks in each step where the sign change occurred and moves th
 
 !!! info
     Bisection can only locate a root if the endpoints straddle a sign change. If the
-    endpoints have the same sign there is no (odd-multiplicity) root in the interval;
-    this arises benignly in the line search once the derivative has flattened at a
-    minimum (both endpoint values ≈ 0 with the same sign). Rather than erroring,
-    `bisection` then returns the endpoint closest to a root (smallest `|f|`) and warns
-    only at high verbosity.
+    endpoints have the same sign there is no (odd-multiplicity) root in the interval.
+    Rather than erroring — a line search must not abort the enclosing solve — `bisection`
+    returns the endpoint closest to a root (smallest `|f|`) and *reports* the failure:
+    `_bisection_core` distinguishes it from a located root with
+    `BISECTION_NOBRACKET`, and `bisection` warns accordingly.
 """
 function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
-    α, converged, _ = _bisection_core(f, αmin, αmax, params, config)
-    converged || report_bisection_nonconvergence(α, config)
+    α, outcome, _ = _bisection_core(f, αmin, αmax, params, config)
+    # Each failure gets the wording that fits it. The two are not interchangeable: a spent budget
+    # says "the interval does contain a root, I did not narrow it far enough", a failed bracket says
+    # "there is no root in this interval at all", and only the first is fixed by a larger budget.
+    outcome === BISECTION_EXHAUSTED && report_bisection_nonconvergence(α, config)
+    outcome === BISECTION_NOBRACKET && report_bisection_nobracket(αmin, αmax, α, config)
     α
 end
 
@@ -59,17 +63,49 @@ end
     nothing
 end
 
-@noinline function report_bisection_nobracket(α₀::Number, α₁::Number, y₀::Number, y₁::Number, config::Options)
-    verbosity(config) ≥ 2 && @warn "Bisection bracket [$(α₀), $(α₁)] shows no sign change (f = $(y₀), $(y₁)); returning the endpoint with the smallest |f|."
+@noinline function report_bisection_nobracket(αmin::Number, αmax::Number, α::Number, config::Options)
+    lo, hi = minmax(αmin, αmax)
+    verbosity(config) ≥ 1 && @warn "Bisection bracket [$(lo), $(hi)] shows no sign change, so it contains no root of odd multiplicity and no bisection can locate one in it. Returning the endpoint with the smallest |f|, α = $(α)."
     nothing
 end
 
-# The bisection loop, returning `(α, converged, n)` so a caller can report non-convergence
-# itself instead of having this function log it, and report the evaluation count `n` as the
-# `trials` of a `LinesearchStatus`. The `Bisection` *line search* needs both: it reports through
+@doc raw"""
+    BisectionOutcome
+
+Why `_bisection_core` stopped. This is what lets a caller tell *"found the root"* from
+*"gave up"* — a distinction a `Bool` cannot carry, and whose absence made an unbracketable
+derivative look like a located line minimiser (see [`Bisection`](@ref)).
+
+- `BISECTION_CONVERGED`: a root was located, either because ``|f(\alpha)| \leq`` `f_abstol` or
+  because the bracket collapsed to `x_suctol`.
+- `BISECTION_NOBRACKET`: the endpoint values share a sign, so the interval contains no root of
+  odd multiplicity and bisection cannot start. The endpoint with the smallest ``|f|`` is returned,
+  but it is *not* a root — this is a failure to report, not a result.
+- `BISECTION_EXHAUSTED`: the `linesearch_max_iterations` budget of [`Options`](@ref) was spent
+  with the interval still straddling a sign change. Unlike `BISECTION_NOBRACKET` there *is* a root
+  in the interval, so a larger budget would find it; the best estimate so far is returned.
+
+This is internal: it is the return type of a private function, like the `Symbol` that
+`_triple_point_core` reports. Callers of a *line search* see a
+[`LinesearchOutcome`](@ref) instead.
+"""
+@enum BisectionOutcome::Int8 begin
+    BISECTION_CONVERGED
+    BISECTION_NOBRACKET
+    BISECTION_EXHAUSTED
+end
+
+# The bisection loop, returning `(α, outcome, n)` so a caller can report the failure itself
+# instead of having this function log it, and report the evaluation count `n` as the `trials` of
+# a `LinesearchStatus`. The `Bisection` *line search* needs all three: it reports through
 # `linesearch_warnings` like every other line search, so a message emitted from here would
 # duplicate it and bypass the shared verbosity policy. The public `bisection` above keeps
 # warning, since it is also used standalone as a root finder.
+#
+# The outcome is a `BisectionOutcome` and not a `Bool` because "no sign change" used to be folded
+# into `converged = true` — the endpoint with the smallest |f| was returned and *claimed* as a
+# root. That claim then propagated into `LINESEARCH_FLOOR`, which asserts that no step can decrease
+# the merit; a failed bracket establishes nothing of the kind. See `solve_with_status` below.
 function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Options) where {T<:Number}
     n = 0
     R = float(T)
@@ -88,11 +124,10 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
     y = zero(y₀)
 
     if y₀ * y₁ > zero(y₀)
-        report_bisection_nobracket(α₀, α₁, y₀, y₁, config)
-        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), true, n
+        return (abs(y₀) ≤ abs(y₁) ? α₀ : α₁), BISECTION_NOBRACKET, n
     end
 
-    converged = false
+    outcome = BISECTION_EXHAUSTED
     for _ in 1:config.linesearch_max_iterations
         α = (α₀ + α₁) / 2
         y = f(α, params)
@@ -100,7 +135,7 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
 
         # break if y is close to zero.
         if ≈(y, zero(y); atol=config.f_abstol)
-            converged = true
+            outcome = BISECTION_CONVERGED
             break
         end
 
@@ -113,12 +148,12 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
         end
 
         if isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁)))
-            converged = true
+            outcome = BISECTION_CONVERGED
             break
         end
     end
 
-    α, converged, n
+    α, outcome, n
 end
 
 function bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
@@ -154,6 +189,23 @@ via one extra derivative evaluation (see issue #164):
 
 This keeps the safe ``\\alpha = 0`` anchor while letting the caller's `α` set the
 search scale and, when it overshoots, serve directly as the upper bracket bound.
+
+## A bracket that fails is never a floor
+
+Bisection drives on the *sign* of ``\\varphi'``, so it can only work on an interval whose
+endpoints straddle a sign change. When [`bracket_minimum`](@ref) hands it an interval that
+brackets a minimum in *value* but over which ``\\varphi'`` keeps its sign — a non-smooth or
+noisy merit, or a derivative inconsistent with it — there is nothing to bisect and
+`_bisection_core` reports `BISECTION_NOBRACKET`.
+
+That case used to be folded into "converged", so the endpoint with the smallest ``|\\varphi'|``
+was *claimed* as the line minimiser and, when it did not improve the merit, classified as
+`LINESEARCH_FLOOR` — which asserts that **no** line search can make progress along this
+direction and makes the outer iteration count the step towards `max_stalls`. A failed bracket
+establishes nothing of the kind. So the outcome is now classified by the merit alone:
+`LINESEARCH_DECREASED` when the returned step still beats ``\\varphi(0)`` by more than
+``\\tau``, and `LINESEARCH_EXHAUSTED` when it does not. `LINESEARCH_FLOOR` is reachable only
+from a bisection that actually converged.
 """
 struct Bisection{T} <: LinesearchMethod{T} end
 
@@ -167,18 +219,12 @@ _bisect_on(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params) where {T} 
     _bisection_core(problem(ls).D, α₀, α₁, params, config(ls))
 
 """
-    solve(ls::Linesearch{T,<:Bisection}, α, params)
+    solve_with_status(ls::Linesearch{T,<:Bisection}, α, params)
 
-Bisect the derivative of the merit to approximate the line minimiser, report the outcome
-through [`linesearch_warnings`](@ref) and return the step length. See [`Bisection`](@ref) and
-[`solve_with_status`](@ref).
+Bisect the derivative of the merit to approximate the line minimiser and return the
+[`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
+[`Bisection`](@ref).
 """
-function solve(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
-    status = solve_with_status(ls, α, params)
-    linesearch_warnings(status, ls, params)
-    steplength(status)
-end
-
 function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
     prob = problem(ls)
     φ₀ = value(prob, zero(T), params)
@@ -192,7 +238,7 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # Lower-anchor the bracket at α = 0, where a genuine descent direction has a decreasing
     # merit (φ′(0) < 0, now guaranteed by `check_anchor`). Probe the caller's trial step α (one
     # extra derivative evaluation) to decide how to fold it in; see the docstring and #164.
-    αres, converged, n = if α > zero(T) && derivative(prob, α, params) ≥ zero(T)
+    αres, bres, n = if α > zero(T) && derivative(prob, α, params) ≥ zero(T)
         # α overshot the minimum: [0, α] already brackets the stationary point.
         _bisect_on(ls, zero(T), α, params)
     else
@@ -204,12 +250,21 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # direction, i.e. for a merit that keeps decreasing. There is then no interval to bisect —
         # but that is a failure to *report*, not a round-off floor: calling it a floor would make
         # the outer iteration count a descending merit as stagnation.
-        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, φ₀, τ, zero(T))
+        # The merit *is* evaluated at the step handed back, at the cost of one evaluation on a path
+        # that has already failed. Filling `φ` with `φ₀` instead would be a claim that the merit did
+        # not change, which is what `linesearch_exhausted_reason` would then interpolate into its
+        # message — and for a merit that descends forever it is exactly wrong. (The `check_anchor`
+        # returns do fill `φ` with `φ₀`, deliberately: the whole point of an ascent or stationary
+        # anchor is that no trial step is worth an evaluation.)
+        isnothing(bracket) && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, 0, φ₀, d₀, value(prob, α, params), τ, zero(T))
         _bisect_on(ls, bracket..., params)
     end
-    # Non-convergence of the bisection is reported through the status rather than logged here,
-    # so that `linesearch_warnings` remains the only place a line search emits messages.
-    converged || return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
+    # A spent budget is reported through the status rather than logged here, so that
+    # `linesearch_warnings` remains the only place a line search emits messages. Note that this
+    # is *only* the budget case: a failed bracket carries on below, because the endpoint it
+    # returns may still improve the merit and there is no reason to throw that away.
+    bres === BISECTION_EXHAUSTED &&
+        return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
 
     # `bracket_minimum` flips direction when the merit rises to the right of its start, so the
     # bracket — and hence the bisected result — can lie left of zero. A negative step is not a
@@ -218,17 +273,38 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     if αres ≤ zero(T)
         bracket = bracket_minimum(prob, params, zero(T), T(DEFAULT_BRACKETING_s))
         if !isnothing(bracket)
-            αres, _, nretry = _bisect_on(ls, bracket..., params)
+            αres, bretry, nretry = _bisect_on(ls, bracket..., params)
             n += nretry
+            # The retry's own verdict counts too: a retry that could not bracket either must not
+            # be allowed to claim the floor below, for exactly the reason the first one may not.
+            # Note that this keeps the *worse* of the two verdicts rather than replacing the first
+            # with the retry's, even though `αres` now comes wholly from the retry. That is
+            # deliberate. The two disagree only when a failed bracket is followed by a converged
+            # retry, which needs φ′ to be inconsistent with φ (a derivative that agrees with the
+            # merit changes sign inside a bracket `bracket_minimum` found, so the first bisection
+            # would have converged) — and `LINESEARCH_EXHAUSTED`, whose reported reason is exactly
+            # "φ′(0) is inconsistent with the merit", is then the better diagnosis of the two.
+            bretry === BISECTION_CONVERGED || (bres = bretry)
         end
     end
+
+    # A bisection that could not bracket has located nothing, so the only honest thing left to say
+    # about its endpoint is what the *merit* says about it. `LINESEARCH_FLOOR` — "no step can
+    # decrease φ, so no line search can help here" — is a claim only a converged bisection has
+    # earned; a failed bracket that did not improve the merit is `LINESEARCH_EXHAUSTED`, which says
+    # no acceptable step was found while leaving open that one exists.
+    bracketed = bres === BISECTION_CONVERGED
+    nodecrease = bracketed ? LINESEARCH_FLOOR : LINESEARCH_EXHAUSTED
+
     # Still non-positive: no positive step improves the merit as far as this search can tell.
     # That is the floor, not a non-descent anchor — `check_anchor` established above that the
-    # anchor *does* descend.
-    αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
+    # anchor *does* descend. As on the no-bracket path above, `φ` is the merit at the step handed
+    # back and not `φ₀`: the caller's `α` is what is returned here, and nothing has measured the
+    # merit there.
+    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n, φ₀, d₀, value(prob, α, params), τ, zero(T))
 
     φres = value(prob, αres, params)
-    LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
+    LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : nodecrease,
         n, φ₀, d₀, φres, τ, zero(T))
 end
 
