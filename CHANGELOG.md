@@ -84,6 +84,28 @@ divided by `‖δ‖` — is not something the search can measure.
   handing a truncated bracket to the fits would be worse than useless, because `Quadratic`'s
   curvature guard sees a monotone-decreasing interval, falls back to bisecting it, and returns a
   midpoint strictly worse than the endpoint.
+- A ceiling at or *below* the bracketing step `s` is truncated where it is reached, and not one
+  probe past it. Every bracketer clamps its first probe to `αmax`, so when the ceiling is the
+  smaller of the two that probe *is* the ceiling — and the loop's probe then lands on the same
+  point. Comparing it with itself is a tie, and a tie satisfies `BracketMinimumCriterion`
+  (`yc ≥ yb`), so the truncation was reported as `:ok`: a turning point that is one point counted
+  twice. The `:capped` route was therefore unreachable below `s`, which for `Bisection` — whose
+  `s` is `clamp(|α|, 0.01, 1)`, i.e. `1` for the usual trial step — meant *every* caller ceiling
+  at or below one, the regime a caller with a geometric bound of its own is in and the one the
+  table below identifies as the one that closes A1b. On `φ(α) = 1 - α` under `Bisection`, a
+  ceiling of `1.0` returned `α = 0.32` and one of `0.5` returned `α = 0.16` — a third of the step
+  the caller allowed, on a merit that falls monotonically to it — for 15 merit evaluations, and
+  `LINESEARCH_EXHAUSTED`, a reported *failure*, at `0.005`. All five ceilings now return the
+  ceiling itself as `LINESEARCH_DECREASED` for four evaluations. `_bracket_minimum_core` returns
+  the truncation directly rather than through `_bracket_core` in that case, which also stops the
+  ceiling from being evaluated twice, and `_triple_point_core` — which classified it correctly all
+  along, since it tests `xₖ₊₁ > xₖ` — no longer pays for the value it already has. Nothing on the
+  default path moves: with `αmax = Inf` the branch is dead, and with the method's own `65536` the
+  first probe is never the ceiling.
+- `Bisection`'s negative-step retry brackets through `_bracket_minimum_core` rather than the public
+  `bracket_minimum`, which reports a truncated bracket as an ordinary one — it was the one path in
+  the method that could not reach `capped_status`, and would have bisected `φ′` over an interval on
+  which it keeps its sign.
 
 #### Changed (behavioural)
 
@@ -103,6 +125,15 @@ per-method evaluation canaries and every zero-allocation assertion stand unedite
 `Bisection` gains a field and is no longer a singleton, but `Bisection()`, `Bisection(T)`,
 `Bisection{T}()` and `Bisection(T, ::SolverMethod)` all still construct one; `show` and `isapprox`
 report the field, as they already did for `StrongWolfe`.
+
+The default ceiling is obtained through the new `SimpleSolvers.default_linesearch_αmax(T)`, which
+saturates it at `floatmax(T)`. `DEFAULT_LINESEARCH_αmax` is ``2^{16}`` and `floatmax(Float16)` is
+`65504`, so the plain `T(DEFAULT_LINESEARCH_αmax)` overflowed to `Inf` — a `Float16` line search
+carried no ceiling at all, i.e. the defect the field exists to fix was absent in the one precision
+`armijo_ulps`, `linesearch_iterations` and `default_precision` all special-case. `change_precision`
+saturates a finite ceiling for the same reason through `SimpleSolvers.convert_αmax`, and leaves an
+explicit `Inf` alone: that one is not an overflow but a statement. This was `StrongWolfe`'s alone
+before and is fixed for it too.
 
 #### Measured
 
@@ -1311,7 +1342,22 @@ follows is what is left.
   evaluated on the round it stopped. Carrying the value out of `_triple_point_core` and
   `_bracket_core` (the fixed-point bracketer already returns its endpoint values) would remove it.
   One evaluation, on a path that is rare in a Euclidean problem and is a full residual or objective
-  evaluation when it fires, so it is worth doing and was not urgent.
+  evaluation when it fires, so it is worth doing and was not urgent. The *second* duplicate on that
+  path — the one `_bracket_core` made by re-probing a ceiling `_bracket_minimum_core` had already
+  reached — is gone.
+- **A ceiling that binds can be reported as `LINESEARCH_FLOOR`.** `capped_status` classifies the
+  step at `αmax` by the same `τ` rule as any other returned step, so a merit that is still falling
+  at the ceiling — which is what `:capped` *means* — but has fallen by less than `τ` over the whole
+  admissible range comes back as a floor. That is a claim about the **direction**, that no line
+  search can progress along it, and the outer iteration acts on it through `flag_stall!` and
+  `max_stalls`; what was actually established is only that no step the caller *permits* decreases
+  the merit measurably. It is the same shape as the two unearned floors 0.12.0 removed from
+  `Bisection`, reached through a third door, and it is reachable exactly where the caller's ceiling
+  is tightest — the case the ceiling exists for. Left standing because the alternative is not
+  obviously better: `LINESEARCH_EXHAUSTED` says "no step was found", which is false of a step that
+  was found and returned, and a caller that supplied the ceiling can compare it against
+  `steplength`. Closing it properly means the boolean-on-the-status of the entry above, not a
+  different outcome.
 - **The public bracketers can return a degenerate interval at the ceiling.** When `αmax` lies at or
   below the bracketing start, `_bracket_core` returns `(a, a, :capped)` and `bracket` /
   `bracket_minimum` hand that on as the interval `(a, a)` with no signal. Unreachable from a line
@@ -1336,6 +1382,54 @@ follows is what is left.
   visible where it previously took a contrived merit to reach. Whether a Wolfe search *should* call
   a step that was never allowed to grow "exhausted" is a question about that method, not about the
   ceiling, so it was left alone.
+
+### Raised while reviewing the step ceiling, not addressed
+
+The review that found the truncation defect (`_bracket_core` reporting a bracket clamped to the
+ceiling as a found one, fixed in 0.12.0) turned up four more, none of which it closed. The
+`LINESEARCH_FLOOR` entry above is a fifth and belongs to this list as much as to the one it sits in.
+
+- **`_triple_point_core` walks the wrong way for a ceiling at or below its start.** It bounds its
+  first probe with `δ = min(δ, αmax - x₀)`, which is not positive when `αmax ≤ x₀`, so `x₁ = x₀ + δ`
+  lands at or *left* of the start and the rest of the routine is nonsense: measured on
+  `f(α) = 1 - α`, `αmax == x₀` reports `:flat` after two evaluations — which
+  `BierlaireQuadratic` would map to `LINESEARCH_FLOOR`, a claim that no line search can progress
+  along the direction — and `αmax < x₀` spends twelve evaluations halving a negative `δ` before
+  reporting `:unbracketable`. Unreachable from a line search, because `BierlaireQuadratic` returns
+  `capped_status` on `start < αmax` failing before it calls the core, and that guard is the reason
+  the core was left without one of its own. Reachable by any other caller of `_triple_point_core`,
+  which is where the `αmax` argument lives. The fix is a `δ > 0` check in the core rather than in
+  its one caller; left because adding it means deciding what a core asked to search a range of zero
+  width should say, and `:capped` — the honest answer — is a status the public
+  `triple_point_finder` cannot express.
+- **The two `params` channels are not read the same way, and only one of them accepts a struct.**
+  `caller_αmax` guards with `hasproperty`, while the merit closure of `linesearch_problem` guards
+  `φ₀` with `haskey`. They agree on a `NamedTuple`, which is what every caller in this package and
+  downstream passes, so nothing is broken today. They do not agree on anything else: for a plain
+  struct with `x`, `αmax` and `φ₀` fields, `hasproperty` finds the ceiling and honours it while
+  `haskey` raises a `MethodError` from inside the merit — verified. So the two halves of what the
+  docstrings describe as one channel impose different requirements on `params`, and the stricter of
+  them is undocumented. `hasproperty` throughout would be the wider contract and is a one-line
+  change; left because widening what `params` may be is a decision about the extension point, not
+  about the ceiling, and it wants its own tests for the `NullParameters` and `Dict` cases.
+- **`Quadratic` pays a derivative evaluation for a search the ceiling then cancels.**
+  `_quadratic_search` picks its bracketing start with `derivative(problem(ls), α₀, params)` and only
+  *then* tests `α < αmax`, so a trial step at or above the ceiling — the common case once a caller
+  supplies one, since the ceiling is what makes the trial step inadmissible — costs a derivative
+  evaluation whose answer is discarded. Measured on `φ(α) = 1 - α` with `params.αmax = 0.5`: two
+  derivative evaluations for a search that returns the ceiling without bracketing. For the
+  ``\|F\|^2`` merit of a `NonlinearSolver` that is a full `Jacobian`. Hoisting the ceiling test
+  above the start selection fixes it; left because the ordering interacts with issue #164's rule
+  for *where* the bracketing starts, and untangling the two is more than the one evaluation is
+  worth on its own.
+- **`trials` says almost nothing about a capped search.** The field is documented as a lower bound
+  for the bracketing searches, since evaluations spent inside a bracketing helper are not counted —
+  but on the capped path the bracketing *is* the whole search, so the bound is vacuous. Measured:
+  `Bisection` reports `trials = 1` after eight merit evaluations, and `Quadratic` reports
+  `trials = 0` after two, which is the same value `Static` reports for a method that evaluates
+  nothing at all. Nothing reads `trials` except the warning messages, which is why this is an
+  entry and not a defect, but a caller sizing the cost of a line search from it is misled exactly
+  where the ceiling made the search cheap.
 
 ### Raised while fixing the `Bisection` maximum, not addressed
 
