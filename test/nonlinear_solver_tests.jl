@@ -323,6 +323,24 @@ for T ∈ (Float64, Float32)
             sw = NonlinearSolver(solver_method, xw, prob; verbosity=0, kwarguments...)
             @test isconverged(solve_with_status!(xw, sw))
             @test all(isroot, xw)
+
+            # the state-taking form: same solve, but the caller's state is reused rather than
+            # allocated per call, and it is left holding the outcome afterwards — the point of
+            # the form, since `status(s, state)` is otherwise the only way to read a solve that
+            # keeps its state, and the two must not be able to disagree.
+            xv = T.(copy(x₀))
+            sv = NonlinearSolver(solver_method, xv, prob; verbosity=0, kwarguments...)
+            statev = SolverState(sv)
+            stv = solve_with_status!(xv, sv, statev)
+            @test stv isa NonlinearSolverStatus
+            @test isconverged(stv)
+            @test all(isroot, xv)
+            @test status(sv, statev) == stv
+
+            # the state is genuinely reused: a second solve from the same guess runs through the
+            # same object and reports the same outcome, so nothing carried over from the first.
+            xv .= T.(x₀)
+            @test solve_with_status!(xv, sv, statev) == stv
         end
     end
 end

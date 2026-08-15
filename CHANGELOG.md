@@ -2,6 +2,59 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.12.1]
+
+Additive: the one form of `solve_with_status!` that a solve in a loop actually wants.
+
+### `solve_with_status!` can reuse the caller's state
+
+Reported from downstream by
+[GeometricIntegrators.jl](https://github.com/JuliaGNI/GeometricIntegrators.jl).
+
+#### The gap
+
+0.12.0 made the status the channel by which a rejected line search reaches its caller — `solve!` no
+longer warns from inside its iteration, so a caller that wants to know reads
+`NonlinearSolverStatus`. `solve_with_status!` is how it does that without holding a
+`NonlinearSolverState`.
+
+But both of its methods *build* the state:
+
+```julia
+solve_with_status!(x, s, params)                # allocates a NonlinearSolverState
+solve_with_status!(x, prob, method, params)     # allocates a solver and a state
+```
+
+whereas `solve!` has had a state-taking method since the state existed, and the docstrings tell a
+caller in a loop to build one solver and reuse it. So the caller with the strongest reason to read
+a status — a time-stepping loop, which runs one solve per step and is exactly where a per-solve
+allocation is worth avoiding — was the one caller `solve_with_status!` had nothing for. It had to
+write the two lines out by hand:
+
+```julia
+solve!(x, s, state, params)
+status(s, state)
+```
+
+which is not merely inconvenient. `status(s, state)` is unexported, so the pattern reaches past the
+public surface for something the package already computes; and the two lines can drift apart, which
+is the failure `solve_with_status!` exists to prevent. Measured downstream: 22 of the 33
+`NonlinearSolver` call sites in GeometricIntegrators and GeometricIntegratorsBase are of this
+shape, every one of them inside an `integrate_step!`.
+
+#### Added
+
+- `solve_with_status!(x, s, state, params=NullParameters())`. It is the two lines above, and the
+  existing `solve_with_status!(x, s, params)` is now one line on top of it rather than a second
+  copy of them — the same collapse the 0.11.0 constructors made, and for the same reason.
+- The state is left holding the outcome, so a later `status(s, state)` returns what the call
+  returned. That is asserted rather than implied: the two readings cannot disagree, and a second
+  solve through the same state reports the same outcome, which is what "reuse" has to mean.
+
+Nothing else moves. The added method is strictly more specific than the `params` one it sits beside
+(`NonlinearSolverState` against the untyped `params`), so no existing call changes which method it
+reaches, and no behaviour of any of the three forms changes.
+
 ## [0.12.0]
 
 Three defects reported from downstream by

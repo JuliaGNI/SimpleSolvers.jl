@@ -438,6 +438,7 @@ end
 
 """
     solve_with_status!(x, s, params=NullParameters())
+    solve_with_status!(x, s, state, params=NullParameters())
     solve_with_status!(x, prob, method, params=NullParameters(); kwargs...)
 
 Solve as [`solve!`](@ref) does — `x` is overwritten with the solution — but return the
@@ -448,6 +449,13 @@ This is how the outcome of a solve is obtained without holding on to a
 The `!` is part of the name because `x` *is* modified, unlike in the line-search
 [`solve_with_status`](@ref), whose `α` is a number.
 
+The second form takes the caller's own `state` rather than building one, and is the form for a
+loop. The other two allocate a state per call, which is the objection the `prob`/`method` wrapper
+already carries for the solver itself: a caller stepping through time should build one
+[`NonlinearSolver`](@ref) and one [`NonlinearSolverState`](@ref) and reuse both. It is otherwise
+identical, and it leaves the state holding the outcome, so a later `status(s, state)` returns what
+this returned — the two ways of reading one solve cannot disagree.
+
 !!! info
     The predicates that read the returned status — [`isconverged`](@ref) and
     [`isstalled`](@ref) — are **not** exported, for the same reason the line-search predicates
@@ -457,7 +465,7 @@ The `!` is part of the name because `x` *is* modified, unlike in the line-search
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged, status)
 julia> F(y, x, params) = y .= x .^ 2 .- 2;
 
 julia> prob = NonlinearProblem(F, zeros(1));
@@ -467,11 +475,33 @@ julia> x = [1.0];
 julia> isconverged(solve_with_status!(x, prob, Newton(); verbosity = 0))
 true
 ```
+
+The same solve through a reused solver and state, which is the form a loop wants — and the state
+still answers for it afterwards:
+
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged, status)
+julia> F(y, x, params) = y .= x .^ 2 .- 2;
+
+julia> x = [1.0]; s = NewtonSolver(x, similar(x); F = F, verbosity = 0);
+
+julia> state = SolverState(s);
+
+julia> st = solve_with_status!(x, s, state);
+
+julia> isconverged(st)
+true
+
+julia> status(s, state) == st
+true
+```
 """
-function solve_with_status!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
-    state = NonlinearSolverState(x, value(cache(s)))
+function solve_with_status!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
     solve!(x, s, state, params)
     status(s, state)
+end
+
+function solve_with_status!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
+    solve_with_status!(x, s, NonlinearSolverState(x, value(cache(s))), params)
 end
 
 function solve_with_status!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, params=NullParameters(); kwargs...)
