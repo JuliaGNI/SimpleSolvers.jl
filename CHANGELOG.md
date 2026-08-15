@@ -2,6 +2,77 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.12.1]
+
+Additive: the one form of `solve_with_status!` that a solve in a loop actually wants.
+
+### `solve_with_status!` can reuse the caller's state
+
+Reported from downstream by
+[GeometricIntegrators.jl](https://github.com/JuliaGNI/GeometricIntegrators.jl).
+
+#### The gap
+
+0.12.0 made the status the channel by which a rejected line search reaches its caller — `solve!` no
+longer warns from inside its iteration, so a caller that wants to know reads
+`NonlinearSolverStatus`. `solve_with_status!` is how it does that without holding a
+`NonlinearSolverState`.
+
+But both of its methods *build* the state:
+
+```julia
+solve_with_status!(x, s, params)                # allocates a NonlinearSolverState
+solve_with_status!(x, prob, method, params)     # allocates a solver and a state
+```
+
+whereas `solve!` has had a state-taking method since the state existed, and the docstrings tell a
+caller in a loop to build one solver and reuse it. So the caller with the strongest reason to read
+a status — a time-stepping loop, which runs one solve per step and is exactly where a per-solve
+allocation is worth avoiding — was the one caller `solve_with_status!` had nothing for. It had to
+write the two lines out by hand:
+
+```julia
+solve!(x, s, state, params)
+status(s, state)
+```
+
+which is not merely inconvenient. `status(s, state)` is unexported, so the pattern reaches past the
+public surface for something the package already computes; and the two lines can drift apart, which
+is the failure `solve_with_status!` exists to prevent. Measured downstream: 22 of the 33
+`NonlinearSolver` call sites in GeometricIntegrators and GeometricIntegratorsBase are of this
+shape, every one of them inside an `integrate_step!`.
+
+#### Added
+
+- `solve_with_status!(x, s, state, params=NullParameters())`. It is the two lines above, and the
+  existing `solve_with_status!(x, s, params)` is now one line on top of it rather than a second
+  copy of them — the same collapse the 0.11.0 constructors made, and for the same reason.
+- The state is left holding the outcome, so a later `status(s, state)` returns what the call
+  returned. That is asserted rather than implied: the two readings cannot disagree, and a second
+  solve through the same state reports the same outcome, which is what "reuse" has to mean.
+- `solve_with_status!(x, prob, method, args...)` now forwards its positional arguments the way
+  `solve!(x, prob, method, args...)` always has, so the state form is reachable through the
+  problem-taking wrapper too. `solve!`'s docstring documents those arguments as "either nothing at
+  all, the `params` of the problem, or a `NonlinearSolverState` followed by `params`"; a caller who
+  carried that sentence across to `solve_with_status!` used to get a `MethodError`.
+
+### The status is built once per solve
+
+`solve!` builds a `NonlinearSolverStatus` at the end of its loop to report on itself, and
+`solve_with_status!` used to ask `status(s, state)` for a second one afterwards — five `l2norm`
+passes per solve spent reproducing a value that had just been discarded, on precisely the path
+whose reason for existing is to keep per-solve work out of a caller's loop.
+
+Both now share one body, `SimpleSolvers._solve_core!`, which returns the status the loop already
+built; `solve!` returns `x` and `solve_with_status!` returns the status. The value is the same one
+either way, and the assertion above — that `status(s, state)` afterwards agrees with what the call
+returned — is what keeps it so.
+
+Dispatch does not move, and no form's observable behaviour changes. The added method is strictly
+more specific than the `params` one it sits beside (`NonlinearSolverState` against the untyped
+`params`), so no existing call changes which method it reaches; the `args...` wrapper accepts
+strictly more than the `params` one it replaces; and `solve!` returns what it always did.
+
 ## [0.12.0]
 
 Three defects reported from downstream by

@@ -323,6 +323,24 @@ for T ∈ (Float64, Float32)
             sw = NonlinearSolver(solver_method, xw, prob; verbosity=0, kwarguments...)
             @test isconverged(solve_with_status!(xw, sw))
             @test all(isroot, xw)
+
+            # the state-taking form: same solve, but the caller's state is reused rather than
+            # allocated per call, and it is left holding the outcome afterwards — the point of
+            # the form, since `status(s, state)` is otherwise the only way to read a solve that
+            # keeps its state, and the two must not be able to disagree.
+            xv = T.(copy(x₀))
+            sv = NonlinearSolver(solver_method, xv, prob; verbosity=0, kwarguments...)
+            statev = SolverState(sv)
+            stv = solve_with_status!(xv, sv, statev)
+            @test stv isa NonlinearSolverStatus
+            @test isconverged(stv)
+            @test all(isroot, xv)
+            @test status(sv, statev) == stv
+
+            # the state is genuinely reused: a second solve from the same guess runs through the
+            # same object and reports the same outcome, so nothing carried over from the first.
+            xv .= T.(x₀)
+            @test solve_with_status!(xv, sv, statev) == stv
         end
     end
 end
@@ -349,6 +367,23 @@ end
     x .= 1
     st = solve_with_status!(x, prob, Newton(), (a=3.0,); max_iterations=1, verbosity=0)
     @test !isconverged(st)
+
+    # `solve_with_status!` forwards `params` past a state the caller supplies, which is the only
+    # thing its state-taking form does beyond the two calls it wraps, and which the solves above
+    # cannot see because they take the three-argument form. A dropped `params` reaches `Fp!` as
+    # `NullParameters`, which has no `.a`.
+    x .= 1
+    sp = NonlinearSolver(Newton(), x, prob; verbosity=0)
+    statep = SolverState(sp)
+    @test isconverged(solve_with_status!(x, sp, statep, (a=3.0,)))
+    @test x ≈ [sqrt(3.0), sqrt(3.0)]
+
+    # …and the problem-taking form takes what the `solve!` one takes: a state followed by `params`
+    x .= 1
+    stw = solve_with_status!(x, prob, Newton(), statep, (a=3.0,); verbosity=0)
+    @test isconverged(stw)
+    @test iteration_number(statep) > 0
+    @test x ≈ [sqrt(3.0), sqrt(3.0)]
 
     @test_throws MethodError solve!(ones(2), prob, Picard(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
     @test_throws MethodError solve!(ones(2), prob, DogLeg(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
