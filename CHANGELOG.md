@@ -50,10 +50,28 @@ shape, every one of them inside an `integrate_step!`.
 - The state is left holding the outcome, so a later `status(s, state)` returns what the call
   returned. That is asserted rather than implied: the two readings cannot disagree, and a second
   solve through the same state reports the same outcome, which is what "reuse" has to mean.
+- `solve_with_status!(x, prob, method, args...)` now forwards its positional arguments the way
+  `solve!(x, prob, method, args...)` always has, so the state form is reachable through the
+  problem-taking wrapper too. `solve!`'s docstring documents those arguments as "either nothing at
+  all, the `params` of the problem, or a `NonlinearSolverState` followed by `params`"; a caller who
+  carried that sentence across to `solve_with_status!` used to get a `MethodError`.
 
-Nothing else moves. The added method is strictly more specific than the `params` one it sits beside
-(`NonlinearSolverState` against the untyped `params`), so no existing call changes which method it
-reaches, and no behaviour of any of the three forms changes.
+### The status is built once per solve
+
+`solve!` builds a `NonlinearSolverStatus` at the end of its loop to report on itself, and
+`solve_with_status!` used to ask `status(s, state)` for a second one afterwards — five `l2norm`
+passes per solve spent reproducing a value that had just been discarded, on precisely the path
+whose reason for existing is to keep per-solve work out of a caller's loop.
+
+Both now share one body, `SimpleSolvers._solve_core!`, which returns the status the loop already
+built; `solve!` returns `x` and `solve_with_status!` returns the status. The value is the same one
+either way, and the assertion above — that `status(s, state)` afterwards agrees with what the call
+returned — is what keeps it so.
+
+Dispatch does not move, and no form's observable behaviour changes. The added method is strictly
+more specific than the `params` one it sits beside (`NonlinearSolverState` against the untyped
+`params`), so no existing call changes which method it reaches; the `args...` wrapper accepts
+strictly more than the `params` one it replaces; and `solve!` returns what it always did.
 
 ## [0.12.0]
 

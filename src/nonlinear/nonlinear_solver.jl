@@ -282,13 +282,25 @@ function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::Nonlin
 end
 
 """
-    solve!(x, s, state)
+    _solve_core!(x, s, state, params)
 
-Solve the [`NonlinearProblem`](@ref) contained in the [`NonlinearSolver`](@ref) with the initial condition `x`.
+Run the nonlinear iteration and return the [`NonlinearSolverStatus`](@ref) it ends in, having
+already reported it through [`nonlinear_solver_warnings`](@ref) and [`print_status`](@ref).
 
-You also have to supply a [`NonlinearSolverState`](@ref).
+This is the shared body of [`solve!`](@ref), which returns `x`, and of
+[`solve_with_status!`](@ref), which returns the status. It exists so that the status is built
+*once*: the loop has to build one anyway to report on itself, and having `solve_with_status!` ask
+[`status`](@ref) for a second one afterwards spent five `l2norm` passes per solve reproducing a
+value it had just discarded — on exactly the path whose reason for existing is to keep per-solve
+work out of a caller's loop.
+
+The two readings still cannot disagree, and for a stronger reason than before: nothing touches the
+`state` between the end of the loop and the caller, so a later `status(s, state)` rebuilds the same
+value from the same fields. That is asserted in the test suite.
+
+Private: [`solve!`](@ref) and [`solve_with_status!`](@ref) are the public entry points.
 """
-function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
+function _solve_core!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params)
     initialize!(s, x)
     initialize!(state, x, value!(value(cache(s)), nonlinearproblem(s), x, params))
 
@@ -308,10 +320,25 @@ function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverStat
         record_iteration!(state, config(s))
     end
 
-    status = NonlinearSolverStatus(state, config(s))
-    nonlinear_solver_warnings(status, config(s))
-    config(s).verbosity > 1 && print_status(status, config(s))
+    st = NonlinearSolverStatus(state, config(s))
+    nonlinear_solver_warnings(st, config(s))
+    config(s).verbosity > 1 && print_status(st, config(s))
 
+    st
+end
+
+"""
+    solve!(x, s, state, params=NullParameters())
+
+Solve the [`NonlinearProblem`](@ref) contained in the [`NonlinearSolver`](@ref) with the initial condition `x`.
+
+You also have to supply a [`NonlinearSolverState`](@ref).
+
+`x` is overwritten with the solution and returned. Use [`solve_with_status!`](@ref) — which is the
+same iteration, sharing the same body — if the *outcome* of the solve is needed as well.
+"""
+function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
+    _solve_core!(x, s, state, params)
     x
 end
 
@@ -439,14 +466,16 @@ end
 """
     solve_with_status!(x, s, params=NullParameters())
     solve_with_status!(x, s, state, params=NullParameters())
-    solve_with_status!(x, prob, method, params=NullParameters(); kwargs...)
+    solve_with_status!(x, prob, method, args...; kwargs...)
 
 Solve as [`solve!`](@ref) does — `x` is overwritten with the solution — but return the
-[`NonlinearSolverStatus`](@ref) instead of `x`.
+[`NonlinearSolverStatus`](@ref) instead of `x`. It is the same iteration: both share one body, so
+the status is the one the solve built to report on itself rather than a second one computed after
+the fact.
 
-This is how the outcome of a solve is obtained without holding on to a
-[`NonlinearSolverState`](@ref): the state is built here and handed to [`status`](@ref) afterwards.
-The `!` is part of the name because `x` *is* modified, unlike in the line-search
+The first and third forms are how the outcome of a solve is obtained *without* holding on to a
+[`NonlinearSolverState`](@ref): they build one and hand it to [`status`](@ref) afterwards. The `!`
+is part of the name because `x` *is* modified, unlike in the line-search
 [`solve_with_status`](@ref), whose `α` is a number.
 
 The second form takes the caller's own `state` rather than building one, and is the form for a
@@ -456,16 +485,22 @@ already carries for the solver itself: a caller stepping through time should bui
 identical, and it leaves the state holding the outcome, so a later `status(s, state)` returns what
 this returned — the two ways of reading one solve cannot disagree.
 
+The `args...` of the third form are what [`solve!(::AbstractVector, ::NonlinearProblem,
+::NonlinearSolverMethod)`](@ref) takes: nothing at all, the `params` of the problem, or a
+`NonlinearSolverState` followed by `params`. The keywords are that method's too, and the note there
+on solver construction applies here — a call that passes a state but no solver still builds one per
+call, and a loop wants the second form.
+
 !!! info
-    The predicates that read the returned status — [`isconverged`](@ref) and
-    [`isstalled`](@ref) — are **not** exported, for the same reason the line-search predicates
-    are not: they are generic names a package doing `using SimpleSolvers` may well want for
-    itself. Reach them as `SimpleSolvers.isconverged(st)`, or import them explicitly with
-    `using SimpleSolvers: isconverged`.
+    Neither the returned status's predicates — [`isconverged`](@ref) and [`isstalled`](@ref) — nor
+    [`status`](@ref), which the second form's promise above is about, are exported, for the same
+    reason the line-search predicates are not: they are generic names a package doing
+    `using SimpleSolvers` may well want for itself. Reach them as `SimpleSolvers.isconverged(st)`,
+    or import them explicitly with `using SimpleSolvers: isconverged, status`.
 
 # Examples
 
-```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged, status)
+```jldoctest; setup = :(using SimpleSolvers; using SimpleSolvers: isconverged)
 julia> F(y, x, params) = y .= x .^ 2 .- 2;
 
 julia> prob = NonlinearProblem(F, zeros(1));
@@ -496,14 +531,17 @@ true
 ```
 """
 function solve_with_status!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
-    solve!(x, s, state, params)
-    status(s, state)
+    _solve_core!(x, s, state, params)
 end
 
 function solve_with_status!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
     solve_with_status!(x, s, NonlinearSolverState(x, value(cache(s))), params)
 end
 
-function solve_with_status!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, params=NullParameters(); kwargs...)
-    solve_with_status!(x, NonlinearSolver(method, x, prob; kwargs...), params)
+# `args...` and not `params=NullParameters()`, so that this wrapper takes what the `solve!` one
+# takes — in particular a state followed by `params`. The two forms are otherwise the same call,
+# and a caller who transferred the documented `solve!(x, prob, method, state, params)` across used
+# to get a `MethodError`.
+function solve_with_status!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, args...; kwargs...)
+    solve_with_status!(x, NonlinearSolver(method, x, prob; kwargs...), args...)
 end
