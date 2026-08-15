@@ -38,9 +38,14 @@ status(s, state)
 
 which is not merely inconvenient. `status(s, state)` is unexported, so the pattern reaches past the
 public surface for something the package already computes; and the two lines can drift apart, which
-is the failure `solve_with_status!` exists to prevent. Measured downstream: 22 of the 33
-`NonlinearSolver` call sites in GeometricIntegrators and GeometricIntegratorsBase are of this
-shape, every one of them inside an `integrate_step!`.
+is the failure `solve_with_status!` exists to prevent. Measured downstream: of the 33
+`NonlinearSolver` call sites in GeometricIntegrators and GeometricIntegratorsBase, 26 are live, and
+22 of *those* are of this shape — every one of them inside an `integrate_step!`. The other 7 are
+dead code (the `vprk` integrators, reachable only through a `VPRK.jl` whose every `include` is
+commented out and which is itself never included), and the 4 live sites that keep the
+state-building form have no state to reuse: DIRK's per-stage solvers are handed a
+`NullSolverState` by their `SingleStageSolvers` wrapper, and a `ProjectionIntegrator` has no
+`solverstate` field at all.
 
 #### Added
 
@@ -67,6 +72,14 @@ Both now share one body, `SimpleSolvers._solve_core!`, which returns the status 
 built; `solve!` returns `x` and `solve_with_status!` returns the status. The value is the same one
 either way, and the assertion above — that `status(s, state)` afterwards agrees with what the call
 returned — is what keeps it so.
+
+This is what makes the downstream conversion free. Without it, moving a call site from `solve!` to
+`solve_with_status!` bought the status at the price of a second `NonlinearSolverStatus` per solve —
+which in a time-stepping loop is per step, and is larger than the state allocation the section
+above sets out to remove. It also keeps reading the state *afterwards* legitimate, which one
+downstream caller still needs: PGLRK's stage solves run inside a merit function that `bisection`
+calls once per trial λ, so only the accepted λ's status may reach the integrator's failure hook,
+and that one is read off the persistent state after the fact.
 
 Dispatch does not move, and no form's observable behaviour changes. The added method is strictly
 more specific than the `params` one it sits beside (`NonlinearSolverState` against the untyped
