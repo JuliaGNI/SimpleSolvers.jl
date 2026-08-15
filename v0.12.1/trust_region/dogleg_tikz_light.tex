@@ -1,0 +1,50 @@
+\documentclass[tikz, border=10pt]{standalone}
+\usetikzlibrary{arrows.meta, intersections, calc}
+
+\definecolor{morange}{RGB}{255,127,14}
+\definecolor{mblue}{RGB}{31,119,180}
+\definecolor{mred}{RGB}{214,39,40}
+\definecolor{mpurple}{RGB}{148,103,189}
+\definecolor{mgreen}{RGB}{44,160,44}
+
+\begin{document}
+\begin{tikzpicture}[scale=1.5]
+    % Coordinates
+    \coordinate (O) at (0,0);
+    \coordinate (PU) at (0,-1.5);    % Cauchy point (Steepest Descent)
+    \coordinate (PB) at (3.5,-0.5); % Newton Point
+
+    % Draw Trust Region (Circle)
+    \def\radius{2.5}
+    \draw[thick, dashed, color=gray!60] (O) circle (\radius);
+    \node[color=gray!80, anchor=north west] at (1.8, 1.8) {Trust Region ($\Delta_k$)};
+
+    % Draw Axes (optional, for context)
+    \draw[->, color=gray!30] (-1,0) -- (4,0);
+    \draw[->, color=gray!30] (0,1) -- (0,-2.5);
+
+    % Draw the Dogleg Path
+    % Segment 1: Origin to Cauchy Point
+    \draw[thick, mblue] (O) -- (PU);
+    % Segment 2: Cauchy Point to Newton Point
+    \draw[thick, mblue, name path=dogleg_seg] (PU) -- (PB);
+
+    % Find intersection of the path with the circle
+    \path[name path=circle] (O) circle (\radius);
+    \path [name intersections={of=dogleg_seg and circle, by={pk}}];
+
+    % Mark the points
+    \filldraw[black] (O) circle (1.5pt) node[anchor=south east] {$x_k$};
+    \filldraw[mblue] (PU) circle (1.5pt) node[anchor=east, xshift=-2pt] {$p^U$};
+    \filldraw[mred] (PB) circle (1.5pt) node[anchor=west] {$p^B$ (Newton point)};
+    \filldraw[black] (pk) circle (1.8pt) node[anchor=south west, yshift=-9pt] {$p_k$ (Dogleg step)};
+
+    % Labels for the path
+    \draw[<-, >=Stealth, shorten <=3pt] (1.2, -1.1) -- (1.8, -1.8)
+        node[anchor=north] {Dogleg Path};
+
+    % Highlighting the gradient direction
+    \draw[->, thick, gray] (O) -- (0,-0.7) node[midway, left] {$-g_k$};
+
+\end{tikzpicture}
+\end{document}
