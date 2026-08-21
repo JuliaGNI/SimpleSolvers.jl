@@ -110,7 +110,9 @@ solve(LapackLU(), ls)
 
 It is restricted to the element types LAPACK provides (`Float32`, `Float64`, `ComplexF32`
 and `ComplexF64`) and throws an `ArgumentError` naming the type for anything else, so
-`LU()` remains the default and the only option for e.g. `BigFloat`. Everything else is
+`LU()` remains the default and the only option for e.g. `BigFloat`. What it is *not* is a
+trade of allocation for speed: like [`LU`](@ref), it allocates nothing per factorization or
+solve once the [`LinearSolver`](@ref) has been built. Everything else is
 interchangeable — [`factorize!`](@ref), `LinearAlgebra.ldiv!`, [`solve!`](@ref) and
 [`solve`](@ref) behave the same way, and either method can be handed to a nonlinear solver
 as its `linear_solver_method`:

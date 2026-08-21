@@ -47,9 +47,16 @@ Two details are deliberate:
 - The factorization is **not** checked in `factorize!`. A singular matrix is reported by
   `ldiv!`, when the factorization is actually used, so that a quasi-Newton method that
   refactorizes speculatively is not interrupted by a matrix it may never solve with.
-- The two-argument `factorize!` reuses the cache's working matrix across refactorizations, so
-  a repeated call allocates only the pivot vector LAPACK requires — `O(n)`, not another
-  `O(n²)` copy.
+- `factorize!` and `ldiv!` are allocation-free once the `LinearSolver` exists, as they are
+  for `LU`. That is why the cache holds `getrf`'s pieces — the working matrix, the pivot
+  vector, `info` — rather than a `LinearAlgebra.LU` object: `LU` is immutable, so going
+  through `lu!` would allocate a fresh pivot vector and a fresh boxed wrapper on every
+  refactorization. Small next to an `O(n³)` factorization, but a nonlinear solve inside a
+  time-stepping loop refactorizes on every step of every step. `factorization(lsolver)`
+  hands out a `LinearAlgebra.LU` view of those arrays when one is actually wanted.
+- `ldiv!` takes any one-based vector, as `LU`'s does. `getrs` needs a contiguous one, so a
+  non-contiguous vector — a stride-2 view, say — goes through a scratch copy instead of
+  becoming a "matrix does not have contiguous columns" error that `LU` would not raise.
 
 ### `singular_index`
 

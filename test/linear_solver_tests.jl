@@ -1,7 +1,7 @@
-using LinearAlgebra: ldiv!, I, SingularException
+using LinearAlgebra: LinearAlgebra, det, ldiv!, I, SingularException
 using Random: Random
 using SimpleSolvers
-using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache, pivot_index, singular_index, solve, solve!, alloc_x, alloc_g, alloc_h, alloc_j
+using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, factorization, cache, pivot_index, singular_index, solve, solve!, alloc_x, alloc_g, alloc_h, alloc_j
 using StaticArrays: SMatrix, MMatrix
 using Test
 
@@ -344,12 +344,29 @@ end
     # LAPACK does not know about every number type, and says so by name
     @test_throws ArgumentError LinearSolverCache(LapackLU(), [big(1.0) big(2.0); big(3.0) big(4.0)])
 
-    # refactorizing reuses the working matrix, so what is allocated is LAPACK's pivot
-    # vector (O(n)) and not another copy of the matrix (O(n^2))
+    # the working matrix and the pivot vector are both allocated once and reused, so
+    # refactorizing and solving are allocation-free, exactly as they are for `LU`
     Mbig = randn(50, 50) + 50 * I
+    zbig = zeros(50)
+    rbig = randn(50)
     sbig = LinearSolver(LapackLU(), Mbig)
     factorize!(sbig, Mbig)
-    @test (@allocated factorize!(sbig, Mbig)) < sizeof(Mbig) ÷ 4
+    ldiv!(zbig, sbig, rbig)
+    @test (@allocated factorize!(sbig, Mbig)) == 0
+    @test (@allocated ldiv!(zbig, sbig, rbig)) == 0
+
+    # `factorization` hands out a LinearAlgebra.LU view of those same arrays
+    F = factorization(factorize!(LinearSolver(LapackLU(), Al), Al))
+    @test F isa LinearAlgebra.LU
+    @test det(F) ≈ det(Al)
+    @test_throws ArgumentError factorization(LinearSolver(LapackLU(), Al))
+
+    # `LU` solves with scalar loops and so takes any one-based vector; a non-contiguous
+    # one cannot be handed to `getrs`, but it must not become an error `LU` does not have
+    xstride = view(zeros(6), 1:2:6)
+    bstride = view(zeros(6), 1:2:6)
+    bstride .= bl
+    @test ldiv!(xstride, factorize!(LinearSolver(LapackLU(), Al), Al), bstride) ≈ xl
 end
 
 @testset "LapackLU inside a nonlinear solve" begin
