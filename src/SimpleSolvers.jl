@@ -67,7 +67,7 @@ export check_jacobian,
 include("base/jacobian.jl")
 
 
-export LinearProblem, LinearSolver, LU,
+export LinearProblem, LinearSolver, LU, LapackLU,
     factorize!, linearproblem
 
 include("linear/linear_problem.jl")
@@ -75,6 +75,7 @@ include("linear/linear_solver_method.jl")
 include("linear/linear_solver_cache.jl")
 include("linear/linear_solvers.jl")
 include("linear/lu_solver.jl")
+include("linear/lapack_lu_solver.jl")
 
 export bracket_minimum
 

@@ -1,4 +1,4 @@
-using LinearAlgebra: ldiv!, SingularException
+using LinearAlgebra: ldiv!, I, SingularException
 using SimpleSolvers
 using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache, pivot_index, solve!, alloc_x, alloc_g, alloc_h, alloc_j
 using StaticArrays: SMatrix, MMatrix
@@ -247,4 +247,74 @@ end
     # after factorizing, the same calls work
     factorize!(lsolver, A)
     @test solve!(x, lsolver, b) ≈ A \ b
+end
+
+
+# --------------------------------------------------------------------------
+# LapackLU
+# --------------------------------------------------------------------------
+#
+# The point of this method is that it produces the same answers as `LU` while delegating the
+# factorization to LAPACK, so the tests are mostly agreement tests against `LU`.
+
+@testset "LapackLU" begin
+    Al = [[+4.0 +5.0 -2.0]
+          [+7.0 -1.0 +2.0]
+          [+3.0 +1.0 +4.0]]
+    xl = [+4.0, -4.0, +5.0]
+    bl = [-14.0, +42.0, +28.0]
+
+    ls = LinearSolver(LapackLU(), Al)
+    factorize!(ls, Al)
+    y = zero(xl)
+    ldiv!(y, ls, bl)
+    @test y ≈ xl
+
+    # the same answer as the built-in LU, which is the whole contract
+    lu_ref = LinearSolver(LU(), Al)
+    factorize!(lu_ref, Al)
+    y_ref = zero(xl)
+    ldiv!(y_ref, lu_ref, bl)
+    @test y ≈ y_ref
+
+    # solve! factorizes and solves in one go
+    @test solve!(zero(xl), LinearSolver(LapackLU(), Al), LinearProblem(Al, bl)) ≈ xl
+    @test solve(LapackLU(), LinearProblem(Al, bl)) ≈ xl
+
+    # on a larger random system, against the reference solution
+    for n in (5, 17, 64)
+        M = randn(n, n) + n * I
+        rhs = randn(n)
+        s = LinearSolver(LapackLU(), M)
+        factorize!(s, M)
+        z = zeros(n)
+        ldiv!(z, s, rhs)
+        @test M * z ≈ rhs
+    end
+
+    # using the factorization before it exists is an error, not a wrong answer
+    fresh = LinearSolver(LapackLU(), Al)
+    @test_throws ArgumentError ldiv!(zero(xl), fresh, bl)
+
+    # a singular matrix is reported when the factorization is USED, so that a
+    # quasi-Newton method may factorize speculatively without being interrupted
+    Asing = [1.0 2.0; 2.0 4.0]
+    ssing = LinearSolver(LapackLU(), Asing)
+    factorize!(ssing, Asing)                       # does not throw
+    @test_throws SingularException ldiv!(zeros(2), ssing, [1.0, 2.0])
+
+    # LAPACK does not know about every number type, and says so by name
+    @test_throws ArgumentError LinearSolverCache(LapackLU(), [big(1.0) big(2.0); big(3.0) big(4.0)])
+end
+
+@testset "LapackLU inside a Newton solve" begin
+    # the substitution has to be invisible to the nonlinear solver
+    F(y, x, params) = y .= x .^ 3 .- 2
+    x1 = [1.5]
+    x2 = [1.5]
+    solve!(x1, NonlinearProblem(F, zeros(1)), Newton(); verbosity=0)
+    solve!(x2, NonlinearProblem(F, zeros(1)), Newton(); verbosity=0,
+        linear_solver_method=LapackLU())
+    @test x1 ≈ x2
+    @test x2[1] ≈ cbrt(2.0)
 end
