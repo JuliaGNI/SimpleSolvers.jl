@@ -311,6 +311,13 @@ function pivot_index(v::AbstractVector{T}, k::Integer) where {T<:Number}
 end
 
 """
+    singular_index(lsolver::LinearSolver{T,<:LU})
+
+The zero-pivot index recorded by [`factorize!`](@ref) in `cache(lsolver).info`.
+"""
+singular_index(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU} = cache(lsolver).info
+
+"""
     ldiv!(x, lsolver, b)
 
 Compute `inv(cache(lsolver).A) * b` by utilizing the factorization of the lu solver (see [`LU`](@ref) and [`LinearSolver`](@ref)) and store the result in `x`.
@@ -361,7 +368,7 @@ function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT},
     (isempty(cache(lsolver).perms) || iszero(cache(lsolver).perms[1])) &&
         throw(ArgumentError("LinearSolver has not been factorized; call factorize! before ldiv!/solve!."))
 
-    cache(lsolver).info == 0 || throw(SingularException(cache(lsolver).info))
+    singular_index(lsolver) == 0 || throw(SingularException(singular_index(lsolver)))
 
     n = size(cache(lsolver).A, 1)
 

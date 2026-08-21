@@ -19,10 +19,9 @@ for the sizes SimpleSolvers is usually pointed at it is perfectly fast.
 
 It does not scale. The factorization is `n³/3` bounds-checked scalar operations with no
 blocking, so once the systems are large the cost is dominated by an inner loop that LAPACK
-would run an order of magnitude faster. Profiling a Newton step of a spectral-in-space
-discretisation with a dense `384 × 384` Jacobian found **74 % of the step inside
-`factorize!`** — about 17 ms, against 0.6 ms for the same factorization through
-`LinearAlgebra.lu!`.
+would run an order of magnitude faster. Profiling a Newton step of a spline discretisation
+with a dense `384 × 384` Jacobian found **74 % of the step inside `factorize!`** — about
+17 ms, against 0.6 ms for the same factorization through `LinearAlgebra.lu!`.
 
 The downstream package worked around it by defining its own `LinearSolverMethod`. That the
 extension points made this possible is good; that every such caller has to write the same
@@ -34,10 +33,12 @@ thirty lines is not.
 solve!(x, prob, Newton(); linear_solver_method = LapackLU())
 ```
 
-`LapackLU` implements the same interface as `LU` — `LinearSolverCache`, `factorize!`,
-`ldiv!`, `solve!` and `solve` — and delegates the factorization to `LinearAlgebra.lu!`. It is
-restricted to the element types LAPACK provides (`Float32`, `Float64`, `ComplexF32`,
-`ComplexF64`) and to `Matrix` storage, and says so by name when handed anything else.
+`LapackLU` implements the same interface as `LU` — `LinearSolverCache`, `factorize!` in both
+its one- and two-argument forms, `ldiv!`, every `solve!` form and `solve` — and delegates the
+factorization to `LinearAlgebra.lu!`. It is restricted to the element types LAPACK provides
+(`Float32`, `Float64`, `ComplexF32`, `ComplexF64`) and says so by name when handed anything
+else; any `AbstractMatrix` storage is accepted, and the cache holds a plain `Matrix`, which
+is what LAPACK can be pointed at.
 
 Nothing changes for existing code: `LU()` remains the default everywhere.
 
@@ -46,8 +47,18 @@ Two details are deliberate:
 - The factorization is **not** checked in `factorize!`. A singular matrix is reported by
   `ldiv!`, when the factorization is actually used, so that a quasi-Newton method that
   refactorizes speculatively is not interrupted by a matrix it may never solve with.
-- The cache holds the working matrix and reuses it across refactorizations, so a repeated
-  `factorize!` allocates only the pivot vector LAPACK requires.
+- The two-argument `factorize!` reuses the cache's working matrix across refactorizations, so
+  a repeated call allocates only the pivot vector LAPACK requires — `O(n)`, not another
+  `O(n²)` copy.
+
+### `singular_index`
+
+Whether the last `factorize!` hit a zero pivot was previously read off the `LU` cache's
+`info` field directly, by `DogLegSolver` — which meant `DogLeg` could not actually use any
+other `LinearSolverMethod`, including `LapackLU`. That state is now behind
+`SimpleSolvers.singular_index(lsolver)`, which every `LinearSolverMethod` implements and
+which `ldiv!` also uses to build its `SingularException`. `DogLeg` accepts any linear solver
+method again.
 
 ## [0.12.1]
 

@@ -1,6 +1,7 @@
 using LinearAlgebra: ldiv!, I, SingularException
+using Random: Random
 using SimpleSolvers
-using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache, pivot_index, solve!, alloc_x, alloc_g, alloc_h, alloc_j
+using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache, pivot_index, singular_index, solve, solve!, alloc_x, alloc_g, alloc_h, alloc_j
 using StaticArrays: SMatrix, MMatrix
 using Test
 
@@ -277,11 +278,24 @@ end
     ldiv!(y_ref, lu_ref, bl)
     @test y ≈ y_ref
 
-    # solve! factorizes and solves in one go
+    # every call form `LU` offers, on the same system: the cache is seeded from `A`, so the
+    # single-argument `factorize!` has something to factorize, exactly as for `LU`
+    @test ldiv!(zero(xl), factorize!(LinearSolver(LapackLU(), Al)), bl) ≈ xl
     @test solve!(zero(xl), LinearSolver(LapackLU(), Al), LinearProblem(Al, bl)) ≈ xl
+    @test solve!(zero(xl), LinearSolver(LapackLU(), Al), Al, bl) ≈ xl
+    @test solve!(zero(xl), factorize!(LinearSolver(LapackLU(), Al), Al), bl) ≈ xl
+    @test solve!(LinearSolver(LapackLU(), Al), LinearProblem(Al, bl)) ≈ xl
+    @test solve!(LinearSolver(LapackLU(), Al), Al, bl) ≈ xl
+    @test solve(LinearSolver(LapackLU(), Al), Al, bl) ≈ xl
     @test solve(LapackLU(), LinearProblem(Al, bl)) ≈ xl
+    @test solve(LapackLU(), Al, bl) ≈ xl
 
-    # on a larger random system, against the reference solution
+    # `ldiv!` solves in place, so it has to tolerate `x === b`
+    aliased = copy(bl)
+    @test ldiv!(aliased, factorize!(LinearSolver(LapackLU(), Al), Al), aliased) ≈ xl
+
+    # on larger random systems, against the reference solution
+    Random.seed!(1234)
     for n in (5, 17, 64)
         M = randn(n, n) + n * I
         rhs = randn(n)
@@ -290,31 +304,65 @@ end
         z = zeros(n)
         ldiv!(z, s, rhs)
         @test M * z ≈ rhs
+        # and agreeing with `LU` on the same system
+        z_ref = zeros(n)
+        ldiv!(z_ref, factorize!(LinearSolver(LU(), M), M), rhs)
+        @test z ≈ z_ref
+    end
+
+    # the other three element types LAPACK provides
+    for T in (Float32, ComplexF32, ComplexF64)
+        M = T.(Al) + T(3) * I
+        rhs = T.(bl)
+        z = zeros(T, 3)
+        ldiv!(z, factorize!(LinearSolver(LapackLU(), M), M), rhs)
+        @test M * z ≈ rhs
+        @test eltype(z) == T
     end
 
     # using the factorization before it exists is an error, not a wrong answer
     fresh = LinearSolver(LapackLU(), Al)
     @test_throws ArgumentError ldiv!(zero(xl), fresh, bl)
+    @test_throws ArgumentError singular_index(fresh)
 
     # a singular matrix is reported when the factorization is USED, so that a
     # quasi-Newton method may factorize speculatively without being interrupted
     Asing = [1.0 2.0; 2.0 4.0]
     ssing = LinearSolver(LapackLU(), Asing)
     factorize!(ssing, Asing)                       # does not throw
+    @test singular_index(ssing) == 2
     @test_throws SingularException ldiv!(zeros(2), ssing, [1.0, 2.0])
+    # ... and the reported index is the one `LU` reports too
+    ssing_ref = LinearSolver(LU(), Asing)
+    factorize!(ssing_ref, Asing)
+    @test singular_index(ssing_ref) == singular_index(ssing)
+
+    # a matrix of the wrong size is refused rather than silently copied in piecewise
+    @test_throws DimensionMismatch factorize!(LinearSolver(LapackLU(), Al), randn(2, 2))
+    @test_throws DimensionMismatch LinearSolver(LapackLU(), randn(3, 4))
 
     # LAPACK does not know about every number type, and says so by name
     @test_throws ArgumentError LinearSolverCache(LapackLU(), [big(1.0) big(2.0); big(3.0) big(4.0)])
+
+    # refactorizing reuses the working matrix, so what is allocated is LAPACK's pivot
+    # vector (O(n)) and not another copy of the matrix (O(n^2))
+    Mbig = randn(50, 50) + 50 * I
+    sbig = LinearSolver(LapackLU(), Mbig)
+    factorize!(sbig, Mbig)
+    @test (@allocated factorize!(sbig, Mbig)) < sizeof(Mbig) ÷ 4
 end
 
-@testset "LapackLU inside a Newton solve" begin
-    # the substitution has to be invisible to the nonlinear solver
+@testset "LapackLU inside a nonlinear solve" begin
+    # the substitution has to be invisible to the nonlinear solver, for every method that
+    # takes a `linear_solver_method`
     F(y, x, params) = y .= x .^ 3 .- 2
-    x1 = [1.5]
-    x2 = [1.5]
-    solve!(x1, NonlinearProblem(F, zeros(1)), Newton(); verbosity=0)
-    solve!(x2, NonlinearProblem(F, zeros(1)), Newton(); verbosity=0,
-        linear_solver_method=LapackLU())
-    @test x1 ≈ x2
-    @test x2[1] ≈ cbrt(2.0)
+    for method in (Newton(), QuasiNewton(), DogLeg())
+        x1 = [1.5]
+        x2 = [1.5]
+        solve!(x1, NonlinearProblem(F, zeros(1)), method; verbosity=0)
+        solve!(x2, NonlinearProblem(F, zeros(1)), method; verbosity=0,
+            linear_solver_method=LapackLU())
+        @test x1 ≈ x2
+        @test x2[1] ≈ cbrt(2.0)
+    end
 end
