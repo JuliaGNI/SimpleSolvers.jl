@@ -2,6 +2,78 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.12.2]
+
+Additive: a LAPACK-backed linear solver alongside the existing one.
+
+### `LapackLU`
+
+Reported from downstream by
+[PoissonBrackets.jl](https://github.com/JuliaGNI/PoissonBrackets.jl).
+
+#### The gap
+
+`LU` is a self-contained scalar implementation. That is the right default: it works for any
+number type, it uses a static-matrix cache for small systems and so allocates nothing, and
+for the sizes SimpleSolvers is usually pointed at it is perfectly fast.
+
+It does not scale. The factorization is `n³/3` bounds-checked scalar operations with no
+blocking, so once the systems are large the cost is dominated by an inner loop that LAPACK
+would run an order of magnitude faster. Profiling a Newton step of a spline discretisation
+with a dense `384 × 384` Jacobian found **74 % of the step inside `factorize!`** — about
+17 ms, against 0.6 ms for the same factorization through `LinearAlgebra.lu!`.
+
+The downstream package worked around it by defining its own `LinearSolverMethod`. That the
+extension points made this possible is good; that every such caller has to write the same
+thirty lines is not.
+
+#### What was added
+
+```julia
+solve!(x, prob, Newton(); linear_solver_method = LapackLU())
+```
+
+`LapackLU` implements the same interface as `LU` — `LinearSolverCache`, `factorize!` in both
+its one- and two-argument forms, `ldiv!`, every `solve!` form and `solve` — and delegates the
+factorization to `LinearAlgebra.lu!`. It is restricted to the element types LAPACK provides
+(`Float32`, `Float64`, `ComplexF32`, `ComplexF64`) and says so by name when handed anything
+else; any `AbstractMatrix` storage is accepted, and the cache holds a plain `Matrix`, which
+is what LAPACK can be pointed at.
+
+Nothing changes for existing code: `LU()` remains the default everywhere.
+
+Two details are deliberate:
+
+- The factorization is **not** checked in `factorize!`. A singular matrix is reported by
+  `ldiv!`, when the factorization is actually used, so that a quasi-Newton method that
+  refactorizes speculatively is not interrupted by a matrix it may never solve with.
+- `factorize!` and `ldiv!` are allocation-free once the `LinearSolver` exists, as they are
+  for `LU`. That is why the cache holds `getrf`'s pieces — the working matrix, the pivot
+  vector, `info` — rather than a `LinearAlgebra.LU` object: `LU` is immutable, so going
+  through `lu!` would allocate a fresh pivot vector and a fresh boxed wrapper on every
+  refactorization. Small next to an `O(n³)` factorization, but a nonlinear solve inside a
+  time-stepping loop refactorizes on every step of every step. `factorization(lsolver)`
+  hands out a `LinearAlgebra.LU` view of those arrays when one is actually wanted.
+
+  `LAPACK.getrf!(A, ipiv)` arrived after the 1.10 LTS, so on 1.10 `factorize!` fills the
+  cache's pivot vector from a per-call temporary and costs one `O(n)` allocation. The
+  `O(n²)` working matrix is reused on every version, and `ldiv!` is allocation-free on
+  every version, `getrs!` having always taken the pivot vector as an argument. The
+  distinction is feature-detected, as `SimpleSolvers.HAS_PREALLOCATED_GETRF`, rather than
+  pinned to a version number, and the compat entry stays at `julia = "1.10"`.
+- `ldiv!` takes any one-based vector, as `LU`'s does. `getrs` needs a contiguous one, so a
+  non-contiguous vector — a stride-2 view, say — goes through a scratch copy instead of
+  becoming a "matrix does not have contiguous columns" error that `LU` would not raise.
+
+### `singular_index`
+
+Whether the last `factorize!` hit a zero pivot was previously read off the `LU` cache's
+`info` field directly, by `DogLegSolver` — which meant `DogLeg` could not actually use any
+other `LinearSolverMethod`, including `LapackLU`. That state is now behind
+`SimpleSolvers.singular_index(lsolver)`, which every `LinearSolverMethod` implements and
+which `ldiv!` also uses to build its `SingularException`. `DogLeg` accepts any linear solver
+method again.
+
 ## [0.12.1]
 
 Additive: the one form of `solve_with_status!` that a solve in a loop actually wants.

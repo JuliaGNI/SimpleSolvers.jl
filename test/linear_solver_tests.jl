@@ -1,6 +1,7 @@
-using LinearAlgebra: ldiv!, SingularException
+using LinearAlgebra: LinearAlgebra, det, ldiv!, I, SingularException
+using Random: Random
 using SimpleSolvers
-using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, cache, pivot_index, solve!, alloc_x, alloc_g, alloc_h, alloc_j
+using SimpleSolvers: LinearSolverMethod, LinearSolverCache, matrix, factorize!, factorization, cache, pivot_index, singular_index, solve, solve!, alloc_x, alloc_g, alloc_h, alloc_j
 using StaticArrays: SMatrix, MMatrix
 using Test
 
@@ -247,4 +248,144 @@ end
     # after factorizing, the same calls work
     factorize!(lsolver, A)
     @test solve!(x, lsolver, b) ≈ A \ b
+end
+
+
+# --------------------------------------------------------------------------
+# LapackLU
+# --------------------------------------------------------------------------
+#
+# The point of this method is that it produces the same answers as `LU` while delegating the
+# factorization to LAPACK, so the tests are mostly agreement tests against `LU`.
+
+@testset "LapackLU" begin
+    Al = [[+4.0 +5.0 -2.0]
+          [+7.0 -1.0 +2.0]
+          [+3.0 +1.0 +4.0]]
+    xl = [+4.0, -4.0, +5.0]
+    bl = [-14.0, +42.0, +28.0]
+
+    ls = LinearSolver(LapackLU(), Al)
+    factorize!(ls, Al)
+    y = zero(xl)
+    ldiv!(y, ls, bl)
+    @test y ≈ xl
+
+    # the same answer as the built-in LU, which is the whole contract
+    lu_ref = LinearSolver(LU(), Al)
+    factorize!(lu_ref, Al)
+    y_ref = zero(xl)
+    ldiv!(y_ref, lu_ref, bl)
+    @test y ≈ y_ref
+
+    # every call form `LU` offers, on the same system: the cache is seeded from `A`, so the
+    # single-argument `factorize!` has something to factorize, exactly as for `LU`
+    @test ldiv!(zero(xl), factorize!(LinearSolver(LapackLU(), Al)), bl) ≈ xl
+    @test solve!(zero(xl), LinearSolver(LapackLU(), Al), LinearProblem(Al, bl)) ≈ xl
+    @test solve!(zero(xl), LinearSolver(LapackLU(), Al), Al, bl) ≈ xl
+    @test solve!(zero(xl), factorize!(LinearSolver(LapackLU(), Al), Al), bl) ≈ xl
+    @test solve!(LinearSolver(LapackLU(), Al), LinearProblem(Al, bl)) ≈ xl
+    @test solve!(LinearSolver(LapackLU(), Al), Al, bl) ≈ xl
+    @test solve(LinearSolver(LapackLU(), Al), Al, bl) ≈ xl
+    @test solve(LapackLU(), LinearProblem(Al, bl)) ≈ xl
+    @test solve(LapackLU(), Al, bl) ≈ xl
+
+    # `ldiv!` solves in place, so it has to tolerate `x === b`
+    aliased = copy(bl)
+    @test ldiv!(aliased, factorize!(LinearSolver(LapackLU(), Al), Al), aliased) ≈ xl
+
+    # on larger random systems, against the reference solution
+    Random.seed!(1234)
+    for n in (5, 17, 64)
+        M = randn(n, n) + n * I
+        rhs = randn(n)
+        s = LinearSolver(LapackLU(), M)
+        factorize!(s, M)
+        z = zeros(n)
+        ldiv!(z, s, rhs)
+        @test M * z ≈ rhs
+        # and agreeing with `LU` on the same system
+        z_ref = zeros(n)
+        ldiv!(z_ref, factorize!(LinearSolver(LU(), M), M), rhs)
+        @test z ≈ z_ref
+    end
+
+    # the other three element types LAPACK provides
+    for T in (Float32, ComplexF32, ComplexF64)
+        M = T.(Al) + T(3) * I
+        rhs = T.(bl)
+        z = zeros(T, 3)
+        ldiv!(z, factorize!(LinearSolver(LapackLU(), M), M), rhs)
+        @test M * z ≈ rhs
+        @test eltype(z) == T
+    end
+
+    # using the factorization before it exists is an error, not a wrong answer
+    fresh = LinearSolver(LapackLU(), Al)
+    @test_throws ArgumentError ldiv!(zero(xl), fresh, bl)
+    @test_throws ArgumentError singular_index(fresh)
+
+    # a singular matrix is reported when the factorization is USED, so that a
+    # quasi-Newton method may factorize speculatively without being interrupted
+    Asing = [1.0 2.0; 2.0 4.0]
+    ssing = LinearSolver(LapackLU(), Asing)
+    factorize!(ssing, Asing)                       # does not throw
+    @test singular_index(ssing) == 2
+    @test_throws SingularException ldiv!(zeros(2), ssing, [1.0, 2.0])
+    # ... and the reported index is the one `LU` reports too
+    ssing_ref = LinearSolver(LU(), Asing)
+    factorize!(ssing_ref, Asing)
+    @test singular_index(ssing_ref) == singular_index(ssing)
+
+    # a matrix of the wrong size is refused rather than silently copied in piecewise
+    @test_throws DimensionMismatch factorize!(LinearSolver(LapackLU(), Al), randn(2, 2))
+    @test_throws DimensionMismatch LinearSolver(LapackLU(), randn(3, 4))
+
+    # LAPACK does not know about every number type, and says so by name
+    @test_throws ArgumentError LinearSolverCache(LapackLU(), [big(1.0) big(2.0); big(3.0) big(4.0)])
+
+    # the working matrix and the pivot vector are both allocated once and reused, so
+    # refactorizing and solving are allocation-free, exactly as they are for `LU`
+    Mbig = randn(50, 50) + 50 * I
+    zbig = zeros(50)
+    rbig = randn(50)
+    sbig = LinearSolver(LapackLU(), Mbig)
+    factorize!(sbig, Mbig)
+    ldiv!(zbig, sbig, rbig)
+    @test (@allocated ldiv!(zbig, sbig, rbig)) == 0
+    if SimpleSolvers.HAS_PREALLOCATED_GETRF
+        @test (@allocated factorize!(sbig, Mbig)) == 0
+    else
+        # a Julia without `getrf!(A, ipiv)` (the 1.10 LTS) allocates the pivot vector per
+        # call; the working matrix is still reused, which is the O(n^2) part
+        @test (@allocated factorize!(sbig, Mbig)) < sizeof(Mbig) ÷ 4
+    end
+
+    # `factorization` hands out a LinearAlgebra.LU view of those same arrays
+    F = factorization(factorize!(LinearSolver(LapackLU(), Al), Al))
+    @test F isa LinearAlgebra.LU
+    @test det(F) ≈ det(Al)
+    @test_throws ArgumentError factorization(LinearSolver(LapackLU(), Al))
+
+    # `LU` solves with scalar loops and so takes any one-based vector; a non-contiguous
+    # one cannot be handed to `getrs`, but it must not become an error `LU` does not have
+    xstride = view(zeros(6), 1:2:6)
+    bstride = view(zeros(6), 1:2:6)
+    bstride .= bl
+    @test ldiv!(xstride, factorize!(LinearSolver(LapackLU(), Al), Al), bstride) ≈ xl
+end
+
+@testset "LapackLU inside a nonlinear solve" begin
+    # the substitution has to be invisible to the nonlinear solver, for every method that
+    # takes a `linear_solver_method`
+    F(y, x, params) = y .= x .^ 3 .- 2
+    for method in (Newton(), QuasiNewton(), DogLeg())
+        x1 = [1.5]
+        x2 = [1.5]
+        solve!(x1, NonlinearProblem(F, zeros(1)), method; verbosity=0)
+        solve!(x2, NonlinearProblem(F, zeros(1)), method; verbosity=0,
+            linear_solver_method=LapackLU())
+        @test x1 ≈ x2
+        @test x2[1] ≈ cbrt(2.0)
+    end
 end

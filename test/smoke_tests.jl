@@ -101,6 +101,9 @@ end
     @test LU() isa LU
     @test LU(; static=false) isa LU
     @test LinearSolver(LU(), Amat) isa LinearSolver
+
+    @test LapackLU() isa LapackLU
+    @test LinearSolver(LapackLU(), Amat) isa LinearSolver
 end
 
 

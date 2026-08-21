@@ -93,3 +93,32 @@ Aˢ \ yˢ
 ```
 
 we again obtain a correct-looking result, as `LinearAlgebra.\` uses an algorithm very similar to [`factorize!`](@ref) in `SimpleSolvers`.
+
+## Delegating the Factorization to LAPACK
+
+[`LU`](@ref) is a self-contained scalar implementation. That is what makes the comparison
+above possible — the pivoting strategy is ours to choose — and for small systems its
+static-matrix cache means a factorization allocates nothing at all. It does not scale,
+though: the factorization is ``\mathcal{O}(n^3)`` scalar operations with no blocking, so for
+a large dense matrix it is an order of magnitude slower than a LAPACK kernel.
+
+[`LapackLU`](@ref) is the same interface with `LinearAlgebra.lu!` underneath:
+
+```@example linear_system
+solve(LapackLU(), ls)
+```
+
+It is restricted to the element types LAPACK provides (`Float32`, `Float64`, `ComplexF32`
+and `ComplexF64`) and throws an `ArgumentError` naming the type for anything else, so
+`LU()` remains the default and the only option for e.g. `BigFloat`. What it is *not* is a
+trade of allocation for speed: like [`LU`](@ref), it allocates nothing per factorization or
+solve once the [`LinearSolver`](@ref) has been built. Everything else is
+interchangeable — [`factorize!`](@ref), `LinearAlgebra.ldiv!`, [`solve!`](@ref) and
+[`solve`](@ref) behave the same way, and either method can be handed to a nonlinear solver
+as its `linear_solver_method`:
+
+```@example linear_system
+F(y, x, params) = y .= x .^ 3 .- 2
+x = [1.5]
+solve!(x, NonlinearProblem(F, zeros(1)), Newton(); linear_solver_method = LapackLU())
+```

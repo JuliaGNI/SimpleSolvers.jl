@@ -66,6 +66,26 @@ Return the method (of type [`LinearSolverMethod`](@ref)) of the [`LinearSolver`]
 """
 method(ls::LinearSolver) = ls.method
 
+"""
+    singular_index(lsolver)
+
+Return the index of the first zero pivot encountered by [`factorize!`](@ref), or `0` if the
+factorization succeeded.
+
+This is the one piece of factorization state that callers outside the linear solver need:
+[`ldiv!`](@ref) turns a non-zero index into a `SingularException`, and the
+[`DogLegSolver`](@ref) reads it to decide whether the Newton leg of the step is available at
+all (see [`SimpleSolvers.directions!`](@ref)). Every [`LinearSolverMethod`](@ref) therefore
+has to implement it; going through `cache(lsolver)` directly would tie those callers to one
+method's cache layout.
+
+Calling this before [`factorize!`](@ref) is an error, not `0` — an unfactorized solver is not
+a non-singular one.
+"""
+function singular_index(lsolver::LinearSolver)
+    error("No method `singular_index` implemented for method $(typeof(method(lsolver))).")
+end
+
 LinearAlgebra.ldiv!(::AbstractVector, s::LinearSolver, ::AbstractVector) = error("ldiv! not implemented for $(typeof(s))")
 
 function LinearSolver(method::LinearSolverMethod, A::AbstractArray{T}) where {T}

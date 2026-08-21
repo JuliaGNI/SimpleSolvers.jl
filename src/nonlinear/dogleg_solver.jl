@@ -139,7 +139,7 @@ function directions!(s::DogLegSolver{T}, x::AbstractVector{T}, params, iteration
     # degenerates to the Cauchy step (‖d₂‖ = ‖d₁‖ means `dogleg_direction!` never
     # reaches its interpolation branch), which is exactly the graceful degradation the
     # dogleg method exists to provide.
-    if cache(linearsolver(s)).info == 0
+    if singular_index(linearsolver(s)) == 0
         ldiv!(direction₂(cache(s)), linearsolver(s), rhs(linearproblem(s)))
     else
         report_dogleg_singular(config(s))
