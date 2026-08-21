@@ -2,7 +2,7 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased]
+## [0.12.2]
 
 Additive: a LAPACK-backed linear solver alongside the existing one.
 
