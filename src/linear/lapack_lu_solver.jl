@@ -42,6 +42,10 @@ Allocation is *not* part of the trade-off. Like [`LU`](@ref), and unlike a bare
 the [`LinearSolver`](@ref) is built: the working matrix and the pivot vector are allocated
 once and reused. See [`LapackLUSolverCache`](@ref).
 
+The one exception is [`factorize!`](@ref) on a Julia too old for
+`LAPACK.getrf!(A, ipiv)` — the 1.10 LTS — where the pivot vector costs one `O(n)`
+allocation per call. See [`HAS_PREALLOCATED_GETRF`](@ref).
+
 # Example
 
 ```jldoctest; setup = :(using SimpleSolvers, Random; using SimpleSolvers: inv; Random.seed!(123))
@@ -75,6 +79,8 @@ immutable, so a fresh one would have to be built and boxed into a field on every
 refactorization, and its `ipiv` freshly allocated. Both are `O(n)`-to-`O(1)` costs against an
 `O(n^3)` factorization, but a nonlinear solve in a time-stepping loop refactorizes on every
 step of every step, and `LU` — the method this one sits beside — allocates nothing at all.
+(On a Julia without `LAPACK.getrf!(A, ipiv)`, `ipiv` is filled from a per-call temporary
+instead; see [`HAS_PREALLOCATED_GETRF`](@ref).)
 
 Use [`factorization`](@ref) to get a `LinearAlgebra.LU` view of these pieces when one is
 actually wanted (for `det`, say).
@@ -143,6 +149,37 @@ function singular_index(lsolver::LinearSolver{T,LapackLU}) where {T}
 end
 
 """
+    HAS_PREALLOCATED_GETRF
+
+Whether this Julia's `LinearAlgebra.LAPACK.getrf!` accepts a pre-allocated pivot vector.
+
+`getrf!(A, ipiv)` arrived after the 1.10 LTS, and it is the whole reason [`factorize!`](@ref)
+can be allocation-free. Where it is missing, the one-argument `getrf!(A)` is used and its
+pivot vector copied into the cache, which costs one `O(n)` allocation per factorization — the
+working matrix is reused either way, and [`ldiv!`](@ref) is allocation-free either way,
+because `getrs!` has always taken the pivot vector as an argument.
+
+This is a feature check rather than a `VERSION` comparison, so the exact release it arrived in
+does not have to be tracked here.
+"""
+const HAS_PREALLOCATED_GETRF =
+    hasmethod(LinearAlgebra.LAPACK.getrf!, Tuple{Matrix{Float64},Vector{LinearAlgebra.BlasInt}})
+
+@static if HAS_PREALLOCATED_GETRF
+    function _getrf!(c::LapackLUSolverCache)
+        _, _, c.info = LinearAlgebra.LAPACK.getrf!(c.A, c.ipiv; check=false)
+        c
+    end
+else
+    function _getrf!(c::LapackLUSolverCache)
+        _, ipiv, info = LinearAlgebra.LAPACK.getrf!(c.A; check=false)
+        copyto!(c.ipiv, ipiv)
+        c.info = info
+        c
+    end
+end
+
+"""
     factorize!(lsolver::LinearSolver{T,LapackLU}[, A])
 
 Factorize with `LinearAlgebra.lu!`, in place in `cache(lsolver).A`. With two arguments `A` is
@@ -160,9 +197,10 @@ quasi-Newton method does — is not interrupted by a matrix it may never solve w
 function factorize!(lsolver::LinearSolver{T,LapackLU}) where {T}
     c = cache(lsolver)
     Base.require_one_based_indexing(c.A)
-    # `getrf!` with a pre-allocated `ipiv` rather than `lu!`, which would allocate one per
-    # call along with the `LU` object wrapping it; see `LapackLUSolverCache`
-    _, _, c.info = LinearAlgebra.LAPACK.getrf!(c.A, c.ipiv; check=false)
+    # `getrf!` rather than `lu!`: with a pre-allocated `ipiv` where this Julia has that form,
+    # and either way without the `LU` object `lu!` would allocate to wrap the result.
+    # See `HAS_PREALLOCATED_GETRF` and `LapackLUSolverCache`.
+    _getrf!(c)
     c.factorized = true
     lsolver
 end

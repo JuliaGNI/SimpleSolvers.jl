@@ -54,6 +54,13 @@ Two details are deliberate:
   refactorization. Small next to an `O(n³)` factorization, but a nonlinear solve inside a
   time-stepping loop refactorizes on every step of every step. `factorization(lsolver)`
   hands out a `LinearAlgebra.LU` view of those arrays when one is actually wanted.
+
+  `LAPACK.getrf!(A, ipiv)` arrived after the 1.10 LTS, so on 1.10 `factorize!` fills the
+  cache's pivot vector from a per-call temporary and costs one `O(n)` allocation. The
+  `O(n²)` working matrix is reused on every version, and `ldiv!` is allocation-free on
+  every version, `getrs!` having always taken the pivot vector as an argument. The
+  distinction is feature-detected, as `SimpleSolvers.HAS_PREALLOCATED_GETRF`, rather than
+  pinned to a version number, and the compat entry stays at `julia = "1.10"`.
 - `ldiv!` takes any one-based vector, as `LU`'s does. `getrs` needs a contiguous one, so a
   non-contiguous vector — a stride-2 view, say — goes through a scratch copy instead of
   becoming a "matrix does not have contiguous columns" error that `LU` would not raise.

@@ -352,8 +352,14 @@ end
     sbig = LinearSolver(LapackLU(), Mbig)
     factorize!(sbig, Mbig)
     ldiv!(zbig, sbig, rbig)
-    @test (@allocated factorize!(sbig, Mbig)) == 0
     @test (@allocated ldiv!(zbig, sbig, rbig)) == 0
+    if SimpleSolvers.HAS_PREALLOCATED_GETRF
+        @test (@allocated factorize!(sbig, Mbig)) == 0
+    else
+        # a Julia without `getrf!(A, ipiv)` (the 1.10 LTS) allocates the pivot vector per
+        # call; the working matrix is still reused, which is the O(n^2) part
+        @test (@allocated factorize!(sbig, Mbig)) < sizeof(Mbig) ÷ 4
+    end
 
     # `factorization` hands out a LinearAlgebra.LU view of those same arrays
     F = factorization(factorize!(LinearSolver(LapackLU(), Al), Al))
