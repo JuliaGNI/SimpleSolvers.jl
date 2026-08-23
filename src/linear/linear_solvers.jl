@@ -196,3 +196,44 @@ Accepts the same trailing arguments as `solve!(ls, args...)`: a
 `b` (the latter uses the factorization already stored in `ls`).
 """
 solve(ls::LinearSolver, args...) = solve!(ls, args...)
+
+"""
+    default_linear_solver_method(A)
+
+The [`LinearSolverMethod`](@ref) to use for a system whose matrix looks like `A`.
+
+This is what [`NewtonSolver`](@ref) and [`DogLegSolver`](@ref) fall back on when no
+`linear_solver_method` is given, and it dispatches on the *Jacobian prototype* rather than on
+the element type alone, because the right answer depends on the storage as much as on the
+number type:
+
+| `A` | method |
+|---|---|
+| dense, `Float32`/`Float64`/`ComplexF32`/`ComplexF64` | [`LapackLU`](@ref) |
+| sparse, `Float64`/`ComplexF64` (or their 32-bit forms) | [`UmfpackLU`](@ref) |
+| anything else — `BigFloat`, `Rational`, … | [`LU`](@ref) |
+
+Note the last row covers a *sparse* matrix of a generic element type too, where [`LU`](@ref)
+densifies it. [`SparspakLU`](@ref) is the method that would actually exploit the sparsity
+there, and it is the only option in the package that can, but it lives in a package extension
+and so may not be loaded — a default that errors depending on what the caller imported would
+be worse than one that is merely slow. Pass `SparspakLU()` explicitly for a large sparse
+`BigFloat` or `Rational` system.
+
+[`LU`](@ref) used to be the default everywhere. It is the right choice for very small systems,
+where its static-matrix cache allocates nothing, and the only choice for element types LAPACK
+does not know — but its `MMatrix` path stops at [`N_STATIC_THRESHOLD`](@ref) `= 10`, and above
+that it is a scalar triple loop with no blocking. Measured on an Apple M4 Max it is 2× slower
+than [`LapackLU`](@ref) at `n = 64` and 32× slower at `n = 768`, with its triangular solve a
+further 3.5–4.5× behind `getrs` throughout. A caller who did not know to pass
+`linear_solver_method` paid all of that; downstream, that was 74 % of an implicit time step.
+
+[`RecursiveLU`](@ref) is never selected automatically: it lives in a package extension, its
+useful range depends on which BLAS is loaded, and it is not always installed. Choose it
+explicitly.
+"""
+default_linear_solver_method(A::AbstractMatrix) =
+    eltype(A) <: LinearAlgebra.BlasFloat ? LapackLU() : LU()
+
+default_linear_solver_method(A::SparseMatrixCSC) =
+    eltype(A) <: Union{Float64,ComplexF64,Float32,ComplexF32} ? UmfpackLU() : LU()

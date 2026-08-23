@@ -2,6 +2,152 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.13.0]
+
+Three linear-solver backends, the sparse plumbing they need, and a better default.
+
+Reported from downstream by
+[PoissonBrackets.jl](https://github.com/JuliaGNI/PoissonBrackets.jl), where the question was
+whether the factorization `LapackLU` had already cut from 74 % of an implicit step to ~14 %
+was worth attacking further, and whether a sparse Jacobian could reach a linear solver at all.
+
+### The default is now `LapackLU`, not `LU`
+
+`LU()` was the default for every `NewtonSolver` and `DogLegSolver`. Its allocation-free
+`MMatrix` path stops at `N_STATIC_THRESHOLD = 10`; above that it is a scalar triple loop with
+no blocking. Measured on an Apple M4 Max against OpenBLAS, `factorize!` in microseconds:
+
+| n | `LU(static=false)` | `LapackLU` | `RecursiveLU` |
+|---:|---:|---:|---:|
+| 12 | 0.24 | 0.63 | **0.14** |
+| 64 | 22.9 | 10.8 | **6.65** |
+| 128 | 182 | 59.6 | **42.5** |
+| 384 | 6526 | **531** | 961 |
+| 768 | 51109 | **1613** | 7349 |
+
+and the scalar triangular solve is a further 3.5–4.5× behind `getrs` throughout. So any
+caller with `n > 10` who did not know to pass `linear_solver_method` was on the slow path —
+which is how the downstream 74 % happened in the first place.
+
+`default_linear_solver_method(A)` now picks per *Jacobian prototype*, storage as well as
+element type: `LapackLU` for a dense LAPACK element type, `UmfpackLU` for a sparse standard
+one, `LU` otherwise. `LU()` remains the documented choice for `BigFloat`, `Rational` and
+static matrices, and passing it explicitly still works.
+
+One consequence worth naming: `LapackLU`'s `factorize!` allocates the pivot vector on a Julia
+without `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS — so on that version a nonlinear solve now
+pays one `O(n)` allocation per factorization where the old `LU` default paid none. 3.3 kB at
+`n = 384`, against a factorization that is 12× faster. `ldiv!` is allocation-free on every
+version, and on 1.11 and later so is `factorize!`.
+
+This is a behaviour change — `getrf`'s pivot order differs from `LU`'s, so results move in the
+last floating-point bits. It is why this is a minor release. The 3062 nonlinear-solver tests
+pass unchanged.
+
+### `RecursiveLU`, `UmfpackLU`, `SparspakLU`
+
+```julia
+solve!(x, prob, Newton(); linear_solver_method = RecursiveLU())
+```
+
+- **`RecursiveLU`** (extension, needs RecursiveFactorization.jl) — a pure-Julia recursive
+  blocked dense LU. Faster than `LapackLU` for roughly `10 < n ≲ 200`, slower above it. It is
+  an extension because its dependency is heavy and because the crossover is
+  BLAS-dependent: with AppleAccelerate loaded, `LapackLU` wins from about `n = 64` upward.
+  Restricted to `Float32`/`Float64` — RecursiveFactorization has no complex support — so it is
+  *narrower* than `LapackLU`, and never selected automatically. Allocation-free on every Julia
+  version.
+- **`UmfpackLU`** (no extension, no new dependency: UMFPACK ships inside `SparseArrays`) — the
+  sparse default for `Float64`/`ComplexF64`. On a periodic banded matrix at `n = 384`, 76 µs
+  to factorize and 3.5 µs to solve, against `LapackLU`'s 525 + 22 on the same matrix densified
+  — about 7×, rising to ~12× at `n = 1024` and a wash at `n = 64`.
+- **`SparspakLU`** (extension, needs Sparspak.jl) — for the element types UMFPACK refuses.
+  `BigFloat` works; `Rational{BigInt}` works *exactly*. Its factorization is the faster of the
+  two by ~1.4× but its triangular solve is ~9× slower, which reverses that in a nonlinear
+  solve, so `UmfpackLU` is the default where both apply.
+
+Three things are deliberate:
+
+- **`RecursiveLU` shares everything but the factorization with `LapackLU`.** RecursiveFactorization
+  writes LAPACK-layout factors with LAPACK's pivot convention, so the cache, the `getrs`
+  triangular solve, `singular_index` and all five `solve!` forms are common code — the new
+  `PivotedLUMethod`/`PivotedLUCache` — and the extension is about twenty lines with `_getrf!`
+  as its only hook. `LapackLU`'s behaviour, including the `HAS_PREALLOCATED_GETRF` branch for
+  the 1.10 LTS, is unchanged.
+- **RecursiveFactorization's threaded path is not exposed.** Under `julia -t12` on Julia 1.13
+  it reproduced every sequential timing up to `n = 384`, so it does not parallelize at these
+  sizes, and then stalled at `n = 512` with the workers parked in a condition wait inside
+  LoopVectorization, on a factorization that takes 2.5 ms sequentially. `Val(false)` is
+  hardcoded.
+- **`SparspakLU` reports singularity that Sparspak itself does not.** Sparspak factorizes a
+  singular matrix without complaint and the solve then returns non-finite numbers. `ldiv!`
+  checks and raises `SingularException` — `O(n)` against an `O(nnz·fill)` factorization. Two
+  consequences are documented on the method and cannot be papered over: `singular_index` is a
+  flag rather than a pivot index, and it stays `0` until a solve has failed, so
+  `DogLegSolver`'s pre-solve check for a singular Jacobian cannot fire. Prefer `UmfpackLU`
+  with `DogLeg`.
+
+### A sparse Jacobian can now reach the linear solver
+
+It could not before, at seven separate points. `NewtonSolver` and `DogLegSolver` take a
+`jacobian_prototype`, whose storage and sparsity pattern are adopted by the Jacobian, the
+`LinearProblem` and the solver cache:
+
+```julia
+solver = NewtonSolver(x, y; F = F!, DF! = DF!, jacobian_prototype = J0)
+```
+
+- `fill_nan!`, `copy_matrix!` and `add_to_diagonal!` replace the broadcasts and the `diagind`
+  view that assumed dense storage. The sparse methods touch stored entries only, so the
+  pattern — structural information the symbolic factorization depends on — survives being
+  cleared and refilled. `copy_matrix!` refuses a *differing* pattern rather than silently
+  reallocating, and `add_to_diagonal!` returns immediately for the default
+  `regularization_factor = 0`, which is a small free win for the dense path too.
+- The `LinearSolver` is now built from the Jacobian prototype rather than from `y`.
+  `LinearSolver(method, ::AbstractVector)` allocates a dense `zeros(T, n, n)`, so the
+  constructors were building the prototype and then throwing it away. As a side effect a
+  non-square Jacobian is now refused by `checksquare` instead of silently sizing the solver
+  from `length(y)`.
+- `alloc_rhs` keeps right-hand sides and solutions dense. `alloc_x(A[:, 1])` gave a *sparse*
+  vector for a sparse matrix, and since `NaN * 0 != 0` the broadcast had to store every entry
+  anyway — strictly worse than the `Vector` it should have been.
+- `LU` now densifies a sparse input, as `LapackLU` already did. Before, it built a sparse cache
+  and then threw from inside `factorize!`'s scalar loops on the first structurally-zero
+  position it wrote to — a failure a long way from its cause.
+- A sparse prototype requires an explicit `DF!`. `JacobianAutodiff` and
+  `JacobianFiniteDifferences` produce dense matrices, so that combination is refused at
+  construction rather than failing on the first iteration.
+
+### Two things found by putting this to work downstream
+
+- **`zero_like`.** The line search keeps a private Jacobian buffer, built as
+  `zero(jacobianmatrix(cache))`. For a `SparseMatrixCSC` that returns a matrix with *no stored
+  entries*, so the caller's `DF!` had nowhere to assemble into and the buffer's pattern no
+  longer matched the solver's. `zero_like` keeps the pattern. This only ever bit a step that
+  actually needed the line search, which is why the first sparse tests passed.
+- **`UmfpackLU` can be silently wrong on a block-structured matrix.** A sparse direct solver
+  relaxes pivoting to preserve sparsity, and on a matrix whose blocks have very different norms
+  UMFPACK's ordering is not always up to it: on the `2N × 2N` Newton matrix of a mixed
+  two-field formulation it returned a solution wrong by a factor of 150 — linear residual
+  `2000×` the right-hand side — with `issuccess` returning `true`. `SparspakLU` and dense
+  `LapackLU` both solved the same matrices correctly, and UMFPACK is accurate to `1e-14` on
+  synthetic banded matrices at condition number `1e7`, so this is about the block structure
+  rather than conditioning. Documented on the method, with the advice to check a residual on a
+  new problem class. `UmfpackLU` stays the sparse default: it is the right choice for the
+  banded, mesh-like patterns a discretisation usually produces.
+
+### Extensions
+
+The package gains an `ext/` directory and its first `[weakdeps]`. The convention, for anyone
+adding a backend: the method *type* lives in `src/` so it is nameable and exported whether or
+not the backend is loaded, with a stub that says what to import; the cache and methods live in
+`ext/`. The stub dispatches on `::AbstractArray` and the extension on `::AbstractMatrix{T}`,
+one step more specific, so loading the extension *adds* a method rather than overwriting one —
+method overwriting is an error during precompilation.
+
+`SparseArrays` becomes a dependency. It is a standard library, so this costs nothing, and it
+is what makes `UmfpackLU` available without an extension at all.
+
 ## [0.12.2]
 
 Additive: a LAPACK-backed linear solver alongside the existing one.

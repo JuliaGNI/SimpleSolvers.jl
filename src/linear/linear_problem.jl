@@ -65,10 +65,9 @@ mutable struct LinearProblem{T,VT<:AbstractVector{T},AT<:AbstractMatrix{T}} <: A
     end
 end
 
-function LinearProblem(A::AbstractMatrix)
-    y = alloc_x(A[:, 1])
-    LinearProblem(A, y)
-end
+# `alloc_rhs` rather than `alloc_x(A[:, 1])`: a column of a sparse matrix is a sparse vector,
+# and the right-hand side of a linear system is dense in every caller here. See `alloc_rhs`.
+LinearProblem(A::AbstractMatrix) = LinearProblem(A, alloc_rhs(A))
 
 function LinearProblem{T}(n::Integer, m::Integer) where {T}
     A = zeros(T, n, m)
@@ -89,7 +88,7 @@ Set the [`rhs`](@ref) vector to `b` and the matrix stored in the [`LinearProblem
     Calling `update!` doesn't solve the [`LinearProblem`](@ref), you still have to call [`solve!`](@ref) in combination with a [`LinearSolver`](@ref).
 """
 function update!(ls::LinearProblem{T}, A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
-    copy!(matrix(ls), A)
+    copy_matrix!(matrix(ls), A)
     copy!(rhs(ls), b)
     ls
 end
@@ -105,8 +104,8 @@ Write `NaN`s into `matrix(ls)` and `rhs(ls)`.
 Here ls is a [`LinearProblem`](@ref).
 """
 function clear!(ls::LinearProblem{T}) where {T}
-    matrix(ls) .= T(NaN)
-    rhs(ls) .= T(NaN)
+    fill_nan!(matrix(ls))
+    fill_nan!(rhs(ls))
     ls
 end
 

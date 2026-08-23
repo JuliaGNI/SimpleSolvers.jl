@@ -31,7 +31,9 @@ function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache:
     # private scratch buffers for the line search (see the docstring for why)
     xₜ = zero(solution(cache))
     yₜ = zero(value(cache))
-    jₜ = zero(jacobianmatrix(cache))
+    # `zero_like`, not `zero`: for a sparse Jacobian the latter drops the pattern, and this
+    # buffer has to be interchangeable with the solver's own for the caller's `DF!`.
+    jₜ = zero_like(jacobianmatrix(cache))
 
     function f(α::Number, params)
         # `hasproperty` is resolved from the parameter type at compile time, so the guard costs

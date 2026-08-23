@@ -86,7 +86,7 @@ julia> direction₁(cache(s))
 julia> direction₂(cache(s))
 2-element Vector{Float64}:
  -0.22882877718014286
-  0.22882877718014288
+  0.22882877718014286
 ```
 
 # Extended help
@@ -327,12 +327,16 @@ from the trust-region radius.
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref).
 """
-function DogLegSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=LU(), jacobian=missing, refactorize=1, options_kwargs...) where {T}
+function DogLegSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=missing, jacobian=missing, jacobian_prototype=alloc_j(x, y), refactorize=1, options_kwargs...) where {T}
     config = Options(T; options_kwargs...)
     jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
-    cache = DogLegCache(x, y)
-    linearproblem = LinearProblem(alloc_j(x, y))
-    linearsolver = LinearSolver(linear_solver_method, y)
+    checkjacobianprototype(jacobian, jacobian_prototype)
+    cache = DogLegCache(x, y, jacobian_prototype)
+    linearproblem = LinearProblem(jacobian_prototype)
+    # See the `NewtonSolver` counterpart for why this comes from the prototype.
+    linearsolver = LinearSolver(coalesce(linear_solver_method,
+                                         default_linear_solver_method(jacobian_prototype)),
+                               matrix(linearproblem))
     # The DogLeg `solver_step!` is a trust-region method and never consults a line
     # search; the (structurally mandatory) `linesearch` field is filled with a trivial
     # `Static` step.  A `linesearch` keyword is deliberately not accepted — it would be

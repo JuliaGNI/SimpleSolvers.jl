@@ -109,17 +109,32 @@ This is only consulted for the default `LU()` (i.e. `LU{Missing}`); an explicit
 """
 _static(A::AbstractMatrix)::Bool = length(axes(A, 1)) ≤ N_STATIC_THRESHOLD
 
+"""
+    lucache_matrix(static, A, Tf)
+
+The working matrix for a [`LUSolverCache`](@ref): an `MMatrix` if `static`, else a plain
+`Matrix`.
+
+Note the `Matrix` in the non-static branch, rather than a broadcast that would preserve the
+input's storage. A sparse `A` would otherwise give a sparse cache, and [`factorize!`](@ref)'s
+scalar loops write to positions that are structurally zero — so it would fail deep inside the
+factorization, a long way from the cause. [`LapackLU`](@ref) densifies for the same reason.
+Use [`UmfpackLU`](@ref) or [`SparspakLU`](@ref) to actually exploit sparsity.
+"""
+lucache_matrix(static::Bool, A::AbstractMatrix, ::Type{Tf}) where {Tf} =
+    static ? MMatrix{size(A)...}(Tf.(A)) : Matrix{Tf}(A)
+
 function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
-    Ā = _static(A) ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    Ā = lucache_matrix(_static(A), A, Tf)
     LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
-    Ā = lu.static ? MMatrix{size(A)...}(Tf.(A)) : Tf.(A)
+    Ā = lucache_matrix(lu.static, A, Tf)
     LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
@@ -141,7 +156,7 @@ function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::Abstr
 end
 
 function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
-    x = alloc_x(@view cache(lsolver).A[1, :])
+    x = alloc_rhs(cache(lsolver).A)
     solve!(x, lsolver, args...)
     x
 end
@@ -174,11 +189,15 @@ julia> b = ones(3)
  1.0
 
 julia> solve(LU(), A, b)
-3-element StaticArraysCore.SizedVector{3, Float64, Vector{Float64}} with indices SOneTo(3):
+3-element Vector{Float64}:
  1.0
  0.5
  0.25
 ```
+Note that the result is a plain `Vector` even though the cache for a matrix this small is an
+`MMatrix`: the solution vector comes from [`alloc_rhs`](@ref), which is deliberately dense and
+deliberately not derived from the cache's storage.
+
 Compare this to [`solve!(::AbstractVector, ::LinearSolver, ::LinearProblem)`](@ref).
 """
 function solve(lu::LU, A::AbstractMatrix, b::AbstractVector)

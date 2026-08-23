@@ -33,8 +33,10 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
 
     j::JT
 
-    function NonlinearSolverCache(x::AT, y::AT) where {T,AT<:AbstractArray{T}}
-        j = alloc_j(x, y)
+    # `j` is a *prototype*: its storage and, if sparse, its sparsity pattern are adopted for
+    # the whole solve. Pass a `SparseMatrixCSC` to run a sparse Jacobian through the solver;
+    # see the `jacobian_prototype` keyword of `NewtonSolver`.
+    function NonlinearSolverCache(x::AT, y::AT, j::AbstractMatrix{T}=alloc_j(x, y)) where {T,AT<:AbstractArray{T}}
         c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c
@@ -71,7 +73,7 @@ function initialize!(cache::NonlinearSolverCache{T}, ::AbstractVector{T}) where 
     rhs(cache) .= T(NaN)
     value(cache) .= T(NaN)
 
-    jacobianmatrix(cache) .= T(NaN)
+    fill_nan!(jacobianmatrix(cache))
 
     cache
 end

@@ -22,8 +22,8 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
     # the surrounding cache stays immutable.
     Δ::Base.RefValue{T}
 
-    function DogLegCache(x::AT, y::AT) where {T,AT<:AbstractVector{T}}
-        j = alloc_j(x, y)
+    # `j` is a prototype; see the `NonlinearSolverCache` counterpart.
+    function DogLegCache(x::AT, y::AT, j::AbstractMatrix{T}=alloc_j(x, y)) where {T,AT<:AbstractVector{T}}
         c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(DOGLEG_Δ_INITIAL)))
         initialize!(c, fill!(similar(x), NaN))
         c
@@ -81,7 +81,7 @@ function initialize!(cache::DogLegCache{T}, ::AbstractVector{T}) where {T}
     cache.y₂ .= T(NaN)
     cache.y₃ .= T(NaN)
 
-    jacobianmatrix(cache) .= T(NaN)
+    fill_nan!(jacobianmatrix(cache))
 
     # Reset the trust-region radius: it is carried *across solver steps within one
     # solve*, but a fresh solve (solver reuse) must not inherit the radius the

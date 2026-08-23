@@ -1,6 +1,6 @@
 name = "SimpleSolvers"
 uuid = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
-version = "0.12.2"
+version = "0.13.0"
 authors = ["Michael Kraus"]
 
 [deps]
@@ -10,7 +10,16 @@ GeometricBase = "9a0b12b7-583b-4f04-aa1f-d8551b6addc9"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[weakdeps]
+RecursiveFactorization = "f2c3362d-daeb-58d1-803e-2bc74f2840b4"
+Sparspak = "e56a9233-b9d6-4f03-8d0f-1825330902ac"
+
+[extensions]
+SimpleSolversRecursiveFactorizationExt = "RecursiveFactorization"
+SimpleSolversSparspakExt = "Sparspak"
 
 [compat]
 Aqua = "0.8"
@@ -22,7 +31,10 @@ LinearAlgebra = "1"
 NaNMath = "1"
 Printf = "1"
 Random = "1"
+RecursiveFactorization = "0.2"
 SafeTestsets = "0.1.0"
+SparseArrays = "1"
+Sparspak = "0.3"
 StaticArrays = "1.9.13"
 Test = "1"
 julia = "1.10"
@@ -33,8 +45,11 @@ JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+RecursiveFactorization = "f2c3362d-daeb-58d1-803e-2bc74f2840b4"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Sparspak = "e56a9233-b9d6-4f03-8d0f-1825330902ac"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "JET", "LinearAlgebra", "NaNMath", "SafeTestsets", "Test", "Random"]
+test = ["Aqua", "JET", "LinearAlgebra", "NaNMath", "Random", "RecursiveFactorization", "SafeTestsets", "SparseArrays", "Sparspak", "Test"]

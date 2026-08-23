@@ -157,15 +157,22 @@ NewtonSolver(x, nlp) isa NewtonSolver
 true
 ```
 """
-function NewtonSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=LU(), linesearch=Backtracking(T), jacobian=missing, refactorize=1, options_kwargs...) where {T}
+function NewtonSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); linear_solver_method=missing, linesearch=Backtracking(T), jacobian=missing, jacobian_prototype=alloc_j(x, y), refactorize=1, options_kwargs...) where {T}
     # The `Options` are built here, once, and shared by the solver *and* its line search, so
     # that `NewtonSolver(…; verbosity = 0)` silences the line search too and the inner ladder
     # is bounded by `linesearch_max_iterations` from the same place.
     config = Options(T; options_kwargs...)
     jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
-    cache = NonlinearSolverCache(x, y)
-    linearproblem = LinearProblem(alloc_j(x, y))
-    linearsolver = LinearSolver(linear_solver_method, y)
+    checkjacobianprototype(jacobian, jacobian_prototype)
+    cache = NonlinearSolverCache(x, y, jacobian_prototype)
+    linearproblem = LinearProblem(jacobian_prototype)
+    # From the prototype, not from `y`: `LinearSolver(method, ::AbstractVector)` allocates a
+    # dense `zeros(T, n, n)`, which threw away the storage the Jacobian actually has and made
+    # a sparse solve impossible. It also means a non-square Jacobian is now refused by
+    # `checksquare` instead of silently sizing the solver from `length(y)`.
+    linearsolver = LinearSolver(coalesce(linear_solver_method,
+                                         default_linear_solver_method(jacobian_prototype)),
+                               matrix(linearproblem))
     ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch, config)
     NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
 end
