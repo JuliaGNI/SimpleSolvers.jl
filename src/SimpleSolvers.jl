@@ -5,6 +5,8 @@ using ForwardDiff
 using StaticArrays
 using LinearAlgebra
 using Printf
+using SparseArrays
+import SparseArrays: getcolptr, nonzeros, nzrange, rowvals
 
 import LinearAlgebra: checksquare
 
@@ -67,7 +69,7 @@ export check_jacobian,
 include("base/jacobian.jl")
 
 
-export LinearProblem, LinearSolver, LU, LapackLU,
+export LinearProblem, LinearSolver, LU, LapackLU, RecursiveLU, UmfpackLU, SparspakLU,
     factorize!, linearproblem
 
 include("linear/linear_problem.jl")
@@ -75,7 +77,12 @@ include("linear/linear_solver_method.jl")
 include("linear/linear_solver_cache.jl")
 include("linear/linear_solvers.jl")
 include("linear/lu_solver.jl")
+include("linear/pivoted_lu.jl")
 include("linear/lapack_lu_solver.jl")
+include("linear/recursive_lu_solver.jl")
+include("linear/sparse_direct.jl")
+include("linear/umfpack_lu_solver.jl")
+include("linear/sparspak_lu_solver.jl")
 
 export bracket_minimum
 

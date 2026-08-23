@@ -1834,16 +1834,21 @@ end
     @test (@inferred solve_with_status(Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity=0), 1.0)) isa LinesearchStatus
 
     F(y, x, params) = y .= x .^ 2 .- 2
-    function solve_allocations(ls)
-        x = ones(3)
+    function solve_allocations(ls, n=3)
+        x = ones(n)
         s = NewtonSolver(x, similar(x); F=F, linesearch=ls, verbosity=0)
         state = SolverState(s)
         solve!(x, s, state)
         x .= 1.0
         @allocated solve!(x, s, state)
     end
+    # `skip` also on a Julia without `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS. The default
+    # linear solver is `LapackLU`, whose `factorize!` there allocates the pivot vector per
+    # call; see `SimpleSolvers.HAS_PREALLOCATED_GETRF`. The solve itself is allocation-free on
+    # every version, and this is the one assertion that cannot distinguish the two.
+    allocation_free_factorize = SimpleSolvers.HAS_PREALLOCATED_GETRF
     for ls in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
-        @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
+        @test solve_allocations(ls) == 0 skip = !(AS_A_CALLER_COMPILES_IT && allocation_free_factorize)
     end
 
     # A caller that supplies no ceiling pays nothing for the one it could have: `hasproperty` on the

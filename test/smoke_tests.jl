@@ -6,6 +6,7 @@
 # were once broken have been fixed; every check below is a plain `@test`.
 
 using SimpleSolvers
+using SparseArrays: SparseArrays
 using SimpleSolvers: issufficient, isfloor, isconverged, isstalled, status
 using Test
 
@@ -104,6 +105,15 @@ end
 
     @test LapackLU() isa LapackLU
     @test LinearSolver(LapackLU(), Amat) isa LinearSolver
+
+    # The extension-backed methods: the *type* is constructible whether or not the backend is
+    # loaded, which is the point of defining it in `src/`. Building a `LinearSolver` needs the
+    # extension, and is covered in `linear_solver_tests.jl`, which imports both backends.
+    @test RecursiveLU() isa RecursiveLU
+    @test SparspakLU() isa SparspakLU
+
+    @test UmfpackLU() isa UmfpackLU
+    @test LinearSolver(UmfpackLU(), SparseArrays.sparse(Amat)) isa LinearSolver
 end
 
 

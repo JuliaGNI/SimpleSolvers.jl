@@ -31,6 +31,118 @@ alloc_g(x::AbstractArray{T}) where {T<:Number} = _nan(T) .* x
 alloc_h(x::AbstractArray{T}) where {T<:Number} = _nan(T) .* x * x'
 alloc_j(x::AbstractVector{T}, y::AbstractVector) where {T<:Number} = _nan(T) .* y * x'
 
+"""
+    alloc_rhs(A)
+
+Allocate a dense right-hand-side/solution vector of length `size(A, 1)` for the matrix `A`.
+
+Deliberately dense even when `A` is not. The obvious spelling, `alloc_x(A[:, 1])`, gives a
+sparse vector for a `SparseMatrixCSC`, and `NaN * 0 != 0`, so the sparse broadcast has to
+store every entry anyway — a sparse vector with no structural zeros, which is strictly worse
+than the `Vector` it should have been. The right-hand side of a linear system is dense in
+every caller here.
+"""
+alloc_rhs(A::AbstractMatrix{T}) where {T} = fill(_nan(T), size(A, 1))
+
+"""
+    fill_nan!(A)
+
+Fill `A` with `NaN`s.
+
+For a sparse matrix only the *stored* entries are filled. That is not a shortcut: for a sparse
+Jacobian the sparsity pattern is structural information the linear solver depends on — the
+ordering and symbolic factorization in a [`SparseFactorizationCache`](@ref) were computed for
+one pattern — so clearing has to preserve it. `fill!(A, NaN)` would throw for a
+`SparseMatrixCSC` anyway, since `NaN` is not the structural zero.
+
+Used wherever a cache or problem is initialized or cleared: [`clear!(::LinearProblem)`](@ref)
+and the `initialize!` methods of [`NonlinearSolverCache`](@ref) and [`DogLegCache`](@ref).
+"""
+fill_nan!(A::AbstractArray{T}) where {T} = fill!(A, _nan(T))
+fill_nan!(A::SparseMatrixCSC{T}) where {T} = (fill!(nonzeros(A), _nan(T)); A)
+
+"""
+    zero_like(A)
+
+A zeroed matrix with the same storage as `A` — and, for a sparse matrix, the same *pattern*.
+
+`zero(::SparseMatrixCSC)` returns a matrix with no stored entries at all, which for a sparse
+Jacobian buffer is not a zeroed Jacobian but an empty one: the pattern is structural
+information the caller's `DF!` assembles into, and a `DF!` that writes only where the pattern
+says it may would find nowhere to write. Used for the line search's private Jacobian buffer,
+which has to be interchangeable with the solver's own.
+"""
+zero_like(A::AbstractMatrix) = zero(A)
+zero_like(A::SparseMatrixCSC{T}) where {T} = (B = copy(A); fill!(nonzeros(B), zero(T)); B)
+
+"""
+    copy_matrix!(dest, src)
+
+Copy `src` into `dest`, preserving `dest`'s storage.
+
+The sparse-aware replacement for `dest .= src`. Sparse-to-sparse copies the stored values
+only, and requires the two patterns to be *identical* — a differing pattern is an error rather
+than a silent reallocation, because the solver cache built from `dest` holds an ordering and a
+symbolic factorization computed for `dest`'s pattern, and quietly changing it underneath would
+either be wrong or turn every step into a fresh `O(nnz log nnz)` ordering.
+"""
+copy_matrix!(dest::AbstractMatrix, src::AbstractMatrix) = copyto!(dest, src)
+
+function copy_matrix!(dest::SparseMatrixCSC, src::SparseMatrixCSC)
+    if getcolptr(dest) != getcolptr(src) || rowvals(dest) != rowvals(src)
+        throw(ArgumentError(
+            "the source matrix has a different sparsity pattern from the destination; the " *
+            "linear solver's symbolic factorization was built for the destination's pattern. " *
+            "Keep the Jacobian's pattern fixed across iterations, e.g. by assembling into a " *
+            "matrix built once from the prototype."))
+    end
+    copyto!(nonzeros(dest), nonzeros(src))
+    dest
+end
+
+# A sparse Jacobian assembled into a dense linear problem, or vice versa, is a plumbing
+# mistake worth naming: `copyto!` would either densify or throw something obscure.
+copy_matrix!(dest::SparseMatrixCSC, src::AbstractMatrix) = throw(ArgumentError(
+    "cannot copy a $(typeof(src)) into a SparseMatrixCSC without inventing a sparsity " *
+    "pattern; pass a sparse jacobian_prototype and assemble a sparse Jacobian into it"))
+
+copy_matrix!(dest::AbstractMatrix, src::SparseMatrixCSC) = copyto!(dest, src)
+
+"""
+    add_to_diagonal!(A, α)
+
+Add `α` to every diagonal entry of `A`, in place.
+
+Returns immediately for `α == 0`, which is the default
+(`SimpleSolvers.REGULARIZATION_FACTOR`), so the regularization step of
+[`SimpleSolvers.maybe_refactorize!`](@ref) costs nothing unless it was asked for.
+
+For a sparse matrix the diagonal has to be *structurally present*; a linear-index view into a
+`SparseMatrixCSC`, as the dense path uses, would both be wrong for a structural zero and cost
+`O(log nnz)` per entry. A missing diagonal entry is an error, because a regularized Jacobian
+needs somewhere to put the shift.
+"""
+function add_to_diagonal!(A::AbstractMatrix, α)
+    iszero(α) && return A
+    @view(A[diagind(A)]) .+= α
+    A
+end
+
+function add_to_diagonal!(A::SparseMatrixCSC, α)
+    iszero(α) && return A
+    rows, vals = rowvals(A), nonzeros(A)
+    for j in axes(A, 2)
+        col = nzrange(A, j)
+        k = searchsortedfirst(@view(rows[col]), j) + first(col) - 1
+        (k <= last(col) && rows[k] == j) || throw(ArgumentError(
+            "the sparse matrix has no stored entry at the diagonal position ($j, $j), so a " *
+            "regularization factor cannot be added there; include the diagonal in the " *
+            "jacobian_prototype's sparsity pattern"))
+        vals[k] += α
+    end
+    A
+end
+
 
 function outer!(O, x, y)
     @assert axes(O, 1) == axes(x, 1)

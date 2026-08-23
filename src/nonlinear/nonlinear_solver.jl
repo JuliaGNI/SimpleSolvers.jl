@@ -97,7 +97,7 @@ linearsolver(s)
 
 # output
 
-LinearSolver{Float64, LU{Missing}, SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}}(LU{Missing}(missing, true), SimpleSolvers.LUSolverCache{Float64, StaticArraysCore.MMatrix{3, 3, Float64, 9}}([0.0 0.0 0.0; 0.0 0.0 0.0; 0.0 0.0 0.0], [0, 0, 0], [0, 0, 0], 0))
+LinearSolver{Float64, LapackLU, SimpleSolvers.PivotedLUCache{Float64, Matrix{Float64}}}(LapackLU(), SimpleSolvers.PivotedLUCache{Float64, Matrix{Float64}}([NaN NaN NaN; NaN NaN NaN; NaN NaN NaN], [0, 0, 0], 0, false))
 ```
 """
 linearsolver(solver::NonlinearSolver) = solver.linearsolver
@@ -121,6 +121,36 @@ supplied.
 function resolve_jacobian(F, DF!, jacobian, x::AbstractVector{T}, y) where {T}
     ismissing(DF!) || return JacobianFunction{T}(F, DF!)
     ismissing(jacobian) ? JacobianAutodiff(F, x, y) : jacobian
+end
+
+# The `Jacobian`s this package builds for itself, both of which produce a dense matrix.
+const DENSE_ONLY_JACOBIANS = Union{JacobianAutodiff,JacobianFiniteDifferences}
+
+"""
+    checkjacobianprototype(jacobian, jacobian_prototype)
+
+Throw an `ArgumentError` if a sparse `jacobian_prototype` is paired with a [`Jacobian`](@ref)
+that cannot write into one.
+
+A sparse prototype is a promise that the Jacobian will be assembled with a fixed sparsity
+pattern, and the two Jacobians the package builds for itself cannot keep it:
+[`JacobianAutodiff`](@ref) hands ForwardDiff a dense matrix and
+[`JacobianFiniteDifferences`](@ref) fills one column at a time, so both would write to
+structurally-zero positions. Caught here, at construction, rather than inside `jacobian!` on
+the first iteration.
+
+Those two are named rather than [`JacobianFunction`](@ref) being allow-listed, so that a
+caller's own [`Jacobian`](@ref) subtype — which knows perfectly well how to assemble into a
+fixed pattern — is not refused for not being one of ours.
+"""
+function checkjacobianprototype(jacobian::Jacobian, jacobian_prototype::AbstractMatrix)
+    if jacobian_prototype isa SparseMatrixCSC && jacobian isa DENSE_ONLY_JACOBIANS
+        throw(ArgumentError(
+            "a sparse jacobian_prototype needs a Jacobian that writes into it — pass `DF!` — " *
+            "but got $(nameof(typeof(jacobian))), which produces a dense Jacobian and would " *
+            "write to structurally-zero positions."))
+    end
+    nothing
 end
 
 """
@@ -148,9 +178,8 @@ function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Boo
     (force || stalled || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) || return s
     jacobian!(s, x, params)
     lp = linearproblem(s)
-    matrix(lp) .= jacobianmatrix(s)
-    idxs = diagind(matrix(lp))
-    @view(matrix(lp)[idxs]) .+= config(s).regularization_factor
+    copy_matrix!(matrix(lp), jacobianmatrix(s))
+    add_to_diagonal!(matrix(lp), config(s).regularization_factor)
     factorize!(linearsolver(s), lp)
     s
 end
