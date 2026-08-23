@@ -132,8 +132,9 @@ function add_to_diagonal!(A::SparseMatrixCSC, α)
     iszero(α) && return A
     rows, vals = rowvals(A), nonzeros(A)
     for j in axes(A, 2)
-        k = searchsortedfirst(@view(rows[nzrange(A, j)]), j) + first(nzrange(A, j)) - 1
-        (k <= last(nzrange(A, j)) && rows[k] == j) || throw(ArgumentError(
+        col = nzrange(A, j)
+        k = searchsortedfirst(@view(rows[col]), j) + first(col) - 1
+        (k <= last(col) && rows[k] == j) || throw(ArgumentError(
             "the sparse matrix has no stored entry at the diagonal position ($j, $j), so a " *
             "regularization factor cannot be added there; include the diagonal in the " *
             "jacobian_prototype's sparsity pattern"))

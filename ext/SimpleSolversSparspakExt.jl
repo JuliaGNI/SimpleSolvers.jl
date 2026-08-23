@@ -7,7 +7,7 @@ using Sparspak.SparseCSCInterface: sparspaklu, sparspaklu!
 
 using SimpleSolvers: SparspakLU, LinearSolver, SparseFactorizationCache,
     cache, checkpattern, checksparse
-import SimpleSolvers: LinearSolverCache, factorize!, _sparse_ldiv!, checkfactorized
+import SimpleSolvers: LinearSolverCache, factorize!, _sparse_ldiv!
 
 function LinearSolverCache(method::SparspakLU, A::AbstractMatrix{T}) where {T}
     n = checksparse(method, A)
@@ -15,14 +15,6 @@ function LinearSolverCache(method::SparspakLU, A::AbstractMatrix{T}) where {T}
     # factorize. This still does the ordering and symbolic factorization, which is exactly the
     # work we want done once and reused.
     SparseFactorizationCache{T}(sparspaklu(A; factorize=false), n)
-end
-
-# Sparspak's own `_factordone` is the authoritative flag — it is what `sparspaklu!` sets — so
-# read it rather than keeping a second copy in the cache that could drift out of step.
-function checkfactorized(lsolver::LinearSolver{T,SparspakLU}) where {T}
-    cache(lsolver).F._factordone || throw(ArgumentError(
-        "the SparspakLU solver has not been factorized yet; call factorize! before ldiv!/solve!."))
-    nothing
 end
 
 """

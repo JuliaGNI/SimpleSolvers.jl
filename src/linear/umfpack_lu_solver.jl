@@ -6,8 +6,11 @@ A sparse LU solver backed by SuiteSparse's UMFPACK, meant to solve a sparse
 
 No extension and no new dependency: UMFPACK ships inside the `SparseArrays` standard library,
 which this package depends on for the sparse-Jacobian plumbing anyway. Restricted to the
-element types UMFPACK provides — `Float64` and `ComplexF64`, with `Float32`/`ComplexF32`
-converted by SuiteSparse itself — and it names [`SparspakLU`](@ref) for anything else.
+element types UMFPACK provides — `Float64` and `ComplexF64` — and it names the alternatives for
+anything else. That includes `Float32` and `ComplexF32`: SuiteSparse converts them in `lu` and
+`lu!` but has no 32-bit *solve*, so a 32-bit factorization would be a `ldiv!` `MethodError`
+waiting to happen rather than a working narrow path. Use [`SparspakLU`](@ref) to keep a 32-bit
+matrix sparse, or [`LapackLU`](@ref) to densify it.
 
 This is the method to reach for when the Jacobian is genuinely sparse and its element type is
 a standard one. It is also what [`default_linear_solver_method`](@ref) selects in that case.
@@ -77,11 +80,17 @@ that a quasi-Newton method that factorizes speculatively is not interrupted.
 struct UmfpackLU <: SparseDirectMethod end
 
 function LinearSolverCache(method::UmfpackLU, A::AbstractMatrix{T}) where {T}
-    T <: Union{Float64,ComplexF64,Float32,ComplexF32} || throw(ArgumentError(
+    T <: Union{Float64,ComplexF64} || throw(ArgumentError(
         "UmfpackLU is restricted to the element types UMFPACK provides, i.e. Float64 and " *
-        "ComplexF64 (Float32 and ComplexF32 are converted), but got $(T); use SparspakLU() " *
-        "for a generic element type"))
+        "ComplexF64, but got $(T); use SparspakLU() to keep the matrix sparse, or LapackLU() " *
+        "to densify it"))
     n = checksparse(method, A)
+    # `lu` here is symbolic *and* numeric: `SparseArrays` exposes no symbolic-only entry point,
+    # so unlike the `factorize=false` of `SparspakLU`'s counterpart this pays one numeric
+    # factorization at construction. `factorized` stays `false` regardless — the cache is not
+    # usable until `factorize!` has run — and every refactorization afterwards reuses the
+    # ordering and symbolic factorization, which is where the saving is.
+    #
     # `check=false`: a singular matrix is reported by `ldiv!`, not here — see the docstring.
     SparseFactorizationCache{T}(lu(A; check=false), n)
 end
@@ -91,10 +100,12 @@ end
 
 Refactorize `A`, reusing the ordering and symbolic factorization already in the cache.
 
-`SparseArrays`' `lu!` assumes the sparsity pattern is unchanged, which is the
-[`SparseFactorizationCache`](@ref) contract. A pattern that *has* changed is not reliably
-detected by UMFPACK — it is the caller's obligation, and the reason
-[`LinearSolver`](@ref) construction takes the prototype.
+`SparseArrays`' `lu!` reuses the ordering and symbolic factorization the cache holds, which is
+the [`SparseFactorizationCache`](@ref) contract, and raises
+`ArgumentError: pattern of the matrix changed` if the pattern does not match the one they were
+computed for — which is why the error worth reading comes from the backend and
+[`checkpattern`](@ref) only checks the size. Keeping the pattern fixed is still the caller's
+job, and the reason [`LinearSolver`](@ref) construction takes the prototype.
 """
 function factorize!(lsolver::LinearSolver{T,UmfpackLU}, A::AbstractMatrix{T}) where {T}
     checkpattern(lsolver, A)

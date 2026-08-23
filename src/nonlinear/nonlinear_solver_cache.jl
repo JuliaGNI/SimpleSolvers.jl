@@ -36,7 +36,13 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
     # `j` is a *prototype*: its storage and, if sparse, its sparsity pattern are adopted for
     # the whole solve. Pass a `SparseMatrixCSC` to run a sparse Jacobian through the solver;
     # see the `jacobian_prototype` keyword of `NewtonSolver`.
-    function NonlinearSolverCache(x::AT, y::AT, j::AbstractMatrix{T}=alloc_j(x, y)) where {T,AT<:AbstractArray{T}}
+    #
+    # A copy, for the same reason `LinearProblem` copies its arguments: `initialize!` below
+    # fills the Jacobian with `NaN`s, so keeping the caller's array would destroy the values
+    # in the prototype they passed and make two solvers built from one prototype share a
+    # Jacobian.
+    function NonlinearSolverCache(x::AT, y::AT, jprototype::AbstractMatrix{T}=alloc_j(x, y)) where {T,AT<:AbstractArray{T}}
+        j = copy(jprototype)
         c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c

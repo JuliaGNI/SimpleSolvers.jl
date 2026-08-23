@@ -21,13 +21,25 @@ periodic banded matrix:
 | element type | `SparspakLU` | residual | [`UmfpackLU`](@ref) |
 |---|---|---|---|
 | `Float64` | works | 1.1e-16 | works |
-| `Float32` | works | 1.2e-7 | works |
+| `Float32` | works | 1.2e-7 | **unsupported** |
 | `ComplexF64` | works | 1.1e-16 | works |
 | `BigFloat` | works | 1.7e-77 | **unsupported** |
 | `Rational{BigInt}` | works | **0.0 — exact** | **unsupported** |
 
 That last row is the point: a sparse solve over ℚ with no rounding at all, which nothing else
-here can do. It is also a pure-Julia stack, with no SuiteSparse binary.
+here can do. It is also a pure-Julia stack, with no SuiteSparse binary. The `Float32` row is
+not a typo either: UMFPACK converts a 32-bit matrix in `lu`/`lu!` but has no 32-bit *solve*, so
+[`UmfpackLU`](@ref) refuses those element types at construction rather than failing later
+inside `ldiv!`, and this is one of the two methods that cover them.
+
+!!! note "An exact solve goes through `factorize!` and `ldiv!`"
+    The allocating convenience forms — [`solve`](@ref), and the `solve!(lsolver, args...)` that
+    returns a fresh vector — fill their solution with `NaN`s, which `Rational` and `Integer`
+    element types cannot represent, so they raise for exactly the types this method exists to
+    serve. Build the [`LinearSolver`](@ref), call [`factorize!`](@ref), and pass your own
+    solution vector to `LinearAlgebra.ldiv!`. This is package-wide `SimpleSolvers._nan` policy
+    rather than anything specific to `SparspakLU` — dense `solve(LU(), A, b)` raises the same
+    way for a `Rational` system.
 
 **Not for speed on `Float64`.** Its factorization is in fact the faster of the two, by
 1.3–1.5×, but its triangular solve is about 9× slower, and a Newton loop does at least one

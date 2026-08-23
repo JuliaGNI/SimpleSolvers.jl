@@ -83,11 +83,21 @@ julia> direction₁(cache(s))
  -0.25513686072399455
   0.1601152321012896
 
-julia> direction₂(cache(s))
+julia> round.(direction₂(cache(s)); digits = 11)
 2-element Vector{Float64}:
- -0.22882877718014286
-  0.22882877718014286
+ -0.22882877718
+  0.22882877718
 ```
+
+The rounding is not decoration. [`direction₂`](@ref) comes out of the LU solve, so its last bit
+carries the accumulation order of whichever BLAS kernel is underneath — and that varies by
+machine, not by Julia version. Mathematically the two components of this one are exact
+negatives; printed to sixteen significant digits they are `-0.22882877718014286` and
+`0.22882877718014286` on `aarch64` (identically on Julia 1.10, 1.12 and 1.13) and
+`-0.22882877718014286` and `0.22882877718014288` on `x86_64` OpenBLAS, which is what CI runs on.
+Asserting that last digit is asserting the noise rather than the result.
+[`direction₁`](@ref) above needs no such treatment: it is `mul!` and norms, and never touches
+the factorization.
 
 # Extended help
 
@@ -324,6 +334,9 @@ from the trust-region radius.
 # Keywords
 - `linear_solver_method`
 - `jacobian`: see [`resolve_jacobian`](@ref),
+- `jacobian_prototype`: see the [`NewtonSolver`](@ref) counterpart. Note that
+  [`SparspakLU`](@ref) reports singularity too late for the [`DogLeg`](@ref) fallback; see its
+  docstring,
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref).
 """
@@ -334,9 +347,9 @@ function DogLegSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVe
     cache = DogLegCache(x, y, jacobian_prototype)
     linearproblem = LinearProblem(jacobian_prototype)
     # See the `NewtonSolver` counterpart for why this comes from the prototype.
-    linearsolver = LinearSolver(coalesce(linear_solver_method,
-                                         default_linear_solver_method(jacobian_prototype)),
-                               matrix(linearproblem))
+    linearsolver = LinearSolver(resolve_linear_solver_method(linear_solver_method,
+                                                             matrix(linearproblem)),
+                                matrix(linearproblem))
     # The DogLeg `solver_step!` is a trust-region method and never consults a line
     # search; the (structurally mandatory) `linesearch` field is filled with a trivial
     # `Static` step.  A `linesearch` keyword is deliberately not accepted — it would be

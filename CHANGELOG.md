@@ -30,9 +30,11 @@ caller with `n > 10` who did not know to pass `linear_solver_method` was on the 
 which is how the downstream 74 % happened in the first place.
 
 `default_linear_solver_method(A)` now picks per *Jacobian prototype*, storage as well as
-element type: `LapackLU` for a dense LAPACK element type, `UmfpackLU` for a sparse standard
-one, `LU` otherwise. `LU()` remains the documented choice for `BigFloat`, `Rational` and
-static matrices, and passing it explicitly still works.
+element type: `LapackLU` for a dense LAPACK element type, `LU` for any other dense one,
+`UmfpackLU` for a sparse `Float64`/`ComplexF64`, and an `ArgumentError` for any other sparse
+one — a sparse matrix is never densified for you. `LU()` remains the documented choice for a
+dense `BigFloat`, `Rational` or static matrix, and passing it explicitly still works, sparse
+matrix or not.
 
 One consequence worth naming: `LapackLU`'s `factorize!` allocates the pivot vector on a Julia
 without `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS — so on that version a nonlinear solve now
@@ -58,7 +60,13 @@ solve!(x, prob, Newton(); linear_solver_method = RecursiveLU())
   *narrower* than `LapackLU`, and never selected automatically. Allocation-free on every Julia
   version.
 - **`UmfpackLU`** (no extension, no new dependency: UMFPACK ships inside `SparseArrays`) — the
-  sparse default for `Float64`/`ComplexF64`. On a periodic banded matrix at `n = 384`, 76 µs
+  sparse default for `Float64`/`ComplexF64`, and restricted to them: SuiteSparse converts a
+  32-bit matrix in `lu`/`lu!` but has no 32-bit solve, and it does not handle `BigFloat` or
+  `Rational` at all. For every other element type `default_linear_solver_method` **raises**,
+  naming `SparspakLU()` (keeps the matrix sparse) and the dense method that would discard the
+  sparsity — a sparse matrix is never densified for you, because that throws away structure the
+  caller built on purpose and is their decision rather than a fallback's. On a
+  periodic banded matrix at `n = 384`, 76 µs
   to factorize and 3.5 µs to solve, against `LapackLU`'s 525 + 22 on the same matrix densified
   — about 7×, rising to ~12× at `n = 1024` and a wash at `n = 64`.
 - **`SparspakLU`** (extension, needs Sparspak.jl) — for the element types UMFPACK refuses.

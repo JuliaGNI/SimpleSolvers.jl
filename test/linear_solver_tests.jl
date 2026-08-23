@@ -152,6 +152,17 @@ end
     # An explicit `static` keyword overrides the size-based choice.
     @test cache(LinearSolver(LU(; static=true), Asmall)).A isa MMatrix
     @test cache(LinearSolver(LU(; static=false), Asmall)).A isa Matrix
+
+    # Size is not the only condition: an `MArray` cannot `setindex!` a non-isbitstype element,
+    # so a small `BigFloat` matrix gets a `Matrix` cache. Without this the default `LU()` —
+    # which is what `default_linear_solver_method` picks for a `BigFloat` — built an `MMatrix`
+    # and then died inside `factorize!`.
+    Aqbig = big.(Asmall)
+    @test !SimpleSolvers._static(Aqbig)
+    @test cache(LinearSolver(LU(), Aqbig)).A isa Matrix
+    @test ldiv!(zeros(BigFloat, 3), factorize!(LinearSolver(LU(), Aqbig), Aqbig), big.([1.0, 2.0, 3.0])) ≈ Asmall \ [1.0, 2.0, 3.0]
+    # and an explicit `static = true` says why rather than failing later in StaticArrays
+    @test_throws ArgumentError LinearSolver(LU(; static=true), Aqbig)
 end
 
 # `LUSolverCache` carries a `pivots` field, populated in `factorize!` alongside
@@ -566,6 +577,56 @@ end
     Sc = SparseMatrixCSC{ComplexF64,Int}(S)
     @test ldiv!(zeros(ComplexF64, 24), factorize!(LinearSolver(UmfpackLU(), Sc), Sc), ComplexF64.(bs)) ≈ Matrix(S) \ bs
     @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{BigFloat,Int}(S))
+
+    # The 32-bit BLAS types are refused at construction, not later: SuiteSparse converts them
+    # in `lu`/`lu!` — so the cache builds — but has no 32-bit solve, and `ldiv!` would be a
+    # `MethodError` naming an `UmfpackLU{Float64}` the caller never asked for.
+    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{Float32,Int}(S))
+    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{ComplexF32,Int}(S))
+end
+
+# The two routes the error message names have to work, or the advice is worthless.
+@testset "a sparse matrix outside Float64/ComplexF64 has no default, but two answers" begin
+    S32 = SparseMatrixCSC{Float32,Int}(banded_spd(24))
+    b32 = Float32.(collect(range(-1.0, 1.0; length = 24)))
+    ref = Matrix{Float32}(S32) \ b32
+
+    @test_throws ArgumentError default_linear_solver_method(S32)
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{ComplexF32,Int}(banded_spd(24)))
+    # an explicit dense method still densifies happily — that is the escape hatch the error
+    # message points at, not something the default does behind the caller's back
+
+    # `SparspakLU` keeps it sparse
+    @test ldiv!(zeros(Float32, 24), factorize!(LinearSolver(SparspakLU(), S32), S32), b32) ≈ ref rtol = 1e-4
+    # `LapackLU` densifies, as it does for any sparse input
+    lsd = LinearSolver(LapackLU(), S32)
+    @test cache(lsd).A isa Matrix{Float32}
+    @test ldiv!(zeros(Float32, 24), factorize!(lsd, S32), b32) ≈ ref rtol = 1e-4
+
+    # and a nonlinear solve says the same thing rather than failing at the first ldiv!
+    F32(y, x, params) = y .= x .^ 3 .- 2
+    DF32(j, x, params) = (fill!(nonzeros(j), zero(Float32)); for i in axes(j, 1); j[i, i] = 3x[i]^2; end)
+    proto32 = SparseMatrixCSC{Float32,Int}(sparse(Float32(1) * I, 4, 4))
+    @test_throws ArgumentError NewtonSolver(zeros(Float32, 4), zeros(Float32, 4);
+        F = F32, DF! = DF32, jacobian_prototype = proto32)
+    s32 = NewtonSolver(zeros(Float32, 4), zeros(Float32, 4); F = F32, DF! = DF32,
+        jacobian_prototype = proto32, linear_solver_method = SparspakLU(), verbosity = 0)
+    x32 = fill(1.5f0, 4)
+    solve!(x32, s32)
+    @test all(≈(cbrt(2.0f0); rtol = 1e-4), x32)
+
+    # and the same for a non-BLAS element type, where the dense escape hatch is `LU` rather
+    # than `LapackLU` — the branch the message picks between
+    protoQ = SparseMatrixCSC{BigFloat,Int}(sparse(1.0I, 4, 4))
+    @test_throws ArgumentError NewtonSolver(zeros(BigFloat, 4), zeros(BigFloat, 4);
+        F = F32, DF! = DF32, jacobian_prototype = protoQ)
+    for lsm in (SparspakLU(), LU())
+        sQ = NewtonSolver(zeros(BigFloat, 4), zeros(BigFloat, 4); F = F32, DF! = DF32,
+            jacobian_prototype = copy(protoQ), linear_solver_method = lsm, verbosity = 0)
+        xQ = fill(big(1.5), 4)
+        solve!(xQ, sQ)
+        @test all(≈(cbrt(big(2.0)); rtol = 1e-20), xQ)
+    end
 end
 
 @testset "SparspakLU specifics" begin
@@ -603,7 +664,6 @@ end
 
     # `fill_nan!` preserves the pattern, which the symbolic factorization depends on
     n0 = nnz(S)
-    fill_nan!(copy(S))
     Sn = copy(S); fill_nan!(Sn)
     @test nnz(Sn) == n0
     @test all(isnan, nonzeros(Sn))
@@ -644,9 +704,30 @@ end
     @test default_linear_solver_method(fill(big(0.0), 4, 4)) isa LU
     @test default_linear_solver_method(banded_spd(8)) isa UmfpackLU
     @test default_linear_solver_method(SparseMatrixCSC{ComplexF64,Int}(banded_spd(8))) isa UmfpackLU
-    # a generic element type falls through to `LU`, which densifies: `SparspakLU` would be
-    # better but is an extension, and a default must not depend on what was imported
-    @test default_linear_solver_method(SparseMatrixCSC{BigFloat,Int}(banded_spd(8))) isa LU
+    # a sparse 32-bit float has two good explicit answers and no defensible default
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{Float32,Int}(banded_spd(8)))
+    # No sparse element type outside Float64/ComplexF64 gets a default: densifying would
+    # discard structure the caller built on purpose, and `SparspakLU` is an extension, so a
+    # default reaching for it would depend on what was imported. Both are legitimate choices,
+    # so the caller makes them.
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{BigFloat,Int}(banded_spd(8)))
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{Rational{BigInt},Int}(banded_spd(8)))
+    # ... and the message names the densifying way out that actually works for that element
+    # type: `LapackLU` for a BLAS one, `LU` for another float, and neither for a `Rational`,
+    # where `LU`'s `lucache_eltype` refuses and `SparspakLU` is the only method that works.
+    sparse_default_message(S) = try
+        default_linear_solver_method(S)
+        ""
+    catch e
+        e.msg
+    end
+    m32 = sparse_default_message(SparseMatrixCSC{Float32,Int}(banded_spd(8)))
+    @test occursin("SparspakLU()", m32) && occursin("or LapackLU()", m32)
+    mbig = sparse_default_message(SparseMatrixCSC{BigFloat,Int}(banded_spd(8)))
+    @test occursin("SparspakLU()", mbig) && occursin("or LU()", mbig)
+    mrat = sparse_default_message(SparseMatrixCSC{Rational{BigInt},Int}(banded_spd(8)))
+    @test occursin("SparspakLU()", mrat)
+    @test !occursin("or LU()", mrat) && !occursin("or LapackLU()", mrat)
 
     # the resolved default reaches the solver
     F(y, x, params) = y .= x .^ 3 .- 2
@@ -705,8 +786,16 @@ end
     xdense = zeros(n)
     solve!(xdense, NewtonSolver(zeros(n), zeros(n); F = Fb!))
 
-    ssp = NewtonSolver(zeros(n), zeros(n); F = Fb!, DF! = DFb!,
-        jacobian_prototype = copy(proto))
+    # the prototype is a prototype: it is copied, so the caller's matrix survives intact and
+    # two solvers built from one do not share a Jacobian
+    protovals = copy(nonzeros(proto))
+    ssp = NewtonSolver(zeros(n), zeros(n); F = Fb!, DF! = DFb!, jacobian_prototype = proto)
+    @test nonzeros(proto) == protovals
+    @test jacobianmatrix(cache(ssp)) !== proto
+    @test matrix(linearproblem(ssp)) !== proto
+    ssp2 = NewtonSolver(zeros(n), zeros(n); F = Fb!, DF! = DFb!, jacobian_prototype = proto)
+    @test jacobianmatrix(cache(ssp2)) !== jacobianmatrix(cache(ssp))
+
     xsparse = zeros(n)
     solve!(xsparse, ssp)
 
@@ -725,7 +814,7 @@ end
     # a sparse prototype with an autodiff Jacobian would write to structurally-zero
     # positions, so it is refused at construction
     @test_throws ArgumentError NewtonSolver(zeros(n), zeros(n); F = Fb!,
-        jacobian_prototype = copy(proto))
+        jacobian_prototype = proto)
     @test_throws ArgumentError DogLegSolver(zeros(n), NonlinearProblem(Fb!, zeros(n));
-        jacobian_prototype = copy(proto))
+        jacobian_prototype = proto)
 end

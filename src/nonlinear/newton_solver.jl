@@ -79,6 +79,13 @@ true
 - `DF!`: an in-place function computing the Jacobian,
 - `linesearch::`[`Linesearch`](@ref)
 - `jacobian::`[`Jacobian`](@ref)
+- `jacobian_prototype`: the matrix whose storage and, if sparse, whose sparsity pattern are
+  adopted by the Jacobian, the [`LinearProblem`](@ref) and the [`LinearSolver`](@ref) cache. It
+  is *copied*, so the caller's matrix is left alone. A `SparseMatrixCSC` here is what runs a
+  sparse Jacobian through the solver, and it requires `DF!` (see
+  [`checkjacobianprototype`](@ref)) and a pattern that includes the diagonal if
+  `regularization_factor` is non-zero. It also selects the default
+  `linear_solver_method`; see [`default_linear_solver_method`](@ref),
 - `refactorize::Int`: determines after how many steps the Jacobian is re-evaluated and refactored (see [`factorize!`](@ref)). `refactorize > 1` gives a quasi-Newton method (see [`QuasiNewton`](@ref)),
 - `options_kwargs`: see [`Options`](@ref)
 """
@@ -140,6 +147,7 @@ does — see [`resolve_jacobian`](@ref).
 - `linear_solver_method`
 - `linesearch`
 - `jacobian`
+- `jacobian_prototype`
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 
@@ -170,9 +178,9 @@ function NewtonSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVe
     # dense `zeros(T, n, n)`, which threw away the storage the Jacobian actually has and made
     # a sparse solve impossible. It also means a non-square Jacobian is now refused by
     # `checksquare` instead of silently sizing the solver from `length(y)`.
-    linearsolver = LinearSolver(coalesce(linear_solver_method,
-                                         default_linear_solver_method(jacobian_prototype)),
-                               matrix(linearproblem))
+    linearsolver = LinearSolver(resolve_linear_solver_method(linear_solver_method,
+                                                             matrix(linearproblem)),
+                                matrix(linearproblem))
     ls = Linesearch(linesearch_problem(nlp, jacobian, cache), linesearch, config)
     NewtonSolver(x, nlp, linearproblem, linearsolver, ls, cache, config; jacobian=jacobian, refactorize=refactorize)
 end
@@ -185,6 +193,7 @@ end
 - `DF!`
 - `linesearch`
 - `jacobian`
+- `jacobian_prototype`
 - `refactorize`
 - `options_kwargs`: see [`Options`](@ref)
 

@@ -110,7 +110,8 @@ solve(LapackLU(), ls)
 
 It is restricted to the element types LAPACK provides (`Float32`, `Float64`, `ComplexF32`
 and `ComplexF64`) and throws an `ArgumentError` naming the type for anything else, so
-`LU()` remains the only option for e.g. `BigFloat`. What it is *not* is a
+`LU()` remains the only *dense* option for e.g. `BigFloat` (a sparse one of those goes to
+[`SparspakLU`](@ref)). What it is *not* is a
 trade of allocation for speed: like [`LU`](@ref), it allocates nothing per factorization or
 solve once the [`LinearSolver`](@ref) has been built. Everything else is
 interchangeable — [`factorize!`](@ref), `LinearAlgebra.ldiv!`, [`solve!`](@ref) and
@@ -133,8 +134,8 @@ answer, and it is what a nonlinear solver uses when no `linear_solver_method` is
 |---|---|---|
 | dense | `Float32`/`Float64`/`ComplexF32`/`ComplexF64` | [`LapackLU`](@ref) |
 | dense | anything else (`BigFloat`, `Rational`, …) | [`LU`](@ref) |
-| sparse | `Float64`/`ComplexF64` (or their 32-bit forms) | [`UmfpackLU`](@ref) |
-| sparse | anything else | [`LU`](@ref), which densifies — pass [`SparspakLU`](@ref) instead |
+| sparse | `Float64`/`ComplexF64` | [`UmfpackLU`](@ref) |
+| sparse | anything else | none — an `ArgumentError`; see below |
 
 [`RecursiveLU`](@ref) is never chosen automatically; see below.
 
@@ -193,9 +194,23 @@ What [`SparspakLU`](@ref) is for is element types UMFPACK cannot do at all:
 
 | element type | [`SparspakLU`](@ref) | [`UmfpackLU`](@ref) |
 |---|---|---|
-| `Float64`, `Float32`, `ComplexF64` | works | works |
+| `Float64`, `ComplexF64` | works | works |
+| `Float32`, `ComplexF32` | works | **unsupported** |
 | `BigFloat` | works | **unsupported** |
 | `Rational{BigInt}` | works, **exactly** | **unsupported** |
+
+So every element type outside `Float64`/`ComplexF64` has no *default* at all, and that is
+deliberate: a sparse matrix is never densified for you.
+`SimpleSolvers.default_linear_solver_method` raises an `ArgumentError` naming the two things you
+might have meant — [`SparspakLU`](@ref), which keeps the matrix sparse, or a dense method
+([`LapackLU`](@ref) for a 32-bit float, [`LU`](@ref) otherwise), which discards the sparsity.
+Both are legitimate; which one is right depends on how large the matrix is and whether you can
+depend on the Sparspak extension, and neither is something a fallback should decide. Pass one
+as `linear_solver_method`.
+
+An exact `Rational` solve goes through [`factorize!`](@ref) and `LinearAlgebra.ldiv!` rather
+than the allocating [`solve`](@ref), whose `NaN`-filled solution vector those element types
+cannot represent.
 
 Neither sparse method is allocation-free, and that is inside the backends rather than in the
 wrapper: [`UmfpackLU`](@ref) allocates ~374 kB per factorization but nothing per solve;
@@ -223,6 +238,10 @@ The prototype's storage is adopted by the Jacobian, the [`LinearProblem`](@ref) 
 [`UmfpackLU`](@ref). `DF!` is required: [`JacobianAutodiff`](@ref) and
 [`JacobianFiniteDifferences`](@ref) produce dense matrices and would write to
 structurally-zero positions, so that combination is refused at construction.
+
+There is no `linear_solver_method` to pass for a `Float64`/`ComplexF64` pattern — that is the
+one case with a default — but every other element type needs one, since a sparse matrix is
+never densified on your behalf.
 
 The pattern must not change from iteration to iteration — the symbolic factorization was
 built for one — and `DF!` writing into positions outside it is an error rather than a silent
