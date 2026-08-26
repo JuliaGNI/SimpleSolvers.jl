@@ -269,13 +269,13 @@ gets [`solve`](@ref) derived from it. A method that reports no outcome of its ow
 
 !!! warning "A method must implement this"
     There is no fallback: the generic method below raises rather than deriving a status from
-    [`solve`](@ref). It used to do exactly that, and the derivation ran the wrong way — a method
-    that defined only `solve` was then reached *through* `solve` from inside every iteration of a
-    [`NonlinearSolver`](@ref), and emitted its messages there, which is the one thing the contract
-    in [`LinesearchMethod`](@ref) promises does not happen. Deriving `solve` from this instead
-    makes that promise structural. A third-party method that defines only `solve` therefore has to
-    move its body here; the boilerplate it used to carry (`solve_with_status`, then
-    [`linesearch_warnings`](@ref), then [`steplength`](@ref)) is what it gets for free in exchange.
+    [`solve`](@ref). That derivation would run the contract the wrong way — a method that defined
+    only `solve` would then be reached *through* `solve` from inside every iteration of a
+    [`NonlinearSolver`](@ref) and emit its messages there, which is the one thing the contract in
+    [`LinesearchMethod`](@ref) promises does not happen. Deriving `solve` from this instead makes
+    that promise structural. A third-party method therefore puts its body here rather than in
+    `solve`, and gets the boilerplate (`solve_with_status`, then [`linesearch_warnings`](@ref),
+    then [`steplength`](@ref)) for free in exchange.
 """
 function solve_with_status(ls::Linesearch{T}, α::T, params=NullParameters()) where {T}
     throw(ArgumentError("$(nameof(typeof(method(ls)))) does not implement `solve_with_status`, " *
@@ -295,7 +295,7 @@ Method-specific extra diagnostic emitted by [`linesearch_warnings`](@ref) at
 verbosity gate.
 
 Reached only from a direct [`solve`](@ref) call, since that is the only caller of
-[`linesearch_warnings`](@ref). A `NonlinearSolver` at `verbosity = 2` therefore no longer pays for
+[`linesearch_warnings`](@ref). A `NonlinearSolver` at `verbosity = 2` therefore does not pay for
 this once per iteration; to see it for a step of a solve, call the line search on that step's
 problem directly.
 """

@@ -1842,10 +1842,6 @@ end
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    # The `skip` is now only `AS_A_CALLER_COMPILES_IT`. It used to carry a second condition, for a
-    # Julia without `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS, where the default linear solver's
-    # `factorize!` allocated the pivot vector per call. With the compat floor at 1.11 that arm is
-    # gone, so this asserts the solve is allocation-free rather than allowing that it might not be.
     for ls in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
         @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end

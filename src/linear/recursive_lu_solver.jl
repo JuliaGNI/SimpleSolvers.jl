@@ -19,8 +19,8 @@ RecursiveFactorization writes LAPACK-layout factors with LAPACK's pivot conventi
 `getrs` applies unchanged. See [`PivotedLUMethod`](@ref) and [`PivotedLUCache`](@ref).
 
 Like [`LapackLU`](@ref), [`factorize!`](@ref) and [`ldiv!`](@ref) are allocation-free once the
-[`LinearSolver`](@ref) exists, on every Julia version — the pivot vector is pre-allocated in
-the cache and RecursiveFactorization takes it as an argument.
+[`LinearSolver`](@ref) exists — the pivot vector is pre-allocated in the cache and
+RecursiveFactorization takes it as an argument.
 
 # Constructor
 

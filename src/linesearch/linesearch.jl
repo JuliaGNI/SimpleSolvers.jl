@@ -248,13 +248,12 @@ See [`linesearch_problem`](@ref).
 # Implementation
 
 This is *derived*, and it is the only definition: a [`LinesearchMethod`](@ref) implements
-[`solve_with_status`](@ref), and `solve` is that plus the report. It used to be the other way
-round — every method defined this same three-line body, and a method that defined only `solve`
-got `solve_with_status` from a fallback that called it. That fallback made the layering of the
-contract unenforceable: a third-party method reached through `solve` emits its messages from
-wherever it is called, including from inside every iteration of a [`NonlinearSolver`](@ref),
-which is precisely what a program must not see. With the direction reversed, there is no path
-by which the package calls a method's `solve` during a solve, so the guarantee holds by
+[`solve_with_status`](@ref), and `solve` is that plus the report. The direction matters. Were it
+the other way round — `solve_with_status` coming from a fallback that calls a method's `solve` —
+the layering of the contract would be unenforceable: a third-party method reached through `solve`
+emits its messages from wherever it is called, including from inside every iteration of a
+[`NonlinearSolver`](@ref), which is precisely what a program must not see. This way round there is
+no path by which the package calls a method's `solve` during a solve, so the guarantee holds by
 construction rather than by convention.
 
 `α` is converted to the element type of the `Linesearch` here, as the problem-taking method

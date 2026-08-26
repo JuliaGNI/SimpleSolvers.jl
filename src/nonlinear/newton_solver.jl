@@ -108,11 +108,10 @@ function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch:
 end
 
 # Backwards-compatible form that builds the `Options` from keywords.  The `linesearch` handed
-# in here was built with an `Options` of its own (`Linesearch(problem, method)` defaults it) —
-# precisely the plumbing defect this chain used to have, since the solver's `verbosity` and
-# `linesearch_max_iterations` then never reached the line search.  It is therefore rebuilt on
-# the solver's `Options` (see `with_config`): its problem and method are kept, only the
-# options are replaced.
+# in here carries an `Options` of its own (`Linesearch(problem, method)` defaults it); left as it
+# comes, neither the solver's `verbosity` nor its `linesearch_max_iterations` would ever reach the
+# line search.  It is therefore rebuilt on the solver's `Options` (see `with_config`): its problem
+# and method are kept, only the options are replaced.
 function NewtonSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT; jacobian::Jacobian=JacobianAutodiff(nlp.F, x), refactorize::Integer=1, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LST,LSoT,LiSeT<:Linesearch{T},CT}
     config = Options(T; options_kwargs...)
     NewtonSolver(x, nlp, ls, linearsolver, with_config(linesearch, config), cache, config; jacobian=jacobian, refactorize=refactorize)

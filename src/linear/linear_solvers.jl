@@ -244,18 +244,18 @@ default either: it lives in a package extension, so a default that reached for i
 fail depending on what the caller had imported. So this asks. Once asked, both answers work:
 pass either as `linear_solver_method`.
 
-[`LU`](@ref) used to be the default everywhere. It is still the one for a dense matrix of an
-element type LAPACK does not know, and the right choice for a very small system, where its
-static-matrix cache allocates nothing. (A `Rational` or `Integer` matrix reaches it and is then
-refused by [`lucache_eltype`](@ref), which names the conversion to make — the package has no
-dense method for those at all, and saying so is better than a default that pretends otherwise.)
+[`LU`](@ref) is the choice for a dense matrix of an element type LAPACK does not know, and the
+right one for a very small system, where its static-matrix cache allocates nothing. (A
+`Rational` or `Integer` matrix reaches it and is then refused by [`lucache_eltype`](@ref),
+which names the conversion to make — the package has no dense method for those at all, and
+saying so is better than a default that pretends otherwise.)
 
 But its allocation-free `MMatrix` path stops at [`N_STATIC_THRESHOLD`](@ref) `= 10` — and at any
 size for a non-`isbitstype` element type, see [`_static`](@ref) — and above that it is a scalar
 triple loop with no blocking. Measured on an Apple M4 Max it is 2× slower
 than [`LapackLU`](@ref) at `n = 64` and 32× slower at `n = 768`, with its triangular solve a
-further 3.5–4.5× behind `getrs` throughout. A caller who did not know to pass
-`linear_solver_method` paid all of that; downstream, that was 74 % of an implicit time step.
+further 3.5–4.5× behind `getrs` throughout. That is what the default spares a caller who does not
+know to pass `linear_solver_method`: downstream it came to 74 % of an implicit time step.
 
 [`RecursiveLU`](@ref) is never selected automatically: it lives in a package extension, its
 useful range depends on which BLAS is loaded, and it is not always installed. Choose it

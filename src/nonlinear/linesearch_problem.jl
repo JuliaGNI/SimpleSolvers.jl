@@ -40,9 +40,9 @@ function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache:
         # nothing and the closure stays usable with the bare `(x, parameters)` form. It is the
         # same guard `linesearch_αmax` reads `params.αmax` through, and it has to be: this
         # closure reaches its other two fields by *property* access (`params.x`,
-        # `params.parameters`), so a `params` that only answers `haskey` — a `Dict` — could never
-        # have worked here anyway, while one that only answers `hasproperty` — any struct, and
-        # `NullParameters` among them — used to raise a `MethodError` from inside the merit.
+        # `params.parameters`), so a `params` that only answers `haskey` — a `Dict` — could not
+        # work here anyway, while `haskey` on one that answers only `hasproperty` — any struct, and
+        # `NullParameters` among them — raises a `MethodError` from inside the merit.
         (iszero(α) && hasproperty(params, :φ₀)) && return convert(T, params.φ₀)
         compute_new_iterate!(xₜ, params.x, α, direction(cache))
         value!(yₜ, nlp, xₜ, params.parameters)

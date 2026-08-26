@@ -53,13 +53,8 @@ LAPACK.
 Allocation is *not* part of the trade-off. Like [`LU`](@ref), and unlike a bare
 `LinearAlgebra.lu!`, both [`factorize!`](@ref) and [`ldiv!`](@ref) are allocation-free after
 the [`LinearSolver`](@ref) is built: the working matrix and the pivot vector are allocated
-once and reused. See [`PivotedLUCache`](@ref).
-
-There is no exception. Until 0.13.1 there was one, on a Julia too old for
-`LAPACK.getrf!(A, ipiv)` — the 1.10 LTS — where the pivot vector cost one `O(n)` allocation
-per factorization, 3.3 kB at `n = 384`, in the *default* linear solver of every nonlinear
-solve. The compat floor is 1.11 now, so `getrf!(A, ipiv)` is always there and that arm is
-gone with it.
+once and reused: `getrf!` writes the pivots straight into the cached vector and `getrs!`
+reads them back out of it. See [`PivotedLUCache`](@ref).
 
 # Example
 
@@ -95,15 +90,8 @@ shared. See [`PivotedLUCache`](@ref).
 """
 function _getrf! end
 
-# `getrf!` rather than `lu!`: with a pre-allocated `ipiv`, and without the `LU` object `lu!`
-# would allocate to wrap the result. See `PivotedLUCache`.
-#
-# A `HAS_PREALLOCATED_GETRF` constant stood here until 0.13.1, with an `else` branch that called
-# the one-argument `getrf!(A)` and copied its freshly allocated pivot vector into the cache. The
-# two-argument form arrived after the 1.10 LTS, so that branch was the LTS's, and it cost one
-# `O(n)` allocation per factorization — 3.3 kB at `n = 384` — in the default linear solver of
-# every nonlinear solve. Raising the compat floor to 1.11 is what deleted it, which is what its
-# own docstring said it would take.
+# `getrf!` rather than `lu!`: it takes the pre-allocated `ipiv`, and without the `LU` object
+# `lu!` would allocate to wrap the result. See `PivotedLUCache`.
 function _getrf!(::LapackLU, c::PivotedLUCache)
     _, _, c.info = LinearAlgebra.LAPACK.getrf!(c.A, c.ipiv; check=false)
     c

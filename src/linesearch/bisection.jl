@@ -110,9 +110,9 @@ end
 # `f` is a derivative. `Bisection` uses it for exactly that; see `_bisect_for_minimum`. A caller
 # root-finding through the public `bisection` can ignore it, and does.
 #
-# The outcome is a `BisectionOutcome` and not a `Bool` because "no sign change" used to be folded
-# into `converged = true` — the endpoint with the smallest |f| was returned and *claimed* as a
-# root. That claim then propagated into `LINESEARCH_FLOOR`, which asserts that no step can decrease
+# The outcome is a `BisectionOutcome` and not a `Bool` so that "no sign change" stays distinct from
+# `converged`: folded into it, the endpoint with the smallest |f| would be returned and *claimed* as
+# a root, and that claim propagates into `LINESEARCH_FLOOR`, which asserts that no step can decrease
 # the merit; a failed bracket establishes nothing of the kind. See `solve_with_status` below.
 function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Options) where {T<:Number}
     n = 0
@@ -238,11 +238,11 @@ brackets a minimum in *value* but over which ``\\varphi'`` keeps its sign — a 
 noisy merit, or a derivative inconsistent with it — there is nothing to bisect and
 `_bisection_core` reports `BISECTION_NOBRACKET`.
 
-That case used to be folded into "converged", so the endpoint with the smallest ``|\\varphi'|``
-was *claimed* as the line minimiser and, when it did not improve the merit, classified as
-`LINESEARCH_FLOOR` — which asserts that **no** line search can make progress along this
-direction and makes the outer iteration count the step towards `max_stalls`. A failed bracket
-establishes nothing of the kind. So the outcome is now classified by the merit alone:
+That case is kept distinct from "converged". Folded into it, the endpoint with the smallest
+``|\\varphi'|`` would be *claimed* as the line minimiser and, when it did not improve the merit,
+classified as `LINESEARCH_FLOOR` — which asserts that **no** line search can make progress along
+this direction and makes the outer iteration count the step towards `max_stalls`. A failed
+bracket establishes nothing of the kind, so the outcome is classified by the merit alone:
 `LINESEARCH_DECREASED` when the returned step still beats ``\\varphi(0)`` by more than
 ``\\tau``, and `LINESEARCH_EXHAUSTED` when it does not. `LINESEARCH_FLOOR` is reachable only
 from a bisection that actually converged.

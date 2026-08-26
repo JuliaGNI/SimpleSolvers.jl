@@ -93,7 +93,7 @@ The rounding is not decoration. [`direction₂`](@ref) comes out of the LU solve
 carries the accumulation order of whichever BLAS kernel is underneath — and that varies by
 machine, not by Julia version. Mathematically the two components of this one are exact
 negatives; printed to sixteen significant digits they are `-0.22882877718014286` and
-`0.22882877718014286` on `aarch64` (identically on Julia 1.10, 1.12 and 1.13) and
+`0.22882877718014286` on `aarch64` (identically on Julia 1.11, 1.12 and 1.13) and
 `-0.22882877718014286` and `0.22882877718014288` on `x86_64` OpenBLAS, which is what CI runs on.
 Asserting that last digit is asserting the noise rather than the result.
 [`direction₁`](@ref) above needs no such treatment: it is `mul!` and norms, and never touches

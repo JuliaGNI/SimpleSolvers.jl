@@ -147,9 +147,9 @@ function _quadratic_search(ls::Linesearch{T,<:Quadratic}, α₀::T, params, αma
         # back to bisecting it and hands back a midpoint strictly above the endpoint's merit.
         bracket === :capped && return (αmax, n)
         # No `n` of its own for this round: the fit interpolates `y₀`, `y₁` at the bracket
-        # endpoints, and those *are* evaluations the bracketing made and `nb` has counted. The
-        # fixed `n += 2` that stood here was a proxy for them from when the bracketer's cost was
-        # invisible, and adding it now would count them twice.
+        # endpoints, and those *are* evaluations the bracketing made and `nb` has counted. A fixed
+        # `n += 2` here would be a proxy for evaluations the bracketer already reports, so it would
+        # count them twice.
         d₀ = derivative(problem(ls), a, params)
         # `d₀` is the derivative at the bracket's left endpoint `a`; return that point
         # (not the loop's start `α`), which differ when the bracketer flipped because

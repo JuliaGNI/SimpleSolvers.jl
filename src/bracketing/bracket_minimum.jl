@@ -312,10 +312,10 @@ p_2 = \frac{f(b) - f(a) - f'(a)(b - a)}{(b - a)^2},
 where ``(a, b)`` is the bracket returned by ``\mathtt{bracket\_minimum\_with\_fixed\_point}``. The right end `b` is
 grown outward (with the left end `a` held fixed) until `f` stops decreasing, i.e.
 until the *turning point* `f(b) ≥ f(b_\mathrm{prev})` is reached, so that a minimum
-is bracketed in `(a, b)`. (The earlier variant compared against the fixed anchor
-`f(a)` instead, which failed to bracket a minimum whose right tail stays below
-`f(a)`.) The [`Quadratic`](@ref) caller guards the fitted curvature (`p_2 ≤ 0`
-falls back to a bisection step), so `f(b) > f(a)` is no longer required.
+is bracketed in `(a, b)`. The comparison is against the previous point and not
+against the fixed anchor `f(a)`, which would fail to bracket a minimum whose right
+tail stays below `f(a)`. The [`Quadratic`](@ref) caller guards the fitted curvature
+(`p_2 ≤ 0` falls back to a bisection step), so `f(b) > f(a)` is not required.
 
 Returns the bracket *together with the function values at its endpoints*,
 `(a, b, f(a), f(b))` with `a < b`.  The values are already computed during

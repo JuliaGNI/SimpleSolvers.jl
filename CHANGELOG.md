@@ -2,12 +2,19 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased] — 0.13.1
+## [0.13.1]
 
 ### Changed
 
-- **Julia 1.11 is the minimum**, up from the 1.10 LTS. It is what retires the item below, and it is
-  the floor the rest of this family of packages moves to in the same wave.
+- **Julia 1.11 is the minimum**, up from the 1.10 LTS. It is what retires the two items below, and
+  it is the floor the rest of this family of packages moves to in the same wave.
+
+### Removed
+
+- **`SimpleSolvers.HAS_PREALLOCATED_GETRF`** — the feature check that chose between the two
+  `getrf!` forms — together with the fallback branch it guarded. Internal and unexported, but it
+  carried a docstring, so it is named here rather than left to the item below;
+  `test/linear_solver_tests.jl` pins it as gone.
 
 ### Fixed
 
@@ -37,6 +44,21 @@ All notable changes to SimpleSolvers.jl are documented here.
   | `test/linear_solver_tests.jl` | `== 0` or `< sizeof(Mbig) ÷ 4` | `@test (@allocated factorize!(sbig, Mbig)) == 0` |
   | `test/linesearch_tests.jl` | `skip` on two conditions | `skip` on `AS_A_CALLER_COMPILES_IT` alone |
   | `test/nonlinear_solver_tests.jl` | `DogLegSolver` skipped on two | the same `skip` as `PicardSolver` |
+
+### Documentation
+
+- **`LapackLU` is documented as delegating to LAPACK's `getrf`, which is what it calls.**
+  `docs/src/linear/linear_solvers.md` said `LinearAlgebra.lu!` — precisely what it does *not*
+  call, since `lu!` would allocate an `LU` to wrap the result.
+
+- **Comments and docstrings throughout `src/` describe the package as it is.** Some twenty sites
+  narrated a previous release ("these used to be the same field", "it used to be the other way
+  round") where the *reason* was the point; each states that reason directly now. The regression
+  annotations in `test/` are untouched: naming the bug an assertion guards is why the assertion
+  exists.
+
+- **`directions!` no longer cites Julia 1.10** for the `aarch64` value of `direction₂`. Re-measured:
+  1.11.9, 1.12.7 and 1.13.0-rc3 all give `-0.22882877718014286` / `0.22882877718014286`.
 
 ## [0.13.0]
 

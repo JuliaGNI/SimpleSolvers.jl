@@ -1870,10 +1870,9 @@ end
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    # `PicardSolver` has no linear solver at all. `DogLegSolver` defaults to `LapackLU`, whose
-    # `factorize!` used to allocate the pivot vector on a Julia without `LAPACK.getrf!(A, ipiv)` —
-    # the 1.10 LTS — and so carried a second `skip` condition; the compat floor is 1.11 now and the
-    # two assertions are the same.
+    # `PicardSolver` has no linear solver at all; `DogLegSolver` defaults to `LapackLU`, whose
+    # `factorize!` and `ldiv!` are both allocation-free once the solver is built. So the same
+    # assertion holds for either of them.
     @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
     @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
 end
