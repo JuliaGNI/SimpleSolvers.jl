@@ -102,7 +102,7 @@ static-matrix cache means a factorization allocates nothing at all. It does not 
 though: the factorization is ``\mathcal{O}(n^3)`` scalar operations with no blocking, so for
 a large dense matrix it is an order of magnitude slower than a LAPACK kernel.
 
-[`LapackLU`](@ref) is the same interface with `LinearAlgebra.lu!` underneath:
+[`LapackLU`](@ref) is the same interface with LAPACK's `getrf` underneath:
 
 ```@example linear_system
 solve(LapackLU(), ls)

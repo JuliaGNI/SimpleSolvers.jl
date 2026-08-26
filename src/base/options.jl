@@ -465,11 +465,11 @@ linesearch_max_iterations = 60
     [`meets_stopping_criteria`](@ref)); `linesearch_max_iterations` bounds the **inner**,
     one-dimensional line search taken within a single solver step — the
     [`Backtracking`](@ref) ladder, the [`StrongWolfe`](@ref) bracketing and zoom phases,
-    [`bisection`](@ref), and the [`Quadratic`](@ref)/[`BierlaireQuadratic`](@ref) fits. These
-    used to be the same field, which meant that capping the solver
-    at `max_iterations = 50` silently also capped the ladder, and that the default of 1000 was
-    applied to a ladder which can never need more than ``\\lceil-\\log_2\\varepsilon\\rceil``
-    trials. See [`linesearch_iterations`](@ref).
+    [`bisection`](@ref), and the [`Quadratic`](@ref)/[`BierlaireQuadratic`](@ref) fits. They are
+    two fields because one cannot serve both: capping the solver at `max_iterations = 50` would
+    silently cap the ladder with it, and the outer default of 1000 would be applied to a ladder
+    which can never need more than ``\\lceil-\\log_2\\varepsilon\\rceil`` trials. See
+    [`linesearch_iterations`](@ref).
 
 !!! warning "Choosing `f_abstol`"
     `f_abstol` is an *absolute* target for ``\\|F(x)\\|``, and the default `0` (see

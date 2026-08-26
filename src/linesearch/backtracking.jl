@@ -84,8 +84,8 @@ const DEFAULT_BACKTRACKING_NEXPAND = 3
 # Keys
 
 The trial step ``\alpha`` is *not* a key: it is the argument of [`solve`](@ref), which is its only
-source. (A `Backtracking` used to carry an `α₀` field for it, which the algorithm never read — see
-issue #174.) Neither is `αmax`: this search *shrinks*, so the trial step is already its ceiling and
+source, and a `Backtracking` carries no `α₀` field of its own for the algorithm to read (see
+issue #174). Neither is `αmax`: this search *shrinks*, so the trial step is already its ceiling and
 the expansion phase carries its own in ``q^{\mathrm{nexpand}}``. A `params.αmax` still binds — on
 the trial step itself as well as on the expansion — since a caller that says no step above a given
 length is admissible means the first trial too. See [`SimpleSolvers.linesearch_αmax`](@ref).

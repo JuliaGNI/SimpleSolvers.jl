@@ -250,7 +250,7 @@ Return `true` when the last step *stalled*: it left the iterate unchanged (see
 [`residual_small`](@ref)).
 
 A stalled step is the failure mode that the residual gate in [`assess_convergence`](@ref)
-correctly refuses to call convergence, and that used to be invisible to the solver. The step
+correctly refuses to call convergence; this predicate is what makes it visible. The step
 length ``\alpha\|d\|`` has dropped below the round-off level of ``x``, so the merit
 ``\|F\|^2`` cannot be reduced along the current direction — typically because the requested
 `f_abstol` lies *below the round-off floor of the residual itself*. Taking another step
@@ -421,10 +421,10 @@ representable. Used by [`meets_stopping_criteria`](@ref) to give up and by
 [`nonlinear_solver_warnings`](@ref) to say so.
 
 The test is `isfinite`, not `!isnan`: a residual that has *overflowed* is as unusable as an
-undefined one, and the pure-`NaN` test used to miss it entirely — neither this predicate nor
-the `rfₐ > f_abstol_break` gate fired for an infinite residual, since `f_abstol_break` defaults
-to `Inf` and `Inf > Inf` is false, so such a solve ran its whole `max_iterations` budget with no
-diagnosis at all. The same widening was made to the solver-side guards; see
+undefined one, and a pure-`NaN` test misses it entirely. Nothing else catches it either — the
+`rfₐ > f_abstol_break` gate does not fire for an infinite residual, since `f_abstol_break`
+defaults to `Inf` and `Inf > Inf` is false — so such a solve would run its whole `max_iterations`
+budget with no diagnosis at all. The solver-side guards are widened the same way; see
 [`nan_recovery!`](@ref).
 
 Note that a status is never *converged* by accident here — every comparison with `NaN` is false
@@ -621,7 +621,7 @@ All messages except the iteration count and the two hard-failure ones are gated 
 The three "this solve did not do what you asked" messages are mutually exclusive, most specific
 first: stagnation (the iterate froze) wins over lack of progress (the iterate moves but the
 residual is going nowhere), which in turn replaces the bare iteration count — which on its own
-names a symptom and no cause, and was the only thing a non-progressing solve used to report.
+names a symptom and no cause.
 
 # The line search reports here, not from inside the loop
 

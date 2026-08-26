@@ -1870,12 +1870,11 @@ end
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    # `PicardSolver` has no linear solver at all, so it holds on every version. `DogLegSolver`
-    # defaults to `LapackLU`, whose `factorize!` allocates the pivot vector on a Julia without
-    # `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS; see `SimpleSolvers.HAS_PREALLOCATED_GETRF`.
+    # `PicardSolver` has no linear solver at all; `DogLegSolver` defaults to `LapackLU`, whose
+    # `factorize!` and `ldiv!` are both allocation-free once the solver is built. So the same
+    # assertion holds for either of them.
     @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
-    @test solve_allocations(DogLegSolver) == 0 skip =
-        !(AS_A_CALLER_COMPILES_IT && SimpleSolvers.HAS_PREALLOCATED_GETRF)
+    @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
 end
 
 @testset "$(rpad("the solver report backs off geometrically instead of going silent", 80))" begin

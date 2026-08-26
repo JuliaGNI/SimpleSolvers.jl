@@ -220,9 +220,9 @@ function nan_recovery!(s::NonlinearSolver{T}, x, params) where {T}
     # of zero damps not at all), and `value(cache(s))` is the residual of the trial built from the
     # direction the cache currently holds — damping after the last trial would leave the two one
     # factor apart, and the Picard step reads them as a pair. The `i = 0` pass evaluates one trial
-    # unconditionally: a budget of zero used to skip the body entirely and leave the cache holding
-    # whatever the previous solver step had put there, which the Picard step then read as if it were
-    # this step's trial, committing a stale iterate.
+    # unconditionally: without it a budget of zero would skip the body entirely and leave the cache
+    # holding whatever the previous solver step put there, which the Picard step would read as if it
+    # were this step's trial, committing a stale iterate.
     for i in 0:config(s).nan_max_iterations
         if i > 0
             report_nan_direction(config(s))

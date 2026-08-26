@@ -207,12 +207,12 @@ through [`linesearch_warnings`](@ref). A [`NonlinearSolver`](@ref) is not that c
 at the end, through [`nonlinear_solver_warnings`](@ref), instead of once per iteration.
 
 That is not a cosmetic difference. A solve that cannot make progress asks the line search for an
-impossible decrease at *every* one of its iterations, so reporting per iteration turned a single
-diagnosis into thousands of identical messages — which is what the `maxlog` caps used to hold back,
-at the price of being keyed on source location and therefore process-global: once spent, they
-stayed spent for the rest of the session, and a genuine failure in a later solve was silent. Not
-reporting from inside the loop removes the flood at its source, so no cap is needed and nothing
-goes permanently silent.
+impossible decrease at *every* one of its iterations, so reporting per iteration would turn a
+single diagnosis into thousands of identical messages. A `maxlog` cap holds those back only at the
+price of being keyed on source location and therefore process-global: once spent it stays spent
+for the rest of the session, and a genuine failure in a later solve is silent. Not reporting from
+inside the loop removes the flood at its source, so no cap is needed and nothing goes permanently
+silent.
 """
 function record_linesearch!(state::NonlinearSolverState, oc::LinesearchOutcome)
     state.ls_outcomes[linesearch_index(oc)] += 1

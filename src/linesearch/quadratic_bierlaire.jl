@@ -154,7 +154,7 @@ function _bierlaire_fit(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T
         # The bracket width is an α-space quantity, so an absolute `ε` is dimensionally right
         # (α is a step-length fraction of order one). The merit differences are *not*: they
         # scale with φ(0), so they are compared against the shared round-off allowance τ
-        # instead of against ε. Previously one absolute constant governed all three.
+        # instead of against ε: one absolute constant cannot govern all three.
         ((c - a) ≤ ε) && ((fa - fb) ≤ τ) && ((fc - fb) ≤ τ) && return (b, fb, n)
 
         # The bisection fallback above guarantees contraction, so a width that fails to shrink

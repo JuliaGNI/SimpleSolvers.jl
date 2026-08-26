@@ -1842,13 +1842,8 @@ end
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    # `skip` also on a Julia without `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS. The default
-    # linear solver is `LapackLU`, whose `factorize!` there allocates the pivot vector per
-    # call; see `SimpleSolvers.HAS_PREALLOCATED_GETRF`. The solve itself is allocation-free on
-    # every version, and this is the one assertion that cannot distinguish the two.
-    allocation_free_factorize = SimpleSolvers.HAS_PREALLOCATED_GETRF
     for ls in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
-        @test solve_allocations(ls) == 0 skip = !(AS_A_CALLER_COMPILES_IT && allocation_free_factorize)
+        @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end
 
     # A caller that supplies no ceiling pays nothing for the one it could have: `hasproperty` on the
