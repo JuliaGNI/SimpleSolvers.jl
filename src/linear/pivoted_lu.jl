@@ -16,9 +16,6 @@ immutable, so a fresh one would have to be built and boxed into a field on every
 refactorization, and its `ipiv` freshly allocated. Both are `O(n)`-to-`O(1)` costs against an
 `O(n^3)` factorization, but a nonlinear solve in a time-stepping loop refactorizes on every
 step of every step, and [`LU`](@ref) — the method these sit beside — allocates nothing at all.
-(On a Julia without `LAPACK.getrf!(A, ipiv)` — the 1.10 LTS — [`LapackLU`](@ref) fills `ipiv`
-from a per-call temporary instead, which costs one `O(n)` allocation per factorization; see
-[`HAS_PREALLOCATED_GETRF`](@ref).)
 
 Use [`factorization`](@ref) to get a `LinearAlgebra.LU` view of these pieces when one is
 actually wanted (for `det`, say).

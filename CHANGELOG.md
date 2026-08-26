@@ -2,6 +2,42 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased] — 0.13.1
+
+### Changed
+
+- **Julia 1.11 is the minimum**, up from the 1.10 LTS. It is what retires the item below, and it is
+  the floor the rest of this family of packages moves to in the same wave.
+
+### Fixed
+
+- **`factorize!` is allocation-free for `LapackLU` on every supported version.** A
+  `HAS_PREALLOCATED_GETRF` constant (`src/linear/lapack_lu_solver.jl`) selected between
+  `LAPACK.getrf!(A, ipiv)` and the one-argument `getrf!(A)`, whose freshly allocated pivot vector
+  then had to be copied into the cache. The two-argument form arrived *after* the 1.10 LTS, so the
+  fallback was the LTS's alone — and it cost one `O(n)` allocation per factorization, **3.3 kB at
+  `n = 384`**, in the *default* linear solver (see `default_linear_solver_method`) of every
+  `NewtonSolver` and `DogLegSolver`. In a time-stepping loop that is once per Newton step of every
+  time step.
+
+  The constant's own docstring said what it would take: *"when the compat floor reaches 1.11 this
+  constant and its `else` branch delete cleanly."* They do, and they have.
+
+  Both figures re-measured on an Apple M4 Max rather than carried over. The fallback's cost is the
+  pivot vector `LAPACK.getrf!(A)` returns: on Julia 1.10.11, `@allocated` on that call at `n = 384` is
+  **3360 bytes**, and `hasmethod(LAPACK.getrf!, Tuple{Matrix{Float64},Vector{BlasInt}})` is `false`
+  there and `true` from 1.11. After this change, on 1.11.9 at the same size, `factorize!` and `ldiv!`
+  both measure **0**.
+
+  Three test sites become unconditional assertions rather than version-dependent ones, which is
+  strictly stronger than what they asserted before:
+
+  | site | was | is |
+  |---|---|---|
+  | `test/linear_solver_tests.jl` | `== 0` or `< sizeof(Mbig) ÷ 4` | `@test (@allocated factorize!(sbig, Mbig)) == 0` |
+  | `test/linesearch_tests.jl` | `skip` on two conditions | `skip` on `AS_A_CALLER_COMPILES_IT` alone |
+  | `test/nonlinear_solver_tests.jl` | `DogLegSolver` skipped on two | the same `skip` as `PicardSolver` |
+
 ## [0.13.0]
 
 Three linear-solver backends, the sparse plumbing they need, and a better default.

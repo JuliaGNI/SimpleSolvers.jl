@@ -367,13 +367,11 @@ end
     factorize!(sbig, Mbig)
     ldiv!(zbig, sbig, rbig)
     @test (@allocated ldiv!(zbig, sbig, rbig)) == 0
-    if SimpleSolvers.HAS_PREALLOCATED_GETRF
-        @test (@allocated factorize!(sbig, Mbig)) == 0
-    else
-        # a Julia without `getrf!(A, ipiv)` (the 1.10 LTS) allocates the pivot vector per
-        # call; the working matrix is still reused, which is the O(n^2) part
-        @test (@allocated factorize!(sbig, Mbig)) < sizeof(Mbig) ÷ 4
-    end
+    # unconditional since 0.13.1. It used to be a `HAS_PREALLOCATED_GETRF` branch, whose `else`
+    # arm allowed the 1.10 LTS a quarter of `Mbig` for the pivot vector it had to allocate per
+    # call; with the compat floor at 1.11 `getrf!(A, ipiv)` is always available and the exact
+    # zero is the claim
+    @test (@allocated factorize!(sbig, Mbig)) == 0
 
     # `factorization` hands out a LinearAlgebra.LU view of those same arrays
     F = factorization(factorize!(LinearSolver(LapackLU(), Al), Al))
@@ -476,8 +474,7 @@ end
     @test_throws DimensionMismatch factorize!(LinearSolver(RecursiveLU(), Ar), randn(2, 2))
     @test_throws DimensionMismatch LinearSolver(RecursiveLU(), randn(3, 4))
 
-    # allocation-free on every Julia version: RecursiveFactorization takes the pre-allocated
-    # pivot vector, so unlike `LapackLU` there is no 1.10 exception here
+    # allocation-free, as `LapackLU` above now is on every supported version too
     Mbig = randn(50, 50) + 50 * I
     zbig = zeros(50)
     rbig = randn(50)
