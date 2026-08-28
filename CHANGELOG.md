@@ -2,6 +2,61 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [0.13.2]
+
+**The parameter-set seam moves here from `GeometricOptimizers`.** Three methods that package
+carried — the two `Gradient` constructors that take a set of neural network parameters, and
+`alloc_h` for one — are this package's functions taking a `NeuralNetworkParameters` type, so it
+owned neither side of any of their signatures. They are in a package extension here now, which is
+where a method on somebody else's type belongs when the *function* is yours. This is
+`GeometricOptimizers` issue
+[#16](https://github.com/JuliaGNI/GeometricOptimizers.jl/issues/16), and goal 2 of the ecosystem
+plan — "no type piracy in the GML ecosystem" — of which this is three of eight sites.
+
+### Added
+
+- **`ext/SimpleSolversNeuralNetworkParametersExt.jl`**, on a new weak dependency
+  `NeuralNetworkParameters = "0.2.5"`, with three methods:
+
+  | method | what it does |
+  |---|---|
+  | `GradientAutodiff(F, ps::ParameterSet)` | flattens `ps` once, captures the layout in a closure, hands `ForwardDiff` the flat vector |
+  | `GradientFunction(F, ∇F!, ps::ParameterSet)` | the same, with `∇F!` called on the flattened parameters |
+  | `alloc_h(ps::ParameterSet)` | `NaN`s of the size of the Hessian, sized by `flatlength` of a *zero* of `ps` |
+
+  Each body is what `GeometricOptimizers` 0.6.0 had, with two changes. `alloc_h` writes `_zero` out
+  as the `mapparameters(zero, ·)` it was — the part of it that was that package's, `_zero` on a
+  lift, stays there as an owned method on `Manifold` — and takes its element type from
+  `parameter_eltype` rather than from a `{T}` bound, so it reaches a mixed-precision set instead of
+  failing to dispatch on one. It also allocates through `_nan`, so a non-floating-point set gets the
+  explaining error rather than a `NaN` conversion failure.
+
+  A weak dependency and not a hard one: `NeuralNetworkParameters` costs nothing to a caller who does
+  not load it, and this package has no use for a parameter set otherwise. The extension loads
+  automatically for anyone who has both — `GeometricOptimizers` does, so the methods reach it
+  unchanged.
+
+  The *element type comes from the parameters* rather than defaulting to `Float64`, which is the
+  behaviour `ParameterHandling` had and which silently promoted a `Float32` network; and a
+  `NeuralNetworkParameters.ParameterLayout` is a **value**, not the chain of closures that version
+  returned, so it is type stable, storable and comparable.
+
+- **`GradientAutodiff(F, x::AbstractMatrix)`**, in the package proper rather than the extension.
+  `ForwardDiff` differentiates with respect to a vector, so `x` is flattened and `F` composed with
+  the `reshape` that puts a candidate back. `GeometricOptimizers` had this as
+  `GradientAutodiff(F, x::Matrix{T})`, which was piracy on the same grounds; `AbstractMatrix` rather
+  than `Matrix` so that a package with its own matrix-like iterate falls through to it, or takes
+  precedence with a method of its own — which is what that package still does for a `Manifold`,
+  where the reconstruction is the manifold's constructor and not a `reshape`.
+
+- **`test/network_parameters_tests.jl`**, which asserts all four here rather than only downstream.
+  It checks the gradient against `ForwardDiff` on the flat form in both shapes a caller holds (a
+  bare `NamedTuple` and a `NetworkParameters`), that `Float32` survives, that `alloc_h` is sized by
+  the flattening and not by the entry count — `length(ps)` is the number of layers, 2 where the
+  answer is 11 — and, with `which`, that each method's module *is* the extension. That last one is
+  the property the move was for: without it a method that drifted back downstream would still pass
+  every behavioural test here.
+
 ## [0.13.1]
 
 ### Changed
