@@ -154,6 +154,24 @@ function GradientAutodiff{T}(F::Callable, nx::Integer) where {T<:Number}
     GradientAutodiff(F, zeros(T, nx))
 end
 
+"""
+    GradientAutodiff(F, x::AbstractMatrix)
+
+The gradient of `F` at a matrix-shaped argument.
+
+`ForwardDiff` differentiates with respect to a vector, so `x` is flattened here and `F` is composed
+with the `reshape` that puts a candidate back into the shape it was written for. Sizing the gradient
+with `length(x)` alone is not enough: `F` is called on the flat vector during differentiation and has
+to see a matrix.
+
+`AbstractMatrix` and not `Matrix`, so that a package with its own matrix-like iterate can reach this
+by falling through -- and can take precedence over it with a method on that type, which is what
+`GeometricOptimizers` does for a `Manifold`, where the reconstruction is the manifold's constructor
+rather than a `reshape`. This method carried the `Matrix` case there until 0.6.1, where it was type
+piracy: neither this function nor `Matrix` was that package's.
+"""
+GradientAutodiff(F, x::AbstractMatrix) = GradientAutodiff(_x -> F(reshape(_x, size(x)...)), vec(x))
+
 function (grad::GradientAutodiff{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.gradient!(g, grad.F, x, grad.∇config)
 end
