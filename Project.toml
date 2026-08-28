@@ -14,10 +14,12 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 
 [weakdeps]
+NeuralNetworkParameters = "67f4d93a-60e9-472b-8cdd-1ccf6005724a"
 RecursiveFactorization = "f2c3362d-daeb-58d1-803e-2bc74f2840b4"
 Sparspak = "e56a9233-b9d6-4f03-8d0f-1825330902ac"
 
 [extensions]
+SimpleSolversNeuralNetworkParametersExt = "NeuralNetworkParameters"
 SimpleSolversRecursiveFactorizationExt = "RecursiveFactorization"
 SimpleSolversSparspakExt = "Sparspak"
 
@@ -29,6 +31,7 @@ GeometricBase = "0.13, 0.14"
 JET = "0.9, 0.10, 0.11, 0.12"
 LinearAlgebra = "1"
 NaNMath = "1"
+NeuralNetworkParameters = "0.2.5"
 Printf = "1"
 Random = "1"
 RecursiveFactorization = "0.2"
@@ -44,6 +47,7 @@ Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
+NeuralNetworkParameters = "67f4d93a-60e9-472b-8cdd-1ccf6005724a"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 RecursiveFactorization = "f2c3362d-daeb-58d1-803e-2bc74f2840b4"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
@@ -52,4 +56,4 @@ Sparspak = "e56a9233-b9d6-4f03-8d0f-1825330902ac"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "JET", "LinearAlgebra", "NaNMath", "Random", "RecursiveFactorization", "SafeTestsets", "SparseArrays", "Sparspak", "Test"]
+test = ["Aqua", "JET", "LinearAlgebra", "NaNMath", "NeuralNetworkParameters", "Random", "RecursiveFactorization", "SafeTestsets", "SparseArrays", "Sparspak", "Test"]
