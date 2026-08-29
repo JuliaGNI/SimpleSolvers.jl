@@ -2,6 +2,16 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **`ext/SimpleSolversNeuralNetworkParametersExt.jl` takes `NetworkParameters`.**
+  `NeuralNetworkParameters` 0.3.0 removes `ParameterSet`, the union these three methods were written
+  on. `GradientAutodiff(F, ps)`, `GradientFunction(F, ∇F!, ps)` and `alloc_h(ps)` are unchanged in
+  behaviour; a caller holding a bare `NamedTuple` wraps it, which shares the leaf arrays. Compat is
+  `NeuralNetworkParameters = "0.3"`.
+
 ## [0.13.2]
 
 **The parameter-set seam moves here from `GeometricOptimizers`.** Three methods that package

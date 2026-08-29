@@ -16,14 +16,14 @@ and costs nothing to anyone who does not load `NeuralNetworkParameters`.
 """
 module SimpleSolversNeuralNetworkParametersExt
 
-using NeuralNetworkParameters: ParameterSet, flatten, unflatten, flatlength, mapparameters,
+using NeuralNetworkParameters: NetworkParameters, flatten, unflatten, flatlength, mapparameters,
     parameter_eltype
 
 using SimpleSolvers: _nan
 import SimpleSolvers: GradientAutodiff, GradientFunction, alloc_h
 
 """
-    GradientAutodiff(F, ps::ParameterSet)
+    GradientAutodiff(F, ps::NetworkParameters)
 
 The automatic-differentiation gradient of `F` at a set of neural network parameters.
 
@@ -36,26 +36,26 @@ A [`NeuralNetworkParameters.ParameterLayout`](@extref) is a *value* and not a ch
 which is the difference that matters here: one closure, type stable, and the same layout on every
 call.
 """
-function GradientAutodiff(F, ps::ParameterSet)
+function GradientAutodiff(F, ps::NetworkParameters)
     v, layout = flatten(ps)
     GradientAutodiff(_x -> F(unflatten(layout, _x)), v)
 end
 
 """
-    GradientFunction(F, ∇F!, ps::ParameterSet)
+    GradientFunction(F, ∇F!, ps::NetworkParameters)
 
 The gradient of `F` at a set of neural network parameters, computed by the supplied `∇F!`.
 
 `∇F!` is called on the *flattened* parameters, i.e. on `flatten(ps)[1]`, which is what lets a caller
 hand over a `Zygote` gradient it has already written against the flat vector.
 """
-function GradientFunction(F, ∇F!, ps::ParameterSet)
+function GradientFunction(F, ∇F!, ps::NetworkParameters)
     v, layout = flatten(ps)
     GradientFunction(_x -> F(unflatten(layout, _x)), ∇F!, v)
 end
 
 """
-    alloc_h(ps::ParameterSet)
+    alloc_h(ps::NetworkParameters)
 
 `NaN`s of the size of the Hessian with respect to a set of neural network parameters.
 
@@ -73,7 +73,7 @@ dense one. `mapparameters` applies `zero` to the leaves at whatever depth they a
 rebuild them, so a manifold leaf comes back as its lift rather than being forced into a manifold
 again.
 """
-function alloc_h(ps::ParameterSet)
+function alloc_h(ps::NetworkParameters)
     z = mapparameters(zero, ps)
     n = flatlength(z)
     fill(_nan(parameter_eltype(z)), n, n)
