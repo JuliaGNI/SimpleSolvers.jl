@@ -31,9 +31,9 @@ F(x) = foldstorage((acc, s) -> acc + sum(abs2, s), 0.0, x)
     end
 end
 
-@testset "`GradientAutodiff` on a $(name)" for (name, p) in (("NamedTuple", nt), ("NetworkParameters", ps))
-    v, layout = flatten(p)
-    grad = GradientAutodiff(F, p)
+@testset "`GradientAutodiff` on a set of parameters" begin
+    v, layout = flatten(ps)
+    grad = GradientAutodiff(F, ps)
 
     # The gradient is taken of the flat form, so the functor is the ordinary vector one ...
     g = similar(v)
@@ -45,6 +45,22 @@ end
     # `F` really is called through the layout: it sees the tree, not the vector.
     @test grad(v) ≈ 2v
     @test ForwardDiff.gradient(_x -> F(unflatten(layout, _x)), v) ≈ 2v
+end
+
+# The narrowing, stated as a property rather than left to the absence of a test. A whole set of
+# parameters is a `NetworkParameters`; the bare `NamedTuple` it wraps is a *branch* of one, and these
+# three take the set. A method on the union would be a method on `Base.NamedTuple`, which is what
+# `NeuralNetworkParameters` 0.3.0 removed `ParameterSet` to stop.
+@testset "a bare `NamedTuple` is turned away, and wrapping shares its arrays" begin
+    @test_throws MethodError GradientAutodiff(F, nt)
+    @test_throws MethodError GradientFunction(F, (g, x) -> (g .= 2 .* x), nt)
+    @test_throws MethodError alloc_h(nt)
+
+    # ... and the migration is a wrap, which costs no copy: the container's leaves are the caller's
+    # own arrays, so an in-place solve writes through to them.
+    wrapped = NetworkParameters(nt)
+    @test wrapped.L1.W === nt.L1.W
+    @test GradientAutodiff(F, wrapped) isa GradientAutodiff{Float64}
 end
 
 @testset "`GradientFunction` is called on the flattened parameters" begin
@@ -68,15 +84,13 @@ end
 end
 
 @testset "`alloc_h` is sized by the flattening and not by the entry count" begin
-    for p in (nt, ps)
-        n = flatlength(p)
-        H = alloc_h(p)
-        @test size(H) == (n, n)
-        @test eltype(H) === Float64
-        @test all(isnan, H)
-        # The failure this replaces: `length(p)` is the number of layers, i.e. 2 rather than 11.
-        @test n != length(p)
-    end
+    n = flatlength(ps)
+    H = alloc_h(ps)
+    @test size(H) == (n, n)
+    @test eltype(H) === Float64
+    @test all(isnan, H)
+    # The failure this replaces: `length(ps)` is the number of layers, i.e. 2 rather than 11.
+    @test n != length(ps)
 end
 
 @testset "`GradientAutodiff` on a matrix argument" begin
