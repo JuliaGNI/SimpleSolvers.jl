@@ -2,16 +2,6 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased]
-
-### Changed
-
-- **`ext/SimpleSolversNeuralNetworkParametersExt.jl` takes `NetworkParameters`.**
-  `NeuralNetworkParameters` 0.3.0 removes `ParameterSet`, the union these three methods were written
-  on. `GradientAutodiff(F, ps)`, `GradientFunction(F, ∇F!, ps)` and `alloc_h(ps)` are unchanged in
-  behaviour; a caller holding a bare `NamedTuple` wraps it, which shares the leaf arrays. Compat is
-  `NeuralNetworkParameters = "0.3"`.
-
 ## [0.13.2]
 
 **The parameter-set seam moves here from `GeometricOptimizers`.** Three methods that package
@@ -66,6 +56,22 @@ plan — "no type piracy in the GML ecosystem" — of which this is three of eig
   answer is 11 — and, with `which`, that each method's module *is* the extension. That last one is
   the property the move was for: without it a method that drifted back downstream would still pass
   every behavioural test here.
+
+### Changed
+
+- **`ext/SimpleSolversNeuralNetworkParametersExt.jl` takes `NetworkParameters`.**
+  `NeuralNetworkParameters` 0.3.0 removes `ParameterSet`, the union these three methods were written
+  on. `GradientAutodiff(F, ps)`, `GradientFunction(F, ∇F!, ps)` and `alloc_h(ps)` are unchanged in
+  behaviour; a caller holding a bare `NamedTuple` wraps it, which shares the leaf arrays. Compat is
+  `NeuralNetworkParameters = "0.3"`.
+
+- **The tests were narrowed with the methods.** `test/network_parameters_tests.jl` had arrived with
+  the extension, when the three methods took `ParameterSet`, and kept driving the bare-`NamedTuple`
+  path after they stopped accepting one — so `GradientAutodiff(F, nt)` and `alloc_h(nt)` were a
+  `MethodError` and the suite could not pass. Registry-blocked CI is why nothing said so: with
+  `Unsatisfiable requirements` failing at `buildpkg`, a real test failure and a resolver failure are
+  the same red X. Those cases are `@test_throws MethodError` now, which states the narrowing rather
+  than contradicting it, beside a case showing that `NetworkParameters(nt)` shares the leaf arrays.
 
 ## [0.13.1]
 
