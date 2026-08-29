@@ -20,12 +20,13 @@ jobs:
         # longer there and fails with a 404 rather than with anything about the package it wanted.
         # `texlive-xetex` pulls in `openjdk-21-jre-headless`, which is what went stale here.
         #
-        # `-y` because these run unattended, and `--no-install-recommends` to skip the several hundred
-        # megabytes of recommended fonts and documentation that none of the tikz images need.
+        # `-y` because these run unattended. **Not** `--no-install-recommends`: `imagemagick` only
+        # *recommends* `ghostscript`, and ghostscript is what lets `convert` read a PDF at all -- the
+        # `docs/src/trust_region` Makefile converts `pdflatex` output to PNG, and without it `convert`
+        # exits with `no images defined` rather than with anything about a missing dependency.
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            imagemagick poppler-utils texlive-xetex texlive-science
+          sudo apt-get install -y imagemagick poppler-utils texlive-xetex texlive-science
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1"
