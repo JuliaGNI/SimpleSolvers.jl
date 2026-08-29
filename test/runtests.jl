@@ -21,6 +21,9 @@ end
 @safetestset "Nonlinear Problems                                                              " begin
     include("nonlinear_problem_tests.jl")
 end
+@safetestset "Neural Network Parameters                                                       " begin
+    include("network_parameters_tests.jl")
+end
 @safetestset "Hessians                                                                        " begin
     include("hessian_tests.jl")
 end
