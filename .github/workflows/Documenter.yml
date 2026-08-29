@@ -14,11 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Install packages for generating tikz images
+        # `apt-get update` first, and one `install` rather than four. Without the update the runner
+        # image's package lists name whatever versions were current when it was built, and the archive
+        # has since superseded some of them -- so `apt-get install` resolves a version that is no
+        # longer there and fails with a 404 rather than with anything about the package it wanted.
+        # `texlive-xetex` pulls in `openjdk-21-jre-headless`, which is what went stale here.
+        #
+        # `-y` because these run unattended, and `--no-install-recommends` to skip the several hundred
+        # megabytes of recommended fonts and documentation that none of the tikz images need.
         run: |
-          sudo apt-get install imagemagick
-          sudo apt-get install poppler-utils
-          sudo apt-get install texlive-xetex
-          sudo apt-get install texlive-science
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            imagemagick poppler-utils texlive-xetex texlive-science
       - uses: julia-actions/setup-julia@v3
         with:
           version: "1"
