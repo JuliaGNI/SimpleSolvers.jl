@@ -24,7 +24,8 @@ Derived from [`AbstractNonlinearSolverCache`](@ref). Used in [`NonlinearSolver`]
     (see [`linesearch_problem`](@ref)); it does **not** overwrite `x`, `y` or `j`.
 
 """
-struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNonlinearSolverCache{T}
+struct NonlinearSolverCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}} <:
+       AbstractNonlinearSolverCache{T}
     x::AT
     Δx::AT
 
@@ -41,9 +42,11 @@ struct NonlinearSolverCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: Ab
     # fills the Jacobian with `NaN`s, so keeping the caller's array would destroy the values
     # in the prototype they passed and make two solvers built from one prototype share a
     # Jacobian.
-    function NonlinearSolverCache(x::AT, y::AT, jprototype::AbstractMatrix{T}=alloc_j(x, y)) where {T,AT<:AbstractArray{T}}
+    function NonlinearSolverCache(x::AT,
+            y::AT,
+            jprototype::AbstractMatrix{T} = alloc_j(x, y)) where {T, AT <: AbstractArray{T}}
         j = copy(jprototype)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(y), zero(y), j)
+        c = new{T, AT, typeof(j)}(zero(x), zero(x), zero(y), zero(y), j)
         initialize!(c, fill!(similar(x), NaN))
         c
     end

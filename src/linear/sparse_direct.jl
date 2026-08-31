@@ -23,15 +23,16 @@ Measured on a periodic banded matrix at `n = 384`: [`UmfpackLU`](@ref) allocates
 refactorization but **0 B** per [`ldiv!`](@ref); [`SparspakLU`](@ref) allocates ~11 kB per
 refactorization and ~10 kB per [`ldiv!`](@ref).
 """
-mutable struct SparseFactorizationCache{T,FT} <: LinearSolverCache{T}
+mutable struct SparseFactorizationCache{T, FT} <: LinearSolverCache{T}
     F::FT
     n::Int
     info::Int
     factorized::Bool
 end
 
-SparseFactorizationCache{T}(F::FT, n::Integer) where {T,FT} =
-    SparseFactorizationCache{T,FT}(F, Int(n), 0, false)
+function SparseFactorizationCache{T}(F::FT, n::Integer) where {T, FT}
+    SparseFactorizationCache{T, FT}(F, Int(n), 0, false)
+end
 
 """
     checkfactorized(lsolver::LinearSolver{T,<:SparseDirectMethod})
@@ -40,7 +41,7 @@ Throw an `ArgumentError` if [`factorize!`](@ref) has not been called on `lsolver
 
 The [`SparseDirectMethod`](@ref) counterpart of the [`PivotedLUMethod`](@ref) guard.
 """
-function checkfactorized(lsolver::LinearSolver{T,LSM}) where {T,LSM<:SparseDirectMethod}
+function checkfactorized(lsolver::LinearSolver{T, LSM}) where {T, LSM <: SparseDirectMethod}
     cache(lsolver).factorized || throw(ArgumentError(
         "the $(nameof(LSM)) solver has not been factorized yet; call factorize! before ldiv!/solve!."))
     nothing
@@ -58,7 +59,7 @@ end
     when the factorization is *used*, so this returns `0` until a [`ldiv!`](@ref) has failed.
     See the [`SparspakLU`](@ref) docstring.
 """
-function singular_index(lsolver::LinearSolver{T,LSM}) where {T,LSM<:SparseDirectMethod}
+function singular_index(lsolver::LinearSolver{T, LSM}) where {T, LSM <: SparseDirectMethod}
     checkfactorized(lsolver)
     cache(lsolver).info
 end
@@ -89,7 +90,8 @@ The pattern itself is checked by the backend, which is where the useful error li
 told the pattern may not change, because the ordering and symbolic factorization the cache
 holds were computed for one.
 """
-function checkpattern(lsolver::LinearSolver{T,LSM}, A::AbstractMatrix) where {T,LSM<:SparseDirectMethod}
+function checkpattern(lsolver::LinearSolver{T, LSM}, A::AbstractMatrix) where {
+        T, LSM <: SparseDirectMethod}
     n = checksparse(method(lsolver), A)
     n == cache(lsolver).n || throw(DimensionMismatch(
         "the matrix to factorize is $(n)×$(n), but the $(nameof(LSM)) cache was built for " *
@@ -98,17 +100,20 @@ function checkpattern(lsolver::LinearSolver{T,LSM}, A::AbstractMatrix) where {T,
     nothing
 end
 
-factorize!(lsolver::LinearSolver{T,LSM}, ls::LinearProblem{T}) where {T,LSM<:SparseDirectMethod} =
+function factorize!(lsolver::LinearSolver{T, LSM}, ls::LinearProblem{T}) where {
+        T, LSM <: SparseDirectMethod}
     factorize!(lsolver, matrix(ls))
+end
 
 # The one-argument form has nothing to factorize: unlike `PivotedLUCache`, this cache holds no
 # copy of the matrix (see its docstring), so there is no "whatever the cache already holds".
-function factorize!(lsolver::LinearSolver{T,LSM}) where {T,LSM<:SparseDirectMethod}
+function factorize!(lsolver::LinearSolver{T, LSM}) where {T, LSM <: SparseDirectMethod}
     error("$(nameof(LSM)) has no single-argument factorize!: the cache holds a factorization, " *
           "not a copy of the matrix. Call factorize!(lsolver, A).")
 end
 
-function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LSM}, b::AbstractVector{T}) where {T,LSM<:SparseDirectMethod}
+function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LSM},
+        b::AbstractVector{T}) where {T, LSM <: SparseDirectMethod}
     c = cache(lsolver)
     checkfactorized(lsolver)
     @assert axes(x, 1) == axes(b, 1) == Base.OneTo(c.n)
@@ -130,23 +135,26 @@ which is why this is not shared. See [`singular_index`](@ref).
 """
 function _sparse_ldiv! end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LSM}, ls::LinearProblem) where {T,LSM<:SparseDirectMethod}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LSM},
+        ls::LinearProblem) where {T, LSM <: SparseDirectMethod}
     factorize!(lsolver, matrix(ls))
     ldiv!(solution, lsolver, rhs(ls))
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LSM}, A::AbstractMatrix, b::AbstractVector) where {T,LSM<:SparseDirectMethod}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LSM},
+        A::AbstractMatrix, b::AbstractVector) where {T, LSM <: SparseDirectMethod}
     factorize!(lsolver, A)
     ldiv!(solution, lsolver, b)
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LSM}, b::AbstractVector) where {T,LSM<:SparseDirectMethod}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LSM},
+        b::AbstractVector) where {T, LSM <: SparseDirectMethod}
     ldiv!(solution, lsolver, b)
 end
 
-function solve!(lsolver::LinearSolver{T,LSM}, args...) where {T,LSM<:SparseDirectMethod}
+function solve!(lsolver::LinearSolver{T, LSM}, args...) where {T, LSM <: SparseDirectMethod}
     x = fill(_nan(T), cache(lsolver).n)
     solve!(x, lsolver, args...)
     x
@@ -168,5 +176,6 @@ function solve(method::SparseDirectMethod, ls::LinearProblem)
     solve!(lsolver, ls)
 end
 
-solve(method::SparseDirectMethod, A::AbstractMatrix, b::AbstractVector) =
+function solve(method::SparseDirectMethod, A::AbstractMatrix, b::AbstractVector)
     solve(method, LinearProblem(A, b))
+end

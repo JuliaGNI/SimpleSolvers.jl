@@ -5,17 +5,26 @@ See [`PicardSolver`](@ref).
 """
 struct Picard <: NonlinearSolverMethod end
 
-const PicardSolver{T} = NonlinearSolver{T,Picard}
+const PicardSolver{T} = NonlinearSolver{T, Picard}
 
-function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT, config::Options{T}; jacobian) where {T,AT<:AbstractVector{T},NLST,LiSeT<:Linesearch{T},CT}
-    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch, cache, config; jacobian=jacobian, method=Picard())
+function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT, config::Options{T};
+        jacobian) where {T, AT <: AbstractVector{T}, NLST, LiSeT <: Linesearch{T}, CT}
+    NonlinearSolver(x, nlp, NoLinearProblem(), NoLinearSolver(), linesearch,
+        cache, config; jacobian = jacobian, method = Picard())
 end
 
 # See the corresponding `NewtonSolver` method: the line search is rebuilt on the solver's
 # `Options` so that solver and line search cannot be configured inconsistently.
-function PicardSolver(x::AT, nlp::NLST, linesearch::LiSeT, cache::CT; jacobian, options_kwargs...) where {T,AT<:AbstractVector{T},NLST,LiSeT<:Linesearch{T},CT}
+function PicardSolver(x::AT,
+        nlp::NLST,
+        linesearch::LiSeT,
+        cache::CT;
+        jacobian,
+        options_kwargs...) where {
+        T, AT <: AbstractVector{T}, NLST, LiSeT <: Linesearch{T}, CT}
     config = Options(T; options_kwargs...)
-    PicardSolver(x, nlp, with_config(linesearch, config), cache, config; jacobian=jacobian)
+    PicardSolver(
+        x, nlp, with_config(linesearch, config), cache, config; jacobian = jacobian)
 end
 
 """
@@ -54,7 +63,8 @@ solve!(x, s, state)
  0.0
 ```
 """
-function PicardSolver(x::AT, F::Callable, y::AT; (DF!)=missing, kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, F::Callable, y::AT; (DF!) = missing,
+        kwargs...) where {T, AT <: AbstractVector{T}}
     PicardSolver(x, NonlinearProblem(F, DF!, x, y), y; kwargs...)
 end
 
@@ -69,7 +79,9 @@ for the rôle of `y`; as above, no `linesearch` keyword is accepted.
 - `jacobian`: see [`resolve_jacobian`](@ref),
 - `options_kwargs`: see [`Options`](@ref).
 """
-function PicardSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T}=zero(x); jacobian=missing, options_kwargs...) where {T}
+function PicardSolver(
+        x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVector{T} = zero(x);
+        jacobian = missing, options_kwargs...) where {T}
     config = Options(T; options_kwargs...)
     jacobian = resolve_jacobian(nlp.F, nlp.J, jacobian, x, y)
     cache = NonlinearSolverCache(x, y)
@@ -78,10 +90,11 @@ function PicardSolver(x::AbstractVector{T}, nlp::NonlinearProblem, y::AbstractVe
     # `linesearch` keyword is deliberately not accepted — it would be silently
     # ignored (any stray keyword falls through to `Options` and errors there).
     ls = Linesearch(linesearch_problem(nlp, jacobian, cache), Static(one(T)), config)
-    PicardSolver(x, nlp, ls, cache, config; jacobian=jacobian)
+    PicardSolver(x, nlp, ls, cache, config; jacobian = jacobian)
 end
 
-function PicardSolver(x::AT, y::AT; F=missing, kwargs...) where {T,AT<:AbstractVector{T}}
+function PicardSolver(x::AT, y::AT; F = missing, kwargs...) where {
+        T, AT <: AbstractVector{T}}
     !ismissing(F) || error("You have to provide an F.")
     PicardSolver(x, F, y; kwargs...)
 end
@@ -99,7 +112,10 @@ end
 
 # The `iteration` and `stalled` arguments are part of the shared `direction!` interface; a
 # Picard step has no Jacobian to refactorize, so both are ignored.
-direction!(it::PicardSolver, x::AbstractVector, params, iteration; stalled::Bool=false) = direction!(it, x, params)
+function direction!(
+        it::PicardSolver, x::AbstractVector, params, iteration; stalled::Bool = false)
+    direction!(it, x, params)
+end
 
 "Backtracking shrink factor used by the [`PicardSolver`](@ref) residual safeguard."
 const DEFAULT_PICARD_BACKTRACKING_p = 0.5
@@ -125,11 +141,13 @@ step is taken and the convergence test — which requires a small
 *residual*, not merely a small step — correctly reports non-convergence instead of
 a false positive.
 """
-function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::NonlinearSolverState{T}, params) where {T}
+function solver_step!(x::AbstractVector{T}, s::PicardSolver{T},
+        state::NonlinearSolverState{T}, params) where {T}
     direction!(s, x, params, iteration_number(state))
     # The Picard direction *is* the residual, so this rejects a non-finite `F(x)` at the current
     # iterate. As in the generic step, damping cannot rescue a non-finite direction.
-    all(isfinite, direction(cache(s))) || throw(NonlinearSolverException("non-finite direction vector"))
+    all(isfinite, direction(cache(s))) ||
+        throw(NonlinearSolverException("non-finite direction vector"))
 
     # NaN recovery on the residual direction (mirrors the generic solver step); leaves
     # the α = 1 trial residual in `value(cache(s))`, reused by the safeguard below.
@@ -159,7 +177,8 @@ function solver_step!(x::AbstractVector{T}, s::PicardSolver{T}, state::Nonlinear
     # function has already established the direction. Leaving `x` where it was makes the step a
     # frozen one, which `stalled_step` already diagnoses — the same choice `DogLegSolver` makes
     # for a rejected trial on radius underflow.
-    (all(isfinite, solution(cache(s))) && all(isfinite, value(cache(s)))) && (x .= solution(cache(s)))
+    (all(isfinite, solution(cache(s))) && all(isfinite, value(cache(s)))) &&
+        (x .= solution(cache(s)))
 
     x
 end

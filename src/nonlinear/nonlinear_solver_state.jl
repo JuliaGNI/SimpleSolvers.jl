@@ -13,7 +13,8 @@ julia> state = NonlinearSolverState(zeros(3))
 NonlinearSolverState{Float64, Vector{Float64}, Vector{Float64}}(0, [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], [NaN, NaN, NaN], NaN, 0, false, NaN, 0, [0, 0, 0, 0, 0, 0])
 ```
 """
-mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T}} <: AbstractSolverState
+mutable struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVector{T}} <:
+               AbstractSolverState
     iterations::Int
 
     x::XT
@@ -22,28 +23,28 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
     ȳ::YT
 
     r₀::T   # the initial residual ‖F(x₀)‖, set by `initialize!`; reference scale
-            # for the relative-residual convergence test (`NaN` until initialized)
+    # for the relative-residual convergence test (`NaN` until initialized)
 
     stalls::Int      # number of *consecutive* stalled steps (a step that did not move the
-                     # iterate while the residual is not small); maintained by
-                     # `record_stall!`, consumed by `meets_stopping_criteria`
+    # iterate while the residual is not small); maintained by
+    # `record_stall!`, consumed by `meets_stopping_criteria`
     stallflag::Bool  # set by `flag_stall!` when the line search itself reported that the
-                     # merit cannot be decreased; OR-ed into the verdict of the next
-                     # `record_stall!`, which clears it again
+    # merit cannot be decreased; OR-ed into the verdict of the next
+    # `record_stall!`, which clears it again
 
     rf_ref::T                  # the residual as of the last iteration that counted as progress,
     iters_since_progress::Int  # and the number of iterations since; both maintained by
-                               # `record_progress!`, the latter read as
-                               # `iterations_since_progress` by the report and by `no_progress`.
-                               # The counter is *owned* rather than derived from `iterations` so
-                               # that, exactly like `stalls`, it stays at zero for an iteration
-                               # that never records.
+    # `record_progress!`, the latter read as
+    # `iterations_since_progress` by the report and by `no_progress`.
+    # The counter is *owned* rather than derived from `iterations` so
+    # that, exactly like `stalls`, it stays at zero for an iteration
+    # that never records.
 
-    ls_outcomes::MVector{NLINESEARCH_OUTCOMES,Int}  # how often each `LinesearchOutcome` was
-                               # reported during this solve, indexed by `Int(oc) + 1`; maintained
-                               # by `record_linesearch!` and read by `NonlinearSolverStatus`
+    ls_outcomes::MVector{NLINESEARCH_OUTCOMES, Int}  # how often each `LinesearchOutcome` was
+    # reported during this solve, indexed by `Int(oc) + 1`; maintained
+    # by `record_linesearch!` and read by `NonlinearSolverStatus`
 
-    function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T}=X) where {T}
+    function NonlinearSolverState(X::AbstractVector{T}, Y::AbstractVector{T} = X) where {T}
         x = zero(X)
         x̄ = zero(X)
         y = zero(Y)
@@ -54,8 +55,8 @@ mutable struct NonlinearSolverState{T,XT<:AbstractVector{T},YT<:AbstractVector{T
         y .= T(NaN)
         ȳ .= T(NaN)
 
-        new{T,typeof(x),typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0,
-            zeros(MVector{NLINESEARCH_OUTCOMES,Int}))
+        new{T, typeof(x), typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0,
+            zeros(MVector{NLINESEARCH_OUTCOMES, Int}))
     end
 end
 
@@ -91,7 +92,7 @@ function increase_iteration_number!(state::NonlinearSolverState)
     state.iterations += 1
 end
 
-function NonlinearSolverState{T}(n::Integer, m::Integer=n) where {T}
+function NonlinearSolverState{T}(n::Integer, m::Integer = n) where {T}
     x = zeros(T, n)
     y = zeros(T, m)
     NonlinearSolverState(x, y)
@@ -225,8 +226,9 @@ end
 The number of steps in this solve whose line search reported a failure, i.e. the tally of
 [`linesearch_outcomes`](@ref) summed over the outcomes that are not [`isbenign`](@ref).
 """
-linesearch_failures(state::NonlinearSolverState) =
+function linesearch_failures(state::NonlinearSolverState)
     sum(oc -> isbenign(oc) ? 0 : state.ls_outcomes[linesearch_index(oc)], instances(LinesearchOutcome))
+end
 
 """
     flag_stall!(state)

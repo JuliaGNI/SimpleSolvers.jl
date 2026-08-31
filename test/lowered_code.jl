@@ -5,9 +5,10 @@
 # in `Base.code_lowered` and neither depends on how the session was started — unlike a byte count,
 # which `--check-bounds=yes` changes completely (see `AS_A_CALLER_COMPILES_IT` below).
 
-refs_global(e, mod::Module, name::Union{Symbol,Nothing}=nothing) =
+function refs_global(e, mod::Module, name::Union{Symbol, Nothing} = nothing)
     e isa GlobalRef ? (e.mod === mod && (isnothing(name) || e.name === name)) :
     e isa Expr ? any(a -> refs_global(a, mod, name), e.args) : false
+end
 
 # `Base.code_lowered(f)` returns one `CodeInfo` per method, so functions with several methods or with
 # default arguments are covered without naming their signatures.
@@ -75,4 +76,5 @@ Code coverage turns out not to matter, but it is excluded too, since it perturbs
 optimisations. The structural assertions above hold either way; the byte counts guarded by this are
 what a developer sees on a plain `Pkg.test()`.
 """
-const AS_A_CALLER_COMPILES_IT = Base.JLOptions().check_bounds == 0 && Base.JLOptions().code_coverage == 0
+const AS_A_CALLER_COMPILES_IT = Base.JLOptions().check_bounds == 0 &&
+                                Base.JLOptions().code_coverage == 0

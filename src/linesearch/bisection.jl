@@ -33,7 +33,8 @@ and then repeat:
 & \text{end}
 \end{aligned}
 ```
-So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated if `config.linesearch_max_iterations` is reached (by default """ * """$(linesearch_iterations(Float64)) for `Float64` in the [`Options`](@ref) struct, see [`linesearch_iterations`](@ref)); in that case a warning is emitted (at `verbosity ≥ 1`) and the best estimate found so far is returned.
+So the algorithm checks in each step where the sign change occurred and moves the ``\alpha_0`` or ``\alpha_1`` accordingly. The loop is terminated if `config.linesearch_max_iterations` is reached (by default """ *
+     """$(linesearch_iterations(Float64)) for `Float64` in the [`Options`](@ref) struct, see [`linesearch_iterations`](@ref)); in that case a warning is emitted (at `verbosity ≥ 1`) and the best estimate found so far is returned.
 
 !!! warning
     The obvious danger with using bisections is that the supplied interval can have multiple roots (or no roots). One should be careful to avoid this when fixing the interval.
@@ -46,7 +47,8 @@ So the algorithm checks in each step where the sign change occurred and moves th
     `_bisection_core` distinguishes it from a located root with
     `BISECTION_NOBRACKET`, and `bisection` warns accordingly.
 """
-function bisection(f::Callable, αmin::T, αmax::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
+function bisection(f::Callable, αmin::T, αmax::T, params = NullParameters(),
+        config::Options = Options(float(T))) where {T <: Number}
     α, outcome, _ = _bisection_core(f, αmin, αmax, params, config)
     # Each failure gets the wording that fits it. The two are not interchangeable: a spent budget
     # says "the interval does contain a root, I did not narrow it far enough", a failed bracket says
@@ -59,13 +61,15 @@ end
 # Behind barriers because `bisection` and `_bisection_core` are specialized on the merit closure `f`
 # — see `report_linesearch_status`.
 @noinline function report_bisection_nonconvergence(α::Number, config::Options)
-    verbosity(config) ≥ 1 && @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α)."
+    verbosity(config) ≥ 1 &&
+        @warn "Bisection did not converge within $(config.linesearch_max_iterations) iterations; returning best estimate α = $(α)."
     nothing
 end
 
 @noinline function report_bisection_nobracket(αmin::Number, αmax::Number, α::Number, config::Options)
     lo, hi = minmax(αmin, αmax)
-    verbosity(config) ≥ 1 && @warn "Bisection bracket [$(lo), $(hi)] shows no sign change, so it contains no root of odd multiplicity and no bisection can locate one in it. Returning the endpoint with the smallest |f|, α = $(α)."
+    verbosity(config) ≥ 1 &&
+        @warn "Bisection bracket [$(lo), $(hi)] shows no sign change, so it contains no root of odd multiplicity and no bisection can locate one in it. Returning the endpoint with the smallest |f|, α = $(α)."
     nothing
 end
 
@@ -114,7 +118,8 @@ end
 # `converged`: folded into it, the endpoint with the smallest |f| would be returned and *claimed* as
 # a root, and that claim propagates into `LINESEARCH_FLOOR`, which asserts that no step can decrease
 # the merit; a failed bracket establishes nothing of the kind. See `solve_with_status` below.
-function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Options) where {T<:Number}
+function _bisection_core(
+        f::Callable, αmin::T, αmax::T, params, config::Options) where {T <: Number}
     n = 0
     R = float(T)
     α₀ = R(αmin)
@@ -146,7 +151,7 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
         n += 1
 
         # break if y is close to zero.
-        if ≈(y, zero(y); atol=config.f_abstol)
+        if ≈(y, zero(y); atol = config.f_abstol)
             outcome = BISECTION_CONVERGED
             break
         end
@@ -159,7 +164,7 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
             # (no need to track y₁: the loop's sign test uses only y₀.)
         end
 
-        if isapprox(α₁ - α₀, zero(α), atol=config.x_suctol * max(abs(α₀), abs(α₁)))
+        if isapprox(α₁ - α₀, zero(α), atol = config.x_suctol * max(abs(α₀), abs(α₁)))
             outcome = BISECTION_CONVERGED
             break
         end
@@ -168,14 +173,17 @@ function _bisection_core(f::Callable, αmin::T, αmax::T, params, config::Option
     α, outcome, n, ylo
 end
 
-function bisection(f::Callable, α::T, params=NullParameters(), config::Options=Options(float(T))) where {T<:Number}
+function bisection(f::Callable, α::T, params = NullParameters(),
+        config::Options = Options(float(T))) where {T <: Number}
     R = float(T)
     lo, hi = bracket_root(β -> f(β, params), R(α))
     bisection(f, lo, hi, params, config)
 end
 
 # Disambiguates `(f, ::T, ::T, ::Options)` in favor of the interval form with default `params`.
-bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T<:Number} = bisection(f, αmin, αmax, NullParameters(), config)
+function bisection(f::Callable, αmin::T, αmax::T, config::Options) where {T <: Number}
+    bisection(f, αmin, αmax, NullParameters(), config)
+end
 
 """
     Bisection <: LinesearchMethod
@@ -250,22 +258,24 @@ from a bisection that actually converged.
 struct Bisection{T} <: LinesearchMethod{T}
     αmax::T
 
-    function Bisection{T}(αmax::T=default_linesearch_αmax(T)) where {T}
+    function Bisection{T}(αmax::T = default_linesearch_αmax(T)) where {T}
         @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
         new{T}(αmax)
     end
 end
 
-Bisection(::Type{T}=Float64; αmax=default_linesearch_αmax(T)) where {T} = Bisection{T}(T(αmax))
+function Bisection(::Type{T} = Float64; αmax = default_linesearch_αmax(T)) where {T}
+    Bisection{T}(T(αmax))
+end
 Bisection(::Type{T}, ::SolverMethod) where {T} = Bisection(T)
 
 method_αmax(m::Bisection) = m.αmax
 
-
 # Bisect the derivative on a known bracket. Private: `solve`/`solve_with_status` is the public
 # entry point (this used to be a `solve` overload, which made the public name ambiguous).
-_bisect_on(ls::Linesearch{T,<:Bisection}, α₀::T, α₁::T, params) where {T} =
+function _bisect_on(ls::Linesearch{T, <:Bisection}, α₀::T, α₁::T, params) where {T}
     _bisection_core(problem(ls).D, α₀, α₁, params, config(ls))
+end
 
 @doc raw"""
     _bisect_for_minimum(ls, lo, hi, params)
@@ -300,7 +310,7 @@ not because ``\varphi'`` is inconsistent with ``\varphi``.
 
 Private; [`solve_with_status`](@ref) is the public entry point.
 """
-function _bisect_for_minimum(ls::Linesearch{T,<:Bisection}, lo::T, hi::T, params) where {T}
+function _bisect_for_minimum(ls::Linesearch{T, <:Bisection}, lo::T, hi::T, params) where {T}
     αres, bres, n, ylo = _bisect_on(ls, lo, hi, params)
     # `lo ≤ 0` covers the intervals that are anchored at (or left of) zero already: the overshoot
     # branch bisects `[0, α]`, whose `ylo` *is* the `φ′(0) < 0` the anchor check established, and a
@@ -317,7 +327,7 @@ Bisect the derivative of the merit to approximate the line minimiser and return 
 [`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
 [`Bisection`](@ref).
 """
-function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullParameters()) where {T}
+function solve_with_status(ls::Linesearch{T, <:Bisection}, α::T, params = NullParameters()) where {T}
     prob = problem(ls)
     # Before any merit evaluation, so that an unusable caller-supplied ceiling costs none.
     αmax = linesearch_αmax(method(ls), params)
@@ -345,7 +355,9 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # α is on the descent side: grow the bracket from 0, seeding the step scale from |α|
         # (clamped) instead of the fixed default.
         s = clamp(abs(α), T(DEFAULT_BRACKETING_s), one(T))
-        lo, hi, nb, bstatus = _bracket_minimum_core(prob, params, zero(T), s, T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        lo, hi, nb, bstatus = _bracket_minimum_core(
+            prob, params, zero(T), s, T(DEFAULT_BRACKETING_k),
+            DEFAULT_BRACKETING_nmax, αmax)
         # The bracket ends at the ceiling with the merit still falling across it, so the minimiser
         # lies beyond the largest step the caller allows and that step is the best admissible one.
         # There is nothing to bisect: the derivative keeps its sign on `[0, αmax]` by construction,
@@ -362,7 +374,8 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # message — and for a merit that descends forever it is exactly wrong. (The `check_anchor`
         # returns do fill `φ` with `φ₀`, deliberately: the whole point of an ascent or stationary
         # anchor is that no trial step is worth an evaluation.)
-        bstatus === :unbracketable && return LinesearchStatus{T}(α, LINESEARCH_EXHAUSTED, nb + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
+        bstatus === :unbracketable && return LinesearchStatus{T}(
+            α, LINESEARCH_EXHAUSTED, nb + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
         # `_bisect_for_minimum` and not `_bisect_on`: this bracket is the one that can be oriented
         # for a *maximum*, because `bracket_minimum` samples φ and never φ′.
         # The bracketing's evaluations are this search's own, so they are carried into `trials`.
@@ -374,7 +387,9 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # is *only* the budget case: a failed bracket carries on below, because the endpoint it
     # returns may still improve the merit and there is no reason to throw that away.
     bres === BISECTION_EXHAUSTED &&
-        return LinesearchStatus{T}(αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n + 1, φ₀, d₀, value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
+        return LinesearchStatus{T}(
+            αres > zero(T) ? αres : α, LINESEARCH_EXHAUSTED, n + 1, φ₀, d₀,
+            value(prob, αres > zero(T) ? αres : α, params), τ, zero(T))
 
     # `bracket_minimum` flips direction when the merit rises to the right of its start, so the
     # bracket — and hence the bisected result — can lie left of zero. A negative step is not a
@@ -385,7 +400,9 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
         # bracket truncated at the ceiling as an ordinary one, so this retry would bisect an
         # interval over which φ′ keeps its sign — the one path in this method that could not reach
         # `capped_status`.
-        rlo, rhi, nrb, rstatus = _bracket_minimum_core(prob, params, zero(T), T(DEFAULT_BRACKETING_s), T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
+        rlo, rhi, nrb, rstatus = _bracket_minimum_core(
+            prob, params, zero(T), T(DEFAULT_BRACKETING_s),
+            T(DEFAULT_BRACKETING_k), DEFAULT_BRACKETING_nmax, αmax)
         rstatus === :capped && return capped_status(prob, params, αmax, φ₀, d₀, τ, n + nrb)
         n += nrb
         if rstatus !== :unbracketable
@@ -417,7 +434,8 @@ function solve_with_status(ls::Linesearch{T,<:Bisection}, α::T, params=NullPara
     # anchor *does* descend. As on the no-bracket path above, `φ` is the merit at the step handed
     # back and not `φ₀`: the caller's `α` is what is returned here, and nothing has measured the
     # merit there.
-    αres > zero(T) || return LinesearchStatus{T}(α, nodecrease, n + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
+    αres > zero(T) || return LinesearchStatus{T}(
+        α, nodecrease, n + 1, φ₀, d₀, value(prob, α, params), τ, zero(T))
 
     # The bracketing stops at the ceiling and bisection only narrows the interval it is given, so
     # this cannot bind; it is here so that the α ≤ αmax half of the contract is guaranteed by this
@@ -437,4 +455,6 @@ function change_precision(::Type{T}, method::Bisection) where {T}
     Bisection{T}(convert_αmax(T, method.αmax))
 end
 
-Base.isapprox(b₁::Bisection{T}, b₂::Bisection{T}; kwargs...) where {T} = isapprox(b₁.αmax, b₂.αmax; kwargs...)
+function Base.isapprox(b₁::Bisection{T}, b₂::Bisection{T}; kwargs...) where {T}
+    isapprox(b₁.αmax, b₂.αmax; kwargs...)
+end

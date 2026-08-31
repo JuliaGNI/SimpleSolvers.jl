@@ -3,7 +3,8 @@
 
 Like [`NonlinearSolverCache`](@ref) but storing two directions (callable with [`direction₁`](@ref) and [`direction₂`](@ref)).
 """
-struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNonlinearSolverCache{T}
+struct DogLegCache{T, AT <: AbstractVector{T}, JT <: AbstractMatrix{T}} <:
+       AbstractNonlinearSolverCache{T}
     x::AT
     Δx₁::AT
     Δx₂::AT
@@ -23,9 +24,13 @@ struct DogLegCache{T,AT<:AbstractVector{T},JT<:AbstractMatrix{T}} <: AbstractNon
     Δ::Base.RefValue{T}
 
     # `j` is a prototype, and copied; see the `NonlinearSolverCache` counterpart for both.
-    function DogLegCache(x::AT, y::AT, jprototype::AbstractMatrix{T}=alloc_j(x, y)) where {T,AT<:AbstractVector{T}}
+    function DogLegCache(x::AT,
+            y::AT,
+            jprototype::AbstractMatrix{T} = alloc_j(x, y)) where {
+            T, AT <: AbstractVector{T}}
         j = copy(jprototype)
-        c = new{T,AT,typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y), zero(y), zero(y), zero(y), j, Ref(T(DOGLEG_Δ_INITIAL)))
+        c = new{T, AT, typeof(j)}(zero(x), zero(x), zero(x), zero(x), zero(x), zero(y),
+            zero(y), zero(y), zero(y), j, Ref(T(DOGLEG_Δ_INITIAL)))
         initialize!(c, fill!(similar(x), NaN))
         c
     end

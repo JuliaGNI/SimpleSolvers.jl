@@ -28,13 +28,11 @@ const ∇PUS = GradientFunction{T}(F, ∇F!, n)
 @test typeof(∇PFD) <: GradientFiniteDifferences
 @test typeof(∇PUS) <: GradientFunction
 
-
 function test_grad(g1, g2, atol)
     for i in eachindex(g1, g2)
         @test g1[i] ≈ g2[i] atol = atol
     end
 end
-
 
 gad = zero(g)
 gfd = zero(g)
@@ -110,7 +108,7 @@ end
 @testset "Gradient functor fallback removed" begin
     struct UnimplementedGradient{S} <: SimpleSolvers.Gradient{S} end
     ug = UnimplementedGradient{Float64}()
-    @test !hasmethod(ug, Tuple{Vector{Float64},Vector{Float64}})
+    @test !hasmethod(ug, Tuple{Vector{Float64}, Vector{Float64}})
     @test_throws MethodError ug(zeros(2), zeros(2))
 end
 
@@ -123,11 +121,11 @@ end
     @test occursin("minimum(|Gradient|): 1.0", out)
     @test occursin("maximum(|Gradient|): 3.0", out)
     # the digits keyword is honoured
-    out3 = replace(sprint(io -> check_gradient(io, gvec; digits=3)), r"[ \t]+" => " ")
+    out3 = replace(sprint(io -> check_gradient(io, gvec; digits = 3)), r"[ \t]+" => " ")
     @test occursin("norm(Gradient): 3.742", out3)
 
     # the convenience form without `io` writes to stdout and forwards keywords
     # (called silently; content is covered by the `sprint` checks above)
     @test redirect_stdout(() -> check_gradient(gvec), devnull) === nothing
-    @test redirect_stdout(() -> check_gradient(gvec; digits=3), devnull) === nothing
+    @test redirect_stdout(() -> check_gradient(gvec; digits = 3), devnull) === nothing
 end

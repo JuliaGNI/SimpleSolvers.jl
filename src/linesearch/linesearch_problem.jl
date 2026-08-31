@@ -22,13 +22,12 @@ ls_obj = LinesearchProblem{typeof(x₀)}(_f, _d)
 LinesearchProblem{Float64, typeof(_f), typeof(_d)}(_f, _d)
 ```
 """
-struct LinesearchProblem{T,TF,TD} <: AbstractProblem
+struct LinesearchProblem{T, TF, TD} <: AbstractProblem
     F::TF
     D::TD
 
-    LinesearchProblem{T}(f, d) where {T<:Number} = new{T,typeof(f),typeof(d)}(f, d)
+    LinesearchProblem{T}(f, d) where {T <: Number} = new{T, typeof(f), typeof(d)}(f, d)
 end
-
 
 value(problem::LinesearchProblem, x::Number, params) = problem.F(x, params)
 derivative(problem::LinesearchProblem, x::Number, params) = problem.D(x, params)

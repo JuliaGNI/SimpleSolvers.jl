@@ -93,6 +93,6 @@ function _getrf! end
 # `getrf!` rather than `lu!`: it takes the pre-allocated `ipiv`, and without the `LU` object
 # `lu!` would allocate to wrap the result. See `PivotedLUCache`.
 function _getrf!(::LapackLU, c::PivotedLUCache)
-    _, _, c.info = LinearAlgebra.LAPACK.getrf!(c.A, c.ipiv; check=false)
+    _, _, c.info = LinearAlgebra.LAPACK.getrf!(c.A, c.ipiv; check = false)
     c
 end

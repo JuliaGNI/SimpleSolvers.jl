@@ -162,9 +162,9 @@ misuse of `Base.convert` (which was ambiguous with `Base` and violated the
 `convert` contract by returning a differently-typed object).
 """
 change_precision(::Type{T}, method::LinesearchMethod{T}) where {T} = method
-change_precision(::Type, method::LinesearchMethod) =
+function change_precision(::Type, method::LinesearchMethod)
     error("change_precision not implemented for $(typeof(method)).")
-
+end
 
 """
     Linesearch
@@ -187,18 +187,24 @@ Linesearch(problem, method=Static(); kwargs...)
 Linesearch(problem, method, config::Options)
 ```
 """
-struct Linesearch{T,MET<:LinesearchMethod{T},PT<:LinesearchProblem{T},OPT<:Options{T}}
+struct Linesearch{
+    T, MET <: LinesearchMethod{T}, PT <: LinesearchProblem{T}, OPT <: Options{T}}
     problem::PT
     method::MET
     config::OPT
-    Linesearch{T}(problem, method, config) where {T} = new{T,typeof(method),typeof(problem),typeof(config)}(problem, method, config)
+    function Linesearch{T}(problem, method, config) where {T}
+        new{T, typeof(method), typeof(problem), typeof(config)}(problem, method, config)
+    end
 end
 
-Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod=Static(); options_kwargs...) where {T} =
+function Linesearch(problem::LinesearchProblem{T},
+        method::LinesearchMethod = Static(); options_kwargs...) where {T}
     Linesearch{T}(problem, change_precision(T, method), Options(T; options_kwargs...))
+end
 
-Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Options{T}) where {T} =
+function Linesearch(problem::LinesearchProblem{T}, method::LinesearchMethod, config::Options{T}) where {T}
     Linesearch{T}(problem, change_precision(T, method), config)
+end
 
 @doc raw"""
     with_config(ls, config)
@@ -218,17 +224,16 @@ The `Options` element type is pinned to the `Linesearch` element type, so a mism
 `config` raises a `MethodError` rather than silently producing a broken object — the same
 guarantee the three-argument [`Linesearch`](@ref) constructor gives.
 """
-with_config(ls::Linesearch{T}, config::Options{T}) where {T} =
-    Linesearch(problem(ls), method(ls), config)
+with_config(ls::Linesearch{T}, config::Options{T}) where {T} = Linesearch(problem(ls), method(ls), config)
 
-function solve(prob::LinesearchProblem{T}, method::LinesearchMethod, α, params=NullParameters(), config::Options{T}=Options(T)) where {T}
+function solve(prob::LinesearchProblem{T}, method::LinesearchMethod, α,
+        params = NullParameters(), config::Options{T} = Options(T)) where {T}
     solve(Linesearch(prob, method, config), T(α), params)
 end
 
 problem(s::Linesearch) = s.problem
 config(s::Linesearch) = s.config
 method(s::Linesearch) = s.method
-
 
 """
     solve(linesearch, α, params=NullParameters())
@@ -259,7 +264,7 @@ construction rather than by convention.
 `α` is converted to the element type of the `Linesearch` here, as the problem-taking method
 above does, so `solve(ls, 1)` on a `Linesearch{Float64}` means what it looks like it means.
 """
-function solve(ls::Linesearch{T}, α, params=NullParameters()) where {T}
+function solve(ls::Linesearch{T}, α, params = NullParameters()) where {T}
     status = solve_with_status(ls, T(α), params)
     linesearch_warnings(status, ls, params)
     steplength(status)

@@ -21,7 +21,7 @@ julia> default_ϵ(Float32)
 0.0027621358f0
 ```
 """
-default_ϵ(::Type{T}) where {T<:Number} = 8sqrt(eps(T))
+default_ϵ(::Type{T}) where {T <: Number} = 8sqrt(eps(T))
 
 """
     Gradient
@@ -61,10 +61,10 @@ minimum(|Gradient|):          0.9
 maximum(|Gradient|):          3.0
 ```
 """
-function check_gradient(io::IO, g::AbstractVector; digits::Integer=5)
-    println(io, "norm(Gradient):               ", round(norm(g); digits=digits))
-    println(io, "minimum(|Gradient|):          ", round(minimum(abs, g); digits=digits))
-    println(io, "maximum(|Gradient|):          ", round(maximum(abs, g); digits=digits))
+function check_gradient(io::IO, g::AbstractVector; digits::Integer = 5)
+    println(io, "norm(Gradient):               ", round(norm(g); digits = digits))
+    println(io, "minimum(|Gradient|):          ", round(minimum(abs, g); digits = digits))
+    println(io, "maximum(|Gradient|):          ", round(maximum(abs, g); digits = digits))
     println(io)
 end
 
@@ -95,7 +95,7 @@ The functor does:
 grad(g, x) = grad.∇F!(g, x)
 ```
 """
-struct GradientFunction{T,FT<:Callable,GT<:Callable} <: Gradient{T}
+struct GradientFunction{T, FT <: Callable, GT <: Callable} <: Gradient{T}
     F::FT
     ∇F!::GT
 end
@@ -104,15 +104,18 @@ function GradientFunction(::Callable, ::AbstractArray)
     error("`GradientFunction` can only be called by providing a `Callable` and an `AbstractArray`.")
 end
 
-function GradientFunction{T}(F::TF, ∇F!::TG, ::Integer) where {T,TF<:Callable,TG<:Callable}
-    GradientFunction{T,TF,TG}(F, ∇F!)
+function GradientFunction{T}(F::TF, ∇F!::TG, ::Integer) where {
+        T, TF <: Callable, TG <: Callable}
+    GradientFunction{T, TF, TG}(F, ∇F!)
 end
 
 function GradientFunction(F::Callable, ∇F!::Callable, x::AbstractVector{T}) where {T}
     GradientFunction{T}(F, ∇F!, length(x))
 end
 
-(grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T} = grad.∇F!(g, x)
+function (grad::GradientFunction{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
+    grad.∇F!(g, x)
+end
 
 """
     GradientAutodiff <: Gradient
@@ -140,17 +143,18 @@ The functor does:
 grad(g, x) = ForwardDiff.gradient!(g, grad.F, x, grad.∇config)
 ```
 """
-struct GradientAutodiff{T,FT,∇T<:ForwardDiff.GradientConfig} <: Gradient{T}
+struct GradientAutodiff{T, FT, ∇T <: ForwardDiff.GradientConfig} <: Gradient{T}
     F::FT
     ∇config::∇T
 
-    function GradientAutodiff(F::FT, x::VT) where {T<:Number,FT<:Callable,VT<:AbstractVector{T}}
+    function GradientAutodiff(F::FT, x::VT) where {
+            T <: Number, FT <: Callable, VT <: AbstractVector{T}}
         ∇config = ForwardDiff.GradientConfig(F, x)
-        new{T,FT,typeof(∇config)}(F, ∇config)
+        new{T, FT, typeof(∇config)}(F, ∇config)
     end
 end
 
-function GradientAutodiff{T}(F::Callable, nx::Integer) where {T<:Number}
+function GradientAutodiff{T}(F::Callable, nx::Integer) where {T <: Number}
     GradientAutodiff(F, zeros(T, nx))
 end
 
@@ -170,7 +174,9 @@ by falling through -- and can take precedence over it with a method on that type
 rather than a `reshape`. This method carried the `Matrix` case there until 0.6.1, where it was type
 piracy: neither this function nor `Matrix` was that package's.
 """
-GradientAutodiff(F, x::AbstractMatrix) = GradientAutodiff(_x -> F(reshape(_x, size(x)...)), vec(x))
+function GradientAutodiff(F, x::AbstractMatrix)
+    GradientAutodiff(_x -> F(reshape(_x, size(x)...)), vec(x))
+end
 
 function (grad::GradientAutodiff{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}
     ForwardDiff.gradient!(g, grad.F, x, grad.∇config)
@@ -214,17 +220,17 @@ for j in eachindex(x,g)
 end
 ```
 """
-struct GradientFiniteDifferences{T,FT<:Callable} <: Gradient{T}
+struct GradientFiniteDifferences{T, FT <: Callable} <: Gradient{T}
     F::FT
     ϵ::T
     e::Vector{T}
     tx::Vector{T}
 end
 
-function GradientFiniteDifferences{T}(F::FT, nx::Integer; ϵ=default_ϵ(T)) where {T,FT}
+function GradientFiniteDifferences{T}(F::FT, nx::Integer; ϵ = default_ϵ(T)) where {T, FT}
     e = zeros(T, nx)
     tx = zeros(T, nx)
-    GradientFiniteDifferences{T,FT}(F, ϵ, e, tx)
+    GradientFiniteDifferences{T, FT}(F, ϵ, e, tx)
 end
 
 function (grad::GradientFiniteDifferences{T})(g::AbstractVector{T}, x::AbstractVector{T}) where {T}

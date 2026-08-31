@@ -4,12 +4,16 @@ using Test
 
 using LinearAlgebra: rmul!, ldiv!
 using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters
-using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache, linesearch_problem, direction, compute_new_iterate, compute_new_iterate!, direction!, nonlinearproblem, iteration_number
+using SimpleSolvers: factorize!, linearsolver, jacobian, jacobian!, cache,
+                     linesearch_problem, direction, compute_new_iterate,
+                     compute_new_iterate!, direction!, nonlinearproblem, iteration_number
 using SimpleSolvers: change_precision, bisection, bracket_root, triple_point_finder
 using SimpleSolvers: CurvatureCondition, SufficientDecreaseCondition
 using SimpleSolvers: issufficient, isfloor
-using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps, backtracking_αmin,
-    backtracking_interpolation, backtracking_extrapolation, with_config, problem, method, config
+using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps,
+                     backtracking_αmin,
+                     backtracking_interpolation, backtracking_extrapolation, with_config,
+                     problem, method, config
 
 include("lowered_code.jl")
 
@@ -43,27 +47,30 @@ end
 # implements `solve_with_status` and gets `solve` derived from it, and one that implements neither
 # is told which of the two it owes instead of recursing between the generic definitions.
 struct ToyLinesearch{T} <: LinesearchMethod{T} end
-ToyLinesearch(::Type{T}=Float64) where {T} = ToyLinesearch{T}()
-SimpleSolvers.solve_with_status(::Linesearch{T,<:ToyLinesearch}, α::T, params=SimpleSolvers.NullParameters()) where {T} =
-    LinesearchStatus{T}(T(0.25), LINESEARCH_EXHAUSTED, 1, one(T), -one(T), one(T), zero(T), zero(T))
+ToyLinesearch(::Type{T} = Float64) where {T} = ToyLinesearch{T}()
+function SimpleSolvers.solve_with_status(::Linesearch{T, <:ToyLinesearch}, α::T,
+        params = SimpleSolvers.NullParameters()) where {T}
+    LinesearchStatus{T}(
+        T(0.25), LINESEARCH_EXHAUSTED, 1, one(T), -one(T), one(T), zero(T), zero(T))
+end
 
 struct MuteLinesearch{T} <: LinesearchMethod{T} end
-MuteLinesearch(::Type{T}=Float64) where {T} = MuteLinesearch{T}()
+MuteLinesearch(::Type{T} = Float64) where {T} = MuteLinesearch{T}()
 
-function test_linesearch(method::LinesearchMethod, n::Integer=1)
+function test_linesearch(method::LinesearchMethod, n::Integer = 1)
     x₀ = -3.0
     x₁ = +3.0
     xₛ = 0.0
 
-    ls = Linesearch(make_linesearch_problem(x₀), method; x_abstol=zero(x₀))
+    ls = Linesearch(make_linesearch_problem(x₀), method; x_abstol = zero(x₀))
 
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ atol = ∛(2eps())
     @test compute_next_iterate(ls, x₀, n) ≈ xₛ atol = ∛(2eps())
 end
 
-
 @testset "$(rpad("Bracketing",80))" begin
-    @test bracket_minimum(x -> x^2, 0.0) == (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
+    @test bracket_minimum(x -> x^2, 0.0) ==
+          (-SimpleSolvers.DEFAULT_BRACKETING_s, +SimpleSolvers.DEFAULT_BRACKETING_s)
     @test bracket_minimum(x -> (x - 1)^2, 0.0) == (0.64, 2.56)
 
     # bracket_minimum must return an interval that actually contains
@@ -79,7 +86,7 @@ end
     # x₁ = x₀ + δ.
     x₀ = 0.0
     δ = 0.01
-    a, b, c = triple_point_finder(x -> (x - (x₀ + δ))^2, x₀; δ=δ)
+    a, b, c = triple_point_finder(x -> (x - (x₀ + δ))^2, x₀; δ = δ)
     @test a < b < c
     @test length(unique((a, b, c))) == 3
 
@@ -106,19 +113,14 @@ end
     @test solve(ls1, 0.0) == 1.0
     @test solve(ls2, 0.0) == 1.0
     @test solve(ls3, 0.0) == 0.8
-
 end
 
 @testset "$(rpad("Bisection", 80))" begin
-
     test_linesearch(Bisection(), 1)
-
 end
 
 @testset "$(rpad("Backtracking", 80))" begin
-
     test_linesearch(Backtracking(), 20)
-
 end
 
 @testset "$(rpad("Backtracking stall", 80))" begin
@@ -128,20 +130,20 @@ end
     # denormal α ≈ 9.3e-302.  The loop terminates on sufficient decrease
     # alone, so the step at α = 1 (which already decreases f) is accepted.
     prob = LinesearchProblem{Float64}((α, _) -> (α - 100.0)^2, (α, _) -> 2.0 * (α - 100.0))
-    ls = Linesearch(prob, Backtracking(); verbosity=0)
+    ls = Linesearch(prob, Backtracking(); verbosity = 0)
     α = solve(ls, 1.0)
     @test α ≥ 1e-10
     @test α ≈ 1.0
 
     # constructor input validation: 0 < p < 1 and 0 < c₁ < c₂ < 1
-    @test_throws AssertionError Backtracking(; p=1.5)
-    @test_throws AssertionError Backtracking(; p=0.0)
-    @test_throws AssertionError Backtracking(; c₁=0.5, c₂=0.1)  # c₁ < c₂ violated
-    @test_throws AssertionError Backtracking(; c₁=-1e-4)        # c₁ > 0 violated
-    @test_throws AssertionError Backtracking(; q=1.0)           # q > 1 violated
+    @test_throws AssertionError Backtracking(; p = 1.5)
+    @test_throws AssertionError Backtracking(; p = 0.0)
+    @test_throws AssertionError Backtracking(; c₁ = 0.5, c₂ = 0.1)  # c₁ < c₂ violated
+    @test_throws AssertionError Backtracking(; c₁ = -1e-4)        # c₁ > 0 violated
+    @test_throws AssertionError Backtracking(; q = 1.0)           # q > 1 violated
     # `expand` is the only way to switch the expansion phase off, so `nexpand = 0` — a second,
     # silent encoding of "disabled" — is rejected rather than accepted as a synonym.
-    @test_throws AssertionError Backtracking(; nexpand=0)
+    @test_throws AssertionError Backtracking(; nexpand = 0)
     @test Backtracking() isa Backtracking                       # defaults are valid
     @test !Backtracking().expand                                # ... and shrink-only
 
@@ -152,7 +154,7 @@ end
         @test occursin("shrinking only", shown)
         @test !occursin("q = ", shown)
     end
-    let shown = sprint(show, Backtracking(; expand=true, nexpand=2))
+    let shown = sprint(show, Backtracking(; expand = true, nexpand = 2))
         @test occursin("q = $(SimpleSolvers.DEFAULT_BACKTRACKING_q)", shown)
         @test occursin("2 trial(s)", shown)
         @test !occursin("shrinking only", shown)
@@ -166,7 +168,7 @@ end
     # caller's trial step is returned — never the α₀ = 0 anchor, which would freeze the outer
     # solver iterate (x .+= 0 .* d) and spin it to max_iterations.
     prob = LinesearchProblem{Float64}((α, _) -> α + 1.0, (α, _) -> 1.0)  # φ'(0) = 1 > 0
-    ls = Linesearch(prob, Backtracking(); verbosity=0)
+    ls = Linesearch(prob, Backtracking(); verbosity = 0)
     st = solve_with_status(ls, 0.7)
     @test outcome(st) == LINESEARCH_NO_DESCENT
     @test steplength(st) == 0.7   # the caller's step, not the α₀ = 0 anchor
@@ -174,7 +176,7 @@ end
     @test trials(st) == 0         # nothing beyond the anchor was evaluated
     @test solve(ls, 0.7) == steplength(st)
     # ... and it agrees with StrongWolfe, which has the same up-front descent check
-    @test solve(ls, 0.7) == solve(Linesearch(prob, StrongWolfe(); verbosity=0), 0.7)
+    @test solve(ls, 0.7) == solve(Linesearch(prob, StrongWolfe(); verbosity = 0), 0.7)
 
     # A stationary anchor (φ'(0) = 0, e.g. a vanishing Newton direction at an exact root) is
     # benign: it must not warn at the default verbosity, since it happens on the last
@@ -187,7 +189,8 @@ end
     # A merit whose slope contradicts its values (a stale or regularized Jacobian, an inexact
     # linear solve) is a genuine failure and must be told apart from the round-off floor.
     lying = LinesearchProblem{Float64}((α, _) -> 1.0 + α, (α, _) -> -2.0)
-    @test outcome(solve_with_status(Linesearch(lying, Backtracking(); verbosity=0), 1.0)) == LINESEARCH_EXHAUSTED
+    @test outcome(solve_with_status(Linesearch(lying, Backtracking(); verbosity = 0), 1.0)) ==
+          LINESEARCH_EXHAUSTED
 end
 
 @testset "$(rpad("Backtracking: stagnation at the merit's round-off floor", 80))" begin
@@ -199,8 +202,9 @@ end
     # Before: the Armijo right-hand side φ₀ + c₁·α·d₀ rounds back up to φ₀ for
     # α < α* = eps/(4c₁) = 5.55e-13, the frozen merit tied it, and the search reported
     # *success* at α = 2.2737367544323206e-13 after 43 trials — with no warning whatsoever.
-    frozen = LinesearchProblem{Float64}((α, _) -> α ≤ 1e-6 ? φ₀ : φ₀ * (1 + α), (α, _) -> -2φ₀)
-    ls = Linesearch(frozen, Backtracking(); verbosity=0)
+    frozen = LinesearchProblem{Float64}((α, _) -> α ≤ 1e-6 ? φ₀ : φ₀ * (1 + α), (
+        α, _) -> -2φ₀)
+    ls = Linesearch(frozen, Backtracking(); verbosity = 0)
     st = solve_with_status(ls, 1.0)
     @test outcome(st) == LINESEARCH_FLOOR   # the tie is *not* reported as a decrease
     @test !issufficient(st)
@@ -213,8 +217,9 @@ end
     # pure round-off noise.  Before: 53 halvings down to α = eps(1.0) = 2.220446049250313e-16
     # and a warning claiming the sufficient decrease condition failed "within 1000
     # iterations" — neither the count nor the reason was true.
-    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(φ₀) : φ₀, (α, _) -> -2φ₀)
-    lsn = Linesearch(noise, Backtracking(); verbosity=0)
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(φ₀) : φ₀, (
+        α, _) -> -2φ₀)
+    lsn = Linesearch(noise, Backtracking(); verbosity = 0)
     stn = solve_with_status(lsn, 1.0)
     @test outcome(stn) == LINESEARCH_FLOOR
     @test isfloor(stn)
@@ -252,8 +257,9 @@ end
     # safeguarded interpolation fewer — and one merit evaluation per trial plus the anchor
     # (the two-argument SufficientDecreaseCondition must not re-evaluate the merit).
     n = Ref(0)
-    prob = LinesearchProblem{Float64}((α, _) -> (n[] += 1; 1.0 - 2α + 1000α^2), (α, _) -> -2.0 + 2000α)
-    st = solve_with_status(Linesearch(prob, Backtracking(); verbosity=0), 1.0)
+    prob = LinesearchProblem{Float64}((α, _) -> (n[] += 1; 1.0 - 2α + 1000α^2), (
+        α, _) -> -2.0 + 2000α)
+    st = solve_with_status(Linesearch(prob, Backtracking(); verbosity = 0), 1.0)
     @test issufficient(st)
     @test trials(st) < 10
     @test n[] == trials(st) + 1
@@ -296,11 +302,12 @@ end
 end
 
 @testset "$(rpad("Backtracking expansion phase (issue #174)", 80))" begin
-    quadratic(αmin) = LinesearchProblem{Float64}((α, _) -> (α - αmin)^2, (α, _) -> 2(α - αmin))
-    search(prob, m) = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
+    quadratic(αmin) = LinesearchProblem{Float64}((α, _) -> (α - αmin)^2, (α, _) -> 2(α -
+                                                                                     αmin))
+    search(prob, m) = solve_with_status(Linesearch(prob, m; verbosity = 0), 1.0)
 
     shrink = Backtracking()
-    grow = Backtracking(; expand=true)
+    grow = Backtracking(; expand = true)
 
     # The defect: a direction whose natural scale is larger than the trial step. A shrink-only
     # search accepts the trial step — it does satisfy sufficient decrease — and hands back the
@@ -332,12 +339,14 @@ end
     # A shrunken step is never expanded again: the longer steps have already been rejected.
     # φ(α) = 1 - 2α + 1000α² needs several backtracks from α = 1, and `expand` must not change
     # what that returns.
-    overshoot = LinesearchProblem{Float64}((α, _) -> 1.0 - 2α + 1000α^2, (α, _) -> -2.0 + 2000α)
+    overshoot = LinesearchProblem{Float64}((α, _) -> 1.0 - 2α + 1000α^2, (α, _) -> -2.0 +
+                                                                                   2000α)
     @test steplength(search(overshoot, grow)) == steplength(search(overshoot, shrink))
     @test trials(search(overshoot, grow)) == trials(search(overshoot, shrink))
 
     # The merit's round-off floor is not expanded into, and stays reported as a floor.
-    noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    noise = LinesearchProblem{Float64}((α, _) -> α > 0 ? nextfloat(1.0) : 1.0, (
+        α, _) -> -2.0)
     @test outcome(search(noise, grow)) == outcome(search(noise, shrink)) == LINESEARCH_FLOOR
 
     # `noise` never accepts, so it cannot exercise the one case where the two meet: a *first*
@@ -346,7 +355,8 @@ end
     # the model gives α★ ≈ α/2 — so the phase declines to grow, the outcome stays a floor, and the
     # shrink-only search is matched trial for trial.
     let τ = armijo_tolerance(1.0, Backtracking().τ_ulps)
-        flat = LinesearchProblem{Float64}((α, _) -> α > 0 ? 1.0 - τ / 2 : 1.0, (α, _) -> -1e-13)
+        flat = LinesearchProblem{Float64}((α, _) -> α > 0 ? 1.0 - τ / 2 : 1.0, (
+            α, _) -> -1e-13)
         stf = search(flat, grow)
         @test outcome(stf) == LINESEARCH_FLOOR
         @test steplength(stf) == 1.0
@@ -355,7 +365,8 @@ end
 
     # Contract item 5: the cost does not depend on the scale of the merit, and neither does the
     # step — the model is built from φ₀, φ'(0) and φ(α), which all scale together.
-    scaled(s) = LinesearchProblem{Float64}((α, _) -> s * (α - 11.0)^2, (α, _) -> s * 2(α - 11.0))
+    scaled(s) = LinesearchProblem{Float64}((α, _) -> s * (α - 11.0)^2, (α, _) -> s * 2(α -
+                                                                                   11.0))
     for s in (1e-8, 1.0, 1e8)
         @test steplength(search(scaled(s), grow)) == steplength(search(scaled(1.0), grow))
         @test trials(search(scaled(s), grow)) == trials(search(scaled(1.0), grow))
@@ -363,27 +374,31 @@ end
 
     # Every trial is counted, expansions included.
     n = Ref(0)
-    counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; (α - 11.0)^2), (α, _) -> 2(α - 11.0))
+    counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; (α - 11.0)^2), (α, _) -> 2(α -
+                                                                                         11.0))
     st = search(counted, grow)
     @test n[] == trials(st) + 1   # + the α = 0 anchor
 
     # `nexpand` is a hard cap on the extra evaluations, whatever the merit does.
-    @test trials(search(quadratic(1e10), Backtracking(; expand=true, nexpand=1))) == 2
+    @test trials(search(quadratic(1e10), Backtracking(; expand = true, nexpand = 1))) == 2
 
     # ... and it caps the phase from *within* `linesearch_max_iterations`, not beside it, so the
     # whole search still spends at most the budget `Options` documents. A merit whose scale is far
     # above the trial step would take every one of `nexpand`'s trials; a budget of one leaves it
     # none, and a budget of two leaves it exactly one.
     for (budget, expected) in ((1, 1), (2, 2), (3, 3))
-        st = solve_with_status(Linesearch(quadratic(1e10), grow; verbosity=0,
-                linesearch_max_iterations=budget), 1.0)
+        st = solve_with_status(
+            Linesearch(quadratic(1e10), grow; verbosity = 0,
+                linesearch_max_iterations = budget),
+            1.0)
         @test trials(st) == expected ≤ budget
     end
 
     # The expansion never returns a step worse than the one the shrink-only search accepted: a
     # trial that fails sufficient decrease or does not improve the merit costs one evaluation and
     # the previous best is kept. φ(α) = (α-11)² for α ≤ 5 and a cliff above it.
-    cliff = LinesearchProblem{Float64}((α, _) -> α > 5 ? 1e6 : (α - 11.0)^2, (α, _) -> 2(α - 11.0))
+    cliff = LinesearchProblem{Float64}((α, _) -> α > 5 ? 1e6 : (α - 11.0)^2, (α, _) -> 2(α -
+                                                                                         11.0))
     stc = search(cliff, grow)
     @test steplength(stc) == 1.0
     @test stc.φ == 100.0
@@ -402,10 +417,10 @@ end
     target = 1.0 + 1e-4 * 0.1 * -2.0      # the right-hand side at α = 0.1, ≈ 1 - 2e-5
     φ = α -> nextfloat(target, 2)         # misses it by 2 ulps, well inside τ = 4 ulps of φ₀
     @test !SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ)(0.1)
-    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ; τ=4eps(1.0))(0.1)
+    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, φ; τ = 4eps(1.0))(0.1)
 
     # ... but it never licenses a step where the demanded decrease is meaningful ...
-    sdcτ = SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> nextfloat(1.0); τ=4eps(1.0))
+    sdcτ = SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> nextfloat(1.0); τ = 4eps(1.0))
     @test !sdcτ(1.0)
     # ... and, thanks to the min against φ₀, it never licenses an *increase* either, not even at
     # the degenerate α where fl(φ₀ + c₁αd₀) has rounded back up to φ₀. The unbounded form
@@ -414,16 +429,17 @@ end
     @test 1.0 + 1e-4 * 1e-13 * -2.0 == 1.0     # the right-hand side really has degenerated
     # a *non-increase* at the same α is accepted, which is what keeps the ladder from shrinking
     # to eps once the merit has reached its round-off floor
-    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> 1.0; τ=4eps(1.0))(1e-13)
+    @test SufficientDecreaseCondition(1e-4, 1.0, -2.0, α -> 1.0; τ = 4eps(1.0))(1e-13)
 
     # the bound holds in the precision where it bites: 4 ulps of Float16 is 3.9e-3, twenty times
     # the 2c₁ = 2e-4 demanded at α = 1, so an unbounded τ would accept a visible increase
     τ16 = 4eps(Float16(1))
-    sdc16 = SufficientDecreaseCondition(Float16(1e-4), Float16(1), Float16(-2), α -> Float16(1) + τ16 / 2; τ=τ16)
+    sdc16 = SufficientDecreaseCondition(
+        Float16(1e-4), Float16(1), Float16(-2), α -> Float16(1) + τ16 / 2; τ = τ16)
     @test !sdc16(Float16(1))
     @test !sdc16(Float16(1e-3))
 
-    @test_throws AssertionError SufficientDecreaseCondition(1e-4, 1.0, -2.0, sin; τ=-1.0)
+    @test_throws AssertionError SufficientDecreaseCondition(1e-4, 1.0, -2.0, sin; τ = -1.0)
 
     # the two-argument form uses the merit value supplied by the caller
     n = Ref(0)
@@ -435,13 +451,14 @@ end
 end
 
 @testset "$(rpad("Backtracking: τ_ulps validation, and solve is derived from the status", 80))" begin
-    @test_throws AssertionError Backtracking(; τ_ulps=-1.0)
-    @test Backtracking(; τ_ulps=0.0) isa Backtracking
+    @test_throws AssertionError Backtracking(; τ_ulps = -1.0)
+    @test Backtracking(; τ_ulps = 0.0) isa Backtracking
     @test Backtracking().τ_ulps == SimpleSolvers.DEFAULT_ARMIJO_τ_ULPS
 
     # τ_ulps = 0 recovers the exact condition, i.e. the old ladder down to the eps floor
-    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
-    st = solve_with_status(Linesearch(noise, Backtracking(; τ_ulps=0.0); verbosity=0), 1.0)
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (
+        α, _) -> -2.0)
+    st = solve_with_status(Linesearch(noise, Backtracking(; τ_ulps = 0.0); verbosity = 0), 1.0)
     @test steplength(st) ≤ eps(1.0)
 
     # Every built-in method reports a real outcome, and `solve` is *derived* from it — one
@@ -451,7 +468,7 @@ end
     # nothing and reports `LINESEARCH_UNKNOWN`, which `linesearch_warnings` passes over in silence.
     prob = LinesearchProblem{Float64}((α, _) -> (α - 0.7)^2, (α, _) -> 2 * (α - 0.7))
     for m in (Bisection(), Quadratic(), BierlaireQuadratic(), StrongWolfe(), Backtracking())
-        ls = Linesearch(prob, m; verbosity=0)
+        ls = Linesearch(prob, m; verbosity = 0)
         st = solve_with_status(ls, 1.0)
         @test outcome(st) == LINESEARCH_DECREASED
         @test issufficient(st)
@@ -459,7 +476,7 @@ end
         @test steplength(st) == solve(ls, 1.0)
     end
 
-    lstatic = Linesearch(prob, Static(); verbosity=0)
+    lstatic = Linesearch(prob, Static(); verbosity = 0)
     ststatic = solve_with_status(lstatic, 1.0)
     @test outcome(ststatic) == LINESEARCH_UNKNOWN
     @test !issufficient(ststatic)
@@ -470,7 +487,7 @@ end
     # report and the α > 0 contract that come with it. This is the direction that makes the
     # contract structural: there is no path by which the package calls a method's own `solve`, so
     # a method cannot reinstate the per-iteration message a solve must not emit.
-    ls_toy = Linesearch(prob, ToyLinesearch(); verbosity=1)
+    ls_toy = Linesearch(prob, ToyLinesearch(); verbosity = 1)
     @test solve(ls_toy, 1.0) == 0.25
     @test outcome(solve_with_status(ls_toy, 1.0)) == LINESEARCH_EXHAUSTED
     @test logged_any(() -> solve(ls_toy, 1.0), "no step satisfied the sufficient decrease")
@@ -478,13 +495,13 @@ end
 
     # ... and a method that implements neither says which one it owes, rather than recursing
     # between the two generic definitions.
-    ls_mute = Linesearch(prob, MuteLinesearch(); verbosity=0)
+    ls_mute = Linesearch(prob, MuteLinesearch(); verbosity = 0)
     @test_throws "does not implement `solve_with_status`" solve_with_status(ls_mute, 1.0)
     @test_throws "does not implement `solve_with_status`" solve(ls_mute, 1.0)
 
     # `α` is converted to the element type of the `Linesearch`, so a caller does not have to spell
     # out the precision of a step that has no fractional part.
-    @test solve(Linesearch(prob, Backtracking(); verbosity=0), 1) == 1.0
+    @test solve(Linesearch(prob, Backtracking(); verbosity = 0), 1) == 1.0
 end
 
 @testset "$(rpad("with_config replaces the Options and keeps problem and method", 80))" begin
@@ -492,7 +509,7 @@ end
     ls = Linesearch(prob, Backtracking())
     @test config(ls).verbosity == 1
 
-    ls2 = with_config(ls, Options(Float64; verbosity=0, linesearch_max_iterations=7))
+    ls2 = with_config(ls, Options(Float64; verbosity = 0, linesearch_max_iterations = 7))
     @test problem(ls2) === problem(ls)
     @test method(ls2) === method(ls)
     @test config(ls2).verbosity == 0
@@ -504,18 +521,23 @@ end
 end
 
 @testset "$(rpad("linesearch_max_iterations bounds the ladder, max_iterations does not", 80))" begin
-    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (
+        α, _) -> -2.0)
 
-    unbounded = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity=0)), 1.0)
+    unbounded = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity = 0)), 1.0)
     @test outcome(unbounded) == LINESEARCH_FLOOR
 
     # the inner budget reaches the ladder, and a spent budget is *not* reported as the floor
-    capped = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity=0, linesearch_max_iterations=3)), 1.0)
+    capped = solve_with_status(
+        Linesearch(noise, Backtracking(), Options(Float64; verbosity = 0, linesearch_max_iterations = 3)),
+        1.0)
     @test trials(capped) == 3
     @test outcome(capped) == LINESEARCH_EXHAUSTED
 
     # the outer budget does not
-    outer = solve_with_status(Linesearch(noise, Backtracking(), Options(Float64; verbosity=0, max_iterations=1)), 1.0)
+    outer = solve_with_status(
+        Linesearch(noise, Backtracking(), Options(Float64; verbosity = 0, max_iterations = 1)),
+        1.0)
     @test trials(outer) == trials(unbounded)
     @test outcome(outer) == LINESEARCH_FLOOR
 
@@ -529,27 +551,26 @@ end
     # now settable by the user like every other line search's.
     quad = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> 2(α - 1.0))
     for m in (Quadratic(), BierlaireQuadratic())
-        generous = solve(Linesearch(quad, m, Options(Float64; verbosity=0, linesearch_max_iterations=60)), 0.5)
+        generous = solve(
+            Linesearch(quad, m, Options(Float64; verbosity = 0, linesearch_max_iterations = 60)),
+            0.5)
         @test generous ≈ 1.0 atol = 1e-8
         # the default budget reaches the same answer, i.e. it is not the binding constraint
-        @test solve(Linesearch(quad, m; verbosity=0), 0.5) ≈ generous atol = 1e-12
+        @test solve(Linesearch(quad, m; verbosity = 0), 0.5) ≈ generous atol = 1e-12
     end
     # a budget of one iteration truncates the Bierlaire fit, proving the field reaches the loop
-    @test solve(Linesearch(quad, BierlaireQuadratic(), Options(Float64; verbosity=0, linesearch_max_iterations=1)), 0.5) ≉ 1.0
+    @test solve(
+        Linesearch(quad, BierlaireQuadratic(), Options(Float64; verbosity = 0, linesearch_max_iterations = 1)),
+        0.5) ≉ 1.0
 end
 
 @testset "$(rpad("Quadratic Linesearch (Bierlaire)", 80))" begin
-
     test_linesearch(BierlaireQuadratic(), 1)
-
 end
 
 @testset "$(rpad("Quadratic Linesearch (Derivative-Based)", 80))" begin
-
     test_linesearch(Quadratic(), 1)
-
 end
-
 
 @testset "$(rpad("Quadratic defaults", 80))" begin
     # Quadratic(T, ::SolverMethod) used to square ε, s and s_reduction (an
@@ -573,14 +594,15 @@ end
 end
 
 @testset "$(rpad("Linesearch Integration Tests", 80))" begin
-
     Random.seed!(1234)
 
     x = -10 * rand(1)
 
     function linesearch_factory(x::AbstractVector{T}, params) where {T}
-        f(x::T) where {T<:Number} = exp(x) * (T(0.5) * x^3 - 5x^2 + 2x) + 2one(T)
-        f(x::AbstractArray{T}) where {T<:Number} = @. exp(x) * (T(0.5) * x^3 - 5 * x^2 + 2x) + 2one(T)
+        f(x::T) where {T <: Number} = exp(x) * (T(0.5) * x^3 - 5x^2 + 2x) + 2one(T)
+        f(x::AbstractArray{T}) where {T <: Number} = @. exp(x) *
+                                                        (T(0.5) * x^3 - 5 * x^2 + 2x) +
+                                                        2one(T)
         f!(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T} = y .= f.(x)
 
         function j!(j::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
@@ -589,7 +611,7 @@ end
         end
 
         jacobian = JacobianFunction{T}(f!, j!)
-        solver = NewtonSolver(x, f.(x); F=f!, (DF!)=j!, jacobian=jacobian)
+        solver = NewtonSolver(x, f.(x); F = f!, (DF!) = j!, jacobian = jacobian)
         state = NonlinearSolverState(x, value(cache(solver)))
 
         direction!(solver, x, params, iteration_number(state))
@@ -599,19 +621,18 @@ end
     end
 
     function check_linesearch(T, ls_method)
-        params = (x=T.(x), parameters=NullParameters())
+        params = (x = T.(x), parameters = NullParameters())
         ls = Linesearch(linesearch_factory(params.x, params.parameters), ls_method)
         α = solve(ls, one(T), params)
-        @test ≈(problem(ls).D(α, params), zero(T); atol=(∛(2eps(T))))
+        @test ≈(problem(ls).D(α, params), zero(T); atol = (∛(2eps(T))))
     end
 
-    for T ∈ (Float32, Float64)
-        for ls_method ∈ (Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+    for T in (Float32, Float64)
+        for ls_method in (Bisection(T), Quadratic(T), BierlaireQuadratic(T))
             check_linesearch(T, ls_method)
         end
     end
 end
-
 
 # Regression: for a non-Float64 `LinesearchProblem{T}`, the `solve(prob, method, α)`
 # convenience form must default `config` to `Options(T)` (not the hard-coded
@@ -621,10 +642,10 @@ end
 # config)` overload is likewise pinned to `config::Options{T}`, so a mismatched
 # `Options` eltype is rejected rather than silently building a broken object.
 @testset "$(rpad("Linesearch T-consistency (config default / α promotion)", 80))" begin
-    for T ∈ (Float32, Float64)
+    for T in (Float32, Float64)
         prob = LinesearchProblem{T}((α, _) -> (α - 2one(T))^2, (α, _) -> 2 * (α - 2one(T)))
 
-        for method ∈ (Static(T), Backtracking(T), StrongWolfe(T), Bisection(T))
+        for method in (Static(T), Backtracking(T), StrongWolfe(T), Bisection(T))
             # no explicit config: must default to Options(T) and stay in T
             α = solve(prob, method, one(T))
             @test α isa T
@@ -641,31 +662,30 @@ end
 
     # a config whose eltype disagrees with the problem is rejected, not silently
     # coerced into a broken `Linesearch`
-    prob32 = LinesearchProblem{Float32}((α, _) -> (α - 2f0)^2, (α, _) -> 2f0 * (α - 2f0))
+    prob32 = LinesearchProblem{Float32}((α, _) -> (α - 2.0f0)^2, (α, _) -> 2.0f0 *
+                                                                           (α - 2.0f0))
     @test_throws MethodError Linesearch(prob32, Backtracking(Float32), Options(Float64))
 end
 
-
 @testset "$(rpad("Linesearch Conversion Tests", 80))" begin
-
     function allocate_linesearch_methods(T::DataType)
-        st = Static(T; α=one(T))
+        st = Static(T; α = one(T))
         bt = Backtracking(T)
-        qu = Quadratic(T; ε=T(1e-5)) # here this constant is specified manually as it otherwise depends on the DataType used
+        qu = Quadratic(T; ε = T(1e-5)) # here this constant is specified manually as it otherwise depends on the DataType used
         bq = BierlaireQuadratic(T)
         bi = Bisection(T)
         st, bt, qu, bq, bi
     end
 
-    function convert_linesearches_test(T₁::DataType, T₂::DataType; rtol=T₂(1e-3))
+    function convert_linesearches_test(T₁::DataType, T₂::DataType; rtol = T₂(1e-3))
         st₁, bt₁, qu₁, bq₁, bi₁ = allocate_linesearch_methods(T₁)
         st₂, bt₂, qu₂, bq₂, bi₂ = allocate_linesearch_methods(T₂)
 
-        @test ≈(st₂, change_precision(T₂, st₁); rtol=rtol)
-        @test ≈(bt₂, change_precision(T₂, bt₁); rtol=rtol)
-        @test ≈(qu₂, change_precision(T₂, qu₁); rtol=rtol)
-        @test ≈(bq₂, change_precision(T₂, bq₁); rtol=rtol)
-        @test ≈(bi₂, change_precision(T₂, bi₁); rtol=rtol)
+        @test ≈(st₂, change_precision(T₂, st₁); rtol = rtol)
+        @test ≈(bt₂, change_precision(T₂, bt₁); rtol = rtol)
+        @test ≈(qu₂, change_precision(T₂, qu₁); rtol = rtol)
+        @test ≈(bq₂, change_precision(T₂, bq₁); rtol = rtol)
+        @test ≈(bi₂, change_precision(T₂, bi₁); rtol = rtol)
 
         nothing
     end
@@ -683,9 +703,7 @@ end
     # correct element type (not a differently-typed object from `convert`).
     @test change_precision(Float32, Static()) isa Static{Float32}
     @test eltype(change_precision(Float32, Static())) == Float32
-
 end
-
 
 @testset "$(rpad("Broken convenience entry points", 80))" begin
     x₀ = -3.0
@@ -703,7 +721,6 @@ end
     @test lo ≤ 1.0 ≤ hi
 end
 
-
 @testset "$(rpad("Mixed-precision compute_new_iterate!", 80))" begin
     x = Float32[1.0, 2.0]
     p = Float32[1.0, 1.0]
@@ -711,7 +728,6 @@ end
     @test_logs (:warn,) compute_new_iterate!(x, 1.0, p)
     @test x ≈ Float32[2.0, 3.0]
 end
-
 
 @testset "$(rpad("Type-stability fixes", 80))" begin
     @test (@inferred Bisection()) === Bisection{Float64}()
@@ -725,8 +741,10 @@ end
 
     # `CurvatureCondition` encodes the mode in the type (via `Val`) so it is
     # inference-stable, validates `c ∈ (0, 1)`, and the strong condition uses `≤`.
-    @test CurvatureCondition(0.9, -1.0, sin, Val(:Strong)) isa CurvatureCondition{Float64,typeof(sin),:Strong}
-    @test CurvatureCondition(0.9, -1.0, sin) isa CurvatureCondition{Float64,typeof(sin),:Standard}
+    @test CurvatureCondition(0.9, -1.0, sin, Val(:Strong)) isa
+          CurvatureCondition{Float64, typeof(sin), :Strong}
+    @test CurvatureCondition(0.9, -1.0, sin) isa
+          CurvatureCondition{Float64, typeof(sin), :Standard}
     @test_throws AssertionError CurvatureCondition(1.5, -1.0, sin)   # c ∉ (0, 1)
     @test_throws AssertionError CurvatureCondition(0.0, -1.0, sin)   # c ∉ (0, 1)
     # strong-Wolfe boundary: |D(α)| == |c·d| must pass (was strict `<`)
@@ -736,11 +754,10 @@ end
     ccn = CurvatureCondition(0.9, -1.0, α -> -0.5, Val(:Standard))
     @test ccn(0.0)                                                   # -0.5 ≥ -0.9
 
-    @test Options(Float64; x_abstol=0) isa Options
-    @test Options(Float64; f_abstol=1 // 100) isa Options
+    @test Options(Float64; x_abstol = 0) isa Options
+    @test Options(Float64; f_abstol = 1 // 100) isa Options
     @test Options().f_abstol == 0.0
 end
-
 
 @testset "$(rpad("Bisection hardening", 80))" begin
     # A genuine sign-changing bracket still bisects to the root.
@@ -751,14 +768,15 @@ end
     # would abort the enclosing solve), `bisection` returns the endpoint closest to a root
     # (smallest |f|) *and reports the failure* — silenced here, and asserted on its own below.
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
-    quiet = Options(Float64; verbosity=0)
+    quiet = Options(Float64; verbosity = 0)
     @test bisection(fpos, 0.0, 1.0, NullParameters(), quiet) == 0.0    # |f(0)| = 1 < |f(1)| = 2
     @test bisection(fpos, 1.0, 0.0, NullParameters(), quiet) == 0.0    # endpoints flipped internally
 
     # The debug `println` and hard `error("Max iteration number exceeded")` were
     # A tight tolerance forces exhaustion here.
     fslow(α, _) = α - 1 / 3
-    cfg = Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=0)
+    cfg = Options(Float64; linesearch_max_iterations = 2,
+        x_suctol = 0.0, f_abstol = 0.0, verbosity = 0)
     local αbest
     @test (αbest = bisection(fslow, 0.0, 1.0, NullParameters(), cfg)) isa Float64
     @test 0.0 ≤ αbest ≤ 1.0
@@ -777,7 +795,7 @@ end
     @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[2] ===
           SimpleSolvers.BISECTION_NOBRACKET
     @test SimpleSolvers._bisection_core(fslow, 0.0, 1.0, NullParameters(),
-        Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0))[2] ===
+        Options(Float64; linesearch_max_iterations = 2, x_suctol = 0.0, f_abstol = 0.0))[2] ===
           SimpleSolvers.BISECTION_EXHAUSTED
 
     # The endpoint flip does not change the verdict, and the returned value is unchanged from
@@ -787,16 +805,20 @@ end
     @test α == 0.0
 
     # And the outcome is inferred, not boxed — it is on the line search's hot path.
-    @test (@inferred SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())) isa
-          Tuple{Float64,SimpleSolvers.BisectionOutcome,Int,Float64}
+    @test (@inferred SimpleSolvers._bisection_core(
+        froot, 0.0, 2.0, NullParameters(), Options())) isa
+          Tuple{Float64, SimpleSolvers.BisectionOutcome, Int, Float64}
 
     # The fourth element is `f` at the *left* endpoint, and it is there because its sign is
     # invariant under the halving: the interval shrinks onto a crossing whose direction the
     # starting interval already fixed. It is reported after the endpoint flip, i.e. it belongs to
     # the smaller endpoint whichever order the caller passed them in.
-    @test SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())[4] == froot(0.0, nothing)
-    @test SimpleSolvers._bisection_core(froot, 2.0, 0.0, NullParameters(), Options())[4] == froot(0.0, nothing)
-    @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[4] == fpos(0.0, nothing)
+    @test SimpleSolvers._bisection_core(froot, 0.0, 2.0, NullParameters(), Options())[4] ==
+          froot(0.0, nothing)
+    @test SimpleSolvers._bisection_core(froot, 2.0, 0.0, NullParameters(), Options())[4] ==
+          froot(0.0, nothing)
+    @test SimpleSolvers._bisection_core(fpos, 0.0, 1.0, NullParameters(), Options())[4] ==
+          fpos(0.0, nothing)
 end
 
 @testset "$(rpad("a Bisection converges onto a minimum, never onto a maximum", 80))" begin
@@ -819,7 +841,7 @@ end
     φ(a) = (a - 1.0)^2
     D(a) = -(a - 0.3) * (a - 2.0)
     prob = LinesearchProblem{Float64}((a, _) -> φ(a), (a, _) -> D(a))
-    ls = Linesearch(prob, Bisection(); verbosity=0)
+    ls = Linesearch(prob, Bisection(); verbosity = 0)
 
     # The bracket really is the pathological one: it ascends at its left endpoint and descends at
     # its right, so the sign change it contains belongs to the maximum.
@@ -852,11 +874,12 @@ end
     # affordable at all — without one extra evaluation of φ′, which for the ‖F‖² merit of a
     # `NonlinearSolver` is a full Jacobian. `ylo` is a value the bisection computes anyway.
     convex = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> 2(a - 1.0))
-    lsc = Linesearch(convex, Bisection(); verbosity=0)
+    lsc = Linesearch(convex, Bisection(); verbosity = 0)
     for (a, b) in ((0.0, 3.0), (0.5, 4.0), (0.64, 2.56))
         probed = Ref(0)
-        counted = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> (probed[] += 1; 2(a - 1.0)))
-        lscount = Linesearch(counted, Bisection(); verbosity=0)
+        counted = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> (
+            probed[] += 1; 2(a - 1.0)))
+        lscount = Linesearch(counted, Bisection(); verbosity = 0)
         plain = SimpleSolvers._bisect_on(lscount, a, b, NullParameters())
         n_plain = probed[]
         probed[] = 0
@@ -882,7 +905,7 @@ end
     # The minimum of φ lies at α = 1, so the search still finds a step that improves the merit.
     # A genuine decrease stays reported as a decrease — the failed bracket is not held against it.
     ok = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> -1.0)
-    st = solve_with_status(Linesearch(ok, Bisection(); verbosity=0), 1.0)
+    st = solve_with_status(Linesearch(ok, Bisection(); verbosity = 0), 1.0)
     @test outcome(st) === LINESEARCH_DECREASED
     @test steplength(st) > 0.0
     @test st.φ ≤ st.φ₀ - st.τ
@@ -893,7 +916,7 @@ end
     # (`flag_stall!` in `solver_step!`) on the strength of that claim. It is `LINESEARCH_EXHAUSTED`
     # — no acceptable step was *found*, which leaves open that one exists.
     bad = LinesearchProblem{Float64}((α, _) -> (α + 1.0)^2, (α, _) -> -1.0)
-    stbad = solve_with_status(Linesearch(bad, Bisection(); verbosity=0), 0.01)
+    stbad = solve_with_status(Linesearch(bad, Bisection(); verbosity = 0), 0.01)
     @test outcome(stbad) === LINESEARCH_EXHAUSTED
     @test outcome(stbad) ≠ LINESEARCH_FLOOR
     @test !SimpleSolvers.isfloor(stbad)
@@ -910,13 +933,13 @@ end
     # bracketing stops at `αmax`, and the step it hands back really does decrease the merit — by
     # 65535 here — so it is a decrease and not an exhausted search.  Reaching `:unbracketable` at
     # all needs the ceiling switched off, and that is the case the `φ` field was fixed for.
-    stf = solve_with_status(Linesearch(forever, Bisection(); verbosity=0), 1.0)
+    stf = solve_with_status(Linesearch(forever, Bisection(); verbosity = 0), 1.0)
     @test outcome(stf) === LINESEARCH_DECREASED
     @test steplength(stf) == SimpleSolvers.DEFAULT_LINESEARCH_αmax
     @test stf.φ == 1.0 - steplength(stf)
     @test stf.φ < stf.φ₀
 
-    stfu = solve_with_status(Linesearch(forever, Bisection(; αmax=Inf); verbosity=0), 1.0)
+    stfu = solve_with_status(Linesearch(forever, Bisection(; αmax = Inf); verbosity = 0), 1.0)
     @test outcome(stfu) === LINESEARCH_EXHAUSTED
     @test stfu.φ == 1.0 - steplength(stfu)   # was φ₀ = 1.0, i.e. "the merit did not change"
     @test stfu.φ < stfu.φ₀
@@ -926,7 +949,8 @@ end
     froot(α, _) = α - 1.0
     cfg = Options(Float64)
     @test bisection(froot, 0.0, 2.0, cfg) ≈ 1.0 atol = 1e-6
-    @test bisection(froot, 0.0, 2.0, cfg) == bisection(froot, 0.0, 2.0, NullParameters(), cfg)
+    @test bisection(froot, 0.0, 2.0, cfg) ==
+          bisection(froot, 0.0, 2.0, NullParameters(), cfg)
 end
 
 @testset "$(rpad("StrongWolfe line search (bracket + zoom)", 80))" begin
@@ -935,7 +959,7 @@ end
     prob = make_linesearch_problem(-3.0)
     c₁ = 1e-4
     c₂ = 0.9
-    ls = Linesearch(prob, StrongWolfe(); x_abstol=0.0)
+    ls = Linesearch(prob, StrongWolfe(); x_abstol = 0.0)
     φ0 = value(prob, 0.0, NullParameters())
     d0 = derivative(prob, 0.0, NullParameters())
     # The returned step must satisfy *both* strong Wolfe conditions (that is the
@@ -953,20 +977,20 @@ end
 
     # A tighter c₂ forces the search onto the exact minimiser α = 1 (φ'(1) = 0),
     # exercising the bracket → zoom path from an overshooting α₀.
-    ls_tight = Linesearch(prob, StrongWolfe(; c₂=1e-2); x_abstol=0.0)
+    ls_tight = Linesearch(prob, StrongWolfe(; c₂ = 1e-2); x_abstol = 0.0)
     @test solve(ls_tight, 2.0) ≈ 1.0 atol = 1e-6
     @test compute_new_iterate(-3.0, solve(ls_tight, 2.0), δx(-3.0)) ≈ 0.0 atol = 1e-6
 
     # Constructor validation and helpers.
-    @test_throws AssertionError StrongWolfe(Float64; c₁=0.9, c₂=0.1)   # need c₁ < c₂
-    @test_throws AssertionError StrongWolfe(Float64; αmax=-1.0)
+    @test_throws AssertionError StrongWolfe(Float64; c₁ = 0.9, c₂ = 0.1)   # need c₁ < c₂
+    @test_throws AssertionError StrongWolfe(Float64; αmax = -1.0)
     @test change_precision(Float32, StrongWolfe(Float64)) isa StrongWolfe{Float32}
     @test StrongWolfe(Float64) ≈ StrongWolfe(Float64)
 
     # Non-descent direction: φ'(0) = 2 ≥ 0 ⇒ the method returns the trial step and
     # does not attempt a search it cannot complete.
     ascent = LinesearchProblem{Float64}((a, _) -> (a + 1.0)^2, (a, _) -> 2(a + 1.0))
-    ls_asc = Linesearch(ascent, StrongWolfe(); verbosity=0)
+    ls_asc = Linesearch(ascent, StrongWolfe(); verbosity = 0)
     @test solve(ls_asc, 0.7) == 0.7
 end
 
@@ -975,7 +999,7 @@ end
     # α = 1 (x₀ + 1·δx = 0); every α₀ (spanning under-/over-shoot) must converge there.
     prob = make_linesearch_problem(-3.0)
     for method in (Bisection(), Quadratic(), BierlaireQuadratic())
-        ls = Linesearch(prob, method; x_abstol=0.0)
+        ls = Linesearch(prob, method; x_abstol = 0.0)
         for α₀ in (0.25, 0.5, 1.0, 2.0, 4.0)
             @test compute_new_iterate(-3.0, solve(ls, α₀), δx(-3.0)) ≈ 0.0 atol = ∛(2eps())
         end
@@ -992,7 +1016,7 @@ end
     # produced steps as large as α = -3.  The α > 0 contract now applies to every method, so an
     # ascent anchor is reported instead.
     prob = LinesearchProblem{Float64}((a, _) -> (a + 1.0)^2, (a, _) -> 2.0 * (a + 1.0))
-    ls = Linesearch(prob, Quadratic(); x_abstol=0.0, verbosity=0)
+    ls = Linesearch(prob, Quadratic(); x_abstol = 0.0, verbosity = 0)
     st = solve_with_status(ls, 0.0)
     @test outcome(st) == LINESEARCH_NO_DESCENT
     @test steplength(st) > 0.0
@@ -1003,7 +1027,7 @@ end
     # differs from the loop's start `α`, and it is `a` that must be returned.  Here the
     # minimiser sits at α = +1.
     descent = LinesearchProblem{Float64}((a, _) -> (a - 1.0)^2, (a, _) -> 2.0 * (a - 1.0))
-    lsd = Linesearch(descent, Quadratic(); x_abstol=0.0, verbosity=0)
+    lsd = Linesearch(descent, Quadratic(); x_abstol = 0.0, verbosity = 0)
     @test solve(lsd, 0.0) ≈ 1.0 atol = ∛(2eps())
     @test solve(lsd, 2.0) ≈ 1.0 atol = ∛(2eps())   # α₀ past the minimiser still lands on it
 end
@@ -1011,16 +1035,16 @@ end
 # Quadratic and BierlaireQuadratic validate their constructor parameters, like
 # Backtracking and StrongWolfe.
 @testset "$(rpad("Quadratic/BierlaireQuadratic constructor validation", 80))" begin
-    @test_throws AssertionError Quadratic(Float64; ε=0.0)
-    @test_throws AssertionError Quadratic(Float64; s=-1.0)
-    @test_throws AssertionError Quadratic(Float64; s_reduction=1.5)
-    @test_throws AssertionError BierlaireQuadratic(Float64; ε=0.0)
-    @test_throws AssertionError BierlaireQuadratic(Float64; ξ=-1.0)
+    @test_throws AssertionError Quadratic(Float64; ε = 0.0)
+    @test_throws AssertionError Quadratic(Float64; s = -1.0)
+    @test_throws AssertionError Quadratic(Float64; s_reduction = 1.5)
+    @test_throws AssertionError BierlaireQuadratic(Float64; ε = 0.0)
+    @test_throws AssertionError BierlaireQuadratic(Float64; ξ = -1.0)
     @test Quadratic() isa Quadratic                      # defaults are valid
     @test BierlaireQuadratic() isa BierlaireQuadratic    # defaults are valid
-    @test_throws AssertionError Quadratic(Float64; αmax=0.0)
-    @test_throws AssertionError BierlaireQuadratic(Float64; αmax=-1.0)
-    @test_throws AssertionError Bisection(Float64; αmax=0.0)
+    @test_throws AssertionError Quadratic(Float64; αmax = 0.0)
+    @test_throws AssertionError BierlaireQuadratic(Float64; αmax = -1.0)
+    @test_throws AssertionError Bisection(Float64; αmax = 0.0)
     @test Bisection() isa Bisection                      # defaults are valid
 end
 
@@ -1037,22 +1061,26 @@ end
 @testset "$(rpad("no search extrapolates past its ceiling", 80))" begin
     αmax = SimpleSolvers.DEFAULT_LINESEARCH_αmax
     minimising = (Bisection(), Quadratic(), BierlaireQuadratic())
-    every = (Static(), Backtracking(), Backtracking(; expand=true), StrongWolfe(), minimising...)
+    every = (Static(), Backtracking(), Backtracking(; expand = true),
+        StrongWolfe(), minimising...)
 
     # A genuine minimiser, ten million steps away.  Scaled by 1e-14 so the merit stays of order one
     # over the whole range and the outcome turns on the ceiling rather than on any tolerance.
-    far = LinesearchProblem{Float64}((α, _) -> (α - 1.0e7)^2 / 1.0e14, (α, _) -> 2(α - 1.0e7) / 1.0e14)
+    far = LinesearchProblem{Float64}((α, _) -> (α - 1.0e7)^2 / 1.0e14, (α, _) -> 2(α -
+                                                                                   1.0e7) /
+                                                                                 1.0e14)
 
     # Switching the ceiling off recovers the old behaviour, which is what says the defect was real
     # and that this is what fixes it rather than some tolerance change alongside.
-    for m in (Bisection(; αmax=Inf), Quadratic(; αmax=Inf), BierlaireQuadratic(; αmax=Inf))
-        @test steplength(solve_with_status(Linesearch(far, m; verbosity=0), 1.0)) > 1.0e6
+    for m in (Bisection(; αmax = Inf), Quadratic(; αmax = Inf), BierlaireQuadratic(;
+        αmax = Inf))
+        @test steplength(solve_with_status(Linesearch(far, m; verbosity = 0), 1.0)) > 1.0e6
     end
 
     # With it, every minimising search stops exactly there — and reports a *decrease*, because the
     # merit at the ceiling really is lower.  A ceiling is not a failure.
     for m in minimising
-        st = solve_with_status(Linesearch(far, m; verbosity=0), 1.0)
+        st = solve_with_status(Linesearch(far, m; verbosity = 0), 1.0)
         @test steplength(st) == αmax
         @test outcome(st) === LINESEARCH_DECREASED
         @test st.φ == (α -> (α - 1.0e7)^2 / 1.0e14)(steplength(st))   # the merit at the step handed back
@@ -1063,7 +1091,8 @@ end
     # This is the half GeometricOptimizers needs: its bound is the 2π of a rotation divided by the
     # norm of the direction, so it changes at every solver step and cannot live in a struct field.
     for m in every, ceiling in (10.0, 0.25)
-        st = solve_with_status(Linesearch(far, m; verbosity=0), 1.0, (αmax=ceiling,))
+
+        st = solve_with_status(Linesearch(far, m; verbosity = 0), 1.0, (αmax = ceiling,))
         @test steplength(st) ≤ ceiling
         @test steplength(st) > 0.0                       # the α > 0 contract still holds
     end
@@ -1071,16 +1100,16 @@ end
     # It binds below the natural minimiser too, i.e. it is a ceiling and not just a backstop.
     near = LinesearchProblem{Float64}((α, _) -> (α - 1.0)^2, (α, _) -> 2(α - 1.0))
     for m in every
-        st = solve_with_status(Linesearch(near, m; verbosity=0), 1.0, (αmax=0.5,))
+        st = solve_with_status(Linesearch(near, m; verbosity = 0), 1.0, (αmax = 0.5,))
         @test 0.0 < steplength(st) ≤ 0.5
     end
 
     # A ceiling that does not bind changes nothing at all — not the step, not the outcome, not the
     # number of merit evaluations.  This is the assertion that the default path is untouched.
     for m in every
-        ls = Linesearch(near, m; verbosity=0)
+        ls = Linesearch(near, m; verbosity = 0)
         plain = solve_with_status(ls, 1.0)
-        roomy = solve_with_status(ls, 1.0, (αmax=1.0e6,))
+        roomy = solve_with_status(ls, 1.0, (αmax = 1.0e6,))
         @test steplength(roomy) === steplength(plain)
         @test outcome(roomy) === outcome(plain)
         @test trials(roomy) == trials(plain)
@@ -1090,7 +1119,7 @@ end
     # ascent anchor hands back the caller's trial step, and a caller that asked for less gets less.
     ascent = LinesearchProblem{Float64}((α, _) -> (α + 1.0)^2, (α, _) -> 2(α + 1.0))
     for m in every
-        st = solve_with_status(Linesearch(ascent, m; verbosity=0), 4.0, (αmax=0.5,))
+        st = solve_with_status(Linesearch(ascent, m; verbosity = 0), 4.0, (αmax = 0.5,))
         @test 0.0 < steplength(st) ≤ 0.5
     end
 
@@ -1103,7 +1132,7 @@ end
         probed = Float64[]
         watched = LinesearchProblem{Float64}((α, _) -> (push!(probed, α); (α - 1.0)^2),
             (α, _) -> (push!(probed, α); 2(α - 1.0)))
-        st = solve_with_status(Linesearch(watched, m; verbosity=0), 1.0, (αmax=0.005,))
+        st = solve_with_status(Linesearch(watched, m; verbosity = 0), 1.0, (αmax = 0.005,))
         @test isempty(probed) || maximum(probed) ≤ 0.005     # `Static` evaluates nothing at all
         @test 0.0 < steplength(st) ≤ 0.005
     end
@@ -1113,16 +1142,19 @@ end
     # unbounded step the caller was trying to rule out.
     for bad in (0.0, -1.0, NaN)
         n = Ref(0)
-        counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; (α - 1.0)^2), (α, _) -> (n[] += 1; 2(α - 1.0)))
+        counted = LinesearchProblem{Float64}(
+            (α, _) -> (n[] += 1; (α - 1.0)^2), (α, _) -> (n[] += 1; 2(α - 1.0)))
         for m in every
-            @test_throws ArgumentError solve_with_status(Linesearch(counted, m; verbosity=0), 1.0, (αmax=bad,))
+            @test_throws ArgumentError solve_with_status(
+                Linesearch(counted, m; verbosity = 0), 1.0, (αmax = bad,))
         end
         @test n[] == 0
     end
     # `Inf` is not one of them: it says the caller has no scale of its own, which is what a bound
     # derived from one (2π / ‖δ‖, say) degenerates to for a vanishing direction. The method's own
     # ceiling then stands, so it cannot produce an unbounded step either.
-    @test steplength(solve_with_status(Linesearch(far, Quadratic(); verbosity=0), 1.0, (αmax=Inf,))) == αmax
+    @test steplength(solve_with_status(Linesearch(far, Quadratic(); verbosity = 0), 1.0, (αmax = Inf,))) ==
+          αmax
 
     # When the merit only falls, the ceiling *is* the best admissible step and every minimising
     # search has to return it — including at the ceilings a caller with a geometric bound actually
@@ -1134,9 +1166,11 @@ end
     # evaluations, and `LINESEARCH_EXHAUSTED` at 0.005.
     descending = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> -1.0)
     for m in minimising, ceiling in (2.0, 1.0, 0.5, 0.05, 0.005)
+
         probed = Float64[]
-        watched = LinesearchProblem{Float64}((α, _) -> (push!(probed, α); 1.0 - α), (α, _) -> -1.0)
-        st = solve_with_status(Linesearch(watched, m; verbosity=0), 1.0, (αmax=ceiling,))
+        watched = LinesearchProblem{Float64}((α, _) -> (push!(probed, α); 1.0 - α), (
+            α, _) -> -1.0)
+        st = solve_with_status(Linesearch(watched, m; verbosity = 0), 1.0, (αmax = ceiling,))
         @test steplength(st) == ceiling
         @test outcome(st) === LINESEARCH_DECREASED
         @test st.φ == 1.0 - ceiling            # the merit at the step handed back
@@ -1147,10 +1181,11 @@ end
     for m in minimising
         n = Ref(0)
         counted = LinesearchProblem{Float64}((α, _) -> (n[] += 1; 1.0 - α), (α, _) -> -1.0)
-        solve_with_status(Linesearch(counted, m; verbosity=0), 1.0, (αmax=0.5,))
+        solve_with_status(Linesearch(counted, m; verbosity = 0), 1.0, (αmax = 0.5,))
         @test n[] ≤ 6
     end
-    @test steplength(solve_with_status(Linesearch(descending, Static(); verbosity=0), 1.0, (αmax=0.5,))) == 0.5
+    @test steplength(solve_with_status(Linesearch(descending, Static(); verbosity = 0), 1.0, (αmax = 0.5,))) ==
+          0.5
 
     # A ceiling that cancels the search cancels the *derivative* evaluation that would only have
     # decided where to start it. `Quadratic` chose its bracketing start first and tested the
@@ -1160,7 +1195,7 @@ end
     for ceiling in (1.0, 0.5, 0.005)
         nd = Ref(0)
         watched = LinesearchProblem{Float64}((α, _) -> 1.0 - α, (α, _) -> (nd[] += 1; -1.0))
-        st = solve_with_status(Linesearch(watched, Quadratic(); verbosity=0), 1.0, (αmax=ceiling,))
+        st = solve_with_status(Linesearch(watched, Quadratic(); verbosity = 0), 1.0, (αmax = ceiling,))
         @test steplength(st) == ceiling
         @test nd[] == 1
     end
@@ -1175,12 +1210,12 @@ end
 @testset "$(rpad("both optional params fields are read the same way", 80))" begin
     F(y, x, p) = y .= (x .- 1.0) .^ 2
     x = [0.5]
-    nl = NewtonSolver(x, similar(x); F=F)
+    nl = NewtonSolver(x, similar(x); F = F)
     SimpleSolvers.direction!(nl, x, NullParameters(), 1)
     prob = SimpleSolvers.linesearch_problem(nl)
 
-    plain = (x=x, parameters=NullParameters())
-    supplied = (x=x, parameters=NullParameters(), φ₀=7.0)
+    plain = (x = x, parameters = NullParameters())
+    supplied = (x = x, parameters = NullParameters(), φ₀ = 7.0)
     @test value(prob, 0.0, supplied) == 7.0                       # the field is used …
     @test value(prob, 0.0, plain) == SimpleSolvers.L2norm(F(similar(x), x, nothing))   # … and optional
 
@@ -1217,13 +1252,17 @@ end
         end
     end
     @test SimpleSolvers.default_linesearch_αmax(Float16) == floatmax(Float16)
-    @test SimpleSolvers.default_linesearch_αmax(Float64) == SimpleSolvers.DEFAULT_LINESEARCH_αmax
+    @test SimpleSolvers.default_linesearch_αmax(Float64) ==
+          SimpleSolvers.DEFAULT_LINESEARCH_αmax
 
     # `change_precision` saturates a finite ceiling for the same reason, but must leave an explicit
     # `Inf` alone: that one is not an overflow but a statement — "no ceiling of my own".
-    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection())) == floatmax(Float16)
-    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection(; αmax=Inf))) == Inf
-    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, StrongWolfe())) == floatmax(Float16)
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection())) ==
+          floatmax(Float16)
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, Bisection(;
+        αmax = Inf))) == Inf
+    @test SimpleSolvers.method_αmax(SimpleSolvers.change_precision(Float16, StrongWolfe())) ==
+          floatmax(Float16)
 end
 
 # The bracketing helpers report a truncated bracket as such rather than as a found one: the fits
@@ -1233,16 +1272,21 @@ end
     descending(x) = 1.0 - x                    # never turns, so only the ceiling can stop it
     turning(x) = (x - 1.0)^2                   # turns at 1, well inside the ceilings below
 
-    a, b, ya, yb, _, st = SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, 0.01, 2.0, 100, 5.0)
+    a, b, ya, yb, _, st = SimpleSolvers._bracket_minimum_with_fixed_point_core(
+        descending, 0.0, 0.01, 2.0, 100, 5.0)
     @test st === :capped
     @test b == 5.0 && yb == descending(5.0)
-    @test SimpleSolvers._bracket_minimum_with_fixed_point_core(turning, 0.0, 0.01, 2.0, 100, 5.0)[end] === :ok
+    @test SimpleSolvers._bracket_minimum_with_fixed_point_core(
+        turning, 0.0, 0.01, 2.0, 100, 5.0)[end] === :ok
     # …and without a ceiling the same merit is what it always was: unbracketable.
-    @test SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, 0.01, 2.0, 100, Inf)[end] === :unbracketable
+    @test SimpleSolvers._bracket_minimum_with_fixed_point_core(
+        descending, 0.0, 0.01, 2.0, 100, Inf)[end] === :unbracketable
 
-    lo, hi, _, stm = SimpleSolvers._bracket_minimum_core(descending, 0.0, 0.01, 2.0, 100, 5.0)
+    lo, hi, _, stm = SimpleSolvers._bracket_minimum_core(
+        descending, 0.0, 0.01, 2.0, 100, 5.0)
     @test stm === :capped && hi == 5.0
-    @test SimpleSolvers._bracket_minimum_core(turning, 0.0, 0.01, 2.0, 100, 5.0)[end] === :ok
+    @test SimpleSolvers._bracket_minimum_core(turning, 0.0, 0.01, 2.0, 100, 5.0)[end] ===
+          :ok
 
     _, _, c, _, stt = SimpleSolvers._triple_point_core(descending, 0.0, 0.01, 100, 1, 5.0)
     @test stt === :capped && c == 5.0
@@ -1251,8 +1295,10 @@ end
     @test SimpleSolvers._triple_point_core(descending, 0.0, 0.01, 100, 1, 0.005)[3] ≤ 0.005
 
     # The public wrappers keep the return type they document; only the cores carry the status.
-    @test SimpleSolvers.bracket_minimum_with_fixed_point(descending, 0.0, 0.01, 2.0, 100, 5.0) == (0.0, 5.0, 1.0, -4.0)
-    @test isnothing(SimpleSolvers.bracket_minimum_with_fixed_point(descending, 0.0, 0.01, 2.0, 100, Inf))
+    @test SimpleSolvers.bracket_minimum_with_fixed_point(
+        descending, 0.0, 0.01, 2.0, 100, 5.0) == (0.0, 5.0, 1.0, -4.0)
+    @test isnothing(SimpleSolvers.bracket_minimum_with_fixed_point(
+        descending, 0.0, 0.01, 2.0, 100, Inf))
     # `bracket_minimum` moves its left endpoint as it walks (unlike the fixed-point variant above),
     # so only the right end is pinned to the ceiling.
     @test bracket_minimum(descending, 0.0, 0.01, 2.0, 100, 5.0)[2] == 5.0
@@ -1267,13 +1313,16 @@ end
     # fitted a polynomial, or bisected a derivative, on an interval over which the merit only
     # falls, and the whole `:capped` route was unreachable below `s`.
     for (s, ceiling) in ((1.0, 1.0), (1.0, 0.5), (0.01, 0.005), (0.01, 0.01))
-        let (lo, hi, _, status) = SimpleSolvers._bracket_minimum_core(descending, 0.0, s, 2.0, 100, ceiling)
+        let (lo, hi, _, status) = SimpleSolvers._bracket_minimum_core(
+                descending, 0.0, s, 2.0, 100, ceiling)
             @test (lo, hi, status) == (0.0, ceiling, :capped)
         end
-        let (_, b, _, _, _, status) = SimpleSolvers._bracket_minimum_with_fixed_point_core(descending, 0.0, s, 2.0, 100, ceiling)
+        let (_, b, _, _, _, status) = SimpleSolvers._bracket_minimum_with_fixed_point_core(
+                descending, 0.0, s, 2.0, 100, ceiling)
             @test (b, status) == (ceiling, :capped)
         end
-        let (_, _, c, _, status) = SimpleSolvers._triple_point_core(descending, 0.0, s, 100, 1, ceiling)
+        let (_, _, c, _, status) = SimpleSolvers._triple_point_core(
+                descending, 0.0, s, 100, 1, ceiling)
             @test (c, status) == (ceiling, :capped)
         end
         # …and the point at the ceiling is asked for exactly once, not twice.
@@ -1284,7 +1333,8 @@ end
             @test count(==(ceiling), probed) == 1
         end
         probed = Float64[]
-        SimpleSolvers._triple_point_core(x -> (push!(probed, x); descending(x)), 0.0, s, 100, 1, ceiling)
+        SimpleSolvers._triple_point_core(
+            x -> (push!(probed, x); descending(x)), 0.0, s, 100, 1, ceiling)
         @test count(==(ceiling), probed) == 1
     end
     # A turning point *at* the ceiling is still a genuine bracket and must not be swallowed by the
@@ -1305,7 +1355,8 @@ end
     end
     # Room to the right is still searched, and a negative `δ` — not a step length, and not what
     # the ceiling is about — behaves exactly as it did.
-    @test SimpleSolvers._triple_point_core(descending, 1.0, 0.01, 100, 1, 2.0)[end] === :capped
+    @test SimpleSolvers._triple_point_core(descending, 1.0, 0.01, 100, 1, 2.0)[end] ===
+          :capped
     @test SimpleSolvers._triple_point_core(turning, 1.5, -0.01, 100, 1)[end] ===
           SimpleSolvers._triple_point_core(turning, 1.5, -0.01, 100, 1, Inf)[end]
 
@@ -1314,7 +1365,7 @@ end
     for (core, args) in ((SimpleSolvers._bracket_minimum_core, (0.0, 0.01, 2.0, 100, 5.0)),
         (SimpleSolvers._triple_point_core, (0.0, 0.01, 100, 1, 5.0)))
         n = Ref(0)
-        reported = core(x -> (n[] += 1; descending(x)), args...)[end-1]
+        reported = core(x -> (n[] += 1; descending(x)), args...)[end - 1]
         @test reported == n[] > 0
     end
 end
@@ -1344,10 +1395,12 @@ end
     # 13 (Quadratic) and 16 (Bierlaire) after removing the redundant endpoint
     # re-evaluations / per-recursion recomputation.  The bounds leave headroom
     # but catch a reintroduced per-iteration re-evaluation.
-    for (method, α_expected, bound) in ((Quadratic(), 1.0, 16), (BierlaireQuadratic(), 1.0, 20))
+    for (method, α_expected, bound) in ((Quadratic(), 1.0, 16), (
+        BierlaireQuadratic(), 1.0, 20))
         cnt = Ref(0)
-        prob = LinesearchProblem{Float64}((α, p) -> (cnt[] += 1; (α - 1)^2), (α, p) -> 2(α - 1))
-        ls = Linesearch(prob, method; verbosity=0)
+        prob = LinesearchProblem{Float64}((α, p) -> (cnt[] += 1; (α - 1)^2), (α, p) -> 2(α -
+                                                                                         1))
+        ls = Linesearch(prob, method; verbosity = 0)
         α = solve(ls, 0.5)
         @test α ≈ α_expected atol = 1e-8
         @test cnt[] ≤ bound
@@ -1360,18 +1413,20 @@ end
     # GeometricProblems, gating it at `verbosity ≥ 1` newly surfaced a message on three
     # previously-silent, correctly-converging integrations.  Whether an irreducible merit
     # matters is the outer iteration's call (see `stalled_step`).
-    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (
+        α, _) -> -2.0)
     lsdefault = Linesearch(noise, Backtracking())          # verbosity = 1, the default
     @test outcome(solve_with_status(lsdefault, 1.0)) == LINESEARCH_FLOOR
     @test (@test_logs solve(lsdefault, 1.0)) == solve(lsdefault, 1.0)   # silent
 
     # ... but it is available for diagnosis
-    lsverbose = Linesearch(noise, Backtracking(); verbosity=2)
+    lsverbose = Linesearch(noise, Backtracking(); verbosity = 2)
     @test_logs (:warn, r"round-off floor") match_mode = :any solve(lsverbose, 1.0)
 
     # a genuine inconsistency between the slope and the values *does* warn at verbosity 1
     lying = LinesearchProblem{Float64}((α, _) -> 1.0 + α, (α, _) -> -2.0)
-    @test_logs (:warn, r"did not satisfy|no step satisfied") match_mode = :any solve(Linesearch(lying, Backtracking()), 1.0)
+    @test_logs (:warn, r"did not satisfy|no step satisfied") match_mode = :any solve(
+        Linesearch(lying, Backtracking()), 1.0)
 
     # ... and so does a non-descent direction
     up = LinesearchProblem{Float64}((α, _) -> α + 1.0, (α, _) -> 1.0)
@@ -1404,8 +1459,9 @@ end
     @test a < b < c
 
     # the sibling bracketers report `nothing` on exhaustion rather than erroring
-    @test bracket_minimum(x -> -x, 0.0; nmax=3) === nothing
-    @test SimpleSolvers.bracket_minimum_with_fixed_point(x -> -x, 0.0, 0.01, 2.0, 3) === nothing
+    @test bracket_minimum(x -> -x, 0.0; nmax = 3) === nothing
+    @test SimpleSolvers.bracket_minimum_with_fixed_point(x -> -x, 0.0, 0.01, 2.0, 3) ===
+          nothing
     @test bracket_minimum(x -> (x - 1)^2, 0.0) !== nothing
 end
 
@@ -1439,13 +1495,15 @@ end
             ("Inf merit", (α, _) -> T(Inf), (α, _) -> -one_T),
             ("ascent anchor", (α, _) -> α + one_T, (α, _) -> one_T),
             ("stationary anchor", (α, _) -> -one_T, (α, _) -> zero(T)),
-            ("flat to round-off", (α, _) -> α > zero(α) ? nextfloat(one_T) : one_T, (α, _) -> -2one_T),
+            ("flat to round-off",
+                (α, _) -> α > zero(α) ? nextfloat(one_T) : one_T, (α, _) -> -2one_T),
             ("minimiser at α < 0", (α, _) -> (α + one_T)^2, (α, _) -> 2 * (α + one_T)),
-            ("slope contradicts values", (α, _) -> one_T + α, (α, _) -> -2one_T),
+            ("slope contradicts values", (α, _) -> one_T + α, (α, _) -> -2one_T)
         )
-        for m in (Static(T), Backtracking(T), Backtracking(T; expand=true), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
+        for m in (Static(T), Backtracking(T), Backtracking(T; expand = true),
+            StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
             for (nm, f, d) in pathological
-                ls = Linesearch(LinesearchProblem{T}(f, d), m; verbosity=0)
+                ls = Linesearch(LinesearchProblem{T}(f, d), m; verbosity = 0)
                 st = @test_nowarn solve_with_status(ls, one_T)
                 @test st isa LinesearchStatus{T}
                 @test steplength(st) > zero(T)            # the α > 0 guarantee
@@ -1485,31 +1543,32 @@ end
     for T in (Float64, Float32, Float16)
         @test Backtracking(T).τ_ulps == armijo_ulps(T, T(SimpleSolvers.DEFAULT_WOLFE_c₁))
         @test change_precision(T, Backtracking()).τ_ulps == Backtracking(T).τ_ulps
-        @test Backtracking(T; τ_ulps=T(4)).τ_ulps ≤ armijo_ulps(T)
-        @test Backtracking(T; τ_ulps=zero(T)).τ_ulps == 0   # opting out still works
+        @test Backtracking(T; τ_ulps = T(4)).τ_ulps ≤ armijo_ulps(T)
+        @test Backtracking(T; τ_ulps = zero(T)).τ_ulps == 0   # opting out still works
 
         # The expansion keys survive a precision change too — `expand` and `nexpand` unconverted,
         # `q` in the new element type — and `isapprox` compares them.
-        grow = Backtracking(; expand=true, nexpand=2)
+        grow = Backtracking(; expand = true, nexpand = 2)
         @test change_precision(T, grow).expand
         @test change_precision(T, grow).nexpand == 2
         @test change_precision(T, grow).q == T(SimpleSolvers.DEFAULT_BACKTRACKING_q)
-        @test change_precision(T, grow) ≈ Backtracking(T; expand=true, nexpand=2)
-        @test !(change_precision(T, grow) ≈ Backtracking(T; nexpand=2))
-        @test !(change_precision(T, grow) ≈ Backtracking(T; expand=true, nexpand=3))
+        @test change_precision(T, grow) ≈ Backtracking(T; expand = true, nexpand = 2)
+        @test !(change_precision(T, grow) ≈ Backtracking(T; nexpand = 2))
+        @test !(change_precision(T, grow) ≈ Backtracking(T; expand = true, nexpand = 3))
 
         # ... and the phase *runs* in the new precision, not merely survives conversion into it:
         # `BACKTRACKING_GROW_MIN` and `q` are converted with the method, so a merit whose scale is
         # an order of magnitude above the trial step is reached in Float16 exactly as in Float64,
         # while the shrink-only search stays pinned at the caller's ceiling.
         let prob = LinesearchProblem{T}((α, _) -> (α - T(11))^2, (α, _) -> 2 * (α - T(11))),
-            expander = Backtracking(T; expand=true)
+            expander = Backtracking(T; expand = true)
 
-            st = solve_with_status(Linesearch(prob, expander; verbosity=0), one(T))
+            st = solve_with_status(Linesearch(prob, expander; verbosity = 0), one(T))
             @test issufficient(st)
             @test T(11) / T(SimpleSolvers.BACKTRACKING_GROW_MIN) ≤ steplength(st) ≤ T(11)
             @test 1 < trials(st) ≤ 1 + expander.nexpand
-            @test steplength(solve_with_status(Linesearch(prob, Backtracking(T); verbosity=0), one(T))) == one(T)
+            @test steplength(solve_with_status(Linesearch(prob, Backtracking(T); verbosity = 0), one(T))) ==
+                  one(T)
         end
     end
 end
@@ -1533,7 +1592,7 @@ end
 
     # the two methods that actually run an Armijo test report it as progress
     for m in (Backtracking(T), StrongWolfe(T))
-        st = solve_with_status(Linesearch(prob, m; verbosity=0), one(T))
+        st = solve_with_status(Linesearch(prob, m; verbosity = 0), one(T))
         @test issufficient(st)
         @test outcome(st) == LINESEARCH_DECREASED
     end
@@ -1550,14 +1609,16 @@ end
     for T in (Float64, Float32, Float16)
         τ = 4 * eps(one(T))
         # rises immediately, by less than τ — inside the unbounded allowance, outside the bounded one
-        creep = LinesearchProblem{T}((α, _) -> one(T) + (α > zero(α) ? τ / 2 : zero(T)), (α, _) -> -2one(T))
+        creep = LinesearchProblem{T}((α, _) -> one(T) + (α > zero(α) ? τ / 2 : zero(T)), (
+            α, _) -> -2one(T))
         for m in (Backtracking(T), StrongWolfe(T), Bisection(T), Quadratic(T), BierlaireQuadratic(T))
-            st = solve_with_status(Linesearch(creep, m; verbosity=0), one(T))
+            st = solve_with_status(Linesearch(creep, m; verbosity = 0), one(T))
             @test !issufficient(st)                 # never reported as a genuine decrease
             @test outcome(st) != LINESEARCH_DECREASED
         end
         # and the condition object itself rejects it at every α
-        sdc = SufficientDecreaseCondition(T(1e-4), one(T), -2one(T), α -> one(T) + τ / 2; τ=τ)
+        sdc = SufficientDecreaseCondition(
+            T(1e-4), one(T), -2one(T), α -> one(T) + τ / 2; τ = τ)
         @test !sdc(one(T))
         @test !sdc(T(1e-3))
         @test !sdc(eps(T))
@@ -1570,8 +1631,8 @@ end
     # out of the enclosing solve.  It now matches `Backtracking` on the same problems.
     for (f, d) in (((α, _) -> NaN, (α, _) -> NaN), ((α, _) -> 1.0 - α, (α, _) -> NaN))
         prob = LinesearchProblem{Float64}(f, d)
-        sw = solve_with_status(Linesearch(prob, StrongWolfe(); verbosity=0), 0.7)
-        bt = solve_with_status(Linesearch(prob, Backtracking(); verbosity=0), 0.7)
+        sw = solve_with_status(Linesearch(prob, StrongWolfe(); verbosity = 0), 0.7)
+        bt = solve_with_status(Linesearch(prob, Backtracking(); verbosity = 0), 0.7)
         @test outcome(sw) == outcome(bt) == LINESEARCH_NO_DESCENT
         @test steplength(sw) == steplength(bt) == 0.7
     end
@@ -1587,8 +1648,9 @@ end
         counts = Int[]
         for c in (1e-12, 1e-6, 1.0, 1e6, 1e12)
             n = Ref(0)
-            prob = LinesearchProblem{Float64}((α, _) -> (n[] += 1; c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
-            push!(αs, solve(Linesearch(prob, m; verbosity=0), 0.5))
+            prob = LinesearchProblem{Float64}(
+                (α, _) -> (n[] += 1; c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
+            push!(αs, solve(Linesearch(prob, m; verbosity = 0), 0.5))
             push!(counts, n[])
         end
         @test all(≈(first(αs)), αs)                        # same step at every scale
@@ -1602,8 +1664,9 @@ end
     # more than a couple of times.
     for c in (1.0, 1e-6)
         αs = Float64[]
-        prob = LinesearchProblem{Float64}((α, _) -> (push!(αs, α); c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
-        α = solve(Linesearch(prob, BierlaireQuadratic(); verbosity=0), 0.5)
+        prob = LinesearchProblem{Float64}(
+            (α, _) -> (push!(αs, α); c * (α - 1.0)^2), (α, _) -> c * 2 * (α - 1.0))
+        α = solve(Linesearch(prob, BierlaireQuadratic(); verbosity = 0), 0.5)
         @test α ≈ 1.0 atol = 1e-8
         @test maximum(count(==(u), αs) for u in unique(αs)) ≤ 3
         @test length(αs) ≤ 25
@@ -1620,7 +1683,7 @@ end
         nf, nd = Ref(0), Ref(0)
         prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - 2α + 1000α^2),
             (α, _) -> (nd[] += 1; -2.0 + 2000α))
-        st = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0)
+        st = solve_with_status(Linesearch(prob, m; verbosity = 0), 1.0)
         (st, nf[], nd[])
     end
 
@@ -1654,8 +1717,9 @@ end
     # reached by the bracketing, so everything the search spent is the bracketing's.
     for m in (Bisection(), Quadratic(), BierlaireQuadratic())
         nf, nd = Ref(0), Ref(0)
-        prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - α), (α, _) -> (nd[] += 1; -1.0))
-        st = solve_with_status(Linesearch(prob, m; verbosity=0), 1.0, (αmax=0.5,))
+        prob = LinesearchProblem{Float64}((α, _) -> (nf[] += 1; 1.0 - α), (α, _) -> (
+            nd[] += 1; -1.0))
+        st = solve_with_status(Linesearch(prob, m; verbosity = 0), 1.0, (αmax = 0.5,))
         @test steplength(st) == 0.5
         @test 0 < trials(st) ≤ nf[] + nd[]
     end
@@ -1664,22 +1728,23 @@ end
 @testset "$(rpad("αmin is reported only where it means something", 80))" begin
     # αmin is a shrinking-ladder quantity. `Backtracking` derives a real one; the bracketing and
     # minimising searches have none, report zero, and must not name it in their messages.
-    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (α, _) -> -2.0)
-    @test solve_with_status(Linesearch(noise, Backtracking(); verbosity=0), 1.0).αmin > 0
+    noise = LinesearchProblem{Float64}((α, _) -> α > zero(α) ? nextfloat(1.0) : 1.0, (
+        α, _) -> -2.0)
+    @test solve_with_status(Linesearch(noise, Backtracking(); verbosity = 0), 1.0).αmin > 0
     for m in (StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
-        @test iszero(solve_with_status(Linesearch(noise, m; verbosity=0), 1.0).αmin)
+        @test iszero(solve_with_status(Linesearch(noise, m; verbosity = 0), 1.0).αmin)
     end
 
     # the verbosity-2 floor message names αmin for Backtracking, and reports the true trial count
     msg = @test_logs (:warn, r"smallest informative step is αmin") match_mode = :any solve(
-        Linesearch(noise, Backtracking(); verbosity=2), 1.0)
+        Linesearch(noise, Backtracking(); verbosity = 2), 1.0)
     @test msg isa Float64
     # ... and the count is whatever the method really spent, which for `BierlaireQuadratic` on
     # this merit is legitimately zero: `triple_point_finder` recognises the flat merit from the
     # anchor and one probe, so the fit never runs. A *genuine* zero is fine; the defect was a
     # hardcoded one, which the previous testset pins down on a merit that does iterate.
     for m in (StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
-        st = solve_with_status(Linesearch(noise, m; verbosity=0), 1.0)
+        st = solve_with_status(Linesearch(noise, m; verbosity = 0), 1.0)
         @test trials(st) ≥ 0
         @test iszero(st.αmin)
     end
@@ -1725,7 +1790,7 @@ end
     # the only path that reaches it, since a solver consults `solve_with_status` and reports through
     # `nonlinear_solver_warnings` instead — and it stays quiet when there is nothing to report.
     for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
-        lsp = Linesearch(make_linesearch_problem(-3.0), ls; verbosity=1)
+        lsp = Linesearch(make_linesearch_problem(-3.0), ls; verbosity = 1)
         @test (@test_logs solve(lsp, 1.0)) > 0.0
     end
 
@@ -1734,7 +1799,7 @@ end
     F(y, x, params) = y .= x .^ 2 .- 2
     for ls in (Backtracking(), StrongWolfe(), Bisection(), Quadratic(), BierlaireQuadratic())
         x = ones(3)
-        s = NewtonSolver(x, similar(x); F=F, linesearch=ls, verbosity=1)
+        s = NewtonSolver(x, similar(x); F = F, linesearch = ls, verbosity = 1)
         @test_logs solve!(x, s)
         @test x ≈ fill(sqrt(2), 3)
     end
@@ -1745,7 +1810,8 @@ end
     # session.
     fslow(α, _) = α - 1 / 3
     nonconvergence(v) = () -> bisection(fslow, 0.0, 1.0, NullParameters(),
-        Options(Float64; linesearch_max_iterations=2, x_suctol=0.0, f_abstol=0.0, verbosity=v))
+        Options(Float64; linesearch_max_iterations = 2,
+            x_suctol = 0.0, f_abstol = 0.0, verbosity = v))
     @test logged_any(nonconvergence(1), "did not converge within")
     @test !logged_any(nonconvergence(0), "did not converge within")
 
@@ -1755,7 +1821,8 @@ end
     # `LinesearchStatus` — so the only caller left is a user asking for a root, and "there is no
     # root in your interval" is a genuine failure for them.
     fpos(α, _) = α + 1.0            # strictly positive on [0, 1] → no sign change
-    nobracket(v) = () -> bisection(fpos, 0.0, 1.0, NullParameters(), Options(Float64; verbosity=v))
+    nobracket(v) = () -> bisection(
+        fpos, 0.0, 1.0, NullParameters(), Options(Float64; verbosity = v))
     @test logged_any(nobracket(1), "shows no sign change")
     @test !logged_any(nobracket(0), "shows no sign change")
 end
@@ -1768,7 +1835,7 @@ end
     # texts are pinned here because that laziness is easy to undo by rewriting the interpolation,
     # and easy to undo *silently*.
     reported(st, v) = () -> SimpleSolvers.report_linesearch_status(st, :Backtracking,
-        Options(Float64; verbosity=v, linesearch_max_iterations=7))
+        Options(Float64; verbosity = v, linesearch_max_iterations = 7))
 
     # φ = 0.5 against φ₀ = 1.0, so the merit difference the second EXHAUSTED wording names is exact.
     status(oc, α, αmin) = LinesearchStatus{Float64}(α, oc, 3, 1.0, -2.0, 0.5, 1.0e-16, αmin)
@@ -1792,7 +1859,7 @@ end
     # future Julia release may call for revisiting them rather than the package.
     function reporting_allocations(oc, v)
         st = status(oc, 0.5, 1.0e-8)
-        cfg = Options(Float64; verbosity=v)
+        cfg = Options(Float64; verbosity = v)
         SimpleSolvers.report_linesearch_status(st, :Backtracking, cfg)
         @allocated SimpleSolvers.report_linesearch_status(st, :Backtracking, cfg)
     end
@@ -1820,29 +1887,38 @@ end
     # A boxed counter is invisible in the result but erases the type of everything built from it, so
     # pin that too: the `trials` of a `LinesearchStatus` and the `Symbol` a bracketing attempt reports.
     probe(a) = (a - 0.5)^2 + 1.0
-    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1)) isa Tuple{Float64,Float64,Float64,Int,Symbol}
+    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1)) isa
+          Tuple{Float64, Float64, Float64, Int, Symbol}
     # The ceiling adds a third status but must not add a type: `:capped` travels the same slot.
     # The evaluation count each core reports has to stay an inferred `Int` for the same reason —
     # it becomes the `trials` of a `LinesearchStatus`, on the line search's hot path.
-    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1, 0.2)) isa Tuple{Float64,Float64,Float64,Int,Symbol}
-    @test (@inferred SimpleSolvers._bracket_minimum_with_fixed_point_core(probe, 0.0, 0.01, 2.0, 100, 0.2)) isa Tuple{Float64,Float64,Float64,Float64,Int,Symbol}
-    @test (@inferred SimpleSolvers._bracket_minimum_core(probe, 0.0, 0.01, 2.0, 100, 0.2)) isa Tuple{Float64,Float64,Int,Symbol}
-    let ls = Linesearch(make_linesearch_problem(2.0), BierlaireQuadratic(); verbosity=0)
+    @test (@inferred SimpleSolvers._triple_point_core(probe, 0.0, 0.01, 100, 1, 0.2)) isa
+          Tuple{Float64, Float64, Float64, Int, Symbol}
+    @test (@inferred SimpleSolvers._bracket_minimum_with_fixed_point_core(
+        probe, 0.0, 0.01, 2.0, 100, 0.2)) isa
+          Tuple{Float64, Float64, Float64, Float64, Int, Symbol}
+    @test (@inferred SimpleSolvers._bracket_minimum_core(
+        probe, 0.0, 0.01, 2.0, 100, 0.2)) isa Tuple{Float64, Float64, Int, Symbol}
+    let ls = Linesearch(make_linesearch_problem(2.0), BierlaireQuadratic(); verbosity = 0)
         a, b, c, _, _ = SimpleSolvers._triple_point_core(problem(ls), NullParameters(), 0.0)
-        @test (@inferred SimpleSolvers._bierlaire_fit(ls, a, b, c, NullParameters(), 1.0e-16)) isa Tuple{Float64,Float64,Int}
+        @test (@inferred SimpleSolvers._bierlaire_fit(
+            ls, a, b, c, NullParameters(), 1.0e-16)) isa Tuple{Float64, Float64, Int}
     end
-    @test (@inferred solve_with_status(Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity=0), 1.0)) isa LinesearchStatus
+    @test (@inferred solve_with_status(
+        Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity = 0), 1.0)) isa
+          LinesearchStatus
 
     F(y, x, params) = y .= x .^ 2 .- 2
-    function solve_allocations(ls, n=3)
+    function solve_allocations(ls, n = 3)
         x = ones(n)
-        s = NewtonSolver(x, similar(x); F=F, linesearch=ls, verbosity=0)
+        s = NewtonSolver(x, similar(x); F = F, linesearch = ls, verbosity = 0)
         state = SolverState(s)
         solve!(x, s, state)
         x .= 1.0
         @allocated solve!(x, s, state)
     end
-    for ls in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
+    for ls in (Static(), Backtracking(), Backtracking(; expand = true),
+        Bisection(), Quadratic(), BierlaireQuadratic())
         @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end
 
@@ -1851,17 +1927,18 @@ end
     # is the proof. A caller that *does* supply one must not pay either — `params` gains a field, not
     # an allocation — which is what this asserts on the line search directly.
     function ceiling_allocations(m, params)
-        ls = Linesearch(make_linesearch_problem(2.0), m; verbosity=0)
+        ls = Linesearch(make_linesearch_problem(2.0), m; verbosity = 0)
         solve_with_status(ls, 1.0, params)
         @allocated solve_with_status(ls, 1.0, params)
     end
-    for m in (Static(), Backtracking(), Backtracking(; expand=true), Bisection(), Quadratic(), BierlaireQuadratic())
-        @test ceiling_allocations(m, (x=2.0, αmax=10.0)) == 0 skip = !AS_A_CALLER_COMPILES_IT
-        @test ceiling_allocations(m, (x=2.0,)) == 0 skip = !AS_A_CALLER_COMPILES_IT
+    for m in (Static(), Backtracking(), Backtracking(; expand = true),
+        Bisection(), Quadratic(), BierlaireQuadratic())
+        @test ceiling_allocations(m, (x = 2.0, αmax = 10.0)) == 0 skip = !AS_A_CALLER_COMPILES_IT
+        @test ceiling_allocations(m, (x = 2.0,)) == 0 skip = !AS_A_CALLER_COMPILES_IT
     end
 
     function wolfe_allocations()
-        ls = Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity=0)
+        ls = Linesearch(make_linesearch_problem(2.0), StrongWolfe(); verbosity = 0)
         solve_with_status(ls, 1.0)
         @allocated solve_with_status(ls, 1.0)
     end

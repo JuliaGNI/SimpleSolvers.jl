@@ -64,7 +64,7 @@ struct NonlinearSolverStatus{T}
     # An `NTuple` and not the `MVector` the state keeps: the status is immutable and is built more
     # than once per iteration (see `record_progress!`), so it takes a snapshot rather than a handle
     # on a buffer that keeps changing under it.
-    ls_outcomes::NTuple{NLINESEARCH_OUTCOMES,Int}
+    ls_outcomes::NTuple{NLINESEARCH_OUTCOMES, Int}
 end
 
 """
@@ -95,8 +95,9 @@ linesearch_outcomes(status::NonlinearSolverStatus) = status.ls_outcomes
 The number of steps whose line search reported a failure, i.e. [`linesearch_outcomes`](@ref)
 summed over the outcomes that are not [`isbenign`](@ref).
 """
-linesearch_failures(status::NonlinearSolverStatus) =
+function linesearch_failures(status::NonlinearSolverStatus)
     sum(oc -> isbenign(oc) ? 0 : status.ls_outcomes[linesearch_index(oc)], instances(LinesearchOutcome))
+end
 
 """
     dominant_linesearch_outcome(status, count_floor=true)
@@ -118,7 +119,7 @@ so for that question the floor is not a failure at all. It is the tie rule above
 distinction matter — a converged solve that floored once and was exhausted once would otherwise be
 explained by the floor, which is the half of it that is expected.
 """
-function dominant_linesearch_outcome(status::NonlinearSolverStatus, count_floor::Bool=true)
+function dominant_linesearch_outcome(status::NonlinearSolverStatus, count_floor::Bool = true)
     best = nothing
     count = 0
     for oc in instances(LinesearchOutcome)
@@ -179,7 +180,8 @@ absolute `f_abstol` test) until the state has been initialized (`initial_residua
 
 Also see [`meets_stopping_criteria`](@ref).
 """
-function assess_convergence(rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, state::NonlinearSolverState)
+function assess_convergence(
+        rxₛ::Number, rfₐ::Number, rfₛ::Number, config::Options, state::NonlinearSolverState)
     # The iterate/value has stopped changing (successive-change criteria).
     x_settled = iterate_settled(rxₛ, config, state)
     f_settled = rfₛ ≤ norm(value(state)) * config.f_suctol
@@ -239,8 +241,9 @@ An infinite step never counts as settled, even though `Inf ≤ ‖x‖·x_suctol
 overflowed too: an iterate that jumped to infinity has neither converged nor frozen, it has
 broken down, and that is what [`havenonfinite`](@ref) is for.
 """
-iterate_settled(rxₛ::Number, config::Options, state::NonlinearSolverState) =
+function iterate_settled(rxₛ::Number, config::Options, state::NonlinearSolverState)
     isfinite(rxₛ) && rxₛ ≤ norm(solution(state)) * config.x_suctol
+end
 
 @doc raw"""
     stalled_step(rxₛ, rfₐ, config, state)
@@ -335,7 +338,8 @@ function record_stall!(state::NonlinearSolverState, config::Options, rxₛ::Numb
     # iteration earlier), but it is gated by the *same* residual test: at convergence the
     # merit is also at its round-off floor, and that is success, not stagnation. Keeping the
     # gate is what makes stagnation and convergence mutually exclusive (see `isstalled`).
-    stalled = (flagged || iterate_settled(rxₛ, config, state)) && !residual_small(rfₐ, config, state)
+    stalled = (flagged || iterate_settled(rxₛ, config, state)) &&
+              !residual_small(rfₐ, config, state)
     state.stalls = stalled ? state.stalls + 1 : 0
 end
 
@@ -364,12 +368,15 @@ end
 
 function NonlinearSolverStatus(state::NonlinearSolverState{T}, config::Options{T}) where {T}
     rxₛ, rfₐ, rfₛ = residuals(state)
-    x_converged, f_converged, f_increased, stalled = assess_convergence(rxₛ, rfₐ, rfₛ, config, state)
+    x_converged, f_converged, f_increased, stalled = assess_convergence(
+        rxₛ, rfₐ, rfₛ, config, state)
     # `no_progress` is evaluated here rather than in `assess_convergence` because it is not a
     # convergence question: it reads a measurement taken once per iteration by `record_progress!`
     # instead of the residuals of the current step.
-    NonlinearSolverStatus{T}(iteration_number(state), stall_number(state), iterations_since_progress(state),
-        rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased, stalled, no_progress(rfₐ, config, state),
+    NonlinearSolverStatus{T}(
+        iteration_number(state), stall_number(state), iterations_since_progress(state),
+        rxₛ, rfₐ, rfₛ, x_converged, f_converged, f_increased,
+        stalled, no_progress(rfₐ, config, state),
         Tuple(linesearch_outcomes(state)))
 end
 
@@ -377,13 +384,16 @@ end
 # fresh status is unchanged. `spent_without_progress` rather than its proportion alone is what
 # keeps a *healthy* solve's printout unchanged too: this is the one caller that cannot check the
 # budget, having no `Options` — see `F_STALL_REPORT_MINIMUM`.
-Base.show(io::IO, status::NonlinearSolverStatus) = print(io,
-    (@sprintf "i=%4i" status.iterations), ",\n",
-    (@sprintf "rxₛ=%4e" status.rxₛ), ",\n",
-    (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
-    (@sprintf "rfₛ=%4e" status.rfₛ),
-    status.stalls > 0 ? ",\n" * (@sprintf "stalls=%4i" status.stalls) : "",
-    spent_without_progress(status) ? ",\n" * (@sprintf "no progress for=%4i" status.iterations_since_progress) : "")
+function Base.show(io::IO, status::NonlinearSolverStatus)
+    print(io,
+        (@sprintf "i=%4i" status.iterations), ",\n",
+        (@sprintf "rxₛ=%4e" status.rxₛ), ",\n",
+        (@sprintf "rfₐ=%4e" status.rfₐ), ",\n",
+        (@sprintf "rfₛ=%4e" status.rfₛ),
+        status.stalls > 0 ? ",\n" * (@sprintf "stalls=%4i" status.stalls) : "",
+        spent_without_progress(status) ?
+        ",\n" * (@sprintf "no progress for=%4i" status.iterations_since_progress) : "")
+end
 
 @doc raw"""
     print_status(status, config)
@@ -397,7 +407,8 @@ Print the solver status if:
 """
 function print_status(status::NonlinearSolverStatus, config::Options)
     if (config.verbosity ≥ 1 &&
-        (isconverged(status) || status.iterations ≥ config.max_iterations || status.iterations ≥ config.warn_iterations)) ||
+        (isconverged(status) || status.iterations ≥ config.max_iterations ||
+         status.iterations ≥ config.warn_iterations)) ||
        config.verbosity > 1
         println(status)
     end
@@ -431,7 +442,9 @@ Note that a status is never *converged* by accident here — every comparison wi
 and no infinite residual passes [`residual_small`](@ref) — so this predicate decides when to
 stop and what to report, not whether the answer is good.
 """
-havenonfinite(status::NonlinearSolverStatus) = !(isfinite(status.rxₛ) && isfinite(status.rfₐ) && isfinite(status.rfₛ))
+function havenonfinite(status::NonlinearSolverStatus)
+    !(isfinite(status.rxₛ) && isfinite(status.rfₐ) && isfinite(status.rfₛ))
+end
 
 """
     isstalled(status, config)
@@ -447,7 +460,9 @@ Whether that counts as success is the caller's decision, which is why the status
 (see [`status`](@ref)): if `status.rfₐ` is acceptable to *you*, treat `isstalled` as success —
 and consider raising `f_abstol` above it, since the tolerance you asked for is not attainable.
 """
-isstalled(status::NonlinearSolverStatus, config::Options) = status.stalls ≥ config.max_stalls
+function isstalled(status::NonlinearSolverStatus, config::Options)
+    status.stalls ≥ config.max_stalls
+end
 
 """
     isnotprogressing(status)
@@ -494,10 +509,11 @@ A long healthy solve does not reach it either, for the separate reason that its 
 halving: an iteration converging linearly with rate ``\\rho`` halves every ``-1/\\log_2\\rho``
 iterations, 69 of them even at ``\\rho = 0.99``.
 """
-spent_without_progress(status::NonlinearSolverStatus) =
+function spent_without_progress(status::NonlinearSolverStatus)
     !isconverged(status) &&
-    status.iterations_since_progress ≥ F_STALL_REPORT_MINIMUM &&
-    2 * status.iterations_since_progress ≥ status.iterations
+        status.iterations_since_progress ≥ F_STALL_REPORT_MINIMUM &&
+        2 * status.iterations_since_progress ≥ status.iterations
+end
 
 """
     meets_stopping_criteria(state, config)
@@ -593,7 +609,7 @@ Like `no_progress_reason` and `linesearch_exhausted_reason`, this is called from
 *inside* the `@warn` message so the string is built only for a message that is actually shown.
 """
 function linesearch_reason(status::NonlinearSolverStatus, config::Options,
-    oc::Union{LinesearchOutcome,Nothing}=dominant_linesearch_outcome(status))
+        oc::Union{LinesearchOutcome, Nothing} = dominant_linesearch_outcome(status))
     isnothing(oc) && return ""
     n = linesearch_outcomes(status)[linesearch_index(oc)]
     " The line search reported $(oc) on $(n) of the $(status.iterations) step(s)" *
@@ -654,7 +670,8 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     stagnated = isstalled(status, config)
     noprogress = !stagnated &&
                  (isnotprogressing(status) ||
-                  (status.iterations ≥ config.max_iterations && spent_without_progress(status)))
+                  (status.iterations ≥ config.max_iterations &&
+                   spent_without_progress(status)))
 
     # A solve that failed usually failed the same way at every step, so the dominant line-search
     # outcome is both the cause worth naming and the right thing to key the backoff on: a solve that
@@ -686,9 +703,12 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     # genuinely new failure late in a long run unreported. See `should_report!`.
     (stagnated && config.verbosity ≥ 1 && should_report!(Symbol(:stagnated_, lskey))) &&
         (@warn "Nonlinear solver stagnated after $(status.iterations) iterations: the last $(status.stalls) steps did not move the iterate, so the residual rfₐ = $(status.rfₐ) cannot be reduced further — this is the achievable floor for this problem in this precision. The requested residual tolerance was f_abstol = $(config.f_abstol) (plus f_reltol = $(config.f_reltol) times the initial residual ‖F(x₀)‖).$(linesearch_reason(status, config)) If rfₐ is accurate enough for you, raise f_abstol above it; otherwise rescale F so that its round-off floor lies below the tolerance you need. Set verbosity = 0 to silence this.")
-    (status.f_increased && !config.allow_f_increases) && (@warn "The function increased and the solver stopped!")
-    (status.rfₐ > config.f_abstol_break) && (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
-    (havenonfinite(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) && (@warn "Nonlinear solver encountered NaNs or Infs in solution or function value.")
+    (status.f_increased && !config.allow_f_increases) &&
+        (@warn "The function increased and the solver stopped!")
+    (status.rfₐ > config.f_abstol_break) &&
+        (@warn "The residual rfₐ has reached the maximally allowed value $(config.f_abstol_break)!")
+    (havenonfinite(status) && status.iterations ≥ 1 && config.verbosity ≥ 1) &&
+        (@warn "Nonlinear solver encountered NaNs or Infs in solution or function value.")
 
     # A solve that *converged* despite a line search that kept failing got where it was going, so
     # this is not a warning about the result — but the route it took is worth seeing when you are
@@ -706,7 +726,8 @@ function nonlinear_solver_warnings(status::NonlinearSolverStatus, config::Option
     # The same outcome is handed to `linesearch_reason`, so the clause names what made the message
     # fire rather than the floor it is deliberately ignoring.
     rough = dominant_linesearch_outcome(status, false)
-    (isconverged(status) && !stagnated && !noprogress && config.verbosity ≥ 2 && !isnothing(rough)) &&
+    (isconverged(status) && !stagnated && !noprogress && config.verbosity ≥ 2 &&
+     !isnothing(rough)) &&
         (@info "Nonlinear solver converged after $(status.iterations) iterations to rfₐ = $(status.rfₐ), but not every step went smoothly.$(linesearch_reason(status, config, rough))")
 
     nothing

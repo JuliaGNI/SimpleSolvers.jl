@@ -25,7 +25,6 @@ H!(h, x)
 HPAD = HessianAutodiff{T}(F, n)
 HPUS = HessianFunction{T}(H!, n)
 
-
 function test_hessian(h1, h2, atol)
     for i in eachindex(h1, h2)
         @test h1[i] ≈ h2[i] atol = atol
@@ -54,5 +53,5 @@ test_hessian(hus, h, zero(eltype(hus)))
     # the convenience form without `io` writes to stdout and forwards keywords
     # (called silently; content is covered by the `sprint` checks above)
     @test redirect_stdout(() -> check_hessian(H), devnull) === nothing
-    @test redirect_stdout(() -> check_hessian(H; digits=3), devnull) === nothing
+    @test redirect_stdout(() -> check_hessian(H; digits = 3), devnull) === nothing
 end

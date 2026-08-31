@@ -72,8 +72,9 @@ converged solve, because whether it matters is the outer iteration's call and th
 outer iteration is told: the tally is read by [`nonlinear_solver_warnings`](@ref), which names it
 only for a solve that did *not* converge.
 """
-isbenign(oc::LinesearchOutcome) =
+function isbenign(oc::LinesearchOutcome)
     oc === LINESEARCH_DECREASED || oc === LINESEARCH_STATIONARY || oc === LINESEARCH_UNKNOWN
+end
 
 @doc raw"""
     LinesearchStatus{T}
@@ -131,8 +132,9 @@ Construct a [`LinesearchStatus`](@ref) that carries only the step length and the
 that does not measure them — [`Static`](@ref), or a third-party method whose
 [`solve_with_status`](@ref) has nothing more to say.
 """
-LinesearchStatus(α::T, outcome::LinesearchOutcome=LINESEARCH_UNKNOWN) where {T} =
+function LinesearchStatus(α::T, outcome::LinesearchOutcome = LINESEARCH_UNKNOWN) where {T}
     LinesearchStatus{T}(α, outcome, 0, T(NaN), T(NaN), T(NaN), zero(T), zero(T))
+end
 
 """
     steplength(status)
@@ -176,9 +178,11 @@ cannot make progress in this state no matter how the step is chosen — which is
 """
 isfloor(status::LinesearchStatus) = outcome(status) === LINESEARCH_FLOOR
 
-Base.show(io::IO, s::LinesearchStatus) = print(io,
-    "LinesearchStatus: α = $(s.α), $(s.outcome) after $(s.trials) trial step(s) ",
-    "(φ(0) = $(s.φ₀), φ(α) = $(s.φ), φ'(0) = $(s.d₀), τ = $(s.τ), αmin = $(s.αmin)).")
+function Base.show(io::IO, s::LinesearchStatus)
+    print(io,
+        "LinesearchStatus: α = $(s.α), $(s.outcome) after $(s.trials) trial step(s) ",
+        "(φ(0) = $(s.φ₀), φ(α) = $(s.φ), φ'(0) = $(s.d₀), τ = $(s.τ), αmin = $(s.αmin)).")
+end
 
 @doc raw"""
     check_anchor(φ₀, d₀, α, αmax=Inf)
@@ -213,7 +217,7 @@ it is the caller's decision, not the line search's. It also respects `αmax` (se
 [`linesearch_αmax`](@ref)), so that the ceiling holds on *every* return of a line search and not
 only on the ones that searched.
 """
-function check_anchor(φ₀::T, d₀::T, α::T, αmax::T=T(Inf)) where {T}
+function check_anchor(φ₀::T, d₀::T, α::T, αmax::T = T(Inf)) where {T}
     # A non-positive trial step is not a step the caller can be handed back, so substitute the
     # unit step — the same convention `StrongWolfe` uses for its initial trial. This is what
     # makes the α > 0 guarantee hold even when the caller passes α ≤ 0. The substitute is bounded
@@ -248,7 +252,7 @@ bracketing core (see [`_bracket_core`](@ref)). It has to be passed in rather tha
 on this path the bracketing *is* the search: reporting only the single evaluation made here would
 make [`trials`](@ref) say a capped search cost one step whatever it actually cost.
 """
-function capped_status(prob, params, αmax::T, φ₀::T, d₀::T, τ::T, n::Int=0) where {T}
+function capped_status(prob, params, αmax::T, φ₀::T, d₀::T, τ::T, n::Int = 0) where {T}
     φ = value(prob, αmax, params)
     LinesearchStatus{T}(αmax, φ ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
         n + 1, φ₀, d₀, φ, τ, zero(T))
@@ -277,7 +281,7 @@ gets [`solve`](@ref) derived from it. A method that reports no outcome of its ow
     `solve`, and gets the boilerplate (`solve_with_status`, then [`linesearch_warnings`](@ref),
     then [`steplength`](@ref)) for free in exchange.
 """
-function solve_with_status(ls::Linesearch{T}, α::T, params=NullParameters()) where {T}
+function solve_with_status(ls::Linesearch{T}, α::T, params = NullParameters()) where {T}
     throw(ArgumentError("$(nameof(typeof(method(ls)))) does not implement `solve_with_status`, " *
                         "which is what a LinesearchMethod implements; `solve` is derived from it. " *
                         "Define `solve_with_status(::Linesearch{T,<:$(nameof(typeof(method(ls))))}, α::T, params)` " *
@@ -342,7 +346,7 @@ way.
 The messages themselves live in [`report_linesearch_status`](@ref) rather than here, which is a
 compile-time rather than a stylistic decision — see its docstring before merging them back.
 """
-function linesearch_warnings(status::LinesearchStatus, ls::Linesearch, params=NullParameters())
+function linesearch_warnings(status::LinesearchStatus, ls::Linesearch, params = NullParameters())
     # The two silent outcomes are filtered before the call, so that the path a healthy solve takes
     # on every iteration does not even copy the 27-field `Options` for the callee.
     oc = outcome(status)
@@ -420,13 +424,17 @@ written the same way.
         # message rather than in a temporary before it: Julia evaluates a `@warn` message only once
         # the verbosity gate has passed, and the overwhelmingly common case is a caller running at
         # a verbosity that discards it, so a temporary would be built and thrown away every time.
-        verbose ≥ 2 && @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision."
+        verbose ≥ 2 &&
+            @warn "$(name) line search: no trial step changed the merit by more than the round-off resolution τ = $(status.τ) in $(trials(status)) trial step(s). φ(0) = $(status.φ₀) has reached its round-off floor, so no step can decrease it$(iszero(status.αmin) ? "" : " (the smallest informative step is αmin = $(status.αmin))"). Returning α = $(steplength(status)). Check whether the requested residual tolerance is attainable in this precision."
     elseif oc === LINESEARCH_EXHAUSTED
-        verbose ≥ 1 && @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(linesearch_exhausted_reason(status, config)). Returning α = $(steplength(status))."
+        verbose ≥ 1 &&
+            @warn "$(name) line search: no step satisfied the sufficient decrease condition in $(trials(status)) trial step(s) — $(linesearch_exhausted_reason(status, config)). Returning α = $(steplength(status))."
     elseif oc === LINESEARCH_NO_DESCENT
-        verbose ≥ 1 && @warn "$(name) line search: φ'(0) = $(status.d₀) (with φ(0) = $(status.φ₀)) is not a descent direction, so no α can satisfy the sufficient decrease condition. Returning α = $(steplength(status))."
+        verbose ≥ 1 &&
+            @warn "$(name) line search: φ'(0) = $(status.d₀) (with φ(0) = $(status.φ₀)) is not a descent direction, so no α can satisfy the sufficient decrease condition. Returning α = $(steplength(status))."
     elseif oc === LINESEARCH_STATIONARY
-        verbose ≥ 2 && @warn "$(name) line search: φ'(0) = 0, the merit is stationary at α = 0. Returning α = $(steplength(status))."
+        verbose ≥ 2 &&
+            @warn "$(name) line search: φ'(0) = 0, the merit is stationary at α = 0. Returning α = $(steplength(status))."
     end
 
     nothing

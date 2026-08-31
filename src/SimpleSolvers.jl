@@ -31,9 +31,9 @@ export NonlinearSolverMethod, Picard, LinesearchMethod
 export Newton, QuasiNewton
 
 export Gradient,
-    GradientAutodiff,
-    GradientFiniteDifferences,
-    GradientFunction
+       GradientAutodiff,
+       GradientFiniteDifferences,
+       GradientFunction
 
 export check_gradient
 
@@ -42,7 +42,7 @@ include("base/gradient.jl")
 export LinesearchProblem
 
 export value,
-    derivative
+       derivative
 
 include("linesearch/linesearch_problem.jl")
 
@@ -51,26 +51,25 @@ export Options
 include("base/options.jl")
 
 export Hessian,
-    HessianAutodiff,
-    HessianFunction
+       HessianAutodiff,
+       HessianFunction
 
 export check_hessian
 
 include("base/hessian.jl")
 
 export Jacobian,
-    JacobianAutodiff,
-    JacobianFiniteDifferences,
-    JacobianFunction
+       JacobianAutodiff,
+       JacobianFiniteDifferences,
+       JacobianFunction
 
 export check_jacobian,
-    print_jacobian
+       print_jacobian
 
 include("base/jacobian.jl")
 
-
 export LinearProblem, LinearSolver, LU, LapackLU, RecursiveLU, UmfpackLU, SparspakLU,
-    factorize!, linearproblem
+       factorize!, linearproblem
 
 include("linear/linear_problem.jl")
 include("linear/linear_solver_method.jl")
@@ -91,11 +90,11 @@ include("bracketing/triple_point_finder.jl")
 
 export Linesearch
 export Backtracking,
-    Bisection,
-    Quadratic,
-    BierlaireQuadratic,
-    Static,
-    StrongWolfe
+       Bisection,
+       Quadratic,
+       BierlaireQuadratic,
+       Static,
+       StrongWolfe
 
 # Types and enum values are exported; the predicates and accessors that go with them
 # (`steplength`, `outcome`, `trials`, `issufficient`, `isfloor`, `isbenign`, and the
@@ -106,11 +105,11 @@ export Backtracking,
 # friends.
 export LinesearchStatus, LinesearchOutcome, solve_with_status
 export LINESEARCH_DECREASED,
-    LINESEARCH_FLOOR,
-    LINESEARCH_EXHAUSTED,
-    LINESEARCH_NO_DESCENT,
-    LINESEARCH_STATIONARY,
-    LINESEARCH_UNKNOWN
+       LINESEARCH_FLOOR,
+       LINESEARCH_EXHAUSTED,
+       LINESEARCH_NO_DESCENT,
+       LINESEARCH_STATIONARY,
+       LINESEARCH_UNKNOWN
 
 include("linesearch/linesearch.jl")
 include("linesearch/linesearch_status.jl")
@@ -125,7 +124,7 @@ include("linesearch/static.jl")
 include("linesearch/wolfe.jl")
 
 export NonlinearProblem, NonlinearSolver, NonlinearSolverException, NonlinearSolverState,
-    NewtonSolver, assess_convergence
+       NewtonSolver, assess_convergence
 
 # The mutating counterpart of the line-search `solve_with_status`: it overwrites `x`, hence the
 # `!`. `solve!` and `solve` are exported above.

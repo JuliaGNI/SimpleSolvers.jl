@@ -40,11 +40,11 @@ minimum(|Jacobian|):          1.0
 maximum(|Jacobian|):          3.0
 ```
 """
-function check_jacobian(io::IO, J::AbstractMatrix; digits=5)
-    println(io, "Condition Number of Jacobian: ", round(cond(J); digits=digits))
-    println(io, "Determinant of Jacobian:      ", round(det(J); digits=digits))
-    println(io, "minimum(|Jacobian|):          ", round(minimum(abs, J); digits=digits))
-    println(io, "maximum(|Jacobian|):          ", round(maximum(abs, J); digits=digits))
+function check_jacobian(io::IO, J::AbstractMatrix; digits = 5)
+    println(io, "Condition Number of Jacobian: ", round(cond(J); digits = digits))
+    println(io, "Determinant of Jacobian:      ", round(det(J); digits = digits))
+    println(io, "minimum(|Jacobian|):          ", round(minimum(abs, J); digits = digits))
+    println(io, "maximum(|Jacobian|):          ", round(maximum(abs, J); digits = digits))
     println(io)
 end
 
@@ -92,13 +92,13 @@ jac(j, x, NullParameters())
  1.41421  3.0
 ```
 """
-struct JacobianFunction{T,FT<:Callable,JT<:Callable} <: Jacobian{T}
+struct JacobianFunction{T, FT <: Callable, JT <: Callable} <: Jacobian{T}
     F::FT
     J!::JT
 end
 
-function JacobianFunction(F::FT, J!::JT, T::DataType) where {FT<:Callable,JT<:Callable}
-    JacobianFunction{T,FT,JT}(F, J!)
+function JacobianFunction(F::FT, J!::JT, T::DataType) where {FT <: Callable, JT <: Callable}
+    JacobianFunction{T, FT, JT}(F, J!)
 end
 
 JacobianFunction{T}(F::Callable, J!::Callable) where {T} = JacobianFunction(F, J!, T)
@@ -138,16 +138,20 @@ The functor does:
 jac(J, x, params) = ForwardDiff.jacobian!(J, (y, x) -> jac.F(y, x, params), jac.ty, x, jac.Jconfig)
 ```
 """
-struct JacobianAutodiff{T,FT<:Callable,JT<:ForwardDiff.JacobianConfig,YT<:AbstractVector{T}} <: Jacobian{T}
+struct JacobianAutodiff{
+    T, FT <: Callable, JT <: ForwardDiff.JacobianConfig, YT <: AbstractVector{T}} <:
+       Jacobian{T}
     F::FT
     Jconfig::JT
     ty::YT
 
-    function JacobianAutodiff(F::CT, x::YT, y::YT) where {T,YT<:AbstractArray{T},CT<:Callable}
-        isempty(methods(F, Tuple{typeof(y),typeof(x),Any})) && error("The function needs to have the following signature: F(y, x, params).")
+    function JacobianAutodiff(F::CT, x::YT, y::YT) where {
+            T, YT <: AbstractArray{T}, CT <: Callable}
+        isempty(methods(F, Tuple{typeof(y), typeof(x), Any})) &&
+            error("The function needs to have the following signature: F(y, x, params).")
 
         Jconfig = ForwardDiff.JacobianConfig(nothing, y, x)
-        new{T,typeof(F),typeof(Jconfig),YT}(F, Jconfig, y)
+        new{T, typeof(F), typeof(Jconfig), YT}(F, Jconfig, y)
     end
 end
 
@@ -158,19 +162,22 @@ function JacobianAutodiff{T}(F::Callable, nx::Integer, ny::Integer) where {T}
 end
 
 JacobianAutodiff{T}(F, n::Integer) where {T} = JacobianAutodiff{T}(F, n, n)
-JacobianAutodiff(F::Callable, x::AbstractVector{T}) where {T} = JacobianAutodiff{T}(F, length(x))
+function JacobianAutodiff(F::Callable, x::AbstractVector{T}) where {T}
+    JacobianAutodiff{T}(F, length(x))
+end
 
 function (jac::JacobianAutodiff{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
     F_closure(y, x) = jac.F(y, x, params)
     ForwardDiff.jacobian!(J, F_closure, jac.ty, x, jac.Jconfig)
 end
 
-Base.:(==)(j1::JacobianAutodiff{T1}, j2::JacobianAutodiff{T2}) where {T1,T2} = (
-    j1.F == j2.F &&
-    j1.ty == j2.ty &&
-    T1 == T2
-)
-
+function Base.:(==)(j1::JacobianAutodiff{T1}, j2::JacobianAutodiff{T2}) where {T1, T2}
+    (
+        j1.F == j2.F &&
+        j1.ty == j2.ty &&
+        T1 == T2
+    )
+end
 
 @doc raw"""
     JacobianFiniteDifferences <: Jacobian
@@ -214,7 +221,7 @@ for j in eachindex(x)
 end
 ```
 """
-struct JacobianFiniteDifferences{T,FT<:Callable} <: Jacobian{T}
+struct JacobianFiniteDifferences{T, FT <: Callable} <: Jacobian{T}
     F::FT
     ϵ::T
     f1::Vector{T}
@@ -223,16 +230,20 @@ struct JacobianFiniteDifferences{T,FT<:Callable} <: Jacobian{T}
     tx::Vector{T}
 end
 
-function JacobianFiniteDifferences{T}(F::Callable, nx::Integer, ny::Integer; ϵ=default_ϵ(T)) where {T}
+function JacobianFiniteDifferences{T}(F::Callable, nx::Integer, ny::Integer; ϵ = default_ϵ(T)) where {T}
     f1 = zeros(T, ny)
     f2 = zeros(T, ny)
     e = zeros(T, nx)
     tx = zeros(T, nx)
-    JacobianFiniteDifferences{T,typeof(F)}(F, ϵ, f1, f2, e, tx)
+    JacobianFiniteDifferences{T, typeof(F)}(F, ϵ, f1, f2, e, tx)
 end
 
-JacobianFiniteDifferences{T}(F, n; kwargs...) where {T} = JacobianFiniteDifferences{T}(F, n, n; kwargs...)
-JacobianFiniteDifferences(F::Callable, x::AbstractVector{T}) where {T} = JacobianFiniteDifferences{T}(F, length(x))
+function JacobianFiniteDifferences{T}(F, n; kwargs...) where {T}
+    JacobianFiniteDifferences{T}(F, n, n; kwargs...)
+end
+function JacobianFiniteDifferences(F::Callable, x::AbstractVector{T}) where {T}
+    JacobianFiniteDifferences{T}(F, length(x))
+end
 
 function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
     local ϵⱼ::T
@@ -252,16 +263,18 @@ function (jac::JacobianFiniteDifferences{T})(J::AbstractMatrix{T}, x::AbstractVe
     J
 end
 
-Base.:(==)(j1::JacobianFiniteDifferences{T1}, j2::JacobianFiniteDifferences{T2}) where {T1,T2} = (
-    j1.F == j2.F &&
-    j1.ϵ == j2.ϵ &&
-    j1.f1 == j2.f1 &&
-    j1.f2 == j2.f2 &&
-    j1.e == j2.e &&
-    j1.tx == j2.tx &&
-    T1 == T2
-)
-
+function Base.:(==)(j1::JacobianFiniteDifferences{T1}, j2::JacobianFiniteDifferences{T2}) where {
+        T1, T2}
+    (
+        j1.F == j2.F &&
+        j1.ϵ == j2.ϵ &&
+        j1.f1 == j2.f1 &&
+        j1.f2 == j2.f2 &&
+        j1.e == j2.e &&
+        j1.tx == j2.tx &&
+        T1 == T2
+    )
+end
 
 @doc raw"""
     Jacobian{T}(F, nx, ny; mode = :autodiff, kwargs...)
@@ -276,7 +289,8 @@ inputs to `ny` outputs, selecting the backend via the `mode` keyword:
 The convenience forms `Jacobian{T}(F, n)`, `Jacobian(F, x)` and
 `Jacobian(F, x, y)` forward here.
 """
-function Jacobian{T}(F::Callable, nx::Integer, ny::Integer; mode::Symbol = :autodiff, kwargs...) where {T}
+function Jacobian{T}(F::Callable, nx::Integer, ny::Integer;
+        mode::Symbol = :autodiff, kwargs...) where {T}
     if mode == :autodiff
         JacobianAutodiff{T}(F, nx, ny)
     elseif mode == :finitedifferences
@@ -288,5 +302,9 @@ end
 
 Jacobian{T}(F::Callable, n::Integer; kwargs...) where {T} = Jacobian{T}(F, n, n; kwargs...)
 
-Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x); kwargs...)
-Jacobian(F::Callable, x::AbstractVector{T}, y::AbstractVector{T}; kwargs...) where {T} = Jacobian{T}(F, length(x), length(y); kwargs...)
+function Jacobian(F::Callable, x::AbstractVector{T}; kwargs...) where {T}
+    Jacobian{T}(F, length(x); kwargs...)
+end
+function Jacobian(F::Callable, x::AbstractVector{T}, y::AbstractVector{T}; kwargs...) where {T}
+    Jacobian{T}(F, length(x), length(y); kwargs...)
+end

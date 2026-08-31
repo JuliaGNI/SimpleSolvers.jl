@@ -30,7 +30,9 @@ A `struct` that comprises *Newton solvers* (see [`Newton`](@ref)), the *Picard s
 - `cache::`[`NonlinearSolverCache`](@ref)
 - `config::`[`Options`](@ref)
 """
-struct NonlinearSolver{T,MT<:NonlinearSolverMethod,NLST<:NonlinearProblem,LST<:AbstractLinearProblem,JT<:Jacobian{T},LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}} <: AbstractSolver
+struct NonlinearSolver{T, MT <: NonlinearSolverMethod, NLST <: NonlinearProblem,
+    LST <: AbstractLinearProblem, JT <: Jacobian{T}, LSoT <: AbstractLinearSolver,
+    LiSeT <: Linesearch{T}, CT <: AbstractNonlinearSolverCache{T}} <: AbstractSolver
     nonlinearproblem::NLST
     linearproblem::LST
     jacobian::JT
@@ -43,8 +45,21 @@ struct NonlinearSolver{T,MT<:NonlinearSolverMethod,NLST<:NonlinearProblem,LST<:A
 
     # No `options_kwargs...` here: the `Options` arrive ready-made as `config`, so a keyword
     # sink would only swallow misspelled option names silently.
-    function NonlinearSolver(x::AT, nlp::NLST, ls::LST, linearsolver::LSoT, linesearch::LiSeT, cache::CT, config::Options{T}; method::MT=Newton(), jacobian::JT=JacobianAutodiff(nlp.F, x)) where {T,AT<:AbstractVector{T},MT<:NonlinearSolverMethod,JT<:Jacobian{T},NLST<:NonlinearProblem,LST<:AbstractLinearProblem,LSoT<:AbstractLinearSolver,LiSeT<:Linesearch{T},CT<:AbstractNonlinearSolverCache{T}}
-        new{T,MT,NLST,LST,JT,LSoT,LiSeT,CT}(nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
+    function NonlinearSolver(x::AT,
+            nlp::NLST,
+            ls::LST,
+            linearsolver::LSoT,
+            linesearch::LiSeT,
+            cache::CT,
+            config::Options{T};
+            method::MT = Newton(),
+            jacobian::JT = JacobianAutodiff(nlp.F, x)) where {
+            T, AT <: AbstractVector{T}, MT <: NonlinearSolverMethod,
+            JT <: Jacobian{T}, NLST <: NonlinearProblem,
+            LST <: AbstractLinearProblem, LSoT <: AbstractLinearSolver,
+            LiSeT <: Linesearch{T}, CT <: AbstractNonlinearSolverCache{T}}
+        new{T, MT, NLST, LST, JT, LSoT, LiSeT, CT}(
+            nlp, ls, jacobian, linearsolver, linesearch, method, cache, config)
     end
 end
 
@@ -69,7 +84,9 @@ Return the [`NonlinearProblem`](@ref) contained in the [`NonlinearSolver`](@ref)
 """
 nonlinearproblem(s::NonlinearSolver) = s.nonlinearproblem
 
-jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T} = jacobian(s)(jacobianmatrix(cache(s)), x, params)
+function jacobian!(s::NonlinearSolver{T}, x::AbstractVector{T}, params) where {T}
+    jacobian(s)(jacobianmatrix(cache(s)), x, params)
+end
 
 """
     jacobianmatrix(solver::NonlinearSolver)
@@ -102,12 +119,13 @@ LinearSolver{Float64, LapackLU, SimpleSolvers.PivotedLUCache{Float64, Matrix{Flo
 """
 linearsolver(solver::NonlinearSolver) = solver.linearsolver
 
-
 struct NonlinearSolverException <: Exception
     msg::String
 end
 
-Base.showerror(io::IO, e::NonlinearSolverException) = print(io, "Nonlinear Solver Exception: ", e.msg, "!")
+function Base.showerror(io::IO, e::NonlinearSolverException)
+    print(io, "Nonlinear Solver Exception: ", e.msg, "!")
+end
 
 """
     resolve_jacobian(F, DF!, jacobian, x, y)
@@ -124,7 +142,7 @@ function resolve_jacobian(F, DF!, jacobian, x::AbstractVector{T}, y) where {T}
 end
 
 # The `Jacobian`s this package builds for itself, both of which produce a dense matrix.
-const DENSE_ONLY_JACOBIANS = Union{JacobianAutodiff,JacobianFiniteDifferences}
+const DENSE_ONLY_JACOBIANS = Union{JacobianAutodiff, JacobianFiniteDifferences}
 
 """
     checkjacobianprototype(jacobian, jacobian_prototype)
@@ -174,8 +192,10 @@ one that a fresh Jacobian did *not* fix, which is the conclusive evidence `max_s
 assumes. It is also the response [`check_anchor`](@ref) prescribes for an ascent anchor,
 which is a stale-Jacobian symptom.
 """
-function maybe_refactorize!(s::NonlinearSolver, x, params, iteration; force::Bool=false, stalled::Bool=false)
-    (force || stalled || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) || return s
+function maybe_refactorize!(s::NonlinearSolver, x, params, iteration;
+        force::Bool = false, stalled::Bool = false)
+    (force || stalled || mod(iteration, method(s).refactorize) == 0 || iteration ≤ 1) ||
+        return s
     jacobian!(s, x, params)
     lp = linearproblem(s)
     copy_matrix!(matrix(lp), jacobianmatrix(s))
@@ -187,7 +207,8 @@ end
 # Behind a barrier because `nan_recovery!` below is specialized on the `NonlinearSolver`, hence on
 # its problem's closure types — see `report_linesearch_status`.
 @noinline function report_nan_direction(config::Options)
-    verbosity(config) ≥ 2 && @warn "Non-finite value (NaN or Inf) at the trial iterate. Reducing length of direction vector."
+    verbosity(config) ≥ 2 &&
+        @warn "Non-finite value (NaN or Inf) at the trial iterate. Reducing length of direction vector."
     nothing
 end
 
@@ -269,21 +290,23 @@ julia> solver_step!(x, s, state, NullParameters())
  0.37767096061051814
 ```
 """
-function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T}, state::NonlinearSolverState{T}, params) where {T}
+function solver_step!(x::AbstractVector{T}, s::NonlinearSolver{T},
+        state::NonlinearSolverState{T}, params) where {T}
     # A previous step that made no progress gets a freshly evaluated Jacobian rather than the
     # stale one that produced it (see `maybe_refactorize!`).
-    direction!(s, x, params, iteration_number(state); stalled=needs_refresh(state))
+    direction!(s, x, params, iteration_number(state); stalled = needs_refresh(state))
     # A non-finite direction is not a step that can be shortened — `nan_recovery!` damps by a
     # factor and `Inf * nan_factor` is still `Inf` — so it is rejected outright rather than
     # handed to a recovery that cannot work. This is also what makes the recovery below sound:
     # past this line the direction is finite and each damping actually shortens the trial step.
-    all(isfinite, direction(cache(s))) || throw(NonlinearSolverException("non-finite direction vector"))
+    all(isfinite, direction(cache(s))) ||
+        throw(NonlinearSolverException("non-finite direction vector"))
 
     nan_recovery!(s, x, params)
 
     # `params.φ₀` hands the line search the merit at the α = 0 anchor, which the solver has
     # just evaluated at the current iterate — see `linesearch_problem`.
-    lsparams = (x=x, parameters=params, φ₀=L2norm(value(state)))
+    lsparams = (x = x, parameters = params, φ₀ = L2norm(value(state)))
     lsstatus = solve_with_status(linesearch(s), one(T), lsparams)
     # `solve_with_status` and not `solve`: a line search reports to its *caller*, and only a caller
     # who invoked it directly is a user. So nothing is logged from inside this loop — the outcome is
@@ -366,7 +389,7 @@ You also have to supply a [`NonlinearSolverState`](@ref).
 `x` is overwritten with the solution and returned. Use [`solve_with_status!`](@ref) — which is the
 same iteration, sharing the same body — if the *outcome* of the solve is needed as well.
 """
-function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
+function solve!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params = NullParameters())
     _solve_core!(x, s, state, params)
     x
 end
@@ -398,9 +421,13 @@ julia> isconverged(status(s, state))
 true
 ```
 """
-status(s::NonlinearSolver, state::NonlinearSolverState) = NonlinearSolverStatus(state, config(s))
+function status(s::NonlinearSolver, state::NonlinearSolverState)
+    NonlinearSolverStatus(state, config(s))
+end
 
-solve!(x::AbstractArray, s::NonlinearSolver, params=NullParameters()) = solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)
+function solve!(x::AbstractArray, s::NonlinearSolver, params = NullParameters())
+    solve!(x, s, NonlinearSolverState(x, value(cache(s))), params)
+end
 
 """
     solve!(x, prob, method, args...; kwargs...)
@@ -455,7 +482,8 @@ julia> solve!(x, prob, Newton(); verbosity = 0)
  1.4142135623730951
 ```
 """
-function solve!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, args...; kwargs...)
+function solve!(x::AbstractVector, prob::NonlinearProblem,
+        method::NonlinearSolverMethod, args...; kwargs...)
     solve!(x, NonlinearSolver(method, x, prob; kwargs...), args...)
 end
 
@@ -488,7 +516,8 @@ julia> x₀
  1.0
 ```
 """
-function solve(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, args...; kwargs...)
+function solve(x::AbstractVector, prob::NonlinearProblem,
+        method::NonlinearSolverMethod, args...; kwargs...)
     solve!(copy(x), prob, method, args...; kwargs...)
 end
 
@@ -559,11 +588,12 @@ julia> status(s, state) == st
 true
 ```
 """
-function solve_with_status!(x::AbstractArray, s::NonlinearSolver, state::NonlinearSolverState, params=NullParameters())
+function solve_with_status!(x::AbstractArray, s::NonlinearSolver,
+        state::NonlinearSolverState, params = NullParameters())
     _solve_core!(x, s, state, params)
 end
 
-function solve_with_status!(x::AbstractArray, s::NonlinearSolver, params=NullParameters())
+function solve_with_status!(x::AbstractArray, s::NonlinearSolver, params = NullParameters())
     solve_with_status!(x, s, NonlinearSolverState(x, value(cache(s))), params)
 end
 
@@ -571,6 +601,7 @@ end
 # takes — in particular a state followed by `params`. The two forms are otherwise the same call,
 # and a caller who transferred the documented `solve!(x, prob, method, state, params)` across used
 # to get a `MethodError`.
-function solve_with_status!(x::AbstractVector, prob::NonlinearProblem, method::NonlinearSolverMethod, args...; kwargs...)
+function solve_with_status!(x::AbstractVector, prob::NonlinearProblem,
+        method::NonlinearSolverMethod, args...; kwargs...)
     solve_with_status!(x, NonlinearSolver(method, x, prob; kwargs...), args...)
 end

@@ -30,24 +30,25 @@ is passed as a `Val` (defaulting to `Val(:Standard)`) so that it is encoded in t
 type and dispatch — and hence inference — is stable without relying on constant
 propagation of a `Symbol` keyword. The other inputs are numbers.
 """
-struct CurvatureCondition{T,DT<:Callable,COND} <: BacktrackingCondition{T}
+struct CurvatureCondition{T, DT <: Callable, COND} <: BacktrackingCondition{T}
     c::T
     d₀::T
 
     D::DT
 
-    function CurvatureCondition(c::T, d₀::T, D::DT, ::Val{COND}=Val(:Standard)) where {T<:Number,DT<:Callable,COND}
+    function CurvatureCondition(c::T, d₀::T, D::DT,
+            ::Val{COND} = Val(:Standard)) where {T <: Number, DT <: Callable, COND}
         @assert ((COND == :Standard) || (COND == :Strong)) "Mode has to be either :Strong or :Standard!"
         @assert zero(T) < c < one(T) "The curvature constant c must lie in (0, 1), it is $(c)."
         @assert !isnan(d₀) "d₀ is NaN"
-        new{T,DT,COND}(c, d₀, D)
+        new{T, DT, COND}(c, d₀, D)
     end
 end
 
-function (cc::CurvatureCondition{T,DT,:Standard})(α::T) where {T,DT}
+function (cc::CurvatureCondition{T, DT, :Standard})(α::T) where {T, DT}
     cc.D(α) ≥ cc.c * cc.d₀
 end
 
-function (cc::CurvatureCondition{T,DT,:Strong})(α::T) where {T,DT}
+function (cc::CurvatureCondition{T, DT, :Strong})(α::T) where {T, DT}
     abs(cc.D(α)) ≤ abs(cc.c * cc.d₀)
 end

@@ -2,7 +2,11 @@ using SimpleSolvers
 using Documenter
 using DocumenterCitations
 import Bibliography
-using SimpleSolvers: update!, solver_step!, NonlinearSolverStatus, solution, assess_convergence, increase_iteration_number!, solve, LinesearchProblem, linesearch_problem, SufficientDecreaseCondition, CurvatureCondition, bracket_minimum_with_fixed_point, compute_new_iterate!, BracketMinimumCriterion
+using SimpleSolvers: update!, solver_step!, NonlinearSolverStatus, solution,
+                     assess_convergence, increase_iteration_number!, solve,
+                     LinesearchProblem, linesearch_problem, SufficientDecreaseCondition,
+                     CurvatureCondition, bracket_minimum_with_fixed_point,
+                     compute_new_iterate!, BracketMinimumCriterion
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "SimpleSolvers.bib"))
 Bibliography.sort_bibliography!(bib.entries, :nyt)  # name-year-title
@@ -12,19 +16,19 @@ const buildpath = haskey(ENV, "CI") ? ".." : ""
 run(`make -C $(joinpath(@__DIR__, "src", "trust_region"))`)
 
 makedocs(;
-    plugins=[bib],
-    modules=[SimpleSolvers],
-    authors="Michael Kraus",
-    repo="https://github.com/JuliaGNI/SimpleSolvers.jl/blob/{commit}{path}#L{line}",
-    sitename="SimpleSolvers.jl",
-    format=Documenter.HTML(;
-        prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://JuliaGNI.github.io/SimpleSolvers.jl",
-        size_threshold=1_048_576,
-        size_threshold_warn=1_048_576,
-        assets=["assets/extra_styles.css"],
+    plugins = [bib],
+    modules = [SimpleSolvers],
+    authors = "Michael Kraus",
+    repo = "https://github.com/JuliaGNI/SimpleSolvers.jl/blob/{commit}{path}#L{line}",
+    sitename = "SimpleSolvers.jl",
+    format = Documenter.HTML(;
+        prettyurls = get(ENV, "CI", "false") == "true",
+        canonical = "https://JuliaGNI.github.io/SimpleSolvers.jl",
+        size_threshold = 1_048_576,
+        size_threshold_warn = 1_048_576,
+        assets = ["assets/extra_styles.css"]
     ),
-    pages=[
+    pages = [
         "Home" => "index.md",
         "Gradients" => "gradients.md",
         "Jacobians" => "jacobians.md",
@@ -37,17 +41,17 @@ makedocs(;
             "Strong Wolfe" => "linesearch/wolfe.md",
             "Bisections" => "linesearch/bisections.md",
             "Quadratic" => "linesearch/quadratic.md",
-            "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md",
+            "Bierlaire Quadratic" => "linesearch/quadratic_bierlaire.md"
         ],
         "Convergence and Stopping" => "convergence.md",
         "Trust Region" => ["Trust Region" => "trust_region/trust_region_summary.md",],
         "Linear Solvers" => "linear/linear_solvers.md",
-        "References" => "references.md",
-    ],
+        "References" => "references.md"
+    ]
 )
 
 deploydocs(;
-    repo="github.com/JuliaGNI/SimpleSolvers.jl",
-    devurl="latest",
-    devbranch="main",
+    repo = "github.com/JuliaGNI/SimpleSolvers.jl",
+    devurl = "latest",
+    devbranch = "main"
 )

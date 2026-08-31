@@ -22,7 +22,7 @@ julia> default_precision(Float16)
 Float16(0.007812)
 ```
 """
-default_precision(::Type{T}) where {T<:AbstractFloat} = 8eps(T)
+default_precision(::Type{T}) where {T <: AbstractFloat} = 8eps(T)
 
 """
     shift_χ_to_avoid_stalling(χ, a, b, c, ε)
@@ -38,7 +38,6 @@ function shift_χ_to_avoid_stalling(χ::T, a::T, b::T, c::T, ε::T) where {T}
         χ - ε / 2
     end
 end
-
 
 @doc raw"""
     BierlaireQuadratic <: LinesearchMethod
@@ -60,7 +59,7 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     ξ::T
     αmax::T
 
-    function BierlaireQuadratic{T}(ε::T, ξ::T, αmax::T=default_linesearch_αmax(T)) where {T}
+    function BierlaireQuadratic{T}(ε::T, ξ::T, αmax::T = default_linesearch_αmax(T)) where {T}
         @assert ε > 0 "Precision ε must be positive."
         @assert ξ > 0 "Derivative threshold ξ must be positive."
         @assert αmax > 0 "The maximum step length must be positive, it is $(αmax)."
@@ -68,10 +67,10 @@ struct BierlaireQuadratic{T} <: LinesearchMethod{T}
     end
 end
 
-function BierlaireQuadratic(::Type{T}=Float64;
-    ε=default_precision(T),
-    ξ=default_precision(T),
-    αmax=default_linesearch_αmax(T)
+function BierlaireQuadratic(::Type{T} = Float64;
+        ε = default_precision(T),
+        ξ = default_precision(T),
+        αmax = default_linesearch_αmax(T)
 ) where {T}
     BierlaireQuadratic{T}(ε, ξ, αmax)
 end
@@ -84,7 +83,8 @@ BierlaireQuadratic(::Type{T}, ::SolverMethod) where {T} = BierlaireQuadratic(T)
 # merit value is carried by the loop anyway, so the caller can classify the outcome without a
 # further evaluation, and `n` is the number of merit evaluations, reported as the `trials` of the
 # resulting `LinesearchStatus`. Private: `solve`/`solve_with_status` is the public entry point.
-function _bierlaire_fit(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T, params, τ::T) where {T}
+function _bierlaire_fit(
+        ls::Linesearch{T, <:BierlaireQuadratic}, a::T, b::T, c::T, params, τ::T) where {T}
     # `n` is counted next to each evaluation rather than inside `f`: a counter that `f` both
     # captures and mutates is boxed, which makes the `Int` in the returned triple inferred-`Any`
     # and allocates for every fit and every `LinesearchStatus` built from one.
@@ -119,7 +119,7 @@ function _bierlaire_fit(ls::Linesearch{T,<:BierlaireQuadratic}, a::T, b::T, c::T
         # perform a perturbation if χ ≈ b (in order "to avoid stalling"); use a tight
         # absolute tolerance so the perturbation only fires when χ is essentially at b
         # (the former `b == χ` only caught exact equality, missing floating-point ties)
-        χ = isapprox(b, χ; atol=ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, ε) : χ
+        χ = isapprox(b, χ; atol = ε) ? shift_χ_to_avoid_stalling(χ, a, b, c, ε) : χ
         # `shift_χ_to_avoid_stalling` is not sufficient to guarantee progress. If χ coincides
         # with a bracket point the update below cannot narrow the bracket: for χ == b both
         # branch tests are false (it is the same point, so the merits are identical), so the
@@ -174,7 +174,7 @@ Fit successive quadratics through three bracketing points to approximate the lin
 return the [`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the
 report; see [`BierlaireQuadratic`](@ref).
 """
-function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, params=NullParameters()) where {T}
+function solve_with_status(ls::Linesearch{T, <:BierlaireQuadratic}, α₀::T, params = NullParameters()) where {T}
     prob = problem(ls)
     # Before any merit evaluation, so that an unusable caller-supplied ceiling costs none.
     αmax = linesearch_αmax(method(ls), params)
@@ -207,7 +207,7 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     start < αmax || return capped_status(prob, params, αmax, φ₀, d₀, τ)  # nothing bracketed yet
     # `_triple_point_core` rather than `triple_point_finder`: its concrete return type costs no
     # allocation, and this runs once per line search.
-    a, b, c, nb, bracket = _triple_point_core(prob, params, start; αmax=αmax)
+    a, b, c, nb, bracket = _triple_point_core(prob, params, start; αmax = αmax)
     # The two failures mean opposite things and must not be conflated: `:flat` says the merit does
     # not resolve a decrease from here, so no line search can improve on this point (a floor, which
     # the outer iteration counts as a stalled step), while `:unbracketable` says there *is* a
@@ -237,17 +237,20 @@ function solve_with_status(ls::Linesearch{T,<:BierlaireQuadratic}, α₀::T, par
     # The fit works inside a bracket whose left end is ≥ 0, so a non-positive result means the
     # arithmetic collapsed rather than that the anchor ascends (`check_anchor` ruled that out):
     # no positive step improves the merit as far as this search can tell, which is the floor.
-    αres > zero(T) || return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
+    αres > zero(T) ||
+        return LinesearchStatus{T}(α₀, LINESEARCH_FLOOR, n, φ₀, d₀, φ₀, τ, zero(T))
 
     LinesearchStatus{T}(αres, φres ≤ φ₀ - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
         n, φ₀, d₀, φres, τ, zero(T))
 end
 
+function Base.show(io::IO, ls::BierlaireQuadratic)
+    print(io,
+        "Bierlaire Quadratic with ε = " * string(ls.ε) * ", ξ = " * string(ls.ξ) *
+        ", and αmax = " * string(ls.αmax) * ".")
+end
 
-
-Base.show(io::IO, ls::BierlaireQuadratic) = print(io, "Bierlaire Quadratic with ε = " * string(ls.ε) * ", ξ = " * string(ls.ξ) * ", and αmax = " * string(ls.αmax) * ".")
-
-function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT}
+function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T, AT}
     T ≠ AT || return method
     if method.ε == default_precision(AT) && method.ξ == default_precision(AT)
         BierlaireQuadratic{T}(default_precision(T), default_precision(T), convert_αmax(T, method.αmax))
@@ -257,5 +260,6 @@ function change_precision(::Type{T}, method::BierlaireQuadratic{AT}) where {T,AT
 end
 
 function Base.isapprox(bq₁::BierlaireQuadratic{T}, bq₂::BierlaireQuadratic{T}; kwargs...) where {T}
-    isapprox(bq₁.ε, bq₂.ε; kwargs...) && isapprox(bq₁.ξ, bq₂.ξ; kwargs...) && isapprox(bq₁.αmax, bq₂.αmax; kwargs...)
+    isapprox(bq₁.ε, bq₂.ε; kwargs...) && isapprox(bq₁.ξ, bq₂.ξ; kwargs...) &&
+        isapprox(bq₁.αmax, bq₂.αmax; kwargs...)
 end

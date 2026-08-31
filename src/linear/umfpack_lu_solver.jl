@@ -80,7 +80,7 @@ that a quasi-Newton method that factorizes speculatively is not interrupted.
 struct UmfpackLU <: SparseDirectMethod end
 
 function LinearSolverCache(method::UmfpackLU, A::AbstractMatrix{T}) where {T}
-    T <: Union{Float64,ComplexF64} || throw(ArgumentError(
+    T <: Union{Float64, ComplexF64} || throw(ArgumentError(
         "UmfpackLU is restricted to the element types UMFPACK provides, i.e. Float64 and " *
         "ComplexF64, but got $(T); use SparspakLU() to keep the matrix sparse, or LapackLU() " *
         "to densify it"))
@@ -92,7 +92,7 @@ function LinearSolverCache(method::UmfpackLU, A::AbstractMatrix{T}) where {T}
     # ordering and symbolic factorization, which is where the saving is.
     #
     # `check=false`: a singular matrix is reported by `ldiv!`, not here — see the docstring.
-    SparseFactorizationCache{T}(lu(A; check=false), n)
+    SparseFactorizationCache{T}(lu(A; check = false), n)
 end
 
 """
@@ -107,10 +107,10 @@ computed for — which is why the error worth reading comes from the backend and
 [`checkpattern`](@ref) only checks the size. Keeping the pattern fixed is still the caller's
 job, and the reason [`LinearSolver`](@ref) construction takes the prototype.
 """
-function factorize!(lsolver::LinearSolver{T,UmfpackLU}, A::AbstractMatrix{T}) where {T}
+function factorize!(lsolver::LinearSolver{T, UmfpackLU}, A::AbstractMatrix{T}) where {T}
     checkpattern(lsolver, A)
     c = cache(lsolver)
-    lu!(c.F, A; check=false)
+    lu!(c.F, A; check = false)
     # widened to the interface's "index or 0"; UMFPACK does not say which pivot vanished
     c.info = issuccess(c.F) ? 0 : 1
     c.factorized = true
@@ -120,7 +120,8 @@ end
 # UMFPACK's three-argument `ldiv!` refuses aliased arrays, but every other method here
 # tolerates `x === b` — `solve!(x, lsolver, x)` is a legitimate call — so route the aliased
 # case through the two-argument form, which solves in place. Both are allocation-free.
-function _sparse_ldiv!(::UmfpackLU, c::SparseFactorizationCache{T}, x::AbstractVector{T}, b::AbstractVector{T}) where {T}
+function _sparse_ldiv!(::UmfpackLU, c::SparseFactorizationCache{T},
+        x::AbstractVector{T}, b::AbstractVector{T}) where {T}
     if x === b
         ldiv!(c.F, x)
     else

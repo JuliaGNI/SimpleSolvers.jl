@@ -27,7 +27,8 @@ from the parameter type at compile time, so supplying neither costs nothing. `pa
 has to answer *property* access throughout — a `NamedTuple` or any struct, which is what the
 required `x` and `parameters` fields already demanded.
 """
-function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T}, cache::Union{NonlinearSolverCache{T},DogLegCache{T}}) where {T}
+function linesearch_problem(nlp::NonlinearProblem, jacobian::Jacobian{T},
+        cache::Union{NonlinearSolverCache{T}, DogLegCache{T}}) where {T}
     # private scratch buffers for the line search (see the docstring for why)
     xₜ = zero(solution(cache))
     yₜ = zero(value(cache))

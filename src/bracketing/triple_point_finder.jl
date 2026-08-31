@@ -61,17 +61,23 @@ julia> round10.((f(a), f(b), f(c)))
 
 The algorithm is taken from [bierlaire2015optimization; Chapter 11.2.1](@cite).
 """
-function triple_point_finder(f::Callable, x₀::T, δ::T, nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+function triple_point_finder(
+        f::Callable, x₀::T, δ::T, nmax::Integer = DEFAULT_BRACKETING_nmax,
+        adjust_constant_iteration::Integer = 1) where {T}
     a, b, c, _, status = _triple_point_core(f, x₀, δ, nmax, adjust_constant_iteration)
     status === :ok ? (a, b, c) : status
 end
 
-function triple_point_finder(f::Callable, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, adjust_constant_iteration::Integer=1) where {T}
+function triple_point_finder(f::Callable, x₀::T; δ::T = T(DEFAULT_BRACKETING_s),
+        nmax::Integer = DEFAULT_BRACKETING_nmax,
+        adjust_constant_iteration::Integer = 1) where {T}
     triple_point_finder(f, x₀, δ, nmax, adjust_constant_iteration)
 end
 
-function triple_point_finder(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax) where {T}
-    a, b, c, _, status = _triple_point_core(prob, params, x₀; δ=δ, nmax=nmax)
+function triple_point_finder(
+        prob::LinesearchProblem{T}, params, x₀::T; δ::T = T(DEFAULT_BRACKETING_s),
+        nmax::Integer = DEFAULT_BRACKETING_nmax) where {T}
+    a, b, c, _, status = _triple_point_core(prob, params, x₀; δ = δ, nmax = nmax)
     status === :ok ? (a, b, c) : status
 end
 
@@ -84,7 +90,8 @@ end
 # `bisection`/`_bisection_core`, and here it
 # also keeps the return type concrete: the `Union{Symbol,Tuple}` handed back by
 # `triple_point_finder` has to be boxed, and `BierlaireQuadratic` brackets once per line search.
-function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_constant_iteration::Integer, αmax::T=T(Inf)) where {T}
+function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer,
+        adjust_constant_iteration::Integer, αmax::T = T(Inf)) where {T}
     # A ceiling at or below the start leaves no admissible range to search at all. Without this
     # the clamp below would make `δ` zero or negative, every probe would land at or *left* of
     # `x₀`, and the rise test would fire on the start itself — reporting `:flat`, i.e. that no
@@ -109,10 +116,13 @@ function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_c
         # the wrong answer when the rise is within round-off of `f(x₀)`: the merit then simply
         # does not resolve a decrease here, and a *smaller* δ is strictly less informative, so
         # the remaining halvings are wasted evaluations that end in the same failure.
-        fx₁ ≤ fx₀ + armijo_tolerance(fx₀, armijo_ulps(typeof(fx₀))) && return (x₀, x₀, x₁, n, :flat)
-        adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS && return (x₀, x₀, x₁, n, :unbracketable)
+        fx₁ ≤ fx₀ + armijo_tolerance(fx₀, armijo_ulps(typeof(fx₀))) &&
+            return (x₀, x₀, x₁, n, :flat)
+        adjust_constant_iteration > MAX_NUMBER_ADJUST_CONSTANT_ITERATIONS &&
+            return (x₀, x₀, x₁, n, :unbracketable)
         # The halvings are rounds of this same search, so their evaluations are this search's too.
-        a, b, c, nretry, status = _triple_point_core(f, x₀, δ / 2, nmax, adjust_constant_iteration + 1, αmax)
+        a, b, c, nretry, status = _triple_point_core(
+            f, x₀, δ / 2, nmax, adjust_constant_iteration + 1, αmax)
         return (a, b, c, n + nretry, status)
     end
 
@@ -156,6 +166,8 @@ function _triple_point_core(f::Callable, x₀::T, δ::T, nmax::Integer, adjust_c
     (xₖ₋₁, xₖ, xₖ₊₁, n, :unbracketable)
 end
 
-function _triple_point_core(prob::LinesearchProblem{T}, params, x₀::T; δ::T=T(DEFAULT_BRACKETING_s), nmax::Integer=DEFAULT_BRACKETING_nmax, αmax::T=T(Inf)) where {T}
+function _triple_point_core(
+        prob::LinesearchProblem{T}, params, x₀::T; δ::T = T(DEFAULT_BRACKETING_s),
+        nmax::Integer = DEFAULT_BRACKETING_nmax, αmax::T = T(Inf)) where {T}
     _triple_point_core(x -> value(prob, x, params), x₀, δ, nmax, 1, αmax)
 end

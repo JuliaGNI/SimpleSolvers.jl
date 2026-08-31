@@ -16,8 +16,9 @@ and costs nothing to anyone who does not load `NeuralNetworkParameters`.
 """
 module SimpleSolversNeuralNetworkParametersExt
 
-using NeuralNetworkParameters: NetworkParameters, flatten, unflatten, flatlength, mapparameters,
-    parameter_eltype
+using NeuralNetworkParameters: NetworkParameters, flatten, unflatten, flatlength,
+                               mapparameters,
+                               parameter_eltype
 
 using SimpleSolvers: _nan
 import SimpleSolvers: GradientAutodiff, GradientFunction, alloc_h

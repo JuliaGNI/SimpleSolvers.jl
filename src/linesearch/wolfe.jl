@@ -59,10 +59,10 @@ struct StrongWolfe{T} <: LinesearchMethod{T}
     end
 end
 
-function StrongWolfe(::Type{T}=Float64;
-    c₁=T(DEFAULT_WOLFE_c₁),
-    c₂=T(DEFAULT_WOLFE_c₂),
-    αmax=default_linesearch_αmax(T)
+function StrongWolfe(::Type{T} = Float64;
+        c₁ = T(DEFAULT_WOLFE_c₁),
+        c₂ = T(DEFAULT_WOLFE_c₂),
+        αmax = default_linesearch_αmax(T)
 ) where {T}
     StrongWolfe{T}(c₁, c₂, αmax)
 end
@@ -71,7 +71,9 @@ StrongWolfe(::Type{T}, ::SolverMethod) where {T} = StrongWolfe(T)
 
 method_αmax(m::StrongWolfe) = m.αmax
 
-Base.show(io::IO, ls::StrongWolfe) = print(io, "StrongWolfe with c₁ = $(ls.c₁), c₂ = $(ls.c₂) and αmax = $(ls.αmax).")
+function Base.show(io::IO, ls::StrongWolfe)
+    print(io, "StrongWolfe with c₁ = $(ls.c₁), c₂ = $(ls.c₂) and αmax = $(ls.αmax).")
+end
 
 function change_precision(::Type{T}, method::StrongWolfe) where {T}
     T ≠ eltype(method) || return method
@@ -79,7 +81,8 @@ function change_precision(::Type{T}, method::StrongWolfe) where {T}
 end
 
 function Base.isapprox(w₁::StrongWolfe{T}, w₂::StrongWolfe{T}; kwargs...) where {T}
-    isapprox(w₁.c₁, w₂.c₁; kwargs...) && isapprox(w₁.c₂, w₂.c₂; kwargs...) && isapprox(w₁.αmax, w₂.αmax; kwargs...)
+    isapprox(w₁.c₁, w₂.c₁; kwargs...) && isapprox(w₁.c₂, w₂.c₂; kwargs...) &&
+        isapprox(w₁.αmax, w₂.αmax; kwargs...)
 end
 
 # The one-slot memo of `solve_with_status` below: the `α` at which the merit φ and its derivative φ′
@@ -98,7 +101,8 @@ end
 # exhaustion we return αlo, which by construction satisfies sufficient decrease —
 # the method never returns a step worse than Armijo.  The two strong Wolfe
 # conditions are checked through the shared `sdc`/`cc` condition objects.
-function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseCondition{T}, cc::CurvatureCondition{T}, αlo::T, αhi::T, φlo::T) where {T}
+function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseCondition{T},
+        cc::CurvatureCondition{T}, αlo::T, αhi::T, φlo::T) where {T}
     αj = αlo
     n = 0
     for _ in 1:config(ls).linesearch_max_iterations
@@ -118,7 +122,7 @@ function _wolfe_zoom(ls::Linesearch{T}, φ, dφ, sdc::SufficientDecreaseConditio
             αlo = αj
             φlo = φj
         end
-        isapprox(αhi, αlo; atol=eps(T)) && break
+        isapprox(αhi, αlo; atol = eps(T)) && break
     end
     # `φlo` tracks `αlo` through every update, so the merit at the returned step is known and the
     # caller does not have to re-evaluate it.
@@ -132,7 +136,7 @@ Run the strong-Wolfe bracketing line search from the trial step `α` and return 
 [`LinesearchStatus`](@ref), emitting no messages. [`solve`](@ref) is this plus the report; see
 [`StrongWolfe`](@ref).
 """
-function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullParameters()) where {T}
+function solve_with_status(ls::Linesearch{T, <:StrongWolfe}, α::T, params = NullParameters()) where {T}
     m = method(ls)
     c₁ = m.c₁
     c₂ = m.c₂
@@ -200,8 +204,9 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     # `NonlinearSolver` that would be a full residual evaluation per solver step.
     # `n` is passed rather than captured: a counter that this closure captures and the loop below
     # mutates is boxed, which makes the `trials` of every status it builds inferred-`Any`.
-    function wolfe_status(n, αres, φres, extra=0)
-        αres > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n + extra, φ0, d0, φ0, τ, zero(T))
+    function wolfe_status(n, αres, φres, extra = 0)
+        αres > zero(T) || return LinesearchStatus{T}(
+            α, LINESEARCH_FLOOR, n + extra, φ0, d0, φ0, τ, zero(T))
         LinesearchStatus{T}(αres, φres ≤ φ0 - τ ? LINESEARCH_DECREASED : LINESEARCH_FLOOR,
             n + extra, φ0, d0, φres, τ, zero(T))
     end
@@ -232,7 +237,8 @@ function solve_with_status(ls::Linesearch{T,<:StrongWolfe}, α::T, params=NullPa
     # freshly-doubled, unchecked `αi` from the expansion, and never the zero step. The strong
     # curvature condition was never met, so this is reported as an exhausted search even though
     # the step itself is Armijo-acceptable.
-    αvalid > zero(T) || return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n, φ0, d0, φ0, τ, zero(T))
+    αvalid > zero(T) ||
+        return LinesearchStatus{T}(α, LINESEARCH_FLOOR, n, φ0, d0, φ0, τ, zero(T))
     # `φvalid` was recorded alongside `αvalid`, so reporting it costs no extra evaluation.
     LinesearchStatus{T}(αvalid, LINESEARCH_EXHAUSTED, n, φ0, d0, φvalid, τ, zero(T))
 end

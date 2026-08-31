@@ -24,11 +24,11 @@ Static with α = 1.0.
     above a given length is admissible means this one too. See
     [`SimpleSolvers.linesearch_αmax`](@ref).
 """
-struct Static{T<:Number} <: LinesearchMethod{T}
+struct Static{T <: Number} <: LinesearchMethod{T}
     α::T
 end
 
-Static(::Type{T}=Float64; α=one(T)) where {T} = Static{T}(α)
+Static(::Type{T} = Float64; α = one(T)) where {T} = Static{T}(α)
 Static(::Type{T}, ::SolverMethod) where {T} = Static(T)
 
 # `Static` ignores the caller's trial step and cannot fail, so it has nothing to report; the
@@ -41,8 +41,9 @@ Static(::Type{T}, ::SolverMethod) where {T} = Static(T)
 # reason for a caller that knows its step is inadmissible above `αmax` to be able to say so. It has
 # no ceiling of its own — the whole point of the method is that `α` is the caller's to fix — so
 # only `params.αmax` can bind here.
-solve_with_status(ls::Linesearch{T,<:Static}, α::T, params=NullParameters()) where {T} =
+function solve_with_status(ls::Linesearch{T, <:Static}, α::T, params = NullParameters()) where {T}
     LinesearchStatus(min(method(ls).α, linesearch_αmax(method(ls), params)), LINESEARCH_UNKNOWN)
+end
 
 Base.show(io::IO, alg::Static) = print(io, "Static with α = " * string(alg.α) * ".")
 
@@ -51,4 +52,6 @@ function change_precision(::Type{T}, method::Static) where {T}
     Static{T}(T(method.α))
 end
 
-Base.isapprox(st₁::Static{T}, st₂::Static{T}; kwargs...) where {T} = isapprox(st₁.α, st₂.α; kwargs...)
+function Base.isapprox(st₁::Static{T}, st₂::Static{T}; kwargs...) where {T}
+    isapprox(st₁.α, st₂.α; kwargs...)
+end

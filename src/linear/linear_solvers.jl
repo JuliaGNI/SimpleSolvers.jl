@@ -21,11 +21,15 @@ LinearSolver(method, x)
 
 You can manually factorize by either calling [`factorize!`](@ref) or [`solve!`](@ref).
 """
-struct LinearSolver{T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache} <: AbstractLinearSolver
+struct LinearSolver{T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache} <:
+       AbstractLinearSolver
     method::LSMT
     cache::LSCT
 
-    LinearSolver(method::LSMT, cache::LSCT) where {T,LSMT<:LinearSolverMethod,LSCT<:LinearSolverCache{T}} = new{T,LSMT,LSCT}(method, cache)
+    function LinearSolver(method::LSMT,
+            cache::LSCT) where {T, LSMT <: LinearSolverMethod, LSCT <: LinearSolverCache{T}}
+        new{T, LSMT, LSCT}(method, cache)
+    end
 end
 
 function factorize!(lsolver::LinearSolver)
@@ -86,7 +90,9 @@ function singular_index(lsolver::LinearSolver)
     error("No method `singular_index` implemented for method $(typeof(method(lsolver))).")
 end
 
-LinearAlgebra.ldiv!(::AbstractVector, s::LinearSolver, ::AbstractVector) = error("ldiv! not implemented for $(typeof(s))")
+function LinearAlgebra.ldiv!(::AbstractVector, s::LinearSolver, ::AbstractVector)
+    error("ldiv! not implemented for $(typeof(s))")
+end
 
 function LinearSolver(method::LinearSolverMethod, A::AbstractArray{T}) where {T}
     cache = LinearSolverCache(method, A)
@@ -208,8 +214,9 @@ By dispatch rather than by `coalesce`, which would evaluate the fallback even wh
 needed — and the fallback is allowed to *throw* (a sparse 32-bit float has no defensible
 default), so an explicit method has to reach the solver without it being consulted at all.
 """
-resolve_linear_solver_method(linear_solver_method::LinearSolverMethod, ::AbstractMatrix) =
+function resolve_linear_solver_method(linear_solver_method::LinearSolverMethod, ::AbstractMatrix)
     linear_solver_method
+end
 
 resolve_linear_solver_method(::Missing, A::AbstractMatrix) = default_linear_solver_method(A)
 
@@ -261,14 +268,15 @@ know to pass `linear_solver_method`: downstream it came to 74 % of an implicit t
 useful range depends on which BLAS is loaded, and it is not always installed. Choose it
 explicitly.
 """
-default_linear_solver_method(A::AbstractMatrix) =
+function default_linear_solver_method(A::AbstractMatrix)
     eltype(A) <: LinearAlgebra.BlasFloat ? LapackLU() : LU()
+end
 
 # No densifying fallback: `LU` and `LapackLU` would both accept a sparse matrix here and
 # quietly discard its structure, which is not a default's decision to make. See the docstring.
 function default_linear_solver_method(A::SparseMatrixCSC)
     T = eltype(A)
-    T <: Union{Float64,ComplexF64} && return UmfpackLU()
+    T <: Union{Float64, ComplexF64} && return UmfpackLU()
     throw(ArgumentError(
         "there is no default linear solver for a sparse matrix of element type $(T): the " *
         "sparse default, UmfpackLU, solves Float64 and ComplexF64 systems only, and a sparse " *
@@ -283,7 +291,7 @@ end
 function _sparse_dense_alternative(::Type{T}) where {T}
     T <: LinearAlgebra.BlasFloat &&
         return " — or LapackLU() to densify it and solve it as a dense system"
-    T <: Union{AbstractFloat,Complex{<:AbstractFloat}} &&
+    T <: Union{AbstractFloat, Complex{<:AbstractFloat}} &&
         return " — or LU() to densify it and solve it as a dense system"
     " — and, since LU accepts only floating-point matrices, the only method here that handles " *
     "this element type at all"

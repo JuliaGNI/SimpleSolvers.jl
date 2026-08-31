@@ -56,12 +56,14 @@ update!(ls, A, y)
 LinearProblem{Float64, Vector{Float64}, Matrix{Float64}}([1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0], [1.0, 2.0, 3.0])
 ```
 """
-mutable struct LinearProblem{T,VT<:AbstractVector{T},AT<:AbstractMatrix{T}} <: AbstractLinearProblem
+mutable struct LinearProblem{T, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}} <:
+               AbstractLinearProblem
     A::AT
     y::VT
-    function LinearProblem(A::AT, y::VT) where {T<:Number,VT<:AbstractVector{T},AT<:AbstractMatrix{T}}
+    function LinearProblem(A::AT, y::VT) where {
+            T <: Number, VT <: AbstractVector{T}, AT <: AbstractMatrix{T}}
         @assert length(y) == size(A, 1)
-        new{T,VT,AT}(copy(A), copy(y))
+        new{T, VT, AT}(copy(A), copy(y))
     end
 end
 

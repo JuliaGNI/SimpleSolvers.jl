@@ -1,17 +1,22 @@
 using SimpleSolvers
 using SimpleSolvers: initialize!, solver_step!, BierlaireQuadratic
-using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update!, iteration_number
-using SimpleSolvers: meets_stopping_criteria, nonlinear_solver_warnings, NonlinearSolverStatus
-using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value, direction, direction!, NullParameters
+using SimpleSolvers: NonlinearSolverState, assess_convergence, residuals, update!,
+                     iteration_number
+using SimpleSolvers: meets_stopping_criteria, nonlinear_solver_warnings,
+                     NonlinearSolverStatus
+using SimpleSolvers: linesearch_problem, cache, jacobianmatrix, solution, value, direction,
+                     direction!, NullParameters
 using SimpleSolvers: trust_radius, DOGLEG_Δ_INITIAL
-using SimpleSolvers: isconverged, isstalled, isnotprogressing, spent_without_progress, status
+using SimpleSolvers: isconverged, isstalled, isnotprogressing, spent_without_progress,
+                     status
 using SimpleSolvers: config, linesearch, stall_number, record_stall!, flag_stall!,
-    stalled_step, residual_small, iterate_settled, initial_residual
+                     stalled_step, residual_small, iterate_settled, initial_residual
 using SimpleSolvers: iterations_since_progress, record_progress!, no_progress
 using SimpleSolvers: compute_new_iterate!, increase_iteration_number!, Bisection, Quadratic,
-    StrongWolfe, Backtracking, steplength, solve_with_status
+                     StrongWolfe, Backtracking, steplength, solve_with_status
 using SimpleSolvers: should_report!, reset_warning_counts!, linesearch_outcomes,
-    linesearch_failures, linesearch_index, dominant_linesearch_outcome, record_linesearch!
+                     linesearch_failures, linesearch_index, dominant_linesearch_outcome,
+                     record_linesearch!
 using Test
 using Random
 using ForwardDiff
@@ -83,10 +88,10 @@ end
     # residual.
     Fbig(y, x, p) = (y .= 1e10 .* (x .^ 2 .- 2); y)
     x = [1.0]
-    s = NewtonSolver(x, similar(x); F=Fbig, verbosity=0)
+    s = NewtonSolver(x, similar(x); F = Fbig, verbosity = 0)
     state = NonlinearSolverState(x, similar(x))
     solve!(x, s, state)
-    @test isapprox(x[1], sqrt(2.0); atol=1e-7)
+    @test isapprox(x[1], sqrt(2.0); atol = 1e-7)
     @test iteration_number(state) < config.max_iterations   # stopped by convergence, not the iteration cap
     yb = similar(x)
     Fbig(yb, x, NullParameters())
@@ -109,17 +114,18 @@ end
     @test rfₐ ≈ 5.0
 
     # A loose break tolerance is not exceeded ⇒ this criterion does not stop the solve.
-    loose = Options(; f_abstol_break=10.0, verbosity=0)
+    loose = Options(; f_abstol_break = 10.0, verbosity = 0)
     @test !meets_stopping_criteria(state, loose)
 
     # A tight break tolerance is exceeded ⇒ the solve stops (without convergence) ...
-    tight = Options(; f_abstol_break=1.0, verbosity=0)
+    tight = Options(; f_abstol_break = 1.0, verbosity = 0)
     @test meets_stopping_criteria(state, tight)
     status = NonlinearSolverStatus(state, tight)
     @test !SimpleSolvers.isconverged(status)
 
     # ... and the "residual reached the maximally allowed value" warning is emitted.
-    @test_logs (:warn, r"residual rfₐ has reached the maximally allowed value") match_mode = :any nonlinear_solver_warnings(status, tight)
+    @test_logs (:warn, r"residual rfₐ has reached the maximally allowed value") match_mode = :any nonlinear_solver_warnings(
+        status, tight)
 end
 
 @testset "allow_f_increases toggles stopping when the residual grows" begin
@@ -130,21 +136,22 @@ end
     update!(state, [1.0, 1.0], [1.0, 0.0])   # value = [1,0]  (‖·‖ = 1)
     update!(state, [1.0, 1.0], [3.0, 4.0])   # value = [3,4]  (‖·‖ = 5) > previous ⇒ increased
 
-    status = NonlinearSolverStatus(state, Options(; verbosity=0))
+    status = NonlinearSolverStatus(state, Options(; verbosity = 0))
     @test status.f_increased
     @test !SimpleSolvers.isconverged(status)   # a genuine (non-converged) increase
 
     # default tolerates the increase ⇒ this criterion alone does not stop
-    allow = Options(; allow_f_increases=true, verbosity=0)
+    allow = Options(; allow_f_increases = true, verbosity = 0)
     @test !meets_stopping_criteria(state, allow)
 
     # disallowing increases ⇒ stop (without convergence) ...
-    disallow = Options(; allow_f_increases=false, verbosity=0)
+    disallow = Options(; allow_f_increases = false, verbosity = 0)
     @test meets_stopping_criteria(state, disallow)
 
     # ... and the "function increased and the solver stopped" warning is emitted.
     st = NonlinearSolverStatus(state, disallow)
-    @test_logs (:warn, r"function increased and the solver stopped") match_mode = :any nonlinear_solver_warnings(st, disallow)
+    @test_logs (:warn, r"function increased and the solver stopped") match_mode = :any nonlinear_solver_warnings(
+        st, disallow)
 end
 
 # struct NonlinearSolverTestMethod <: NonlinearSolverMethod end
@@ -159,7 +166,7 @@ end
 # f(x::T) where {T<:Number} = abs(tanh(x - T(0.1)))
 # const root₁ = 0.1
 
-f(x::T) where {T<:Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
+f(x::T) where {T <: Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
 const root₁ = -4.735035753706987262178160540350200552633
 const root₂ = -0.6737697823920028217727631890832279199433
 const root₃ = 0.7613128434711647120463439168731683731732
@@ -179,83 +186,87 @@ function J!(g, x, params)
     g
 end
 
-for T ∈ (Float64, Float32)
+for T in (Float64, Float32)
     # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
     for (Solver, kwarguments, tolfac) in (
-        (NewtonSolver, (linesearch=Static(T),), 2),
-        (NewtonSolver, (linesearch=Backtracking(T),), 2),
-        # The expansion phase of issue #174 lengthens a step rather than only shrinking it, so it
-        # has to be pinned end-to-end and not just at the line search: a `NewtonSolver` asked for
-        # it must still land on a root, to the same tolerance as the shrink-only default.
-        (NewtonSolver, (linesearch=Backtracking(T; expand=true),), 2),
-        (NewtonSolver, (linesearch=Bisection(T),), 2),
-        (NewtonSolver, (linesearch=Quadratic(T),), 32),
-        # These rows briefly carried `tolfac = 64`, when folding the quadratic searches into
-        # `linesearch_max_iterations` cost this seeded start (x₀ = 0.32597672886359486) accuracy.
-        # Fixing the single-point stall in the fit removed the cause — those large errors were
-        # solves hitting the iteration cap, not converging poorly — so the tolerance is back to
-        # the 2 eps every other method meets.  Measured over 300 random starts, the Float64
-        # 95th-percentile error is now 0.5 eps with a fresh Jacobian and 1.6 eps with
-        # `refactorize = 5` (median 0.50), against 9.7e3 and 8.5e4 eps before.
-        (NewtonSolver, (linesearch=BierlaireQuadratic(T),), 2),
-        (NewtonSolver, (linesearch=StrongWolfe(T),), 2),
-        (NewtonSolver, (linesearch=Static(T), refactorize=5), 2),
-        (NewtonSolver, (linesearch=Backtracking(T), refactorize=5), 2),
-        (NewtonSolver, (linesearch=Bisection(T), refactorize=5), 2),
-        (NewtonSolver, (linesearch=Quadratic(T), refactorize=5), 32),
-        (NewtonSolver, (linesearch=BierlaireQuadratic(T), refactorize=5), 2),  # see above
-        (NewtonSolver, (linesearch=StrongWolfe(T), refactorize=5), 2),
-        # DogLegSolver is a trust-region method: it sets the step length via the
-        # trust-region radius, not a line search, so it takes no `linesearch`
-        # keyword here.
+        (NewtonSolver, (linesearch = Static(T),), 2),
+        (NewtonSolver, (linesearch = Backtracking(T),), 2),
+    # The expansion phase of issue #174 lengthens a step rather than only shrinking it, so it
+    # has to be pinned end-to-end and not just at the line search: a `NewtonSolver` asked for
+    # it must still land on a root, to the same tolerance as the shrink-only default.
+        (NewtonSolver, (linesearch = Backtracking(T; expand = true),), 2),
+        (NewtonSolver, (linesearch = Bisection(T),), 2),
+        (NewtonSolver, (linesearch = Quadratic(T),), 32),
+    # These rows briefly carried `tolfac = 64`, when folding the quadratic searches into
+    # `linesearch_max_iterations` cost this seeded start (x₀ = 0.32597672886359486) accuracy.
+    # Fixing the single-point stall in the fit removed the cause — those large errors were
+    # solves hitting the iteration cap, not converging poorly — so the tolerance is back to
+    # the 2 eps every other method meets.  Measured over 300 random starts, the Float64
+    # 95th-percentile error is now 0.5 eps with a fresh Jacobian and 1.6 eps with
+    # `refactorize = 5` (median 0.50), against 9.7e3 and 8.5e4 eps before.
+        (NewtonSolver, (linesearch = BierlaireQuadratic(T),), 2),
+        (NewtonSolver, (linesearch = StrongWolfe(T),), 2),
+        (NewtonSolver, (linesearch = Static(T), refactorize = 5), 2),
+        (NewtonSolver, (linesearch = Backtracking(T), refactorize = 5), 2),
+        (NewtonSolver, (linesearch = Bisection(T), refactorize = 5), 2),
+        (NewtonSolver, (linesearch = Quadratic(T), refactorize = 5), 32),
+        (NewtonSolver, (linesearch = BierlaireQuadratic(T), refactorize = 5), 2),  # see above
+        (NewtonSolver, (linesearch = StrongWolfe(T), refactorize = 5), 2),
+    # DogLegSolver is a trust-region method: it sets the step length via the
+    # trust-region radius, not a line search, so it takes no `linesearch`
+    # keyword here.
         (DogLegSolver, (), 2),
-        # PicardSolver is a (residual-safeguarded) fixed-point iteration
-        # and does not run a derivative-based line search, so it takes
-        # no `linesearch` keyword here.
-        (PicardSolver, (), 8),
+    # PicardSolver is a (residual-safeguarded) fixed-point iteration
+    # and does not run a derivative-based line search, so it takes
+    # no `linesearch` keyword here.
+        (PicardSolver, (), 8)
     )
-
         @testset "$(Solver) & $(kwarguments) & $(T)" begin
             x = T.(copy(x₀))
             y = F(x)
-            nl = Solver(x, y; F=F!, verbosity=0, kwarguments...)
+            nl = Solver(x, y; F = F!, verbosity = 0, kwarguments...)
             # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
             ss = SolverState(nl)
 
             solve!(x, nl, ss)
 
             for _x in x
-                @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+                @test ≈(_x, T(root₁); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₂); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₃); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₄); atol = tolfac * eps(T))
             end
 
             x .= T.(x₀)
             # use custom Jacobian
-            nl = Solver(x, y; F=F!, (DF!)=J!, verbosity=0, kwarguments...)
+            nl = Solver(x, y; F = F!, (DF!) = J!, verbosity = 0, kwarguments...)
             ss = SolverState(nl)
 
             solve!(x, nl, ss)
 
             for _x in x
-                @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+                @test ≈(_x, T(root₁); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₂); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₃); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₄); atol = tolfac * eps(T))
             end
         end
     end
 end
 
 # test alternative constructors
-for T ∈ (Float64, Float32)
+for T in (Float64, Float32)
     # tolfac is a scaling factor for the tolerance s.th. atol = tolfac * eps(T)
     for (solver_method, kwarguments, tolfac) in (
-        (Newton(), (linesearch=Static(T),), 2),
-        (QuasiNewton(), (linesearch=Static(T),), 2),
+        (Newton(), (linesearch = Static(T),), 2),
+        (QuasiNewton(), (linesearch = Static(T),), 2),
         (Picard(), (), 8),
         (DogLeg(), (), 1)
     )
-
         @testset "Testing alternative constructor with method = $(solver_method) & $(kwarguments) & $(T)" begin
             x = T.(copy(x₀))
             y = F(x)
-            nl = NonlinearSolver(solver_method, x, y; F=F!, verbosity=0, kwarguments...)
+            nl = NonlinearSolver(solver_method, x, y; F = F!, verbosity = 0, kwarguments...)
             # nl = Solver(x, y; F = F!, verbosity=2, kwarguments...)
 
             # println(Solver, ", ", kwarguments, ", ", T, ", ", tolfac, "\n")
@@ -265,27 +276,30 @@ for T ∈ (Float64, Float32)
             solve!(x, nl)
 
             for _x in x
-                @test ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+                @test ≈(_x, T(root₁); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₂); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₃); atol = tolfac * eps(T)) ||
+                      ≈(_x, T(root₄); atol = tolfac * eps(T))
             end
-
         end
     end
 end
 
-
 # test the convenience wrappers of issue #159: the same solves as the loop above, but with the
 # solver assembled by `solve!`/`solve`/`solve_with_status!` from a `NonlinearProblem` instead of
 # by the caller.
-for T ∈ (Float64, Float32)
+for T in (Float64, Float32)
     for (solver_method, kwarguments, tolfac) in (
-        (Newton(), (linesearch=Static(T),), 2),
-        (QuasiNewton(), (linesearch=Static(T),), 2),
+        (Newton(), (linesearch = Static(T),), 2),
+        (QuasiNewton(), (linesearch = Static(T),), 2),
         (Picard(), (), 8),
         (DogLeg(), (), 1)
     )
-
         @testset "Testing solve!/solve/solve_with_status! with method = $(solver_method) & $(kwarguments) & $(T)" begin
-            isroot(_x) = ≈(_x, T(root₁); atol=tolfac * eps(T)) || ≈(_x, T(root₂); atol=tolfac * eps(T)) || ≈(_x, T(root₃); atol=tolfac * eps(T)) || ≈(_x, T(root₄); atol=tolfac * eps(T))
+            isroot(_x) = ≈(_x, T(root₁); atol = tolfac * eps(T)) ||
+                         ≈(_x, T(root₂); atol = tolfac * eps(T)) ||
+                         ≈(_x, T(root₃); atol = tolfac * eps(T)) ||
+                         ≈(_x, T(root₄); atol = tolfac * eps(T))
 
             x = T.(copy(x₀))
             y = F(x)
@@ -293,19 +307,19 @@ for T ∈ (Float64, Float32)
 
             # `solve!` overwrites its first argument and returns it
             xs = T.(copy(x₀))
-            @test solve!(xs, prob, solver_method; verbosity=0, kwarguments...) === xs
+            @test solve!(xs, prob, solver_method; verbosity = 0, kwarguments...) === xs
             @test all(isroot, xs)
 
             # `solve` returns a new array and leaves the initial guess untouched
             xi = T.(copy(x₀))
-            xn = solve(xi, prob, solver_method; verbosity=0, kwarguments...)
+            xn = solve(xi, prob, solver_method; verbosity = 0, kwarguments...)
             @test xn !== xi
             @test xi == T.(x₀)
             @test all(isroot, xn)
 
             # `solve_with_status!` reports the outcome of the solve
             xt = T.(copy(x₀))
-            st = solve_with_status!(xt, prob, solver_method; verbosity=0, kwarguments...)
+            st = solve_with_status!(xt, prob, solver_method; verbosity = 0, kwarguments...)
             @test st isa NonlinearSolverStatus
             @test isconverged(st)
             @test all(isroot, xt)
@@ -313,14 +327,16 @@ for T ∈ (Float64, Float32)
             # a problem carrying its own Jacobian takes the `JacobianFunction` path — asserted on
             # the constructed solver, since the root alone would not distinguish it from autodiff
             probJ = NonlinearProblem(F!, J!, x, y)
-            @test SimpleSolvers.jacobian(NonlinearSolver(solver_method, T.(copy(x₀)), probJ; verbosity=0, kwarguments...)) isa JacobianFunction
+            @test SimpleSolvers.jacobian(NonlinearSolver(
+                solver_method, T.(copy(x₀)), probJ; verbosity = 0, kwarguments...)) isa
+                  JacobianFunction
             xj = T.(copy(x₀))
-            solve!(xj, probJ, solver_method; verbosity=0, kwarguments...)
+            solve!(xj, probJ, solver_method; verbosity = 0, kwarguments...)
             @test all(isroot, xj)
 
             # the solver-taking form of `solve_with_status!`, which the problem-taking one calls
             xw = T.(copy(x₀))
-            sw = NonlinearSolver(solver_method, xw, prob; verbosity=0, kwarguments...)
+            sw = NonlinearSolver(solver_method, xw, prob; verbosity = 0, kwarguments...)
             @test isconverged(solve_with_status!(xw, sw))
             @test all(isroot, xw)
 
@@ -329,7 +345,7 @@ for T ∈ (Float64, Float32)
             # the form, since `status(s, state)` is otherwise the only way to read a solve that
             # keeps its state, and the two must not be able to disagree.
             xv = T.(copy(x₀))
-            sv = NonlinearSolver(solver_method, xv, prob; verbosity=0, kwarguments...)
+            sv = NonlinearSolver(solver_method, xv, prob; verbosity = 0, kwarguments...)
             statev = SolverState(sv)
             stv = solve_with_status!(xv, sv, statev)
             @test stv isa NonlinearSolverStatus
@@ -351,13 +367,13 @@ end
 
     # `params` is forwarded to the problem
     x = ones(2)
-    solve!(x, prob, Newton(), (a=3.0,); verbosity=0)
+    solve!(x, prob, Newton(), (a = 3.0,); verbosity = 0)
     @test x ≈ [sqrt(3.0), sqrt(3.0)]
 
     # so is a state supplied by the caller, which is how the iteration count is obtained
     state = NonlinearSolverState(zeros(2))
     x .= 1
-    solve!(x, prob, Newton(), state, (a=3.0,); verbosity=0)
+    solve!(x, prob, Newton(), state, (a = 3.0,); verbosity = 0)
     @test iteration_number(state) > 0
     @test x ≈ [sqrt(3.0), sqrt(3.0)]
 
@@ -365,7 +381,8 @@ end
     # methods that consult no line search still reject a `linesearch` keyword (as their
     # constructors do — see "PicardSolver rejects a linesearch keyword" below)
     x .= 1
-    st = solve_with_status!(x, prob, Newton(), (a=3.0,); max_iterations=1, verbosity=0)
+    st = solve_with_status!(
+        x, prob, Newton(), (a = 3.0,); max_iterations = 1, verbosity = 0)
     @test !isconverged(st)
 
     # `solve_with_status!` forwards `params` past a state the caller supplies, which is the only
@@ -373,20 +390,22 @@ end
     # cannot see because they take the three-argument form. A dropped `params` reaches `Fp!` as
     # `NullParameters`, which has no `.a`.
     x .= 1
-    sp = NonlinearSolver(Newton(), x, prob; verbosity=0)
+    sp = NonlinearSolver(Newton(), x, prob; verbosity = 0)
     statep = SolverState(sp)
-    @test isconverged(solve_with_status!(x, sp, statep, (a=3.0,)))
+    @test isconverged(solve_with_status!(x, sp, statep, (a = 3.0,)))
     @test x ≈ [sqrt(3.0), sqrt(3.0)]
 
     # …and the problem-taking form takes what the `solve!` one takes: a state followed by `params`
     x .= 1
-    stw = solve_with_status!(x, prob, Newton(), statep, (a=3.0,); verbosity=0)
+    stw = solve_with_status!(x, prob, Newton(), statep, (a = 3.0,); verbosity = 0)
     @test isconverged(stw)
     @test iteration_number(statep) > 0
     @test x ≈ [sqrt(3.0), sqrt(3.0)]
 
-    @test_throws MethodError solve!(ones(2), prob, Picard(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
-    @test_throws MethodError solve!(ones(2), prob, DogLeg(), (a=3.0,); linesearch=Static(1.0), verbosity=0)
+    @test_throws MethodError solve!(
+        ones(2), prob, Picard(), (a = 3.0,); linesearch = Static(1.0), verbosity = 0)
+    @test_throws MethodError solve!(
+        ones(2), prob, DogLeg(), (a = 3.0,); linesearch = Static(1.0), verbosity = 0)
 end
 
 # The default residual prototype is `zero(x)` and not `similar(x)`: `alloc_j` broadcasts over it
@@ -405,34 +424,32 @@ end
     # a small matrix as an `MMatrix`, and StaticArrays cannot `setindex!` a non-isbits eltype —
     # a pre-existing limitation of the linear solver, unrelated to the residual prototype.
     xs = BigFloat.(ones(2))
-    solve!(xs, prob, Newton(); linear_solver_method=LU(static=false), verbosity=0)
+    solve!(xs, prob, Newton(); linear_solver_method = LU(static = false), verbosity = 0)
     @test xs ≈ [sqrt(BigFloat(2)), sqrt(BigFloat(2))]
 end
 
-
 # test regularization
-for T ∈ (Float64, Float32)
+for T in (Float64, Float32)
     for (solver_method, kwarguments) in (
-        (Newton(), (linesearch=Static(T),)),
-        (QuasiNewton(5), (linesearch=Static(T),)),
+        (Newton(), (linesearch = Static(T),)),
+        (QuasiNewton(5), (linesearch = Static(T),)),
         (DogLeg(), ())
     )
-
         @testset "Testing regularization with method = $(solver_method) & $(kwarguments) & $(T)" begin
             x = T.(copy(x₀))
             y = F(x)
-            nl = NonlinearSolver(solver_method, x, y; F=F!, verbosity=0, regularization_factor=1E-3, kwarguments...)
+            nl = NonlinearSolver(solver_method, x, y; F = F!, verbosity = 0,
+                regularization_factor = 1E-3, kwarguments...)
 
             solve!(x, nl)
 
             for _x in x
-                @test ≈(_x, T(root₁); atol=2eps(T)) || ≈(_x, T(root₂); atol=2eps(T)) || ≈(_x, T(root₃); atol=2eps(T)) || ≈(_x, T(root₄); atol=2eps(T))
+                @test ≈(_x, T(root₁); atol = 2eps(T)) || ≈(_x, T(root₂); atol = 2eps(T)) ||
+                      ≈(_x, T(root₃); atol = 2eps(T)) || ≈(_x, T(root₄); atol = 2eps(T))
             end
-
         end
     end
 end
-
 
 @testset "DogLeg at the exact root" begin
     # Starting exactly at the root, the steepest-descent (Cauchy) scaling divides
@@ -461,12 +478,12 @@ end
         # both the direct constructor and the method-based constructor
         x1 = T[0.5]
         solve!(x1, PicardSolver(x1, Fcos, similar(x1)))
-        @test isapprox(x1[1], T(dottie); atol=sqrt(eps(T)))
+        @test isapprox(x1[1], T(dottie); atol = sqrt(eps(T)))
         @test abs(x1[1] - cos(x1[1])) ≤ sqrt(eps(T))
 
         x2 = T[0.5]
-        solve!(x2, NonlinearSolver(Picard(), x2, similar(x2); F=Fcos))
-        @test isapprox(x2[1], T(dottie); atol=sqrt(eps(T)))
+        solve!(x2, NonlinearSolver(Picard(), x2, similar(x2); F = Fcos))
+        @test isapprox(x2[1], T(dottie); atol = sqrt(eps(T)))
     end
 
     # The residual-monotonicity safeguard never lets the accepted step increase
@@ -475,7 +492,7 @@ end
     Fover(y, x, p) = (y .= 3 .* (x .- 1.0))   # full step x ← x - 3(x-1) overshoots
     x = [2.0]
     solve!(x, PicardSolver(x, Fover, similar(x)))
-    @test isapprox(x[1], 1.0; atol=1e-6)
+    @test isapprox(x[1], 1.0; atol = 1e-6)
 end
 
 @testset "Picard damping commits a residual-checked step (independent of max_iterations)" begin
@@ -485,7 +502,7 @@ end
     # one that was actually evaluated and does not increase the residual.
     Fover(y, x, p) = (y .= 3 .* (x .- 1.0))   # full step from x₀ = 2 overshoots to x = -1
     x = [2.0]
-    s = PicardSolver(x, Fover, similar(x); max_iterations=1)
+    s = PicardSolver(x, Fover, similar(x); max_iterations = 1)
     initialize!(s, x)
     y = similar(x)
     Fover(y, x, NullParameters())
@@ -535,7 +552,7 @@ end
         ss = SolverState(s)
         @test trust_radius(cache(s)) == T(DOGLEG_Δ_INITIAL)   # reset before solving
         solve!(x, s, ss)
-        @test all(v -> isapprox(v, zero(T); atol=10eps(T)), x)  # converged
+        @test all(v -> isapprox(v, zero(T); atol = 10eps(T)), x)  # converged
         @test trust_radius(cache(s)) > T(DOGLEG_Δ_INITIAL)             # radius expanded & carried
     end
 end
@@ -553,7 +570,7 @@ end
     @test trust_radius(cache(s)) == DOGLEG_Δ_INITIAL   # ... but a fresh solve starts over
     x2 = [5.0, 5.0]
     solve!(x2, s)                               # and solver reuse still converges
-    @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
+    @test all(v -> isapprox(v, 0.0; atol = 1e-10), x2)
 end
 
 @testset "DogLeg trust-region parameters are configurable via Options" begin
@@ -562,8 +579,8 @@ end
     # `dogleg_radius_expand`), so problems whose natural scale differs from 1 can tune the region.
     Flin(y, x, p) = (y .= x)
     s = DogLegSolver([5.0, 5.0], Flin, similar([5.0, 5.0]);
-                     dogleg_radius_initial=0.5, dogleg_radius_max=4.0,
-                     dogleg_radius_shrink=0.1, dogleg_radius_expand=3.0)
+        dogleg_radius_initial = 0.5, dogleg_radius_max = 4.0,
+        dogleg_radius_shrink = 0.1, dogleg_radius_expand = 3.0)
     @test config(s).dogleg_radius_initial == 0.5
     @test config(s).dogleg_radius_max == 4.0
     @test config(s).dogleg_radius_shrink == 0.1
@@ -573,7 +590,7 @@ end
 
     x = [5.0, 5.0]
     solve!(x, s)
-    @test all(v -> isapprox(v, 0.0; atol=1e-10), x)  # still converges
+    @test all(v -> isapprox(v, 0.0; atol = 1e-10), x)  # still converges
     @test trust_radius(cache(s)) ≤ 4.0               # never expanded past the configured max
 
     # The expand factor is genuinely consumed: with `dogleg_radius_expand = 1.0` the
@@ -581,10 +598,10 @@ end
     # radius (a good boundary step multiplies by 1.0).  For linear F the model is
     # exact (ρ ≈ 1), so no shrink fires and the radius is pinned at the initial value.
     s2 = DogLegSolver([5.0, 5.0], Flin, similar([5.0, 5.0]);
-                      dogleg_radius_initial=1.0, dogleg_radius_expand=1.0)
+        dogleg_radius_initial = 1.0, dogleg_radius_expand = 1.0)
     x2 = [5.0, 5.0]
     solve!(x2, s2)
-    @test all(v -> isapprox(v, 0.0; atol=1e-10), x2)
+    @test all(v -> isapprox(v, 0.0; atol = 1e-10), x2)
     @test trust_radius(cache(s2)) == 1.0             # radius never grew ⇒ expand factor was used
 end
 
@@ -616,7 +633,7 @@ end
     x2 = [1.0]
     s2 = DogLegSolver(x2, Flog, similar(x2))
     solve!(x2, s2)
-    @test isapprox(x2[1], exp(-2.0); atol=1e-8)
+    @test isapprox(x2[1], exp(-2.0); atol = 1e-8)
 end
 
 @testset "DogLeg falls back to steepest descent on a singular Jacobian" begin
@@ -627,16 +644,16 @@ end
     Fsing(y, x, p) = (y[1] = x[1]^2; y[2] = x[2]; y)
     x0 = [0.0, 1.0]                          # Jacobian singular at the start
 
-    nlN = NonlinearSolver(Newton(), copy(x0), zero(x0); F=Fsing, verbosity=0)
+    nlN = NonlinearSolver(Newton(), copy(x0), zero(x0); F = Fsing, verbosity = 0)
     @test_throws SingularException solve!(copy(x0), nlN)
 
     xD = copy(x0)
-    sD = DogLegSolver(xD, Fsing, zero(x0); verbosity=0)
+    sD = DogLegSolver(xD, Fsing, zero(x0); verbosity = 0)
     solve!(xD, sD)                           # must not throw
     yD = zero(x0)
     Fsing(yD, xD, NullParameters())
     @test SimpleSolvers.l2norm(yD) < 1.0     # residual reduced from ‖F(x₀)‖ = 1
-    @test isapprox(xD, [0.0, 0.0]; atol=1e-8)
+    @test isapprox(xD, [0.0, 0.0]; atol = 1e-8)
 end
 
 @testset "Newton solver_step! damps the direction when the trial value is NaN" begin
@@ -650,7 +667,7 @@ end
     nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
     Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
     x = [1.0]
-    s = NewtonSolver(x, similar(x); F=Flog, linesearch=Static(), verbosity=0)
+    s = NewtonSolver(x, similar(x); F = Flog, linesearch = Static(), verbosity = 0)
     initialize!(s, x)
     y = similar(x)
     Flog(y, x, NullParameters())
@@ -666,9 +683,9 @@ end
     # ... and a full solve on the same domain-restricted problem converges to the
     # root exp(-2) ≈ 0.135 (each overshoot is caught by the same safeguard).
     x2 = [1.0]
-    s2 = NewtonSolver(x2, similar(x2); F=Flog, linesearch=Static(), verbosity=0)
+    s2 = NewtonSolver(x2, similar(x2); F = Flog, linesearch = Static(), verbosity = 0)
     solve!(x2, s2)
-    @test isapprox(x2[1], exp(-2.0); atol=1e-8)
+    @test isapprox(x2[1], exp(-2.0); atol = 1e-8)
 end
 
 @testset "Newton solver_step! damps the direction when the trial value is Inf" begin
@@ -685,7 +702,7 @@ end
     Finv(y, x, p) = (y .= 1 ./ x .- 1)
     for T in (Float64, Float32)
         x = T[2]
-        s = NewtonSolver(x, similar(x); F=Finv, linesearch=Static(), verbosity=0)
+        s = NewtonSolver(x, similar(x); F = Finv, linesearch = Static(), verbosity = 0)
         initialize!(s, x)
         y = similar(x)
         Finv(y, x, NullParameters())
@@ -699,9 +716,9 @@ end
         # ... and a full solve converges rather than dying: undamped, the next step divides the
         # -Inf residual at x = 0 by the -Inf Jacobian there and throws on the NaN direction.
         x2 = T[2]
-        s2 = NewtonSolver(x2, similar(x2); F=Finv, linesearch=Static(), verbosity=0)
+        s2 = NewtonSolver(x2, similar(x2); F = Finv, linesearch = Static(), verbosity = 0)
         solve!(x2, s2)
-        @test isapprox(x2[1], one(T); atol=∛(eps(T)))
+        @test isapprox(x2[1], one(T); atol = ∛(eps(T)))
     end
 end
 
@@ -719,7 +736,7 @@ end
     Flin(y, x, p) = (y .= x .- 1)
     DFtiny(J, x, p) = (J .= 5e-324)
     x = [2.0]
-    s = NewtonSolver(x, similar(x); F=Flin, DF! = DFtiny, verbosity=0)
+    s = NewtonSolver(x, similar(x); F = Flin, DF! = DFtiny, verbosity = 0)
     initialize!(s, x)
     y = similar(x)
     Flin(y, x, NullParameters())
@@ -729,7 +746,7 @@ end
     @test_throws NonlinearSolverException solver_step!(x, s, state, NullParameters())
 
     x2 = [2.0]
-    s2 = NewtonSolver(x2, similar(x2); F=Flin, DF! = DFtiny, verbosity=0)
+    s2 = NewtonSolver(x2, similar(x2); F = Flin, DF! = DFtiny, verbosity = 0)
     @test_throws NonlinearSolverException solve!(x2, s2)
 end
 
@@ -743,7 +760,8 @@ end
     # default 0.5 halves it to d = -1 (x = 1); 0.25 shortens it to d = -0.5 (x = 1.5) instead.
     for (factor, expected) in ((0.5, 1.0), (0.25, 1.5))
         x = [2.0]
-        s = NewtonSolver(x, similar(x); F=Finv, linesearch=Static(), verbosity=0, nan_factor=factor)
+        s = NewtonSolver(x, similar(x); F = Finv, linesearch = Static(),
+            verbosity = 0, nan_factor = factor)
         initialize!(s, x)
         y = similar(x)
         Finv(y, x, NullParameters())
@@ -761,7 +779,8 @@ end
     nanlog(v) = v > 0 ? log(v) : oftype(v, NaN)
     Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
     x = [1.0]
-    s = NewtonSolver(x, similar(x); F=Flog, linesearch=Static(), verbosity=0, nan_max_iterations=1)
+    s = NewtonSolver(x, similar(x); F = Flog, linesearch = Static(),
+        verbosity = 0, nan_max_iterations = 1)
     state = SolverState(s)
     solve!(x, s, state)
     st = status(s, state)
@@ -771,9 +790,9 @@ end
 
     # ... and the full budget rescues the same solve.
     x2 = [1.0]
-    s2 = NewtonSolver(x2, similar(x2); F=Flog, linesearch=Static(), verbosity=0)
+    s2 = NewtonSolver(x2, similar(x2); F = Flog, linesearch = Static(), verbosity = 0)
     solve!(x2, s2)
-    @test isapprox(x2[1], exp(-2.0); atol=1e-8)
+    @test isapprox(x2[1], exp(-2.0); atol = 1e-8)
 
     # A budget of zero used to skip the loop body altogether, so the cache still held the trial
     # of the *previous* solver step.  The Picard step documents that it reuses that cache rather
@@ -781,7 +800,7 @@ end
     # stale iterate — the sentinel below, from nowhere near the current one.  At least one trial
     # is now always evaluated, so the post-condition `nan_recovery!` advertises always holds.
     x3 = [1.0]
-    s3 = PicardSolver(x3, Flog, similar(x3); verbosity=0, nan_max_iterations=0)
+    s3 = PicardSolver(x3, Flog, similar(x3); verbosity = 0, nan_max_iterations = 0)
     initialize!(s3, x3)
     solution(cache(s3)) .= -99.0
     value(cache(s3)) .= 0.0
@@ -798,7 +817,8 @@ end
     # budget of one, so this solve landed on the root and reported convergence.  With no damping
     # the full step onto the singularity is taken, and the solve has to fail and say so.
     x4 = [2.0]
-    s4 = NewtonSolver(x4, similar(x4); F=Finv, linesearch=Static(), verbosity=0, nan_max_iterations=0)
+    s4 = NewtonSolver(x4, similar(x4); F = Finv, linesearch = Static(),
+        verbosity = 0, nan_max_iterations = 0)
     state4 = SolverState(s4)
     solve!(x4, s4, state4)
     @test !isconverged(status(s4, state4))
@@ -809,7 +829,8 @@ end
     # before the next one left the two a factor apart on every exhaustion path, and the Picard
     # step reads them as a pair.
     x5 = [2.0]
-    s5 = NewtonSolver(x5, similar(x5); F=Finv, linesearch=Static(), verbosity=0, nan_max_iterations=1)
+    s5 = NewtonSolver(x5, similar(x5); F = Finv, linesearch = Static(),
+        verbosity = 0, nan_max_iterations = 1)
     initialize!(s5, x5)
     direction!(s5, x5, NullParameters(), 0)
     SimpleSolvers.nan_recovery!(s5, x5, NullParameters())
@@ -824,7 +845,7 @@ end
     # it either, since `f_abstol_break` defaults to `Inf` and `Inf > Inf` is false — so such a
     # solve ran its whole `max_iterations` budget with no diagnosis at all.
     for bad in (NaN, Inf)
-        config = Options(verbosity=1)
+        config = Options(verbosity = 1)
         state = NonlinearSolverState([1.0])
         # Primed with a finite step first: a single `update!` leaves the *previous* iterate and
         # value at the `NaN` the state is allocated with, so `rxₛ` and `rfₛ` would be `NaN`
@@ -838,7 +859,7 @@ end
         @test !isconverged(st)
         @test meets_stopping_criteria(state, config)
         @test logged_any(() -> nonlinear_solver_warnings(st, config), "NaNs or Infs")
-        @test !logged_any(() -> nonlinear_solver_warnings(st, Options(verbosity=0)), "NaNs or Infs")
+        @test !logged_any(() -> nonlinear_solver_warnings(st, Options(verbosity = 0)), "NaNs or Infs")
     end
 
     # An overflowed initial residual is not a usable reference scale.  `residual_small` guarded
@@ -873,7 +894,7 @@ end
     # is: damping cannot shorten it.  `1/x - 1` at x₀ = 0 gives exactly that.
     Finv(y, x, p) = (y .= 1 ./ x .- 1)
     x = [0.0]
-    s = PicardSolver(x, Finv, similar(x); verbosity=0)
+    s = PicardSolver(x, Finv, similar(x); verbosity = 0)
     @test_throws NonlinearSolverException solve!(x, s)
 
     # And the commit guard.  `F` is finite on x ≤ 1 and `Inf` beyond it, with a residual large
@@ -885,7 +906,7 @@ end
     # be reported rather than handing the caller an x whose residual is `Inf`.
     Fwall(y, x, p) = (y .= [xi ≤ 1 ? -1.0e10 : oftype(xi, Inf) for xi in x])
     x2 = [1.0]
-    s2 = PicardSolver(x2, Fwall, similar(x2); verbosity=0)
+    s2 = PicardSolver(x2, Fwall, similar(x2); verbosity = 0)
     state2 = SolverState(s2)
     solve!(x2, s2, state2)
     @test x2 == [1.0]                                            # the poisoned trial was not committed
@@ -904,7 +925,7 @@ end
     Fnl(y, x, p) = (y .= [x[1]^2 - 2, x[2]^2 - 3])   # root (√2, √3)
     for T in (Float64, Float32)
         x = T[3.0, 3.0]
-        s = DogLegSolver(x, Fnl, similar(x); refactorize=3)
+        s = DogLegSolver(x, Fnl, similar(x); refactorize = 3)
         y = similar(x)
         Fnl(y, x, NullParameters())
         state = NonlinearSolverState(x, y)
@@ -926,10 +947,10 @@ end
 
         # ... and a full quasi-Newton (refactorize > 1) solve converges end to end.
         x2 = T[3.0, 3.0]
-        s2 = DogLegSolver(x2, Fnl, similar(x2); refactorize=3)
+        s2 = DogLegSolver(x2, Fnl, similar(x2); refactorize = 3)
         solve!(x2, s2)
-        @test isapprox(x2[1], sqrt(T(2)); atol=∛(eps(T))) &&
-              isapprox(x2[2], sqrt(T(3)); atol=∛(eps(T)))
+        @test isapprox(x2[1], sqrt(T(2)); atol = ∛(eps(T))) &&
+              isapprox(x2[2], sqrt(T(3)); atol = ∛(eps(T)))
     end
 end
 
@@ -940,7 +961,7 @@ end
     # would violate monotonicity. The step must instead leave the iterate unchanged.
     Ftrue(y, x, p) = (y .= [x[1]^2 - 2, x[2]^2 - 3])
     x0 = [3.0, 3.0]
-    s = DogLegSolver(copy(x0), Ftrue, similar(x0); refactorize=100, verbosity=0)  # won't refactor after step 1
+    s = DogLegSolver(copy(x0), Ftrue, similar(x0); refactorize = 100, verbosity = 0)  # won't refactor after step 1
     initialize!(s, x0)
 
     # Prime a stale, sign-flipped Jacobian J = -J_true(x0): then d₁ = -Jᵀ F and d₂ = J⁻¹(-F)
@@ -972,11 +993,10 @@ end
     # search; a `linesearch` keyword used to be accepted and silently ignored.
     Fcos(y, x, p) = (y .= x .- cos.(x))
     x = [0.5]
-    @test_throws MethodError PicardSolver(x, Fcos, similar(x); linesearch=Bisection())
+    @test_throws MethodError PicardSolver(x, Fcos, similar(x); linesearch = Bisection())
 end
 
 @testset "Check whether direction NaN test works" begin
-
     function Fnan(y::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
         y .= exp.(-one(T) ./ (x .^ 2))
     end
@@ -993,8 +1013,10 @@ end
     # exactly, so x = 0 *is* a root and `solve!` now tests the stopping criteria before the
     # first step (see the `while !meets_stopping_criteria(…)` loop) and returns without
     # computing a direction.  Forcing one iteration restores the path under test.
-    nl₁ = NonlinearSolver(Newton(), x, y; F=Fnan, jacobian=J₁, verbosity=2, min_iterations=1)
-    nl₂ = NonlinearSolver(Newton(), x, y; F=Fnan, jacobian=J₂, verbosity=2, min_iterations=1)
+    nl₁ = NonlinearSolver(
+        Newton(), x, y; F = Fnan, jacobian = J₁, verbosity = 2, min_iterations = 1)
+    nl₂ = NonlinearSolver(
+        Newton(), x, y; F = Fnan, jacobian = J₂, verbosity = 2, min_iterations = 1)
 
     x₁ = zeros(T, n)
     x₂ = zeros(T, n)
@@ -1009,13 +1031,12 @@ end
 
     # Without the forced iteration the initial guess is recognised as a root and returned
     # untouched — no Jacobian, no direction, no line search.
-    nl₃ = NonlinearSolver(Newton(), x, y; F=Fnan, jacobian=J₂, verbosity=0)
+    nl₃ = NonlinearSolver(Newton(), x, y; F = Fnan, jacobian = J₂, verbosity = 0)
     x₃ = zeros(T, n)
     state₃ = SolverState(nl₃)
     @test solve!(x₃, nl₃, state₃) == zeros(T, n)
     @test iteration_number(state₃) == 0
     @test isconverged(status(nl₃, state₃))
-
 end
 
 @testset "line search does not overwrite the shared solver cache" begin
@@ -1026,7 +1047,7 @@ end
     G(y, x, params) = y .= (x .- 1.0) .^ 2
     x = ones(3) / 2
     y = similar(x)
-    nl = NewtonSolver(x, y; F=G)
+    nl = NewtonSolver(x, y; F = G)
     _params = NullParameters()
 
     direction!(nl, x, _params, 1)
@@ -1044,7 +1065,7 @@ end
     x_before = copy(solution(cache(nl)))
 
     lsp = linesearch_problem(nl)
-    params = (parameters=_params, x=state.x)
+    params = (parameters = _params, x = state.x)
     # Evaluate at a nonzero step so the trial iterate genuinely differs from x.
     lsp.F(0.7, params)
     lsp.D(0.7, params)
@@ -1058,12 +1079,12 @@ end
     # The catch-all `initialize!(x...)` (which swallowed MethodErrors behind a
     # generic "not defined" message) was deleted.
     @test !hasmethod(initialize!, Tuple{Int})
-    @test !hasmethod(initialize!, Tuple{Int,Int,Int})
+    @test !hasmethod(initialize!, Tuple{Int, Int, Int})
 
     # The 1-argument `solver_step!(s::NonlinearSolver)` stub (which only errored)
     # was deleted, so an unsupported call is a proper `MethodError`.
     f!(y, x, params) = y .= x .^ 2 .- 1
-    s = NewtonSolver([2.0], [3.0]; F=f!)
+    s = NewtonSolver([2.0], [3.0]; F = f!)
     @test !hasmethod(solver_step!, Tuple{typeof(s)})
     @test_throws MethodError solver_step!(s)
 end
@@ -1077,7 +1098,7 @@ end
     f!(y, x, params) = y .= x .^ 2 .- 1
     x = [2.0]
     y = [3.0]
-    s = NewtonSolver(x, y; F=f!)
+    s = NewtonSolver(x, y; F = f!)
     solve!(x, s)   # populate the cached Jacobian matrix
     Jm = jacobianmatrix(s)
     # the solver forms forward to the `::AbstractMatrix` methods on the cached
@@ -1109,30 +1130,34 @@ end
 @testset "NonlinearSolver(method, ...) honors refactorize" begin
     Flin(y, x, p) = (y .= x)
     x, y = ones(2), zeros(2)
-    s5 = NonlinearSolver(QuasiNewton(), x, y; F=Flin)
+    s5 = NonlinearSolver(QuasiNewton(), x, y; F = Flin)
     @test SimpleSolvers.method(s5).refactorize == 5
-    s7 = NonlinearSolver(QuasiNewton(7), x, y; F=Flin)
+    s7 = NonlinearSolver(QuasiNewton(7), x, y; F = Flin)
     @test SimpleSolvers.method(s7).refactorize == 7
-    s1 = NonlinearSolver(Newton(), x, y; F=Flin)
+    s1 = NonlinearSolver(Newton(), x, y; F = Flin)
     @test SimpleSolvers.method(s1).refactorize == 1
     # an explicit keyword still wins over the method's field
-    s9 = NonlinearSolver(QuasiNewton(7), x, y; F=Flin, refactorize=9)
+    s9 = NonlinearSolver(QuasiNewton(7), x, y; F = Flin, refactorize = 9)
     @test SimpleSolvers.method(s9).refactorize == 9
 
     # DogLeg carries a `refactorize` field too
-    d1 = NonlinearSolver(DogLeg(), x, y; F=Flin)
+    d1 = NonlinearSolver(DogLeg(), x, y; F = Flin)
     @test SimpleSolvers.method(d1).refactorize == 1
-    d4 = NonlinearSolver(DogLeg(4), x, y; F=Flin)
+    d4 = NonlinearSolver(DogLeg(4), x, y; F = Flin)
     @test SimpleSolvers.method(d4).refactorize == 4
-    d9 = NonlinearSolver(DogLeg(4), x, y; F=Flin, refactorize=9)
+    d9 = NonlinearSolver(DogLeg(4), x, y; F = Flin, refactorize = 9)
     @test SimpleSolvers.method(d9).refactorize == 9
 end
 
 @testset "DogLegSolver(x, y; F) convenience form" begin
     Flin(y, x, p) = (y .= x)
-    s = DogLegSolver(ones(2), zeros(2); F=Flin)
+    s = DogLegSolver(ones(2), zeros(2); F = Flin)
     @test s isa DogLegSolver
-    err = try; DogLegSolver(ones(2), zeros(2)); catch e; e; end
+    err = try
+        DogLegSolver(ones(2), zeros(2))
+    catch e
+        e
+    end
     @test err isa ErrorException && occursin("provide an F", err.msg)
 end
 
@@ -1155,7 +1180,7 @@ end
         solver = NewtonSolver(x0, F, copy(x0))
 
         solve!(x0, solver)
-        @test ≈(x0, _root; atol=tol(T))
+        @test ≈(x0, _root; atol = tol(T))
 
         x0 = ics(T)
         solver = PicardSolver(x0, F, copy(x0))
@@ -1170,18 +1195,17 @@ end
         # suppressed message is never emitted, so the count has to start from a known point.
         reset_warning_counts!()
         @test_logs (:warn, r"spent its full budget .* did not improve") match_mode = :any solve!(x0, solver)
-        @test_throws AssertionError @assert ≈(x0, _root; atol=tol(T))
+        @test_throws AssertionError @assert ≈(x0, _root; atol = tol(T))
 
         x0 = ics(T)
         solver = DogLegSolver(x0, F, copy(x0))#; verbosity=2
 
         solve!(x0, solver)
-        @test ≈(x0, _root; atol=tol(T))
+        @test ≈(x0, _root; atol = tol(T))
     end
 
     dogleg_test(Float64)
     dogleg_test(Float32)
-
 end
 
 @testset "$(rpad("the line search shares the solver's Options", 80))" begin
@@ -1194,7 +1218,7 @@ end
     y = zero(x)
 
     for make in (NewtonSolver, PicardSolver, DogLegSolver)
-        s = make(x, F, y; verbosity=0, max_iterations=17, linesearch_max_iterations=9)
+        s = make(x, F, y; verbosity = 0, max_iterations = 17, linesearch_max_iterations = 9)
         @test config(linesearch(s)) === config(s)
         @test config(linesearch(s)).verbosity == 0
         @test config(linesearch(s)).linesearch_max_iterations == 9
@@ -1202,7 +1226,7 @@ end
 
     # ... and the same holds for the constructor that is handed a ready-made `Linesearch`
     # carrying its own (default) `Options`: it is rebuilt on the solver's config.
-    s = NewtonSolver(x, F, y; linesearch=Backtracking(), verbosity=0)
+    s = NewtonSolver(x, F, y; linesearch = Backtracking(), verbosity = 0)
     @test config(linesearch(s)) === config(s)
     @test config(linesearch(s)).verbosity == 0
 end
@@ -1216,7 +1240,7 @@ end
     Ffloor(y, x, params) = y .= ((1e8 .+ x) .- 1e8) .- 1e-9
 
     x = [1.0]
-    s = NewtonSolver(x, Ffloor, zero(x); f_abstol=1e-20, f_reltol=0.0, verbosity=0)
+    s = NewtonSolver(x, Ffloor, zero(x); f_abstol = 1e-20, f_reltol = 0.0, verbosity = 0)
     state = SolverState(s)
     @test_logs solve!(x, s, state)          # no messages at all
 
@@ -1234,7 +1258,7 @@ end
     # at the default verbosity the stagnation warning names the achieved residual and the
     # requested tolerance
     x2 = [1.0]
-    s2 = NewtonSolver(x2, Ffloor, zero(x2); f_abstol=1e-20, f_reltol=0.0)
+    s2 = NewtonSolver(x2, Ffloor, zero(x2); f_abstol = 1e-20, f_reltol = 0.0)
     reset_warning_counts!()
     @test_logs (:warn, r"stagnated") match_mode = :any solve!(x2, s2, SolverState(s2))
 
@@ -1242,10 +1266,12 @@ end
     # leaves: it does not log from inside the iteration, it reports to the solver (see
     # `record_linesearch!`). Without this clause the message would name the symptom and no cause.
     x2b = [1.0]
-    s2b = NewtonSolver(x2b, Ffloor, zero(x2b); f_abstol=1e-20, f_reltol=0.0)
+    s2b = NewtonSolver(x2b, Ffloor, zero(x2b); f_abstol = 1e-20, f_reltol = 0.0)
     state2b = SolverState(s2b)
     reset_warning_counts!()
-    @test_logs (:warn, r"The line search reported LINESEARCH_FLOOR on \d+ of the \d+ step\(s\)") match_mode = :any solve!(x2b, s2b, state2b)
+    @test_logs (
+        :warn, r"The line search reported LINESEARCH_FLOOR on \d+ of the \d+ step\(s\)") match_mode = :any solve!(
+        x2b, s2b, state2b)
 
     # The same information, programmatically — this is what a caller acts on, rather than the log.
     stb = status(s2b, state2b)
@@ -1257,7 +1283,8 @@ end
     # And no line-search message escapes the solve itself: the flood the caps used to hold back
     # is gone at its source, not rate limited.
     x2c = [1.0]
-    s2c = NewtonSolver(x2c, Ffloor, zero(x2c); f_abstol=1e-20, f_reltol=0.0, verbosity=2)
+    s2c = NewtonSolver(
+        x2c, Ffloor, zero(x2c); f_abstol = 1e-20, f_reltol = 0.0, verbosity = 2)
     reset_warning_counts!()
     logs2c, _ = Test.collect_test_logs() do
         solve!(x2c, s2c, SolverState(s2c))
@@ -1269,7 +1296,8 @@ end
     # the two messages would otherwise never be seen together and the mutual exclusivity
     # `nonlinear_solver_warnings` promises would go untested.
     x4 = [1.0]
-    s4 = NewtonSolver(x4, Ffloor, zero(x4); f_abstol=1e-20, f_reltol=0.0, warn_iterations=1)
+    s4 = NewtonSolver(
+        x4, Ffloor, zero(x4); f_abstol = 1e-20, f_reltol = 0.0, warn_iterations = 1)
     reset_warning_counts!()
     logs, _ = Test.collect_test_logs() do
         solve!(x4, s4, SolverState(s4))
@@ -1280,7 +1308,7 @@ end
 
     # raising `f_abstol` above the floor makes the very same problem converge, quietly
     x3 = [1.0]
-    s3 = NewtonSolver(x3, Ffloor, zero(x3); f_abstol=1e-6, f_reltol=0.0)
+    s3 = NewtonSolver(x3, Ffloor, zero(x3); f_abstol = 1e-6, f_reltol = 0.0)
     state3 = SolverState(s3)
     @test_logs solve!(x3, s3, state3)
     @test isconverged(status(s3, state3))
@@ -1289,7 +1317,7 @@ end
 end
 
 @testset "$(rpad("stall predicates and the consecutive-stall counter", 80))" begin
-    config₀ = Options(Float64; f_abstol=1e-10, f_reltol=0.0, x_suctol=1e-12)
+    config₀ = Options(Float64; f_abstol = 1e-10, f_reltol = 0.0, x_suctol = 1e-12)
 
     # a frozen iterate whose residual is *large*: stagnation
     state = NonlinearSolverState([1.0])
@@ -1327,7 +1355,7 @@ end
 end
 
 @testset "$(rpad("progress predicates and the no-progress counter", 80))" begin
-    config₀ = Options(Float64; f_abstol=1e-10, f_reltol=0.0, f_stall_window=3)
+    config₀ = Options(Float64; f_abstol = 1e-10, f_reltol = 0.0, f_stall_window = 3)
 
     state = NonlinearSolverState([1.0])
     initialize!(state, [1.0], [1.0])          # r₀ = 1 is the first progress reference
@@ -1361,8 +1389,8 @@ end
     @test iterations_since_progress(state) == config₀.f_stall_window
     @test !residual_small(rfₐ, config₀, state)
     @test no_progress(rfₐ, config₀, state)
-    @test !no_progress(rfₐ, Options(Float64; f_abstol=1e10, f_stall_window=3), state)  # residual small
-    @test !no_progress(rfₐ, Options(Float64; f_abstol=1e-10, f_reltol=0.0), state)     # window disabled
+    @test !no_progress(rfₐ, Options(Float64; f_abstol = 1e10, f_stall_window = 3), state)  # residual small
+    @test !no_progress(rfₐ, Options(Float64; f_abstol = 1e-10, f_reltol = 0.0), state)     # window disabled
 
     # the report threshold is independent of the window: half the iterations without progress,
     # and at least `F_STALL_REPORT_MINIMUM` of them
@@ -1397,7 +1425,7 @@ end
         update!(long, [Float64(i)], [0.5^i])
         @test record_progress!(long, config₀) == 0
     end
-    for i in 31:(30+SimpleSolvers.F_STALL_REPORT_MINIMUM)
+    for i in 31:(30 + SimpleSolvers.F_STALL_REPORT_MINIMUM)
         long.iterations = i
         update!(long, [Float64(i)], [0.5^30])
         record_progress!(long, config₀)
@@ -1412,7 +1440,7 @@ end
     # a plateau the solve sits on for most of its iterations is stagnation only if it is above
     # the tolerance. Here the same 0.8 plateau is read against a tolerance that accepts it, and
     # two identical iterates make both successive residuals vanish, so the solve has converged.
-    loose = Options(Float64; f_abstol=1.0, f_reltol=0.0, f_stall_window=3)
+    loose = Options(Float64; f_abstol = 1.0, f_reltol = 0.0, f_stall_window = 3)
     for _ in 1:2
         state.iterations += 1
         update!(state, [9.0], [0.8])
@@ -1449,7 +1477,7 @@ end
     # it did before either counter existed. Were `iterations_since_progress` derived from
     # `iteration_number`, such a loop would report every one of its iterations as unproductive —
     # and with `f_stall_window` set, `meets_stopping_criteria` would cut it short for it.
-    config₀ = Options(Float64; f_abstol=1e-10, f_reltol=0.0, f_stall_window=5)
+    config₀ = Options(Float64; f_abstol = 1e-10, f_reltol = 0.0, f_stall_window = 5)
 
     state = NonlinearSolverState([1.0])
     initialize!(state, [1.0], [1.0])
@@ -1486,7 +1514,7 @@ end
     Ffloor(y, x, params) = y .= 1e-3
 
     x = [0.0]
-    s = PicardSolver(x, Ffloor, zero(x); verbosity=0)
+    s = PicardSolver(x, Ffloor, zero(x); verbosity = 0)
     state = SolverState(s)
     @test_logs solve!(x, s, state)                      # verbosity = 0 silences it completely
     st = status(s, state)
@@ -1505,11 +1533,12 @@ end
     x2 = [0.0]
     s2 = PicardSolver(x2, Ffloor, zero(x2))
     reset_warning_counts!()
-    @test_logs (:warn, r"spent its full budget .* did not improve by the factor") match_mode = :any solve!(x2, s2, SolverState(s2))
+    @test_logs (:warn, r"spent its full budget .* did not improve by the factor") match_mode = :any solve!(
+        x2, s2, SolverState(s2))
 
     # `f_stall_window` turns the report into a stopping criterion
     x3 = [0.0]
-    s3 = PicardSolver(x3, Ffloor, zero(x3); f_stall_window=20, verbosity=0)
+    s3 = PicardSolver(x3, Ffloor, zero(x3); f_stall_window = 20, verbosity = 0)
     state3 = SolverState(s3)
     @test_logs solve!(x3, s3, state3)                   # ... including when it stops the solve
     st3 = status(s3, state3)
@@ -1520,7 +1549,7 @@ end
     @test iteration_number(state3) < config(s3).max_iterations
 
     x4 = [0.0]
-    s4 = PicardSolver(x4, Ffloor, zero(x4); f_stall_window=20)
+    s4 = PicardSolver(x4, Ffloor, zero(x4); f_stall_window = 20)
     reset_warning_counts!()
     @test_logs (:warn, r"gave up after 20 iterations") match_mode = :any solve!(x4, s4, SolverState(s4))
 
@@ -1531,7 +1560,7 @@ end
     Fslow(y, x, params) = y .= (1 - 0.9) .* (x .- 1.0)
 
     x5 = [0.0]
-    s5 = PicardSolver(x5, Fslow, zero(x5); f_stall_window=20)
+    s5 = PicardSolver(x5, Fslow, zero(x5); f_stall_window = 20)
     state5 = SolverState(s5)
     @test_logs solve!(x5, s5, state5)                   # converges, quietly
     st5 = status(s5, state5)
@@ -1550,7 +1579,7 @@ end
     Fexact(y, x, params) = (n[] += 1; y .= x .- 1.0)
 
     x = [1.0]
-    s = NewtonSolver(x, Fexact, zero(x); verbosity=0)
+    s = NewtonSolver(x, Fexact, zero(x); verbosity = 0)
     state = SolverState(s)
     n[] = 0
     solve!(x, s, state)
@@ -1561,7 +1590,7 @@ end
 
     # `min_iterations` still forces a step
     x2 = [1.0]
-    s2 = NewtonSolver(x2, Fexact, zero(x2); verbosity=0, min_iterations=1)
+    s2 = NewtonSolver(x2, Fexact, zero(x2); verbosity = 0, min_iterations = 1)
     state2 = SolverState(s2)
     solve!(x2, s2, state2)
     @test iteration_number(state2) == 1
@@ -1572,15 +1601,15 @@ end
     # evaluated as before.
     Fcount(y, x, params) = (n[] += 1; y .= x .^ 2 .- 2.0)
     x3 = [1.0]
-    s3 = NewtonSolver(x3, Fcount, zero(x3); verbosity=0)
+    s3 = NewtonSolver(x3, Fcount, zero(x3); verbosity = 0)
     state3 = NonlinearSolverState(x3)
     initialize!(s3, x3)
     initialize!(state3, x3, [-1.0])
     direction!(s3, x3, NullParameters(), 1)
     prob = SimpleSolvers.problem(linesearch(s3))
 
-    shared = (x=x3, parameters=NullParameters(), φ₀=1.0)
-    plain = (x=x3, parameters=NullParameters())
+    shared = (x = x3, parameters = NullParameters(), φ₀ = 1.0)
+    plain = (x = x3, parameters = NullParameters())
 
     n[] = 0
     @test value(prob, 0.0, shared) == 1.0
@@ -1607,7 +1636,7 @@ end
     # Bisection (49 of ~3750 line-search calls with refactorize = 5).  A negative α steps against
     # a direction that has already been chosen, so the α > 0 contract now forbids it.  Driving
     # the solver loop by hand is the only way to observe every α the line search returns.
-    fscalar(x::T) where {T<:Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
+    fscalar(x::T) where {T <: Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
     Fls!(y, x, params) = y .= fscalar.(x)
 
     Random.seed!(4321)
@@ -1615,8 +1644,8 @@ end
         for refac in (1, 5)
             for _ in 1:20
                 x = rand(1)
-                nl = NewtonSolver(x, similar(x); F=Fls!, linesearch=lsmethod(Float64),
-                    verbosity=0, refactorize=refac)
+                nl = NewtonSolver(x, similar(x); F = Fls!, linesearch = lsmethod(Float64),
+                    verbosity = 0, refactorize = refac)
                 SimpleSolvers.initialize!(nl, x)
                 state = NonlinearSolverState(x)
                 SimpleSolvers.initialize!(state, x, [fscalar(x[1])])
@@ -1624,7 +1653,8 @@ end
                     SimpleSolvers.increase_iteration_number!(state)
                     direction!(nl, x, NullParameters(), it)
                     any(isnan, direction(cache(nl))) && break
-                    α = solve(SimpleSolvers.linesearch(nl), 1.0, (x=x, parameters=NullParameters()))
+                    α = solve(SimpleSolvers.linesearch(nl), 1.0, (
+                        x = x, parameters = NullParameters()))
                     @test α > 0.0
                     compute_new_iterate!(x, α, direction(cache(nl)))
                 end
@@ -1643,19 +1673,21 @@ end
     # than raised.  Two of the Float32 quasi-Newton starts still fail — but through the
     # pre-existing, legitimate channel of a direction vector that goes `NaN`/`Inf` under a stale
     # Jacobian, which `solver_step!` raises deliberately and which this change does not touch.
-    fscalar(x::T) where {T<:Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
+    fscalar(x::T) where {T <: Number} = exp(x) * (x^3 - 5x^2 + 2x) + 2one(T)
     Fb!(y, x, params) = y .= fscalar.(x)
-    roots = (-4.735035753706987262178160540350200552633, -0.6737697823920028217727631890832279199433,
+    roots = (-4.735035753706987262178160540350200552633,
+        -0.6737697823920028217727631890832279199433,
         0.7613128434711647120463439168731683731732, 4.560440205363600153577140702025401006278)
 
-    fixtures = ((Float64, 5, 0.1440401297), (Float64, 5, 0.2834847806), (Float64, 5, 0.2831226663),
-                (Float32, 1, 0.2834847867), (Float32, 1, 0.2831226587),
-                (Float32, 5, 0.2834847867), (Float32, 5, 0.2831226587))
+    fixtures = (
+        (Float64, 5, 0.1440401297), (Float64, 5, 0.2834847806), (Float64, 5, 0.2831226663),
+        (Float32, 1, 0.2834847867), (Float32, 1, 0.2831226587),
+        (Float32, 5, 0.2834847867), (Float32, 5, 0.2831226587))
 
     for (T, refac, x₀) in fixtures
         x = T[x₀]
-        nl = NewtonSolver(x, similar(x); F=Fb!, linesearch=BierlaireQuadratic(T),
-            verbosity=0, refactorize=refac)
+        nl = NewtonSolver(x, similar(x); F = Fb!, linesearch = BierlaireQuadratic(T),
+            verbosity = 0, refactorize = refac)
         state = SolverState(nl)
         # The bracketing error must be gone.  A `NonlinearSolverException` (NaN direction) is a
         # different, legitimate failure and is allowed through.
@@ -1672,11 +1704,11 @@ end
     # The five starts that are genuinely solvable now converge — including
     # x₀ = 0.1440401297, which was expected to be unreachable.
     for (T, refac, x₀) in ((Float64, 5, 0.1440401297), (Float64, 5, 0.2834847806),
-                           (Float64, 5, 0.2831226663), (Float32, 1, 0.2834847867),
-                           (Float32, 1, 0.2831226587))
+        (Float64, 5, 0.2831226663), (Float32, 1, 0.2834847867),
+        (Float32, 1, 0.2831226587))
         x = T[x₀]
-        nl = NewtonSolver(x, similar(x); F=Fb!, linesearch=BierlaireQuadratic(T),
-            verbosity=0, refactorize=refac)
+        nl = NewtonSolver(x, similar(x); F = Fb!, linesearch = BierlaireQuadratic(T),
+            verbosity = 0, refactorize = refac)
         state = SolverState(nl)
         solve!(x, nl, state)
         @test isconverged(status(nl, state))
@@ -1687,8 +1719,8 @@ end
     # through the status instead.
     for (T, refac, x₀) in fixtures
         x = T[x₀]
-        nl = NewtonSolver(x, similar(x); F=Fb!, linesearch=BierlaireQuadratic(T),
-            verbosity=0, refactorize=refac)
+        nl = NewtonSolver(x, similar(x); F = Fb!, linesearch = BierlaireQuadratic(T),
+            verbosity = 0, refactorize = refac)
         SimpleSolvers.initialize!(nl, x)
         state = NonlinearSolverState(x)
         SimpleSolvers.initialize!(state, x, T[fscalar(x₀)])
@@ -1696,7 +1728,8 @@ end
             increase_iteration_number!(state)
             direction!(nl, x, NullParameters(), it)
             any(!isfinite, direction(cache(nl))) && break
-            st = SimpleSolvers.solve_with_status(linesearch(nl), one(T), (x=x, parameters=NullParameters()))
+            st = SimpleSolvers.solve_with_status(linesearch(nl), one(T), (
+                x = x, parameters = NullParameters()))
             @test steplength(st) > zero(T)
             compute_new_iterate!(x, steplength(st), direction(cache(nl)))
             any(!isfinite, x) && break
@@ -1714,7 +1747,8 @@ end
     DFneg!(J, x, params) = (J .= -1.0)
 
     x = [0.0]
-    s = NewtonSolver(x, Fneg, zero(x); DF! = DFneg!, regularization_factor=2.0, verbosity=0)
+    s = NewtonSolver(
+        x, Fneg, zero(x); DF! = DFneg!, regularization_factor = 2.0, verbosity = 0)
     state = SolverState(s)
     solve!(x, s, state)
 
@@ -1732,10 +1766,12 @@ end
     # the line search really is reporting a non-descent anchor here
     SimpleSolvers.initialize!(s, x)
     st0 = SolverState(s)
-    SimpleSolvers.initialize!(st0, x, SimpleSolvers.value!(value(cache(s)), SimpleSolvers.nonlinearproblem(s), x, NullParameters()))
+    SimpleSolvers.initialize!(st0,
+        x,
+        SimpleSolvers.value!(value(cache(s)), SimpleSolvers.nonlinearproblem(s), x, NullParameters()))
     direction!(s, x, NullParameters(), 1)
     lsst = solve_with_status(SimpleSolvers.linesearch(s), 1.0,
-        (x=x, parameters=NullParameters(), φ₀=SimpleSolvers.L2norm(value(st0))))
+        (x = x, parameters = NullParameters(), φ₀ = SimpleSolvers.L2norm(value(st0))))
     @test SimpleSolvers.outcome(lsst) == LINESEARCH_NO_DESCENT
     @test lsst.d₀ > 0
 end
@@ -1751,13 +1787,13 @@ end
     DFq!(J, x, params) = (njac[] += 1; J .= 0.0; J[1, 1] = 2x[1])
 
     x = [1.0]
-    s = NewtonSolver(x, Fq, zero(x); DF! = DFq!, refactorize=5, verbosity=0)
+    s = NewtonSolver(x, Fq, zero(x); DF! = DFq!, refactorize = 5, verbosity = 0)
 
     njac[] = 0
     SimpleSolvers.maybe_refactorize!(s, x, NullParameters(), 7)
     @test njac[] == 0                     # mid-cycle: the stale factorization is reused
 
-    SimpleSolvers.maybe_refactorize!(s, x, NullParameters(), 7; stalled=true)
+    SimpleSolvers.maybe_refactorize!(s, x, NullParameters(), 7; stalled = true)
     @test njac[] == 1                     # ... unless the previous step stalled
 
     SimpleSolvers.maybe_refactorize!(s, x, NullParameters(), 10)
@@ -1780,7 +1816,8 @@ end
     # rather than running to max_iterations
     Ffloor(y, x, params) = y .= ((1e8 .+ x) .- 1e8) .- 1e-9
     x2 = [1.0]
-    s2 = NewtonSolver(x2, Ffloor, zero(x2); f_abstol=1e-20, f_reltol=0.0, refactorize=5, verbosity=0)
+    s2 = NewtonSolver(x2, Ffloor, zero(x2); f_abstol = 1e-20,
+        f_reltol = 0.0, refactorize = 5, verbosity = 0)
     state2 = SolverState(s2)
     solve!(x2, s2, state2)
     @test isstalled(status(s2, state2), config(s2))
@@ -1797,9 +1834,9 @@ end
     for f in (SimpleSolvers.report_dogleg_singular, SimpleSolvers.report_dogleg_nan,
         SimpleSolvers.report_dogleg_underflow, SimpleSolvers.report_nan_direction,
         SimpleSolvers.report_static_refactorize,
-        # `nonlinear_solver_warnings` is the outer iteration's own barrier: it takes a
-        # `NonlinearSolverStatus` and an `Options`, never the solver, and so has always been
-        # compiled once per element type rather than once per problem.
+    # `nonlinear_solver_warnings` is the outer iteration's own barrier: it takes a
+    # `NonlinearSolverStatus` and an `Options`, never the solver, and so has always been
+    # compiled once per element type rather than once per problem.
         nonlinear_solver_warnings)
         @test has_logging_code(f)
     end
@@ -1823,7 +1860,7 @@ end
     Fsing(y, x, p) = (y[1] = x[1]^2; y[2] = x[2]; y)
     singular(v) = function ()
         x = [0.0, 1.0]
-        solve!(x, DogLegSolver(x, Fsing, zero(x); verbosity=v))
+        solve!(x, DogLegSolver(x, Fsing, zero(x); verbosity = v))
     end
     @test logged_any(singular(2), "singular Jacobian")
     @test !logged_any(singular(1), "singular Jacobian")
@@ -1835,7 +1872,7 @@ end
     Flog(y, x, p) = (y .= nanlog.(x) .+ 2)
     nanmerit(v) = function ()
         x = [1.0]
-        solve!(x, DogLegSolver(x, Flog, similar(x); verbosity=v))
+        solve!(x, DogLegSolver(x, Flog, similar(x); verbosity = v))
     end
     @test logged_any(nanmerit(2), "non-finite merit")
     @test !logged_any(nanmerit(1), "non-finite merit")
@@ -1846,7 +1883,8 @@ end
     Finv(y, x, p) = (y .= 1 ./ x .- 1)
     nonfinite(v) = function ()
         x = [2.0]
-        solve!(x, NewtonSolver(x, similar(x); F=Finv, linesearch=Static(), verbosity=v))
+        solve!(x, NewtonSolver(
+            x, similar(x); F = Finv, linesearch = Static(), verbosity = v))
     end
     @test logged_any(nonfinite(2), "Reducing length of direction vector")
     @test !logged_any(nonfinite(1), "Reducing length of direction vector")
@@ -1864,7 +1902,7 @@ end
     F(y, x, params) = y .= x .^ 2 .- 2
     function solve_allocations(S)
         x = ones(3)
-        s = S(x, F, similar(x); verbosity=0)
+        s = S(x, F, similar(x); verbosity = 0)
         state = SolverState(s)
         solve!(x, s, state)
         x .= 1.0
@@ -1906,7 +1944,7 @@ end
         count = 0
         for _ in 1:n
             x = [1.0]
-            s = NewtonSolver(x, Ffloor, zero(x); f_abstol=1e-20, f_reltol=0.0)
+            s = NewtonSolver(x, Ffloor, zero(x); f_abstol = 1e-20, f_reltol = 0.0)
             logs, _ = Test.collect_test_logs() do
                 solve!(x, s, SolverState(s))
             end
@@ -1924,7 +1962,7 @@ end
     # line search reported during the *previous* solve says nothing about this one.
     F(y, x, params) = y .= x .^ 2 .- 2
     x = [1.0, 1.0]
-    s = NewtonSolver(x, F, zero(x); verbosity=0)
+    s = NewtonSolver(x, F, zero(x); verbosity = 0)
     state = SolverState(s)
 
     solve!(x, s, state)
@@ -1979,23 +2017,27 @@ end
         record_linesearch!(converged, LINESEARCH_DECREASED)
     end
     record_linesearch!(converged, LINESEARCH_FLOOR)
-    floored = NonlinearSolverStatus(converged, Options(Float64; verbosity=2))
+    floored = NonlinearSolverStatus(converged, Options(Float64; verbosity = 2))
     @test isconverged(floored)
     @test linesearch_failures(floored) == 1          # the floor still counts in the tally ...
-    @test !logged_any(() -> nonlinear_solver_warnings(floored, Options(Float64; verbosity=2)),
+    @test !logged_any(
+        () -> nonlinear_solver_warnings(floored, Options(Float64; verbosity = 2)),
         "not every step went smoothly")               # ... but is not news about a converged solve
 
     # A step the search could not resolve at all is news, however, and it is the only trace of the
     # line search a solve leaves.
     record_linesearch!(converged, LINESEARCH_EXHAUSTED)
-    rough = NonlinearSolverStatus(converged, Options(Float64; verbosity=2))
+    rough = NonlinearSolverStatus(converged, Options(Float64; verbosity = 2))
     @test isconverged(rough)
-    @test logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=2)),
+    @test logged_any(
+        () -> nonlinear_solver_warnings(rough, Options(Float64; verbosity = 2)),
         "not every step went smoothly")
-    @test logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=2)),
+    @test logged_any(
+        () -> nonlinear_solver_warnings(rough, Options(Float64; verbosity = 2)),
         "LINESEARCH_EXHAUSTED")
     # ... at `verbosity ≥ 2` only, the same gate the floor and stationary outcomes use.
-    @test !logged_any(() -> nonlinear_solver_warnings(rough, Options(Float64; verbosity=1)),
+    @test !logged_any(
+        () -> nonlinear_solver_warnings(rough, Options(Float64; verbosity = 1)),
         "not every step went smoothly")
 
     # End to end, on the solve the package's own doctests use: nothing at all is said about the
@@ -2003,7 +2045,7 @@ end
     F(y, x, params) = y .= x .^ 2 .- 2
     healthy() = function ()
         x = ones(3)
-        s = NewtonSolver(x, F, zero(x); verbosity=2)
+        s = NewtonSolver(x, F, zero(x); verbosity = 2)
         state = SolverState(s)
         solve!(x, s, state)
         @test linesearch_outcomes(status(s, state))[linesearch_index(LINESEARCH_FLOOR)] > 0

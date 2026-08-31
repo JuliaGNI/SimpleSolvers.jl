@@ -41,11 +41,11 @@ minimum(|Hessian|):          1.0
 maximum(|Hessian|):          3.0
 ```
 """
-function check_hessian(io::IO, H::AbstractMatrix; digits::Integer=5)
-    println(io, "Condition Number of Hessian: ", round(cond(H); digits=digits))
-    println(io, "Determinant of Hessian:      ", round(det(H); digits=digits))
-    println(io, "minimum(|Hessian|):          ", round(minimum(abs, H); digits=digits))
-    println(io, "maximum(|Hessian|):          ", round(maximum(abs, H); digits=digits))
+function check_hessian(io::IO, H::AbstractMatrix; digits::Integer = 5)
+    println(io, "Condition Number of Hessian: ", round(cond(H); digits = digits))
+    println(io, "Determinant of Hessian:      ", round(det(H); digits = digits))
+    println(io, "minimum(|Hessian|):          ", round(minimum(abs, H); digits = digits))
+    println(io, "maximum(|Hessian|):          ", round(maximum(abs, H); digits = digits))
     println(io)
 end
 
@@ -69,11 +69,11 @@ The functor does:
 hes(H, x) = hes.H!(H, x)
 ```
 """
-struct HessianFunction{T,HT<:Callable} <: Hessian{T}
+struct HessianFunction{T, HT <: Callable} <: Hessian{T}
     H!::HT
 end
 
-HessianFunction(H!::HT, ::AbstractVector{T}) where {T,HT} = HessianFunction{T,HT}(H!)
+HessianFunction(H!::HT, ::AbstractVector{T}) where {T, HT} = HessianFunction{T, HT}(H!)
 
 HessianFunction{T}(H!, n::Integer) where {T} = HessianFunction(H!, zeros(T, n))
 
@@ -108,12 +108,12 @@ The functor does:
 hes(H, x) = ForwardDiff.hessian!(H, hes.F, x, hes.Hconfig)
 ```
 """
-struct HessianAutodiff{T,FT<:Callable,CT<:ForwardDiff.HessianConfig} <: Hessian{T}
+struct HessianAutodiff{T, FT <: Callable, CT <: ForwardDiff.HessianConfig} <: Hessian{T}
     F::FT
     Hconfig::CT
 
-    function HessianAutodiff{T}(F::FT, Hconfig::CT) where {T,FT,CT}
-        new{T,FT,CT}(F, Hconfig)
+    function HessianAutodiff{T}(F::FT, Hconfig::CT) where {T, FT, CT}
+        new{T, FT, CT}(F, Hconfig)
     end
 end
 

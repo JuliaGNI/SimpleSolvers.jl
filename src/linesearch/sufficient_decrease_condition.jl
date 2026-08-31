@@ -45,7 +45,7 @@ via [`check_anchor`](@ref) — the ``\min`` is inactive wherever ``f_0 + c\alpha
 representably below ``f_0``, so it changes nothing in double precision; it matters at low
 precision, where ``\tau`` can exceed the demanded ``c\alpha|d_0|`` outright.
 """
-struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
+struct SufficientDecreaseCondition{T, FT} <: BacktrackingCondition{T}
     c::T
     f₀::T
     d₀::T
@@ -53,12 +53,13 @@ struct SufficientDecreaseCondition{T,FT} <: BacktrackingCondition{T}
 
     F::FT
 
-    function SufficientDecreaseCondition(c::Tc, f₀::T, d₀::T, F::FT; τ::T=zero(T)) where {Tc<:Number,T<:Number,FT<:Callable}
+    function SufficientDecreaseCondition(c::Tc, f₀::T, d₀::T, F::FT;
+            τ::T = zero(T)) where {Tc <: Number, T <: Number, FT <: Callable}
         @assert T == Tc "You are computing with mixed precision ($(T) and $(Tc)). This is probably not intended (and not supported)."
         @assert !isnan(f₀) "f₀ is NaN"
         @assert !isnan(d₀) "d₀ is NaN"
         @assert τ ≥ zero(T) "The round-off allowance τ has to be nonnegative, it is $(τ)."
-        new{T,FT}(c, f₀, d₀, τ, F)
+        new{T, FT}(c, f₀, d₀, τ, F)
     end
 end
 

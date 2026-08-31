@@ -25,7 +25,7 @@ what `getrf` fills, and the two are not the same type under a 32-bit-integer BLA
 what [`RecursiveLU`](@ref) writes into, whose `ipiv` is any `AbstractVector{<:Integer}` — so
 one cache type serves both, and the LAPACK triangular solve can be shared with it.
 """
-mutable struct PivotedLUCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
+mutable struct PivotedLUCache{T, AT <: AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
     ipiv::Vector{LinearAlgebra.BlasInt}
     info::LinearAlgebra.BlasInt
@@ -45,7 +45,7 @@ whose cache is likewise seeded from `A`.
 function _pivoted_lu_cache(A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Ā = Matrix{T}(A)
-    PivotedLUCache{T,typeof(Ā)}(Ā, zeros(LinearAlgebra.BlasInt, n), 0, false)
+    PivotedLUCache{T, typeof(Ā)}(Ā, zeros(LinearAlgebra.BlasInt, n), 0, false)
 end
 
 """
@@ -57,7 +57,7 @@ The [`PivotedLUMethod`](@ref) counterpart of the `perms[1] == 0` guard in [`LU`]
 [`ldiv!`](@ref): without it, `getrs` would be handed an all-zero pivot vector and return
 garbage rather than complain.
 """
-function checkfactorized(lsolver::LinearSolver{T,LSM}) where {T,LSM<:PivotedLUMethod}
+function checkfactorized(lsolver::LinearSolver{T, LSM}) where {T, LSM <: PivotedLUMethod}
     cache(lsolver).factorized || throw(ArgumentError(
         "the $(nameof(LSM)) solver has not been factorized yet; call factorize! before ldiv!/solve!."))
     nothing
@@ -73,7 +73,7 @@ This wraps the cache's arrays rather than copying them, so it is only valid unti
 building it allocates, and they are on the hot path — but it is what to reach for when a
 `LinearAlgebra.Factorization` is what you want, e.g. `det(factorization(lsolver))`.
 """
-function factorization(lsolver::LinearSolver{T,LSM}) where {T,LSM<:PivotedLUMethod}
+function factorization(lsolver::LinearSolver{T, LSM}) where {T, LSM <: PivotedLUMethod}
     checkfactorized(lsolver)
     c = cache(lsolver)
     LinearAlgebra.LU(c.A, c.ipiv, c.info)
@@ -84,7 +84,7 @@ end
 
 The zero-pivot index the factorization reported (LAPACK's `info`), or `0` if it succeeded.
 """
-function singular_index(lsolver::LinearSolver{T,LSM}) where {T,LSM<:PivotedLUMethod}
+function singular_index(lsolver::LinearSolver{T, LSM}) where {T, LSM <: PivotedLUMethod}
     checkfactorized(lsolver)
     Int(cache(lsolver).info)
 end
@@ -105,7 +105,7 @@ quasi-Newton method does — is not interrupted by a matrix it may never solve w
     the single-argument form is good for exactly one call; calling it twice would factorize
     the factors. Use the two-argument form to refactorize.
 """
-function factorize!(lsolver::LinearSolver{T,LSM}) where {T,LSM<:PivotedLUMethod}
+function factorize!(lsolver::LinearSolver{T, LSM}) where {T, LSM <: PivotedLUMethod}
     c = cache(lsolver)
     Base.require_one_based_indexing(c.A)
     _getrf!(method(lsolver), c)
@@ -113,7 +113,8 @@ function factorize!(lsolver::LinearSolver{T,LSM}) where {T,LSM<:PivotedLUMethod}
     lsolver
 end
 
-function factorize!(lsolver::LinearSolver{T,LSM}, A::AbstractMatrix{T}) where {T,LSM<:PivotedLUMethod}
+function factorize!(lsolver::LinearSolver{T, LSM}, A::AbstractMatrix{T}) where {
+        T, LSM <: PivotedLUMethod}
     c = cache(lsolver)
     axes(A) == axes(c.A) || throw(DimensionMismatch(
         "the matrix to factorize has axes $(axes(A)), but the $(nameof(LSM)) cache was built " *
@@ -122,10 +123,13 @@ function factorize!(lsolver::LinearSolver{T,LSM}, A::AbstractMatrix{T}) where {T
     factorize!(lsolver)
 end
 
-factorize!(lsolver::LinearSolver{T,LSM}, ls::LinearProblem{T}) where {T,LSM<:PivotedLUMethod} =
+function factorize!(lsolver::LinearSolver{T, LSM}, ls::LinearProblem{T}) where {
+        T, LSM <: PivotedLUMethod}
     factorize!(lsolver, matrix(ls))
+end
 
-function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LSM}, b::AbstractVector{T}) where {T,LSM<:PivotedLUMethod}
+function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LSM},
+        b::AbstractVector{T}) where {T, LSM <: PivotedLUMethod}
     c = cache(lsolver)
     checkfactorized(lsolver)
     @assert axes(x, 1) == axes(b, 1) == axes(c.A, 1)
@@ -161,23 +165,26 @@ function _getrs!(c::PivotedLUCache{T}, x::AbstractVector{T}) where {T}
     x
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LSM}, ls::LinearProblem) where {T,LSM<:PivotedLUMethod}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LSM},
+        ls::LinearProblem) where {T, LSM <: PivotedLUMethod}
     factorize!(lsolver, matrix(ls))
     ldiv!(solution, lsolver, rhs(ls))
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LSM}, A::AbstractMatrix, b::AbstractVector) where {T,LSM<:PivotedLUMethod}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LSM},
+        A::AbstractMatrix, b::AbstractVector) where {T, LSM <: PivotedLUMethod}
     factorize!(lsolver, A)
     ldiv!(solution, lsolver, b)
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LSM}, b::AbstractVector) where {T,LSM<:PivotedLUMethod}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LSM},
+        b::AbstractVector) where {T, LSM <: PivotedLUMethod}
     ldiv!(solution, lsolver, b)
 end
 
-function solve!(lsolver::LinearSolver{T,LSM}, args...) where {T,LSM<:PivotedLUMethod}
+function solve!(lsolver::LinearSolver{T, LSM}, args...) where {T, LSM <: PivotedLUMethod}
     x = alloc_rhs(cache(lsolver).A)
     solve!(x, lsolver, args...)
     x
@@ -198,5 +205,6 @@ function solve(method::PivotedLUMethod, ls::LinearProblem)
     solve!(lsolver, ls)
 end
 
-solve(method::PivotedLUMethod, A::AbstractMatrix, b::AbstractVector) =
+function solve(method::PivotedLUMethod, A::AbstractMatrix, b::AbstractVector)
     solve(method, LinearProblem(A, b))
+end

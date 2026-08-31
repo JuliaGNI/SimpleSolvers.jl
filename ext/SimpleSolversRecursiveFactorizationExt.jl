@@ -7,7 +7,7 @@ using SimpleSolvers: RecursiveLU, PivotedLUCache, _pivoted_lu_cache
 import SimpleSolvers: LinearSolverCache, _getrf!
 
 function LinearSolverCache(::RecursiveLU, A::AbstractMatrix{T}) where {T}
-    T <: Union{Float32,Float64} || throw(ArgumentError(
+    T <: Union{Float32, Float64} || throw(ArgumentError(
         "RecursiveLU is restricted to Float32 and Float64 — RecursiveFactorization has no " *
         "complex support — but got $(T); use LapackLU() for ComplexF32/ComplexF64 or LU() " *
         "for anything else"))
@@ -22,7 +22,7 @@ end
 # kept. That wrapper is the one allocation RecursiveFactorization makes here and Julia elides
 # it, leaving `factorize!` allocation-free — which the tests assert.
 function _getrf!(::RecursiveLU, c::PivotedLUCache)
-    F = RecursiveFactorization.lu!(c.A, c.ipiv, Val(true), Val(false); check=false)
+    F = RecursiveFactorization.lu!(c.A, c.ipiv, Val(true), Val(false); check = false)
     c.info = BlasInt(F.info)
     c
 end

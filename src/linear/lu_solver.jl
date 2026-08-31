@@ -49,11 +49,11 @@ true
 
 Note that role of [`LinearProblem`](@ref) here.
 """
-struct LU{ST<:Union{Missing,Bool}} <: DirectMethod
+struct LU{ST <: Union{Missing, Bool}} <: DirectMethod
     static::ST
     pivot::Bool
 
-    LU(; pivot=true, static=missing) = new{typeof(static)}(static, pivot)
+    LU(; pivot = true, static = missing) = new{typeof(static)}(static, pivot)
 end
 
 """
@@ -67,7 +67,7 @@ The cache for the [`LU`](@ref) solver.
 - `perms`: a vector of permutations used during factorization,
 - `info`: stores an index regarding pivoting.
 """
-mutable struct LUSolverCache{T,AT<:AbstractMatrix{T}} <: LinearSolverCache{T}
+mutable struct LUSolverCache{T, AT <: AbstractMatrix{T}} <: LinearSolverCache{T}
     A::AT
     pivots::Vector{Int}
     perms::Vector{Int}
@@ -114,8 +114,9 @@ which [`default_linear_solver_method`](@ref) selects for exactly those element t
 [`factorize!`](@ref) with StaticArrays' "setindex!() with non-isbitstype eltype is not
 supported", a long way from the choice that caused it.
 """
-_static(A::AbstractMatrix{T}) where {T} =
+function _static(A::AbstractMatrix{T}) where {T}
     isbitstype(lucache_eltype(T)) && length(axes(A, 1)) ≤ N_STATIC_THRESHOLD
+end
 
 """
     lucache_matrix(static, A, Tf)
@@ -149,34 +150,39 @@ function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
     Ā = lucache_matrix(_static(A), A, Tf)
-    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    LUSolverCache{Tf, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
     Ā = lucache_matrix(lu.static, A, Tf)
-    LUSolverCache{Tf,typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    LUSolverCache{Tf, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, ls::LinearProblem) where {T,LUT<:LU}
+function solve!(
+        solution::AbstractVector, lsolver::LinearSolver{
+            T, LUT}, ls::LinearProblem) where {T, LUT <: LU}
     cache(lsolver).A .= ls.A
     factorize!(lsolver)
     ldiv!(solution, lsolver, rhs(ls))
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, A::AbstractMatrix, b::AbstractVector) where {T,LUT<:LU}
+function solve!(solution::AbstractVector, lsolver::LinearSolver{T, LUT},
+        A::AbstractMatrix, b::AbstractVector) where {T, LUT <: LU}
     factorize!(lsolver, A)
     ldiv!(solution, lsolver, b)
     solution
 end
 
-function solve!(solution::AbstractVector, lsolver::LinearSolver{T,LUT}, b::AbstractVector) where {T,LUT<:LU}
+function solve!(
+        solution::AbstractVector, lsolver::LinearSolver{
+            T, LUT}, b::AbstractVector) where {T, LUT <: LU}
     ldiv!(solution, lsolver, b)
 end
 
-function solve!(lsolver::LinearSolver{T,LUT}, args...) where {T,LUT<:LU}
+function solve!(lsolver::LinearSolver{T, LUT}, args...) where {T, LUT <: LU}
     x = alloc_rhs(cache(lsolver).A)
     solve!(x, lsolver, args...)
     x
@@ -275,7 +281,7 @@ Note the difference between the output types of the two refactorized matrices: t
 
 Also see [`ldiv!`](@ref) for how the refactorized matrix is used.
 """
-function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
+function factorize!(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU}
     Base.require_one_based_indexing(cache(lsolver).A)
 
     cache(lsolver).info = 0
@@ -286,11 +292,12 @@ function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
 
     n = size(cache(lsolver).A, 1)
 
-    @inbounds for k ∈ axes(cache(lsolver).A, 1)
+    @inbounds for k in axes(cache(lsolver).A, 1)
         kp = method(lsolver).pivot ? pivot_index(@view(cache(lsolver).A[:, k]), k) : k
 
         cache(lsolver).pivots[k] = kp
-        cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp], cache(lsolver).perms[k]
+        cache(lsolver).perms[k], cache(lsolver).perms[kp] = cache(lsolver).perms[kp],
+        cache(lsolver).perms[k]
 
         if cache(lsolver).A[kp, k] != 0
             if k != kp
@@ -303,15 +310,15 @@ function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
             end
             # Scale first column
             Akkinv = inv(cache(lsolver).A[k, k])
-            for i in k+1:n
+            for i in (k + 1):n
                 cache(lsolver).A[i, k] *= Akkinv
             end
         elseif cache(lsolver).info == 0
             cache(lsolver).info = k
         end
         # Update the rest
-        for j in k+1:n
-            for i in k+1:n
+        for j in (k + 1):n
+            for i in (k + 1):n
                 cache(lsolver).A[i, j] -= cache(lsolver).A[i, k] * cache(lsolver).A[k, j]
             end
         end
@@ -320,13 +327,17 @@ function factorize!(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU}
     lsolver
 end
 
-function factorize!(lsolver::LinearSolver{T,LUT}, A::AbstractMatrix{T}) where {T,LUT<:LU}
+function factorize!(lsolver::LinearSolver{T, LUT}, A::AbstractMatrix{T}) where {
+        T, LUT <: LU}
     copyto!(cache(lsolver).A, A)
 
     factorize!(lsolver)
 end
 
-factorize!(lsolver::LinearSolver{T,LUT}, ls::LinearProblem{T}) where {T,LUT<:LU} = factorize!(lsolver, ls.A)
+function factorize!(lsolver::LinearSolver{T, LUT}, ls::LinearProblem{T}) where {
+        T, LUT <: LU}
+    factorize!(lsolver, ls.A)
+end
 
 """
     pivot_index(v, k)
@@ -336,7 +347,7 @@ value.
 
 This is used for *pivoting* in [`factorize!`](@ref).
 """
-function pivot_index(v::AbstractVector{T}, k::Integer) where {T<:Number}
+function pivot_index(v::AbstractVector{T}, k::Integer) where {T <: Number}
     Base.require_one_based_indexing(v)
     kp = k
     amax = real(zero(T))
@@ -355,7 +366,7 @@ end
 
 The zero-pivot index recorded by [`factorize!`](@ref) in `cache(lsolver).info`.
 """
-singular_index(lsolver::LinearSolver{T,LUT}) where {T,LUT<:LU} = cache(lsolver).info
+singular_index(lsolver::LinearSolver{T, LUT}) where {T, LUT <: LU} = cache(lsolver).info
 
 """
     ldiv!(x, lsolver, b)
@@ -394,8 +405,10 @@ julia> ldiv!(x, s, b)
 !!! info
     Note that we need to call [`factorize!`](@ref) here after having allocated the [`LinearSolver`](@ref).
 """
-function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT}, b::AbstractVector{T}) where {T,LUT<:LU}
-    @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) == axes(cache(lsolver).A, 2)
+function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LUT},
+        b::AbstractVector{T}) where {T, LUT <: LU}
+    @assert axes(x, 1) == axes(b, 1) == axes(cache(lsolver).A, 1) ==
+            axes(cache(lsolver).A, 2)
 
     Base.require_one_based_indexing(x, b, cache(lsolver).A)
 
@@ -423,16 +436,16 @@ function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T,LUT},
 
     @inbounds for i in 2:n
         s = zero(T)
-        for j in 1:i-1
+        for j in 1:(i - 1)
             s += cache(lsolver).A[i, j] * x[j]
         end
         x[i] -= s
     end
 
     x[n] /= cache(lsolver).A[n, n]
-    @inbounds for i in n-1:-1:1
+    @inbounds for i in (n - 1):-1:1
         s = zero(T)
-        for j in i+1:n
+        for j in (i + 1):n
             s += cache(lsolver).A[i, j] * x[j]
         end
         x[i] -= s

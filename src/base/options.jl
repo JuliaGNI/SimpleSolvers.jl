@@ -22,7 +22,7 @@ julia> default_tolerance(Float16)
 Float16(0.001953)
 ```
 """
-function default_tolerance(::Type{T}) where {T<:AbstractFloat}
+function default_tolerance(::Type{T}) where {T <: AbstractFloat}
     2eps(T)
 end
 
@@ -45,7 +45,7 @@ julia> absolute_tolerance(Float32)
 0.0f0
 ```
 """
-function absolute_tolerance(::Type{T}) where {T<:AbstractFloat}
+function absolute_tolerance(::Type{T}) where {T <: AbstractFloat}
     zero(T)
 end
 
@@ -68,7 +68,7 @@ julia> minimum_decrease_threshold(Float32)
 0.0001f0
 ```
 """
-function minimum_decrease_threshold(::Type{T}) where {T<:AbstractFloat}
+function minimum_decrease_threshold(::Type{T}) where {T <: AbstractFloat}
     T(10)^-4
 end
 
@@ -78,7 +78,8 @@ end
 The *nominal* number of units in the last place (ulps) of ``\varphi(0)`` taken as the round-off
 resolution ``\tau`` of a merit function, i.e.
 ``\tau = \mathrm{DEFAULT\_ARMIJO\_τ\_ULPS}\cdot\mathrm{ulp}(\varphi(0))``
-(see [`armijo_tolerance`](@ref)). Its value is """ * """$(DEFAULT_ARMIJO_τ_ULPS)""" * raw""".
+(see [`armijo_tolerance`](@ref)). Its value is """ * """$(DEFAULT_ARMIJO_τ_ULPS)""" *
+     raw""".
 
 Use [`armijo_ulps`](@ref) rather than this constant: it caps the nominal value at what the
 element type can actually support, which matters in `Float16`.
@@ -154,7 +155,7 @@ julia> armijo_ulps(Float16)
 Float16(0.002075)
 ```
 """
-function armijo_ulps(::Type{T}, c₁) where {T<:AbstractFloat}
+function armijo_ulps(::Type{T}, c₁) where {T <: AbstractFloat}
     # the decrease demanded at α = 1, relative to φ(0), for φ'(0) = -2φ(0)
     demanded = 2 * T(c₁)
     min(T(DEFAULT_ARMIJO_τ_ULPS), T(ARMIJO_τ_DEMAND_FRACTION) * demanded / eps(T))
@@ -162,7 +163,7 @@ end
 
 # `DEFAULT_WOLFE_c₁` is defined with the other Wolfe constants in `linesearch/backtracking.jl`,
 # which is included after this file; the reference is resolved at call time, not here.
-armijo_ulps(::Type{T}) where {T<:AbstractFloat} = armijo_ulps(T, T(DEFAULT_WOLFE_c₁))
+armijo_ulps(::Type{T}) where {T <: AbstractFloat} = armijo_ulps(T, T(DEFAULT_WOLFE_c₁))
 
 @doc raw"""
     armijo_tolerance(φ₀, n)
@@ -182,7 +183,8 @@ armijo_tolerance(φ₀::T, n::Real) where {T} = T(n) * eps(φ₀)
     const DEFAULT_LINESEARCH_αmax
 
 The largest step length a [`LinesearchMethod`](@ref) will try unless a caller asks for less; its
-value is """ * """$(DEFAULT_LINESEARCH_αmax)""" * raw""" (``2^{16}``). See
+value is """ * """$(DEFAULT_LINESEARCH_αmax)""" *
+     raw""" (``2^{16}``). See
 [`linesearch_αmax`](@ref) for the two ways the ceiling is set and [`method_αmax`](@ref) for the
 per-method field it defaults.
 
@@ -282,7 +284,7 @@ julia> linesearch_iterations(Float32)
 31
 ```
 """
-function linesearch_iterations(::Type{T}) where {T<:AbstractFloat}
+function linesearch_iterations(::Type{T}) where {T <: AbstractFloat}
     ceil(Int, -log2(eps(T))) + 8
 end
 
@@ -305,7 +307,8 @@ const REGULARIZATION_FACTOR = 0
 
 The default number of *consecutive* stalled steps after which a [`NonlinearSolver`](@ref)
 gives up; the default of the `max_stalls` field of [`Options`](@ref). Its value is """ *
-                     """$(MAX_STALLS)""" * raw""".
+     """$(MAX_STALLS)""" *
+     raw""".
 
 A step is stalled when it does not move the iterate while the residual is not small (see
 [`stalled_step`](@ref)), i.e. when the merit ``\|F\|^2`` cannot be reduced along the current
@@ -327,7 +330,8 @@ const MAX_STALLS::Int = 2
 
 The factor by which the residual has to drop for an iteration to count as *progress*; the
 default of the `f_stall_factor` field of [`Options`](@ref). Its value is """ *
-                        """$(F_STALL_FACTOR)""" * raw""", i.e. progress means "the residual
+     """$(F_STALL_FACTOR)""" *
+     raw""", i.e. progress means "the residual
 halved".
 
 [`record_progress!`](@ref) keeps the residual ``r^f_a`` of the last iteration that counted as
@@ -355,7 +359,8 @@ const F_STALL_FACTOR = 0.5
 
 The default number of iterations without progress after which a [`NonlinearSolver`](@ref) gives
 up; the default of the `f_stall_window` field of [`Options`](@ref). Its value is """ *
-                        """$(F_STALL_WINDOW)""" * raw""", which **disables** the criterion (see
+     """$(F_STALL_WINDOW)""" *
+     raw""", which **disables** the criterion (see
 [`no_progress`](@ref)).
 
 This is the counterpart of `max_stalls` for a solve whose iterate keeps *moving*: the residual
@@ -384,7 +389,8 @@ const F_STALL_WINDOW::Int = 0
     const F_STALL_REPORT_MINIMUM
 
 The fewest iterations without progress that [`spent_without_progress`](@ref) will report on. Its
-value is """ * """$(F_STALL_REPORT_MINIMUM)""" * raw""".
+value is """ * """$(F_STALL_REPORT_MINIMUM)""" *
+     raw""".
 
 Unlike `f_stall_window` this is not configurable, because it is not a policy: it is the point
 below which the *proportion* that predicate measures is not evidence of anything. At two
@@ -533,40 +539,40 @@ struct Options{T}
     dogleg_radius_max::T
 end
 
-function Options(T=Float64;
-    x_abstol::Real=default_tolerance(T),
-    x_reltol::Real=default_tolerance(T),
-    x_suctol::Real=default_tolerance(T),
-    f_abstol::Real=absolute_tolerance(T),
-    f_reltol::Real=(√(eps(T))),
-    f_suctol::Real=default_tolerance(T),
-    f_mindec::Real=minimum_decrease_threshold(T),
-    f_stall_factor::Real=T(F_STALL_FACTOR),
-    f_abstol_break::Real=T(Inf),
-    allow_f_increases::Bool=ALLOW_F_INCREASES,
-    min_iterations::Integer=MIN_ITERATIONS,
-    max_iterations::Integer=MAX_ITERATIONS,
-    warn_iterations::Integer=WARN_ITERATIONS,
-    linesearch_max_iterations::Integer=linesearch_iterations(T),
-    max_stalls::Integer=MAX_STALLS,
-    f_stall_window::Integer=F_STALL_WINDOW,
-    show_trace::Bool=SHOW_TRACE,
-    store_trace::Bool=STORE_TRACE,
-    extended_trace::Bool=EXTENDED_TRACE,
-    show_every::Integer=SHOW_EVERY,
-    verbosity::Integer=VERBOSITY,
-    nan_max_iterations::Integer=NAN_MAX_ITERATIONS,
-    nan_factor::Real=NAN_FACTOR,
-    regularization_factor::Real=T(REGULARIZATION_FACTOR),
-    dogleg_radius_initial::Real=T(DOGLEG_Δ_INITIAL),
-    dogleg_radius_shrink::Real=T(DOGLEG_Δ_SHRINK),
-    dogleg_radius_expand::Real=T(DOGLEG_Δ_EXPAND),
-    dogleg_radius_max::Real=T(DOGLEG_Δ_MAX),
+function Options(T = Float64;
+        x_abstol::Real = default_tolerance(T),
+        x_reltol::Real = default_tolerance(T),
+        x_suctol::Real = default_tolerance(T),
+        f_abstol::Real = absolute_tolerance(T),
+        f_reltol::Real = (√(eps(T))),
+        f_suctol::Real = default_tolerance(T),
+        f_mindec::Real = minimum_decrease_threshold(T),
+        f_stall_factor::Real = T(F_STALL_FACTOR),
+        f_abstol_break::Real = T(Inf),
+        allow_f_increases::Bool = ALLOW_F_INCREASES,
+        min_iterations::Integer = MIN_ITERATIONS,
+        max_iterations::Integer = MAX_ITERATIONS,
+        warn_iterations::Integer = WARN_ITERATIONS,
+        linesearch_max_iterations::Integer = linesearch_iterations(T),
+        max_stalls::Integer = MAX_STALLS,
+        f_stall_window::Integer = F_STALL_WINDOW,
+        show_trace::Bool = SHOW_TRACE,
+        store_trace::Bool = STORE_TRACE,
+        extended_trace::Bool = EXTENDED_TRACE,
+        show_every::Integer = SHOW_EVERY,
+        verbosity::Integer = VERBOSITY,
+        nan_max_iterations::Integer = NAN_MAX_ITERATIONS,
+        nan_factor::Real = NAN_FACTOR,
+        regularization_factor::Real = T(REGULARIZATION_FACTOR),
+        dogleg_radius_initial::Real = T(DOGLEG_Δ_INITIAL),
+        dogleg_radius_shrink::Real = T(DOGLEG_Δ_SHRINK),
+        dogleg_radius_expand::Real = T(DOGLEG_Δ_EXPAND),
+        dogleg_radius_max::Real = T(DOGLEG_Δ_MAX)
 )
-
     show_every = show_every > 0 ? show_every : 1
 
-    Options{T}(promote(x_abstol,
+    Options{T}(
+        promote(x_abstol,
             x_reltol,
             x_suctol,
             f_abstol,
@@ -593,7 +599,7 @@ function Options(T=Float64;
         dogleg_radius_initial,
         dogleg_radius_shrink,
         dogleg_radius_expand,
-        dogleg_radius_max,
+        dogleg_radius_max
     )
 end
 

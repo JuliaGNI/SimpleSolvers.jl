@@ -1,14 +1,11 @@
 using SimpleSolvers
 using Test
 
-
 @testset "Basic Jacobian functionality and consistency" begin
-
     n = 1
     T = Float64
     x = [T(π),]
     j = reshape(2x, 1, 1)
-
 
     function F!(f::AbstractVector, x::AbstractVector, params)
         f .= x .^ 2
@@ -21,7 +18,6 @@ using Test
         end
         g
     end
-
 
     JPAD = JacobianAutodiff{T}(F!, n, n)
     JPFD = JacobianFiniteDifferences{T}(F!, n, n)
@@ -36,7 +32,6 @@ using Test
     @test JPFD == JacobianFiniteDifferences{T}(F!, n)
     @test JPFD == JacobianFiniteDifferences(F!, x)
 
-
     jad = zero(j)
     jfd = zero(j)
     jus = zero(j)
@@ -48,7 +43,6 @@ using Test
     @test jad ≈ j atol = eps()
     @test jfd ≈ j atol = 1E-7
     @test jus == j
-
 
     jad1 = zero(j)
     jfd1 = zero(j)
@@ -62,7 +56,6 @@ using Test
     @test jfd1 == jfd
     @test jus1 == jus
 
-
     jad2 = zero(j)
     jfd2 = zero(j)
     jus2 = zero(j)
@@ -74,12 +67,9 @@ using Test
     @test jad2 == jad
     @test jfd2 == jfd
     @test jus2 == jus
-
 end
 
-
 @testset "Jacobians with parameter-dependent functions" begin
-
     function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
         f .= (params.A * x + params.b) .^ 2
     end
@@ -87,7 +77,8 @@ end
     function DF!(jacobian_matrix::AbstractMatrix{T}, x::AbstractVector{T}, params) where {T}
         for i in axes(jacobian_matrix, 1)
             for j in axes(jacobian_matrix, 2)
-                jacobian_matrix[j, i] = 2 * params.A[j, i] * (params.A[j, :]' * x + params.b[j])
+                jacobian_matrix[j, i] = 2 * params.A[j, i] *
+                                        (params.A[j, :]' * x + params.b[j])
             end
         end
         jacobian_matrix
@@ -104,7 +95,7 @@ end
     jac₃ = JacobianFunction{eltype(A₁)}(F, DF!)
 
     function test_various_jacobians(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
-        params = (A=A, b=b)
+        params = (A = A, b = b)
         x = rand(T, length(A[1, :]))
         j₁ = zero(A)
         j₂ = zero(A)
@@ -116,9 +107,7 @@ end
     for (A, b) in ((A₁, b₁), (A₂, b₂))
         test_various_jacobians(A, b)
     end
-
 end
-
 
 # Regression: the generic backend-selecting `Jacobian` constructors used to
 # forward to a nonexistent `Jacobian{T}(F, nx, ny)` method and always threw. They
@@ -136,13 +125,13 @@ end
     @test Jacobian(F!, x, x) isa JacobianAutodiff
 
     # explicit backend selection
-    @test Jacobian{T}(F!, 2, 2; mode=:autodiff) isa JacobianAutodiff
-    @test Jacobian{T}(F!, 2, 2; mode=:finitedifferences) isa JacobianFiniteDifferences
-    @test_throws ErrorException Jacobian{T}(F!, 2, 2; mode=:nonsense)
+    @test Jacobian{T}(F!, 2, 2; mode = :autodiff) isa JacobianAutodiff
+    @test Jacobian{T}(F!, 2, 2; mode = :finitedifferences) isa JacobianFiniteDifferences
+    @test_throws ErrorException Jacobian{T}(F!, 2, 2; mode = :nonsense)
 
     # both backends compute the correct Jacobian
-    jad = Jacobian{T}(F!, 2, 2; mode=:autodiff)
-    jfd = Jacobian{T}(F!, 2, 2; mode=:finitedifferences)
+    jad = Jacobian{T}(F!, 2, 2; mode = :autodiff)
+    jfd = Jacobian{T}(F!, 2, 2; mode = :finitedifferences)
     mad = zeros(T, 2, 2)
     mfd = zeros(T, 2, 2)
     jad(mad, x, nothing)
@@ -150,7 +139,6 @@ end
     @test mad ≈ jref atol = eps()
     @test mfd ≈ jref atol = 1e-7
 end
-
 
 # Regression: the finite-difference Jacobian functor used to iterate its row
 # loop over `eachindex(x)` (input indices) instead of the output indices. For a
@@ -218,7 +206,7 @@ end
     @test occursin("minimum(|Jacobian|): 1.0", out)
     @test occursin("maximum(|Jacobian|): 3.0", out)
     # the digits keyword is honoured
-    out2 = replace(sprint(io -> check_jacobian(io, J; digits=2)), r"[ \t]+" => " ")
+    out2 = replace(sprint(io -> check_jacobian(io, J; digits = 2)), r"[ \t]+" => " ")
     @test occursin("Condition Number of Jacobian: 13.93", out2)
 
     # print_jacobian reproduces the text/plain table exactly (aligned, with header)
@@ -228,6 +216,6 @@ end
     # the convenience forms without `io` write to stdout and forward keywords
     # (called silently; content is covered by the `sprint` checks above)
     @test redirect_stdout(() -> check_jacobian(J), devnull) === nothing
-    @test redirect_stdout(() -> check_jacobian(J; digits=2), devnull) === nothing
+    @test redirect_stdout(() -> check_jacobian(J; digits = 2), devnull) === nothing
     @test redirect_stdout(() -> print_jacobian(J), devnull) === nothing
 end

@@ -1,30 +1,27 @@
 using SimpleSolvers
 
-
 function F!(f, x, params)
     f .= x .^ 2 # .+ .05 * x .^ 3
     nothing
 end
 
-
 function test(n)
     for T in (Float64, Float32)
         for (Solver, kwarguments) in (
-            (NewtonSolver, (linesearch=Static(T),)),
-            (NewtonSolver, (linesearch=Backtracking(T),)),
-            (NewtonSolver, (linesearch=Quadratic(T, Newton()),)),
-            (NewtonSolver, (linesearch=BierlaireQuadratic(T),)),
-            (NewtonSolver, (linesearch=Bisection(T),)),
-            (FixedPointIterator, (linesearch=Static(T),)),
-            (FixedPointIterator, (linesearch=Backtracking(T),)),
-            (FixedPointIterator, (linesearch=Quadratic(T, Newton()),)),
-            (FixedPointIterator, (linesearch=BierlaireQuadratic(T),)),
-            (FixedPointIterator, (linesearch=Bisection(T),)),
+            (NewtonSolver, (linesearch = Static(T),)),
+            (NewtonSolver, (linesearch = Backtracking(T),)),
+            (NewtonSolver, (linesearch = Quadratic(T, Newton()),)),
+            (NewtonSolver, (linesearch = BierlaireQuadratic(T),)),
+            (NewtonSolver, (linesearch = Bisection(T),)),
+            (FixedPointIterator, (linesearch = Static(T),)),
+            (FixedPointIterator, (linesearch = Backtracking(T),)),
+            (FixedPointIterator, (linesearch = Quadratic(T, Newton()),)),
+            (FixedPointIterator, (linesearch = BierlaireQuadratic(T),)),
+            (FixedPointIterator, (linesearch = Bisection(T),))
         )
-
             x = ones(T, n)
             y = zero(x)
-            nl = Solver(x, y; F=F!, verbosity=2, kwarguments...)
+            nl = Solver(x, y; F = F!, verbosity = 2, kwarguments...)
             ss = SolverState(nl)
 
             println(Solver, ", ", kwarguments, ", ", T, "\n")

@@ -19,20 +19,20 @@ NonlinearProblem(F, zeros(3))
 NonlinearProblem{typeof(F), Missing}(F, missing)
 ```
 """
-struct NonlinearProblem{TF<:Callable,TJ<:Union{Callable,Missing}} <: AbstractProblem
+struct NonlinearProblem{TF <: Callable, TJ <: Union{Callable, Missing}} <: AbstractProblem
     F::TF
     J::TJ
 
     # `x` and `f` are only used to size/type-check the problem on construction; the
     # struct stores neither, so they may be independent array types (e.g. a
     # `Vector` and a `SubArray` with the same eltype).
-    function NonlinearProblem(F::Callable, J::Union{Callable,Missing}, x::AbstractArray, f::AbstractArray=x)
+    function NonlinearProblem(F::Callable, J::Union{Callable, Missing}, x::AbstractArray, f::AbstractArray = x)
         @assert eltype(x) == eltype(f) "x and f must have the same element type."
-        new{typeof(F),typeof(J)}(F, J)
+        new{typeof(F), typeof(J)}(F, J)
     end
 end
 
-function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray=x)
+function NonlinearProblem(F::Callable, x::AbstractArray, f::AbstractArray = x)
     NonlinearProblem(F, missing, x, f)
 end
 
@@ -46,7 +46,6 @@ function value!(y::AbstractArray{T}, nlp::NonlinearProblem, x::AbstractArray{T},
     y
 end
 
-
 """
     jacobian(nlp)
 
@@ -58,6 +57,7 @@ function jacobian!(j::AbstractMatrix{T}, nlp::NonlinearProblem, x::AbstractArray
     nlp.J(j, x, params)
 end
 
-function jacobian!(::AbstractMatrix{T}, ::NonlinearProblem{FT,Missing}, ::AbstractArray{T}, params) where {T,FT<:Callable}
+function jacobian!(::AbstractMatrix{T}, ::NonlinearProblem{FT, Missing},
+        ::AbstractArray{T}, params) where {T, FT <: Callable}
     error("NonlinearProblem does not contain Jacobian.")
 end

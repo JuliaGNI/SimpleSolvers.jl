@@ -24,9 +24,9 @@ F(x) = foldstorage((acc, s) -> acc + sum(abs2, s), 0.0, x)
     @test ext isa Module
     # Every one of the three methods has to come from the extension and not from a downstream
     # package: that is the property, and a count of sites goes stale where this does not.
-    for m in (which(GradientAutodiff, Tuple{typeof(F),typeof(ps)}),
-              which(GradientFunction, Tuple{typeof(F),Function,typeof(ps)}),
-              which(alloc_h, Tuple{typeof(ps)}))
+    for m in (which(GradientAutodiff, Tuple{typeof(F), typeof(ps)}),
+        which(GradientFunction, Tuple{typeof(F), Function, typeof(ps)}),
+        which(alloc_h, Tuple{typeof(ps)}))
         @test m.module === ext
     end
 end
@@ -102,5 +102,6 @@ end
     @test g ≈ 2vec(x)
     # A `reshape` and not a `vec` of the candidate: `G` has to see a matrix while `ForwardDiff` sees
     # a vector of `Dual`s.
-    @test which(GradientAutodiff, Tuple{typeof(G),Matrix{Float64}}).module === SimpleSolvers
+    @test which(GradientAutodiff, Tuple{typeof(G), Matrix{Float64}}).module ===
+          SimpleSolvers
 end

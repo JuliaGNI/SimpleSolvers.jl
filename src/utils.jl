@@ -19,17 +19,19 @@ Allocate `NaN`s of the size of the Hessian of `f` (with respect to `x`).
 """
 alloc_h
 
-_nan(::Type{T}) where {T<:AbstractFloat} = T(NaN)
-_nan(::Type{Complex{T}}) where {T<:AbstractFloat} = Complex{T}(T(NaN))
-_nan(::Type{T}) where {T<:Number} = error("Cannot allocate NaN-initialized storage for element type $(T): only floating-point element types support NaN. Provide a floating-point input.")
+_nan(::Type{T}) where {T <: AbstractFloat} = T(NaN)
+_nan(::Type{Complex{T}}) where {T <: AbstractFloat} = Complex{T}(T(NaN))
+function _nan(::Type{T}) where {T <: Number}
+    error("Cannot allocate NaN-initialized storage for element type $(T): only floating-point element types support NaN. Provide a floating-point input.")
+end
 
 alloc_x(x::Number) = _nan(typeof(x))
 
-alloc_x(x::AbstractArray{T}) where {T<:Number} = _nan(T) .* x
+alloc_x(x::AbstractArray{T}) where {T <: Number} = _nan(T) .* x
 
-alloc_g(x::AbstractArray{T}) where {T<:Number} = _nan(T) .* x
-alloc_h(x::AbstractArray{T}) where {T<:Number} = _nan(T) .* x * x'
-alloc_j(x::AbstractVector{T}, y::AbstractVector) where {T<:Number} = _nan(T) .* y * x'
+alloc_g(x::AbstractArray{T}) where {T <: Number} = _nan(T) .* x
+alloc_h(x::AbstractArray{T}) where {T <: Number} = _nan(T) .* x * x'
+alloc_j(x::AbstractVector{T}, y::AbstractVector) where {T <: Number} = _nan(T) .* y * x'
 
 """
     alloc_rhs(A)
@@ -102,9 +104,11 @@ end
 
 # A sparse Jacobian assembled into a dense linear problem, or vice versa, is a plumbing
 # mistake worth naming: `copyto!` would either densify or throw something obscure.
-copy_matrix!(dest::SparseMatrixCSC, src::AbstractMatrix) = throw(ArgumentError(
-    "cannot copy a $(typeof(src)) into a SparseMatrixCSC without inventing a sparsity " *
-    "pattern; pass a sparse jacobian_prototype and assemble a sparse Jacobian into it"))
+function copy_matrix!(dest::SparseMatrixCSC, src::AbstractMatrix)
+    throw(ArgumentError(
+        "cannot copy a $(typeof(src)) into a SparseMatrixCSC without inventing a sparsity " *
+        "pattern; pass a sparse jacobian_prototype and assemble a sparse Jacobian into it"))
+end
 
 copy_matrix!(dest::AbstractMatrix, src::SparseMatrixCSC) = copyto!(dest, src)
 
@@ -143,7 +147,6 @@ function add_to_diagonal!(A::SparseMatrixCSC, α)
     A
 end
 
-
 function outer!(O, x, y)
     @assert axes(O, 1) == axes(x, 1)
     @assert axes(O, 2) == axes(y, 1)
@@ -152,9 +155,7 @@ function outer!(O, x, y)
             O[i, j] = x[i] * y[j]
         end
     end
-
 end
-
 
 """
     const WARNING_COUNTS
@@ -165,7 +166,7 @@ How often each *diagnosis* has been reported so far, keyed by the `Symbol` passe
 The number of keys is bounded by the number of message sites, so this does not grow without
 limit. It is reset by [`reset_warning_counts!`](@ref).
 """
-const WARNING_COUNTS = Dict{Symbol,Int}()
+const WARNING_COUNTS = Dict{Symbol, Int}()
 
 "Guards [`WARNING_COUNTS`](@ref); see [`should_report!`](@ref)."
 const WARNING_LOCK = ReentrantLock()

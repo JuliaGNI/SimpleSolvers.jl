@@ -14,11 +14,10 @@ end
 #     nothing
 # end
 
-
-function profile(Solver, kwarguments, n=100)
+function profile(Solver, kwarguments, n = 100)
     x = ones(n)
     y = zero(x)
-    nl = Solver(x, y; F=F!, kwarguments...)
+    nl = Solver(x, y; F = F!, kwarguments...)
     ss = SolverState(nl)
 
     solve!(x, nl, ss)

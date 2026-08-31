@@ -25,10 +25,11 @@ const sys₁ = NonlinearProblem(F, A₁[:, 1], A₁[1, :])
 const sys₂ = NonlinearProblem(F, DF!, A₁[:, 1], A₁[1, :]) # the analytic Jacobian is stored in the problem
 
 function test_various_nonlinearproblems(A::AbstractMatrix{T}, b::AbstractVector{T}) where {T}
-    params = (A=A, b=b)
+    params = (A = A, b = b)
     x = rand(T, length(A[1, :]))
 
-    @test value!(zero(x), sys₁, x, params) ≈ value!(zero(x), sys₂, x, params) ≈ F(zero(x), x, params)
+    @test value!(zero(x), sys₁, x, params) ≈ value!(zero(x), sys₂, x, params) ≈
+          F(zero(x), x, params)
     # sys₂ carries the analytic Jacobian DF!; its evaluated Jacobian must match a
     # direct call to DF!.
     @test jacobian!(zero(A₁), sys₂, x, params) ≈ DF!(zero(A₁), x, params)
@@ -42,8 +43,8 @@ end
 # `NonlinearProblem` carries exactly two type parameters (the function
 # and Jacobian types).
 @testset "NonlinearProblem has no phantom eltype parameter" begin
-    @test sys₁ isa NonlinearProblem{typeof(F),Missing}
-    @test sys₂ isa NonlinearProblem{typeof(F),typeof(DF!)}
+    @test sys₁ isa NonlinearProblem{typeof(F), Missing}
+    @test sys₂ isa NonlinearProblem{typeof(F), typeof(DF!)}
 end
 
 # Verify that the inner constructor allows for mixed container types (e.g. a

@@ -1,10 +1,16 @@
 using LinearAlgebra: LinearAlgebra, det, diag, ldiv!, I, SingularException
 using Random: Random
 using RecursiveFactorization: RecursiveFactorization
-using SparseArrays: SparseArrays, SparseMatrixCSC, sparse, spzeros, nnz, nonzeros, dropzeros!
+using SparseArrays: SparseArrays, SparseMatrixCSC, sparse, spzeros, nnz, nonzeros,
+                    dropzeros!
 using Sparspak: Sparspak
 using SimpleSolvers
-using SimpleSolvers: zero_like, LinearSolverMethod, LinearSolverCache, matrix, factorize!, factorization, cache, pivot_index, singular_index, solve, solve!, alloc_x, alloc_g, alloc_h, alloc_j, alloc_rhs, default_linear_solver_method, fill_nan!, copy_matrix!, add_to_diagonal!, PivotedLUCache, method, linearsolver, linearproblem, jacobianmatrix
+using SimpleSolvers: zero_like, LinearSolverMethod, LinearSolverCache, matrix, factorize!,
+                     factorization, cache, pivot_index, singular_index, solve, solve!,
+                     alloc_x, alloc_g, alloc_h, alloc_j, alloc_rhs,
+                     default_linear_solver_method, fill_nan!, copy_matrix!,
+                     add_to_diagonal!, PivotedLUCache, method, linearsolver, linearproblem,
+                     jacobianmatrix
 using StaticArrays: SMatrix, MMatrix
 using Test
 
@@ -28,7 +34,7 @@ struct TestCache{T} <: LinearSolverCache{T}
     TestCache(::AbstractVector{T}) where {T} = new{T}()
 end
 
-y = [.1, .1]
+y = [0.1, 0.1]
 x = similar(y)
 test_solver = LinearSolver(TestMethod(), TestCache(x))
 
@@ -36,25 +42,29 @@ test_solver = LinearSolver(TestMethod(), TestCache(x))
 
 @test_throws ErrorException ldiv!(x, test_solver, y)
 
-A = [[+4.  +5.  -2.]
-     [+7.  -1.  +2.]
-     [+3.  +1.  +4.]]
-x = [+4., -4., +5.]
-b = [-14., +42., +28.]
+A = [[+4.0 +5.0 -2.0]
+     [+7.0 -1.0 +2.0]
+     [+3.0 +1.0 +4.0]]
+x = [+4.0, -4.0, +5.0]
+b = [-14.0, +42.0, +28.0]
 
-function solve_with_factorize_and_ldiv(solver_method::LinearSolverMethod, xT::AbstractVector{T}, AT::AbstractMatrix{T}, bT::AbstractVector{T}) where {T}
+function solve_with_factorize_and_ldiv(
+        solver_method::LinearSolverMethod, xT::AbstractVector{T},
+        AT::AbstractMatrix{T}, bT::AbstractVector{T}) where {T}
     ls1 = LinearSolver(solver_method, rand(T, size(AT)...))
-    x1  = similar(xT)
+    x1 = similar(xT)
     factorize!(ls1, AT)
     ldiv!(x1, ls1, bT)
     x1
 end
 
-function solve_with_solve(solver_method, ::AbstractVector{T}, AT::AbstractMatrix{T}, bT::AbstractVector{T}) where {T}
+function solve_with_solve(solver_method, ::AbstractVector{T},
+        AT::AbstractMatrix{T}, bT::AbstractVector{T}) where {T}
     solve(solver_method, AT, bT)
 end
 
-function solve_with_solve!(solver_method, xT::AbstractVector{T}, AT::AbstractMatrix{T}, bT::AbstractVector{T}) where {T}
+function solve_with_solve!(solver_method, xT::AbstractVector{T},
+        AT::AbstractMatrix{T}, bT::AbstractVector{T}) where {T}
     ls3 = LinearSolver(solver_method, rand(T, length(xT)))
     x3 = similar(xT)
     solve!(x3, ls3, AT, bT)
@@ -78,9 +88,8 @@ function test_lu_solver(solver, A, b, x)
     end
 end
 
-test_lu_solver(LU(; static=false), A, b, x)
-test_lu_solver(LU(; static=true), A, b, x)
-
+test_lu_solver(LU(; static = false), A, b, x)
+test_lu_solver(LU(; static = true), A, b, x)
 
 # Regression: a singular matrix used to leave `cache.info` set but unchecked,
 # so `ldiv!` silently produced NaN/Inf.  It throws a `SingularException`.
@@ -146,12 +155,12 @@ end
     @test !(cache(LinearSolver(LU(), Abig)).A isa MMatrix)
 
     # A `StaticArray` input is stored as a mutable static (`MMatrix`) cache.
-    Astat = SMatrix{3,3}(Asmall)
+    Astat = SMatrix{3, 3}(Asmall)
     @test cache(LinearSolver(LU(), Astat)).A isa MMatrix
 
     # An explicit `static` keyword overrides the size-based choice.
-    @test cache(LinearSolver(LU(; static=true), Asmall)).A isa MMatrix
-    @test cache(LinearSolver(LU(; static=false), Asmall)).A isa Matrix
+    @test cache(LinearSolver(LU(; static = true), Asmall)).A isa MMatrix
+    @test cache(LinearSolver(LU(; static = false), Asmall)).A isa Matrix
 
     # Size is not the only condition: an `MArray` cannot `setindex!` a non-isbitstype element,
     # so a small `BigFloat` matrix gets a `Matrix` cache. Without this the default `LU()` —
@@ -160,9 +169,10 @@ end
     Aqbig = big.(Asmall)
     @test !SimpleSolvers._static(Aqbig)
     @test cache(LinearSolver(LU(), Aqbig)).A isa Matrix
-    @test ldiv!(zeros(BigFloat, 3), factorize!(LinearSolver(LU(), Aqbig), Aqbig), big.([1.0, 2.0, 3.0])) ≈ Asmall \ [1.0, 2.0, 3.0]
+    @test ldiv!(zeros(BigFloat, 3), factorize!(LinearSolver(LU(), Aqbig), Aqbig), big.([
+        1.0, 2.0, 3.0])) ≈ Asmall \ [1.0, 2.0, 3.0]
     # and an explicit `static = true` says why rather than failing later in StaticArrays
-    @test_throws ArgumentError LinearSolver(LU(; static=true), Aqbig)
+    @test_throws ArgumentError LinearSolver(LU(; static = true), Aqbig)
 end
 
 # `LUSolverCache` carries a `pivots` field, populated in `factorize!` alongside
@@ -264,7 +274,6 @@ end
     @test solve!(x, lsolver, b) ≈ A \ b
 end
 
-
 # --------------------------------------------------------------------------
 # LapackLU
 # --------------------------------------------------------------------------
@@ -356,7 +365,9 @@ end
     @test_throws DimensionMismatch LinearSolver(LapackLU(), randn(3, 4))
 
     # LAPACK does not know about every number type, and says so by name
-    @test_throws ArgumentError LinearSolverCache(LapackLU(), [big(1.0) big(2.0); big(3.0) big(4.0)])
+    @test_throws ArgumentError LinearSolverCache(
+        LapackLU(), [big(1.0) big(2.0);
+                     big(3.0) big(4.0)])
 
     # the working matrix and the pivot vector are both allocated once and reused, so
     # refactorizing and solving are allocation-free, exactly as they are for `LU`
@@ -393,14 +404,13 @@ end
     for method in (Newton(), QuasiNewton(), DogLeg())
         x1 = [1.5]
         x2 = [1.5]
-        solve!(x1, NonlinearProblem(F, zeros(1)), method; verbosity=0)
-        solve!(x2, NonlinearProblem(F, zeros(1)), method; verbosity=0,
-            linear_solver_method=LapackLU())
+        solve!(x1, NonlinearProblem(F, zeros(1)), method; verbosity = 0)
+        solve!(x2, NonlinearProblem(F, zeros(1)), method; verbosity = 0,
+            linear_solver_method = LapackLU())
         @test x1 ≈ x2
         @test x2[1] ≈ cbrt(2.0)
     end
 end
-
 
 # --------------------------------------------------------------------------
 # RecursiveLU
@@ -456,9 +466,12 @@ end
     # Float32 is supported; the complex BLAS types are not, and RecursiveLU says so rather
     # than silently failing later. This is the one place it is *narrower* than `LapackLU`.
     A32 = Float32.(Ar)
-    @test ldiv!(zeros(Float32, 3), factorize!(LinearSolver(RecursiveLU(), A32), A32), Float32.(br)) ≈ Float32.(xr) rtol = 1e-5
+    @test ldiv!(zeros(Float32, 3), factorize!(LinearSolver(RecursiveLU(), A32), A32), Float32.(br)) ≈
+          Float32.(xr) rtol = 1e-5
     @test_throws ArgumentError LinearSolverCache(RecursiveLU(), ComplexF64.(Ar))
-    @test_throws ArgumentError LinearSolverCache(RecursiveLU(), [big(1.0) big(2.0); big(3.0) big(4.0)])
+    @test_throws ArgumentError LinearSolverCache(
+        RecursiveLU(), [big(1.0) big(2.0);
+                        big(3.0) big(4.0)])
 
     # using the factorization before it exists is an error, not a wrong answer
     @test_throws ArgumentError ldiv!(zero(xr), LinearSolver(RecursiveLU(), Ar), br)
@@ -467,7 +480,8 @@ end
     # `LU` and `LapackLU` report
     Asing = [1.0 2.0; 2.0 4.0]
     ssing = factorize!(LinearSolver(RecursiveLU(), Asing), Asing)
-    @test singular_index(ssing) == singular_index(factorize!(LinearSolver(LapackLU(), Asing), Asing))
+    @test singular_index(ssing) ==
+          singular_index(factorize!(LinearSolver(LapackLU(), Asing), Asing))
     @test_throws SingularException ldiv!(zeros(2), ssing, [1.0, 2.0])
 
     @test_throws DimensionMismatch factorize!(LinearSolver(RecursiveLU(), Ar), randn(2, 2))
@@ -492,7 +506,8 @@ end
 # methods exist for. Diagonally dominant so it is non-singular without pivoting luck.
 function banded_spd(n, p = 2, T = Float64)
     Is, Js, Vs = Int[], Int[], T[]
-    for i in 1:n, k in -p:p
+    for i in 1:n, k in (-p):p
+
         push!(Is, i)
         push!(Js, mod1(i + k, n))
         push!(Vs, k == 0 ? T(4 + 2p) : T(1) / T(abs(k) + 1))
@@ -511,7 +526,8 @@ end
     @test ldiv!(zeros(24), ls, bs) ≈ xs
 
     # the same answer as the dense methods, which is the contract
-    @test ldiv!(zeros(24), factorize!(LinearSolver(LU(), Sd), Sd), bs) ≈ ldiv!(zeros(24), ls, bs)
+    @test ldiv!(zeros(24), factorize!(LinearSolver(LU(), Sd), Sd), bs) ≈
+          ldiv!(zeros(24), ls, bs)
 
     # every call form except the single-argument `factorize!`, which this cache cannot offer
     @test solve!(zeros(24), LinearSolver(m, S), LinearProblem(S, bs)) ≈ xs
@@ -566,35 +582,40 @@ end
     @test (@allocated ldiv!(x, ls, bs)) == 0
 
     # singularity is known at factorization time, unlike Sparspak
-    Ssing = copy(S); Ssing[:, 3] .= 0.0; dropzeros!(Ssing)
+    Ssing = copy(S)
+    Ssing[:, 3] .= 0.0
+    dropzeros!(Ssing)
     @test singular_index(factorize!(LinearSolver(UmfpackLU(), Ssing), Ssing)) != 0
     @test singular_index(ls) == 0
 
     # complex is supported; a generic element type is not, and it names the alternative
-    Sc = SparseMatrixCSC{ComplexF64,Int}(S)
-    @test ldiv!(zeros(ComplexF64, 24), factorize!(LinearSolver(UmfpackLU(), Sc), Sc), ComplexF64.(bs)) ≈ Matrix(S) \ bs
-    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{BigFloat,Int}(S))
+    Sc = SparseMatrixCSC{ComplexF64, Int}(S)
+    @test ldiv!(zeros(ComplexF64, 24), factorize!(LinearSolver(UmfpackLU(), Sc), Sc), ComplexF64.(bs)) ≈
+          Matrix(S) \ bs
+    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{BigFloat, Int}(S))
 
     # The 32-bit BLAS types are refused at construction, not later: SuiteSparse converts them
     # in `lu`/`lu!` — so the cache builds — but has no 32-bit solve, and `ldiv!` would be a
     # `MethodError` naming an `UmfpackLU{Float64}` the caller never asked for.
-    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{Float32,Int}(S))
-    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{ComplexF32,Int}(S))
+    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{Float32, Int}(S))
+    @test_throws ArgumentError LinearSolver(UmfpackLU(), SparseMatrixCSC{ComplexF32, Int}(S))
 end
 
 # The two routes the error message names have to work, or the advice is worthless.
 @testset "a sparse matrix outside Float64/ComplexF64 has no default, but two answers" begin
-    S32 = SparseMatrixCSC{Float32,Int}(banded_spd(24))
+    S32 = SparseMatrixCSC{Float32, Int}(banded_spd(24))
     b32 = Float32.(collect(range(-1.0, 1.0; length = 24)))
     ref = Matrix{Float32}(S32) \ b32
 
     @test_throws ArgumentError default_linear_solver_method(S32)
-    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{ComplexF32,Int}(banded_spd(24)))
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{
+        ComplexF32, Int}(banded_spd(24)))
     # an explicit dense method still densifies happily — that is the escape hatch the error
     # message points at, not something the default does behind the caller's back
 
     # `SparspakLU` keeps it sparse
-    @test ldiv!(zeros(Float32, 24), factorize!(LinearSolver(SparspakLU(), S32), S32), b32) ≈ ref rtol = 1e-4
+    @test ldiv!(zeros(Float32, 24), factorize!(LinearSolver(SparspakLU(), S32), S32), b32) ≈
+          ref rtol = 1e-4
     # `LapackLU` densifies, as it does for any sparse input
     lsd = LinearSolver(LapackLU(), S32)
     @test cache(lsd).A isa Matrix{Float32}
@@ -602,8 +623,10 @@ end
 
     # and a nonlinear solve says the same thing rather than failing at the first ldiv!
     F32(y, x, params) = y .= x .^ 3 .- 2
-    DF32(j, x, params) = (fill!(nonzeros(j), zero(Float32)); for i in axes(j, 1); j[i, i] = 3x[i]^2; end)
-    proto32 = SparseMatrixCSC{Float32,Int}(sparse(Float32(1) * I, 4, 4))
+    DF32(j, x, params) = (fill!(nonzeros(j), zero(Float32)); for i in axes(j, 1)
+        j[i, i] = 3x[i]^2
+    end)
+    proto32 = SparseMatrixCSC{Float32, Int}(sparse(Float32(1) * I, 4, 4))
     @test_throws ArgumentError NewtonSolver(zeros(Float32, 4), zeros(Float32, 4);
         F = F32, DF! = DF32, jacobian_prototype = proto32)
     s32 = NewtonSolver(zeros(Float32, 4), zeros(Float32, 4); F = F32, DF! = DF32,
@@ -614,7 +637,7 @@ end
 
     # and the same for a non-BLAS element type, where the dense escape hatch is `LU` rather
     # than `LapackLU` — the branch the message picks between
-    protoQ = SparseMatrixCSC{BigFloat,Int}(sparse(1.0I, 4, 4))
+    protoQ = SparseMatrixCSC{BigFloat, Int}(sparse(1.0I, 4, 4))
     @test_throws ArgumentError NewtonSolver(zeros(BigFloat, 4), zeros(BigFloat, 4);
         F = F32, DF! = DF32, jacobian_prototype = protoQ)
     for lsm in (SparspakLU(), LU())
@@ -632,20 +655,22 @@ end
 
     # the reason this method exists: element types UMFPACK refuses
     for T in (BigFloat, Rational{BigInt})
-        ST = SparseMatrixCSC{T,Int}(S)
+        ST = SparseMatrixCSC{T, Int}(S)
         bT = T.(bs)
         ls = factorize!(LinearSolver(SparspakLU(), ST), ST)
         x = ldiv!(zeros(T, 24), ls, bT)
         @test maximum(abs, Float64.(ST * x .- bT)) < 1e-25
     end
     # exact over the rationals, which nothing else here can do
-    SQ = SparseMatrixCSC{Rational{BigInt},Int}(S)
+    SQ = SparseMatrixCSC{Rational{BigInt}, Int}(S)
     bQ = Rational{BigInt}.(1, 1:24)
     xQ = ldiv!(zeros(Rational{BigInt}, 24), factorize!(LinearSolver(SparspakLU(), SQ), SQ), bQ)
     @test SQ * xQ == bQ
 
     # singular_index is a flag, and only after a failed solve — see the docstring
-    Ssing = copy(S); Ssing[:, 3] .= 0.0; dropzeros!(Ssing)
+    Ssing = copy(S)
+    Ssing[:, 3] .= 0.0
+    dropzeros!(Ssing)
     lsing = factorize!(LinearSolver(SparspakLU(), Ssing), Ssing)
     @test singular_index(lsing) == 0
     @test_throws SingularException ldiv!(zeros(24), lsing, bs)
@@ -661,7 +686,8 @@ end
 
     # `fill_nan!` preserves the pattern, which the symbolic factorization depends on
     n0 = nnz(S)
-    Sn = copy(S); fill_nan!(Sn)
+    Sn = copy(S)
+    fill_nan!(Sn)
     @test nnz(Sn) == n0
     @test all(isnan, nonzeros(Sn))
     @test all(isnan, fill_nan!(zeros(3, 3)))
@@ -669,7 +695,8 @@ end
     # `copy_matrix!` copies stored values and refuses a different pattern
     S2 = sparse([1, 2, 3, 1], [1, 2, 3, 3], [5.0, 6.0, 7.0, 8.0])
     @test nonzeros(copy_matrix!(copy(S), S2)) == nonzeros(S2)
-    @test_throws ArgumentError copy_matrix!(copy(S), sparse([1, 2, 3], [1, 2, 3], [1.0, 2.0, 3.0]))
+    @test_throws ArgumentError copy_matrix!(copy(S), sparse([1, 2, 3], [1, 2, 3], [
+        1.0, 2.0, 3.0]))
     @test_throws ArgumentError copy_matrix!(copy(S), Matrix(S))
     @test copy_matrix!(zeros(3, 3), S) == Matrix(S)
 
@@ -700,38 +727,43 @@ end
     @test default_linear_solver_method(zeros(ComplexF64, 4, 4)) isa LapackLU
     @test default_linear_solver_method(fill(big(0.0), 4, 4)) isa LU
     @test default_linear_solver_method(banded_spd(8)) isa UmfpackLU
-    @test default_linear_solver_method(SparseMatrixCSC{ComplexF64,Int}(banded_spd(8))) isa UmfpackLU
+    @test default_linear_solver_method(SparseMatrixCSC{ComplexF64, Int}(banded_spd(8))) isa
+          UmfpackLU
     # a sparse 32-bit float has two good explicit answers and no defensible default
-    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{Float32,Int}(banded_spd(8)))
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{Float32, Int}(banded_spd(8)))
     # No sparse element type outside Float64/ComplexF64 gets a default: densifying would
     # discard structure the caller built on purpose, and `SparspakLU` is an extension, so a
     # default reaching for it would depend on what was imported. Both are legitimate choices,
     # so the caller makes them.
-    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{BigFloat,Int}(banded_spd(8)))
-    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{Rational{BigInt},Int}(banded_spd(8)))
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{BigFloat, Int}(banded_spd(8)))
+    @test_throws ArgumentError default_linear_solver_method(SparseMatrixCSC{
+        Rational{BigInt}, Int}(banded_spd(8)))
     # ... and the message names the densifying way out that actually works for that element
     # type: `LapackLU` for a BLAS one, `LU` for another float, and neither for a `Rational`,
     # where `LU`'s `lucache_eltype` refuses and `SparspakLU` is the only method that works.
-    sparse_default_message(S) = try
-        default_linear_solver_method(S)
-        ""
-    catch e
-        e.msg
-    end
-    m32 = sparse_default_message(SparseMatrixCSC{Float32,Int}(banded_spd(8)))
+    sparse_default_message(S) =
+        try
+            default_linear_solver_method(S)
+            ""
+        catch e
+            e.msg
+        end
+    m32 = sparse_default_message(SparseMatrixCSC{Float32, Int}(banded_spd(8)))
     @test occursin("SparspakLU()", m32) && occursin("or LapackLU()", m32)
-    mbig = sparse_default_message(SparseMatrixCSC{BigFloat,Int}(banded_spd(8)))
+    mbig = sparse_default_message(SparseMatrixCSC{BigFloat, Int}(banded_spd(8)))
     @test occursin("SparspakLU()", mbig) && occursin("or LU()", mbig)
-    mrat = sparse_default_message(SparseMatrixCSC{Rational{BigInt},Int}(banded_spd(8)))
+    mrat = sparse_default_message(SparseMatrixCSC{Rational{BigInt}, Int}(banded_spd(8)))
     @test occursin("SparspakLU()", mrat)
     @test !occursin("or LU()", mrat) && !occursin("or LapackLU()", mrat)
 
     # the resolved default reaches the solver
     F(y, x, params) = y .= x .^ 3 .- 2
     @test method(linearsolver(NewtonSolver(zeros(4), zeros(4); F = F))) isa LapackLU
-    @test method(linearsolver(NewtonSolver(zeros(BigFloat, 4), zeros(BigFloat, 4); F = F))) isa LU
+    @test method(linearsolver(NewtonSolver(zeros(BigFloat, 4), zeros(BigFloat, 4); F = F))) isa
+          LU
     # and an explicit method still wins
-    @test method(linearsolver(NewtonSolver(zeros(4), zeros(4); F = F, linear_solver_method = LU()))) isa LU
+    @test method(linearsolver(NewtonSolver(zeros(4), zeros(4); F = F, linear_solver_method = LU()))) isa
+          LU
 end
 
 # `LU` densifies a sparse input rather than failing inside the scalar factorization loops.
@@ -763,7 +795,8 @@ end
     bvec = randn(n) ./ 10
     function Fb!(f, x, params)
         for i in 1:n
-            f[i] = x[i] + 0.1 * x[i]^2 - 0.2 * (x[mod1(i - 1, n)] + x[mod1(i + 1, n)]) - bvec[i]
+            f[i] = x[i] + 0.1 * x[i]^2 - 0.2 * (x[mod1(i - 1, n)] + x[mod1(i + 1, n)]) -
+                   bvec[i]
         end
         nothing
     end
@@ -797,7 +830,8 @@ end
     solve!(xsparse, ssp)
 
     @test xsparse ≈ xdense
-    f = zeros(n); Fb!(f, xsparse, nothing)
+    f = zeros(n)
+    Fb!(f, xsparse, nothing)
     @test maximum(abs, f) < 1e-10
 
     # the storage survives: the Jacobian, the linear problem and the solver cache are all
