@@ -43,8 +43,8 @@ maximum(|Jacobian|):          3.0
 function check_jacobian(io::IO, J::AbstractMatrix; digits=5)
     println(io, "Condition Number of Jacobian: ", round(cond(J); digits=digits))
     println(io, "Determinant of Jacobian:      ", round(det(J); digits=digits))
-    println(io, "minimum(|Jacobian|):          ", round(minimum(abs.(J)); digits=digits))
-    println(io, "maximum(|Jacobian|):          ", round(maximum(abs.(J)); digits=digits))
+    println(io, "minimum(|Jacobian|):          ", round(minimum(abs, J); digits=digits))
+    println(io, "maximum(|Jacobian|):          ", round(maximum(abs, J); digits=digits))
     println(io)
 end
 

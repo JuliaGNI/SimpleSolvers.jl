@@ -63,8 +63,8 @@ maximum(|Gradient|):          3.0
 """
 function check_gradient(io::IO, g::AbstractVector; digits::Integer=5)
     println(io, "norm(Gradient):               ", round(norm(g); digits=digits))
-    println(io, "minimum(|Gradient|):          ", round(minimum(abs.(g)); digits=digits))
-    println(io, "maximum(|Gradient|):          ", round(maximum(abs.(g)); digits=digits))
+    println(io, "minimum(|Gradient|):          ", round(minimum(abs, g); digits=digits))
+    println(io, "maximum(|Gradient|):          ", round(maximum(abs, g); digits=digits))
     println(io)
 end
 

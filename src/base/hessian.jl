@@ -44,8 +44,8 @@ maximum(|Hessian|):          3.0
 function check_hessian(io::IO, H::AbstractMatrix; digits::Integer=5)
     println(io, "Condition Number of Hessian: ", round(cond(H); digits=digits))
     println(io, "Determinant of Hessian:      ", round(det(H); digits=digits))
-    println(io, "minimum(|Hessian|):          ", round(minimum(abs.(H)); digits=digits))
-    println(io, "maximum(|Hessian|):          ", round(maximum(abs.(H)); digits=digits))
+    println(io, "minimum(|Hessian|):          ", round(minimum(abs, H); digits=digits))
+    println(io, "maximum(|Hessian|):          ", round(maximum(abs, H); digits=digits))
     println(io)
 end
 
