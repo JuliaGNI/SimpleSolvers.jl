@@ -12,7 +12,7 @@ import LinearAlgebra: checksquare
 
 import Base.Callable
 import GeometricBase: AbstractProblem, AbstractSolver, AbstractSolverState
-import GeometricBase: NullParameters, OptionalParameters, SolverMethod, SolverState
+import GeometricBase: NullParameters, SolverMethod, SolverState
 import GeometricBase: update!, value
 import GeometricBase.Utils: L2norm, l2norm
 
