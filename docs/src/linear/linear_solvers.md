@@ -124,11 +124,71 @@ x = [1.5]
 solve!(x, NonlinearProblem(F, zeros(1)), Newton(); linear_solver_method = LapackLU())
 ```
 
+## Solving a Rank-Deficient System
+
+Every method above answers a singular matrix with a `SingularException`, which is what a
+caller wants when a singular matrix means something has gone wrong. It is not what a caller
+wants when the deficiency is a property of the problem — a residual with a continuous symmetry,
+an over-parametrised ansatz, a constraint that is implied by the others. There the system is
+still *consistent*: the right-hand side lies in the range of the matrix, so solutions exist,
+and there is a whole affine family of them.
+
+[`PivotedQR`](@ref) and [`SVDSolver`](@ref) return the **minimum-norm** member of that family
+instead of refusing:
+
+```@example linear_system
+Ad = [1. 2.; 2. 4.]       # rank 1
+bd = [1., 2.]             # consistent: bd = Ad * [0.2, 0.4]
+solve(PivotedQR(), Ad, bd)
+```
+
+An LU cannot do anything with this matrix at all:
+
+```@example linear_system
+try
+    solve(LapackLU(), Ad, bd)
+catch e
+    e
+end
+```
+
+Both new methods determine a *numerical rank* as they factorize, at a relative tolerance that
+is theirs to carry — `SimpleSolvers.rank_tolerance` documents the default and why it is looser
+than `LinearAlgebra.rank`'s. `LinearAlgebra.rank` reads it back off the factorization, and
+[`SVDSolver`](@ref) additionally hands back the spectrum it was read from:
+
+```@example linear_system
+using LinearAlgebra: rank
+
+ls = LinearSolver(SVDSolver(), Ad)
+factorize!(ls, Ad)
+rank(ls), SimpleSolvers.singular_values(ls)
+```
+
+That last pair is the distinction no tolerance can make on its own. A spectrum with a *gap* is
+rank deficient and the directions below it are genuinely absent; a spectrum that *decays
+smoothly* is ill-conditioned, has no correct rank, and truncating it is a modelling decision
+rather than a numerical one.
+
+Which of the two to use follows the ratio of solves to factorizations rather than the size of
+the matrix — [`PivotedQR`](@ref) has the cheaper factorization and the more expensive solve,
+[`SVDSolver`](@ref) the reverse — and the measured table is in [`PivotedQR`](@ref)'s docstring.
+Both are restricted to LAPACK's four element types and to square matrices.
+
+!!! warning "Opt in, and only where the deficiency is real"
+    Neither method is ever chosen by `SimpleSolvers.default_linear_solver_method`, and that is
+    deliberate. For almost every caller a singular matrix is a bug, and the exception is how
+    they find out about it. A minimum-norm step returned by default would replace that report
+    with a plausible-looking wrong answer, on exactly the problems where it matters most. Pass
+    one as `linear_solver_method` where you have established that the null space belongs to
+    the problem.
+
 ## Choosing a Method
 
-Five methods, and the choice is made by two things: whether the matrix is sparse, and whether
-its element type is one LAPACK knows. `SimpleSolvers.default_linear_solver_method` encodes the
-answer, and it is what a nonlinear solver uses when no `linear_solver_method` is given:
+Seven methods. For the five that require a non-singular matrix the choice is made by two
+things: whether the matrix is sparse, and whether its element type is one LAPACK knows.
+`SimpleSolvers.default_linear_solver_method` encodes the answer, and it is what a nonlinear
+solver uses when no `linear_solver_method` is given:
 
 | matrix | element type | method |
 |---|---|---|
@@ -137,7 +197,8 @@ answer, and it is what a nonlinear solver uses when no `linear_solver_method` is
 | sparse | `Float64`/`ComplexF64` | [`UmfpackLU`](@ref) |
 | sparse | anything else | none — an `ArgumentError`; see below |
 
-[`RecursiveLU`](@ref) is never chosen automatically; see below.
+[`RecursiveLU`](@ref) is never chosen automatically; see below. Neither is
+[`PivotedQR`](@ref) nor [`SVDSolver`](@ref) — see the warning above.
 
 ### Dense
 
