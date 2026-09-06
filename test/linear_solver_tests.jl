@@ -992,6 +992,36 @@ end
         LinearSolver(PivotedQR(), A), A))
 end
 
+# The one matrix where the two methods disagree, and the reason `rank`'s docstring stops short
+# of promising that `PivotedQR` matches `LinearAlgebra.rank`. A Kahan matrix is the standard
+# counterexample to rank-revealing QR: every |R_ii| stays above the tolerance, so the column
+# pivoting never exposes the direction the spectrum does. Pinned because both docstrings quote
+# these numbers.
+#
+# `n = 70, θ = 1.15` is chosen for margin, not for the effect — which is visible over a wide
+# band of both. Here min|R_ii|/max|R_ii| sits 1.2e5× *above* the tolerance and σ_min/σ_1 sits
+# 6.2e5× *below* it, so neither assertion is a near-miss that a different LAPACK build could
+# tip. At the more obvious `n = 90, θ = 1.35` the QR margin is a factor of 2.2, which for a
+# package whose issue #98 is a BLAS-dependent rank is not enough to pin in a test.
+@testset "PivotedQR can miss the rank a Kahan matrix hides" begin
+    n, θ = 70, 1.15
+    c, s = cos(θ), sin(θ)
+    A = [j == i ? s^(i - 1) : j > i ? -c * s^(i - 1) : 0.0 for i in 1:n, j in 1:n]
+    tol = sqrt(eps(Float64))
+
+    qrls = factorize!(LinearSolver(PivotedQR(), A), copy(A))
+    svdls = factorize!(LinearSolver(SVDSolver(), A), copy(A))
+
+    @test rank(svdls) == LinearAlgebra.rank(A; rtol = tol) == n - 1
+    @test rank(qrls) == n           # the documented shortfall, not an accident
+
+    # and the solve inherits it: the SVD reaches the pseudoinverse solution, the QR does not
+    b = A * ones(n)
+    xref = pinv(A; rtol = tol) * b
+    @test ldiv!(zeros(n), svdls, copy(b)) ≈ xref rtol = 1e-6
+    @test norm(ldiv!(zeros(n), qrls, copy(b)) - xref) / norm(xref) > 0.1
+end
+
 # The shape of NonlinearIntegrators #98, reduced to two unknowns: a residual whose Jacobian is
 # exactly rank deficient at every point, and consistent, so a minimum-norm Newton step solves
 # it exactly while an LU cannot factorize it at all.

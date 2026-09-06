@@ -52,8 +52,14 @@ one factorization can serve several right-hand sides.
 # When to use which
 
 [`SVDSolver`](@ref) computes the same minimum-norm solution and additionally reports the
-singular values. This method is the cheaper of the two *per factorization*, and the more
-expensive per solve. Measured on an Apple M4 Max against OpenBLAS, on a matrix of rank
+singular values. It is also the more trustworthy of the two about *where* the rank falls: the
+minimum-norm property above holds for the rank this factorization reveals, and revealing it is
+the step that can go wrong, since ``\\lvert R_{ii} \\rvert`` bounds the singular values without
+equalling them. On a `70 × 70` Kahan matrix with ``\\theta = 1.15`` this method finds full rank
+where the spectrum has a `69`-dimensional range — see [`rank`](@ref). Such matrices are
+constructed rather than met, but when the rank is the quantity of interest, ask
+[`SVDSolver`](@ref) for it. This method is the cheaper of the two *per factorization*, and the
+more expensive per solve. Measured on an Apple M4 Max against OpenBLAS, on a matrix of rank
 ``\\lfloor n/2 \\rfloor``, times in microseconds and allocation in bytes for a
 [`LinearSolver`](@ref) that has already been built — `scripts/benchmark_rank_revealing.jl`:
 

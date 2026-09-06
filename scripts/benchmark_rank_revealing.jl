@@ -12,8 +12,8 @@
 #
 # The timing is a minimum over repetitions after a warm-up call, rather than BenchmarkTools:
 # this package does not depend on it, and a script in `scripts/` that needs an environment of
-# its own is a script nobody re-runs. See `Packages/CLAUDE.md`, *Measurement* — everything
-# here is measured on an already-built `LinearSolver`, which is how a nonlinear solve uses one.
+# its own is a script nobody re-runs. Everything here is measured on an already-built
+# `LinearSolver`, which is how a nonlinear solve uses one.
 
 using LinearAlgebra
 using Printf

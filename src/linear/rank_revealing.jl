@@ -56,11 +56,23 @@ end
 
 The numerical rank the factorization found, at the tolerance the method carries.
 
-This extends `LinearAlgebra.rank`, and agrees with `LinearAlgebra.rank(A; rtol)` for the same
-`rtol` — but it is read off a factorization that has already been computed, so it costs
-nothing on top of the solve. It is the reason to reach for one of these methods on a problem
-that is *not* failing: a system whose unknown count exceeds this number carries that many
-degrees of freedom the residual cannot see.
+This extends `LinearAlgebra.rank`, and unlike it is read off a factorization that has already
+been computed, so it costs nothing on top of the solve. It is the reason to reach for one of
+these methods on a problem that is *not* failing: a system whose unknown count exceeds this
+number carries that many degrees of freedom the residual cannot see.
+
+# How far it agrees with `LinearAlgebra.rank`
+
+For [`SVDSolver`](@ref) the two are the same computation — both count the singular values above
+`rtol * σ₁` — so they agree whenever the `rtol` does.
+
+For [`PivotedQR`](@ref) they usually agree and are not guaranteed to. The moduli of the `R`
+diagonal only *bound* the singular values, so column pivoting can fail to expose a small one:
+on a `70 × 70` Kahan matrix with ``\\theta = 1.15`` this returns `70`, where both
+`LinearAlgebra.rank(A; rtol = sqrt(eps()))` and [`SVDSolver`](@ref) return `69`. The
+disagreement is not confined to the reported number — the solve inherits it, and on that matrix
+the `x` that comes back differs from the pseudoinverse solution by a relative `0.30`. Where the
+rank itself is the answer rather than a means to one, use [`SVDSolver`](@ref).
 """
 function LinearAlgebra.rank(lsolver::LinearSolver{
         T, LSM}) where {T, LSM <: RankRevealingMethod}

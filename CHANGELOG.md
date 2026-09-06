@@ -30,6 +30,14 @@ back off a factorization that has already been computed, so it costs nothing on 
 solve — which makes "how many degrees of freedom does my residual actually see?" a question
 answerable in passing rather than a separate experiment.
 
+One caveat on that number, and on the minimum-norm property that rests on it: `SVDSolver`
+counts singular values, so its rank is `LinearAlgebra.rank(A; rtol)` exactly. `PivotedQR` reads
+the `R` diagonal, which *bounds* the singular values without equalling them, so there are
+matrices — a Kahan matrix is the classical one — where the pivoting never exposes the small
+direction and the reported rank comes out too high. Everything downstream is then computed for
+the rank that was found, not the one the spectrum has. Where the rank itself is the result
+rather than a step toward one, ask `SVDSolver`.
+
 Which to choose follows the ratio of solves to factorizations rather than the size of the
 matrix. `PivotedQR` has the cheaper factorization and the more expensive solve, `SVDSolver`
 the reverse — so one solve per factorization, which is what a Newton step is, favours
