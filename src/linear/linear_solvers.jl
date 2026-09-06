@@ -267,6 +267,19 @@ know to pass `linear_solver_method`: downstream it came to 74 % of an implicit t
 [`RecursiveLU`](@ref) is never selected automatically: it lives in a package extension, its
 useful range depends on which BLAS is loaded, and it is not always installed. Choose it
 explicitly.
+
+Neither [`RankRevealingMethod`](@ref) — [`PivotedQR`](@ref) and [`SVDSolver`](@ref) — is ever
+selected automatically either, and that one is a decision rather than a packaging accident.
+Both solve a singular system instead of refusing it, by returning the minimum-norm solution.
+For almost every caller a singular matrix is a *bug*: a Jacobian that has lost a row, a step
+that has collapsed, a model that is not identifiable. The `SingularException` an LU raises is
+how they find out. A default that quietly returned a minimum-norm step everywhere would
+convert that report into a plausible-looking wrong answer, and it would do so on exactly the
+problems where the answer matters most.
+
+So rank tolerance is opted into: pass `linear_solver_method = PivotedQR()` where the
+deficiency is a property of the problem rather than a defect, and leave the default alone
+where it is not.
 """
 function default_linear_solver_method(A::AbstractMatrix)
     eltype(A) <: LinearAlgebra.BlasFloat ? LapackLU() : LU()

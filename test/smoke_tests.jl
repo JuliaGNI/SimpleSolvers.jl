@@ -40,6 +40,8 @@ const yvec = T[1.0, 2.0, 3.0]
     @test NonlinearSolverMethod <: SolverMethod
     @test !(LinesearchMethod <: NonlinearSolverMethod)
     @test isabstracttype(DirectMethod)
+    @test isabstracttype(SimpleSolvers.RankRevealingMethod)
+    @test SimpleSolvers.RankRevealingMethod <: DirectMethod
     @test isabstracttype(Gradient)
     @test isabstracttype(Hessian)
     @test isabstracttype(Jacobian)
@@ -112,6 +114,14 @@ end
 
     @test UmfpackLU() isa UmfpackLU
     @test LinearSolver(UmfpackLU(), SparseArrays.sparse(Amat)) isa LinearSolver
+
+    @test PivotedQR() isa PivotedQR
+    @test PivotedQR(; rtol = 1e-10) isa PivotedQR
+    @test LinearSolver(PivotedQR(), Amat) isa LinearSolver
+
+    @test SVDSolver() isa SVDSolver
+    @test SVDSolver(; rtol = 1e-10) isa SVDSolver
+    @test LinearSolver(SVDSolver(), Amat) isa LinearSolver
 end
 
 @testset "$(rpad("Line searches", 80))" begin

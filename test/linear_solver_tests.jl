@@ -1,4 +1,5 @@
-using LinearAlgebra: LinearAlgebra, det, diag, ldiv!, I, SingularException
+using LinearAlgebra: LinearAlgebra, det, diag, ldiv!, I, SingularException, Diagonal, norm,
+                     nullspace, pinv, qr, rank
 using Random: Random
 using RecursiveFactorization: RecursiveFactorization
 using SparseArrays: SparseArrays, SparseMatrixCSC, sparse, spzeros, nnz, nonzeros,
@@ -10,7 +11,7 @@ using SimpleSolvers: zero_like, LinearSolverMethod, LinearSolverCache, matrix, f
                      alloc_x, alloc_g, alloc_h, alloc_j, alloc_rhs,
                      default_linear_solver_method, fill_nan!, copy_matrix!,
                      add_to_diagonal!, PivotedLUCache, method, linearsolver, linearproblem,
-                     jacobianmatrix
+                     jacobianmatrix, RankRevealingMethod, rank_tolerance, singular_values
 using StaticArrays: SMatrix, MMatrix
 using Test
 
@@ -848,4 +849,220 @@ end
         jacobian_prototype = proto)
     @test_throws ArgumentError DogLegSolver(zeros(n), NonlinearProblem(Fb!, zeros(n));
         jacobian_prototype = proto)
+end
+
+# --------------------------------------------------------------------------
+# PivotedQR and SVDSolver
+# --------------------------------------------------------------------------
+#
+# The contract of a `RankRevealingMethod` is one sentence — on a rank-deficient system it
+# returns the *minimum-norm* solution rather than throwing — and `pinv` is the independent
+# statement of it, so that is what these agree against rather than against each other.
+
+"A square `n × n` matrix of element type `T` with exactly `r` non-zero singular values."
+function rank_deficient(T, n, r)
+    Random.seed!(4242)
+    U = Matrix(qr(randn(T, n, n)).Q)
+    V = Matrix(qr(randn(T, n, n)).Q)
+    s = zeros(real(T), n)
+    s[1:r] .= exp.(range(0, -3, length = r))
+    U * Diagonal(T.(s)) * V'
+end
+
+@testset "$(nameof(typeof(m)))" for m in (PivotedQR(), SVDSolver())
+    # a rank-deficient CONSISTENT system: solved exactly, and with no null-space component
+    for T in (Float64, Float32, ComplexF64, ComplexF32)
+        tol = sqrt(eps(real(T)))
+        for (n, r) in ((13, 5), (16, 8), (13, 13))
+            A = rank_deficient(T, n, r)
+            b = A * randn(T, n)
+            xref = pinv(A; rtol = tol) * b
+
+            x = solve(m, A, b)
+            @test norm(A * x - b) < 100 * tol * norm(b)        # consistent: solved exactly
+            @test norm(x - xref) < 100 * tol * norm(xref)      # and it is the min-norm one
+        end
+    end
+
+    A = rank_deficient(Float64, 13, 5)
+    b = A * randn(13)
+
+    # the minimum-norm property, stated without reference to `pinv`: the solution has no
+    # component along the null space, and every other solution of the same system is longer
+    N = nullspace(A)
+    x = solve(m, A, b)
+    @test norm(N' * x) < 1e-10
+    for _ in 1:5
+        other = x + N * randn(size(N, 2))
+        @test norm(A * other - b) < 1e-8              # also a solution, ...
+        @test norm(other) > norm(x)                   # ... and longer
+    end
+
+    # a singular matrix does not raise: that is the whole point of the addition
+    ls = LinearSolver(m, A)
+    factorize!(ls, A)
+    @test rank(ls) == 5
+    @test singular_index(ls) == 0                     # no singular case to report
+    @test ldiv!(zeros(13), ls, b) ≈ x
+
+    # an INCONSISTENT system gives the least-squares solution of the truncated problem, which
+    # is what `pinv` computes and is documented behaviour rather than an error
+    binc = randn(13)
+    xls = solve(m, A, binc)
+    @test xls ≈ pinv(A; rtol = sqrt(eps())) * binc
+    @test norm(A * xls - binc) > 0.1                  # it does not pretend to have solved it
+
+    # an exactly zero matrix has rank 0, and the only solution to minimize over is zero
+    Z = zeros(4, 4)
+    lz = LinearSolver(m, Z)
+    factorize!(lz, Z)
+    @test rank(lz) == 0
+    @test ldiv!(ones(4), lz, ones(4)) == zeros(4)
+
+    # every call form, on a full-rank system, agreeing with the LU methods
+    Af = [[+4.0 +5.0 -2.0]
+          [+7.0 -1.0 +2.0]
+          [+3.0 +1.0 +4.0]]
+    xf = [+4.0, -4.0, +5.0]
+    bf = [-14.0, +42.0, +28.0]
+    @test ldiv!(zero(xf), factorize!(LinearSolver(m, Af)), bf) ≈ xf
+    @test ldiv!(zero(xf), factorize!(LinearSolver(m, Af), Af), bf) ≈ xf
+    @test solve!(zero(xf), LinearSolver(m, Af), LinearProblem(Af, bf)) ≈ xf
+    @test solve!(zero(xf), LinearSolver(m, Af), Af, bf) ≈ xf
+    @test solve!(LinearSolver(m, Af), LinearProblem(Af, bf)) ≈ xf
+    @test solve!(LinearSolver(m, Af), Af, bf) ≈ xf
+    @test solve(LinearSolver(m, Af), Af, bf) ≈ xf
+    @test solve(m, LinearProblem(Af, bf)) ≈ xf
+    @test solve(m, Af, bf) ≈ xf
+
+    # `ldiv!` transforms in place, so it has to tolerate `x === b`
+    aliased = copy(bf)
+    @test ldiv!(aliased, factorize!(LinearSolver(m, Af), Af), aliased) ≈ xf
+
+    # using the factorization before it exists is an error, not a zero vector — an
+    # unfactorized cache has `rank = 0`, which `ldiv!` would otherwise read as "all null"
+    fresh = LinearSolver(m, Af)
+    @test_throws ArgumentError ldiv!(zero(xf), fresh, bf)
+    @test_throws ArgumentError rank(fresh)
+    @test_throws ArgumentError singular_index(fresh)
+
+    # a matrix of the wrong size, and one LAPACK does not know about, are both refused
+    @test_throws DimensionMismatch factorize!(LinearSolver(m, Af), randn(2, 2))
+    @test_throws DimensionMismatch LinearSolver(m, randn(3, 4))
+    @test_throws ArgumentError LinearSolverCache(m, [big(1.0) big(2.0); big(3.0) big(4.0)])
+end
+
+@testset "the rank tolerance is an option with a per-element-type default" begin
+    for M in (PivotedQR, SVDSolver)
+        # `missing` resolves from the element type; an explicit value is used as given
+        @test rank_tolerance(M(), Float64) == sqrt(eps(Float64))
+        @test rank_tolerance(M(), Float32) == sqrt(eps(Float32))
+        @test rank_tolerance(M(), ComplexF64) == sqrt(eps(Float64))
+        @test rank_tolerance(M(; rtol = 1e-10), Float64) === 1e-10
+        @test rank_tolerance(M(; rtol = 1e-10), Float32) === 1.0f-10
+
+        # and it decides the rank. The spectrum spans three decades, so a tolerance inside
+        # that range truncates it and a tolerance below it does not.
+        A = rank_deficient(Float64, 13, 5)
+        loose = factorize!(LinearSolver(M(; rtol = 0.1), A), A)
+        tight = factorize!(LinearSolver(M(; rtol = 1e-14), A), A)
+        @test rank(loose) < 5
+        @test rank(tight) == 5
+
+        # dropping a direction changes the answer rather than merely reporting it
+        b = A * randn(13)
+        @test !(solve!(zeros(13), loose, b) ≈ solve!(zeros(13), tight, b))
+    end
+end
+
+@testset "SVDSolver reports the spectrum" begin
+    A = rank_deficient(Float64, 13, 5)
+    ls = LinearSolver(SVDSolver(), A)
+    @test_throws ArgumentError singular_values(ls)
+    factorize!(ls, A)
+    s = singular_values(ls)
+    @test s ≈ LinearAlgebra.svdvals(A)
+    @test issorted(s; rev = true)
+    # the gap the rank was read off: five significant values, eight zero to roundoff
+    @test s[5] / s[1] > 1e-2
+    @test s[6] / s[1] < 1e-10
+
+    # there is deliberately no such method for `PivotedQR`
+    @test_throws MethodError singular_values(factorize!(
+        LinearSolver(PivotedQR(), A), A))
+end
+
+# The one matrix where the two methods disagree, and the reason `rank`'s docstring stops short
+# of promising that `PivotedQR` matches `LinearAlgebra.rank`. A Kahan matrix is the standard
+# counterexample to rank-revealing QR: every |R_ii| stays above the tolerance, so the column
+# pivoting never exposes the direction the spectrum does. Pinned because both docstrings quote
+# these numbers.
+#
+# `n = 70, θ = 1.15` is chosen for margin, not for the effect — which is visible over a wide
+# band of both. Here min|R_ii|/max|R_ii| sits 1.2e5× *above* the tolerance and σ_min/σ_1 sits
+# 6.2e5× *below* it, so neither assertion is a near-miss that a different LAPACK build could
+# tip. At the more obvious `n = 90, θ = 1.35` the QR margin is a factor of 2.2, which for a
+# package whose issue #98 is a BLAS-dependent rank is not enough to pin in a test.
+@testset "PivotedQR can miss the rank a Kahan matrix hides" begin
+    n, θ = 70, 1.15
+    c, s = cos(θ), sin(θ)
+    A = [j == i ? s^(i - 1) : j > i ? -c * s^(i - 1) : 0.0 for i in 1:n, j in 1:n]
+    tol = sqrt(eps(Float64))
+
+    qrls = factorize!(LinearSolver(PivotedQR(), A), copy(A))
+    svdls = factorize!(LinearSolver(SVDSolver(), A), copy(A))
+
+    @test rank(svdls) == LinearAlgebra.rank(A; rtol = tol) == n - 1
+    @test rank(qrls) == n           # the documented shortfall, not an accident
+
+    # and the solve inherits it: the SVD reaches the pseudoinverse solution, the QR does not
+    b = A * ones(n)
+    xref = pinv(A; rtol = tol) * b
+    @test ldiv!(zeros(n), svdls, copy(b)) ≈ xref rtol = 1e-6
+    @test norm(ldiv!(zeros(n), qrls, copy(b)) - xref) / norm(xref) > 0.1
+end
+
+# The shape of NonlinearIntegrators #98, reduced to two unknowns: a residual whose Jacobian is
+# exactly rank deficient at every point, and consistent, so a minimum-norm Newton step solves
+# it exactly while an LU cannot factorize it at all.
+@testset "a rank-deficient Jacobian through a nonlinear solve" begin
+    Fdeg(y, x, params) = (y[1] = x[1] + x[2] - 1; y[2] = x[1] + x[2] - 1; y)
+
+    # the LU methods report the singularity, which for them is the correct behaviour
+    @test_throws SingularException solve!([0.0, 0.0],
+        NonlinearProblem(Fdeg, zeros(2)), Newton(); verbosity = 0,
+        linear_solver_method = LapackLU())
+
+    for lsm in (PivotedQR(), SVDSolver())
+        for nlm in (Newton(), QuasiNewton(), DogLeg())
+            x = [0.0, 0.0]
+            solve!(x, NonlinearProblem(Fdeg, zeros(2)), nlm; verbosity = 0,
+                linear_solver_method = lsm)
+            y = zeros(2)
+            Fdeg(y, x, nothing)
+            @test maximum(abs, y) < 1e-12          # a root, ...
+            @test x ≈ [0.5, 0.5]                   # ... and the minimum-norm one
+        end
+    end
+
+    # and they are interchangeable on a well-posed problem, like every other method here
+    F(y, x, params) = y .= x .^ 3 .- 2
+    for lsm in (PivotedQR(), SVDSolver())
+        for nlm in (Newton(), QuasiNewton(), DogLeg())
+            x = [1.5]
+            solve!(x, NonlinearProblem(F, zeros(1)), nlm; verbosity = 0,
+                linear_solver_method = lsm)
+            @test x[1] ≈ cbrt(2.0)
+        end
+    end
+end
+
+# The addition is opt-in. Returning a minimum-norm step by default would turn a singular
+# matrix — a bug in almost every caller — into a plausible wrong answer.
+@testset "no rank-revealing method is ever a default" begin
+    for A in (randn(3, 3), Float32.(randn(3, 3)), ComplexF64.(randn(3, 3)),
+        big.(randn(3, 3)), sparse(banded_spd(8)))
+        @test !(default_linear_solver_method(A) isa RankRevealingMethod)
+    end
+    @test default_linear_solver_method(randn(3, 3)) isa LapackLU
 end

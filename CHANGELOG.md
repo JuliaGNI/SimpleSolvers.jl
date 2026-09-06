@@ -2,6 +2,68 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased] — targeting 0.13.3
+
+### Added
+
+**Two rank-revealing linear solvers, `PivotedQR` and `SVDSolver`.** Every method here until now
+has been an LU, and an LU has exactly one answer for a singular matrix: a `SingularException`.
+That is the right answer when a singular matrix means something has gone wrong — a Jacobian
+that has lost a row, a model that is not identifiable — and the wrong one when the deficiency
+*is* the problem: a residual with a continuous symmetry, an over-parametrised ansatz, a
+constraint implied by the others. Such a system is still consistent, so solutions exist; there
+is simply a whole affine family of them and no LU can pick one.
+
+These two return the **minimum-norm** member of that family. On a consistent system that is an
+exact solution with no component along the null space at all; on an inconsistent one it is the
+minimum-norm least-squares solution, the same thing `pinv(A; rtol) * b` computes.
+
+| | decomposition | reports |
+|---|---|---|
+| `PivotedQR` | complete orthogonal, `geqp3` + `tzrzf` — LAPACK's `gelsy` split into a `factorize!` and an `ldiv!` | the numerical rank |
+| `SVDSolver` | singular value decomposition, `gesdd` | the rank **and** the spectrum, via `SimpleSolvers.singular_values` |
+
+Both are `LinearSolverMethod`s like any other: `factorize!`, `LinearAlgebra.ldiv!`, `solve!`
+and `solve` behave the same way, and either can be handed to a `NewtonSolver` or a
+`DogLegSolver` as its `linear_solver_method`. `LinearAlgebra.rank` reads the numerical rank
+back off a factorization that has already been computed, so it costs nothing on top of the
+solve — which makes "how many degrees of freedom does my residual actually see?" a question
+answerable in passing rather than a separate experiment.
+
+One caveat on that number, and on the minimum-norm property that rests on it: `SVDSolver`
+counts singular values, so its rank is `LinearAlgebra.rank(A; rtol)` exactly. `PivotedQR` reads
+the `R` diagonal, which *bounds* the singular values without equalling them, so there are
+matrices — a Kahan matrix is the classical one — where the pivoting never exposes the small
+direction and the reported rank comes out too high. Everything downstream is then computed for
+the rank that was found, not the one the spectrum has. Where the rank itself is the result
+rather than a step toward one, ask `SVDSolver`.
+
+Which to choose follows the ratio of solves to factorizations rather than the size of the
+matrix. `PivotedQR` has the cheaper factorization and the more expensive solve, `SVDSolver`
+the reverse — so one solve per factorization, which is what a Newton step is, favours
+`PivotedQR` on the sum: by 3.2× at `n = 13`, and by 2.2–2.7× from `n = 40` to `n = 384`.
+Neither `factorize!` is allocation-free, unlike every LU here;
+`SVDSolver`'s `ldiv!` is, and `PivotedQR`'s is not. The measured table is in `PivotedQR`'s
+docstring and the script that produced it is `scripts/benchmark_rank_revealing.jl`.
+
+**The rank tolerance is an option**, `PivotedQR(; rtol = …)`, and `missing` — the default —
+resolves it to `sqrt(eps(real(T)))` from whichever element type the method is handed. That is
+looser than `LinearAlgebra.rank`'s `n * eps`, deliberately: `SimpleSolvers.rank_tolerance`
+gives the reasoning. It is the one number that decides whether a direction is dropped or
+amplified, and on a matrix with no gap in its spectrum it is the whole answer, so it is
+documented rather than buried.
+
+**`default_linear_solver_method` is unchanged, and that is a decision rather than an
+oversight.** A dense `Float32`/`Float64` matrix still resolves to `LapackLU`. For almost every
+caller a singular matrix is a bug and the exception is how they find out; a minimum-norm step
+returned by default would replace that report with a plausible-looking wrong answer, on
+exactly the problems where it matters most. Rank tolerance is opted into.
+
+Both are restricted to LAPACK's four element types — `Float32`, `Float64`, `ComplexF32`,
+`ComplexF64` — and to square matrices. The rectangular least-squares problem these
+decompositions also solve is not exposed, because the rest of the `LinearSolver` interface is
+built around one dimension.
+
 ## [0.13.2]
 
 **The parameter-set seam moves here from `GeometricOptimizers`.** Three methods that package
