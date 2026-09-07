@@ -2,7 +2,7 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased] — targeting 0.13.3
+## [0.13.3]
 
 ### Added
 
