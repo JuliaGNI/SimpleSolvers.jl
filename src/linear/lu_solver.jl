@@ -149,15 +149,15 @@ end
 function LinearSolverCache(::LU{Missing}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
-    Ā = lucache_matrix(_static(A), A, Tf)
-    LUSolverCache{Tf, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    Ā = lucache_matrix(_static(A), A, Tf)
+    LUSolverCache{Tf, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function LinearSolverCache(lu::LU{Bool}, A::AbstractMatrix{T}) where {T}
     n = checksquare(A)
     Tf = lucache_eltype(T)
-    Ā = lucache_matrix(lu.static, A, Tf)
-    LUSolverCache{Tf, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
+    Ā = lucache_matrix(lu.static, A, Tf)
+    LUSolverCache{Tf, typeof(Ā)}(Ā, zeros(Int, n), zeros(Int, n), 0)
 end
 
 function solve!(

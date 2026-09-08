@@ -2,6 +2,20 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- `src/linear/lu_solver.jl` and `src/nonlinear/nonlinear_solver_state.jl` are now Unicode
+  NFC-normalised. They stored `Ā` and `ȳ` as a base letter plus a combining mark, inherited from
+  macOS rather than chosen. Nothing about the compiled code changes — Julia's parser normalises
+  identifiers to NFC — but a `grep` pattern or an editor search typed in NFC now matches, where
+  before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
+  predecessor, and no string literal was affected.
+
+  Both files carry doctests, and no changed line falls inside a doctest block; `x̄` and the other
+  barred names in them have no precomposed codepoint and are unchanged either way.
+
 ## [0.13.3]
 
 ### Added
