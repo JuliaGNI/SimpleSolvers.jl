@@ -11,10 +11,12 @@ All notable changes to SimpleSolvers.jl are documented here.
   macOS rather than chosen. Nothing about the compiled code changes — Julia's parser normalises
   identifiers to NFC — but a `grep` pattern or an editor search typed in NFC now matches, where
   before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
-  predecessor, and no string literal was affected.
+  predecessor. One docstring line changes along with the identifiers — `update!`'s summary names
+  `ȳ`, which recomposes with the field it describes — and no other string literal is affected.
 
-  Both files carry doctests, and no changed line falls inside a doctest block; `x̄` and the other
-  barred names in them have no precomposed codepoint and are unchanged either way.
+  Both files carry doctests, and no changed line falls inside a doctest block; the doctests contain
+  no barred name at all. `x̄` has no precomposed codepoint and could not have changed either way;
+  `ȳ` and `Ā` do have one, and they are what recomposed.
 
 ## [0.13.3]
 
