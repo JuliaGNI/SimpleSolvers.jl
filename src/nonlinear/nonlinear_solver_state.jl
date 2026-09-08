@@ -20,7 +20,7 @@ mutable struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVe
     x::XT
     x̄::XT
     y::YT
-    ȳ::YT
+    ȳ::YT
 
     r₀::T   # the initial residual ‖F(x₀)‖, set by `initialize!`; reference scale
     # for the relative-residual convergence test (`NaN` until initialized)
@@ -48,14 +48,14 @@ mutable struct NonlinearSolverState{T, XT <: AbstractVector{T}, YT <: AbstractVe
         x = zero(X)
         x̄ = zero(X)
         y = zero(Y)
-        ȳ = zero(Y)
+        ȳ = zero(Y)
 
         x .= T(NaN)
         x̄ .= T(NaN)
         y .= T(NaN)
-        ȳ .= T(NaN)
+        ȳ .= T(NaN)
 
-        new{T, typeof(x), typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0,
+        new{T, typeof(x), typeof(y)}(0, x, x̄, y, ȳ, T(NaN), 0, false, T(NaN), 0,
             zeros(MVector{NLINESEARCH_OUTCOMES, Int}))
     end
 end
@@ -72,7 +72,7 @@ solution(state::NonlinearSolverState) = state.x
 value(state::NonlinearSolverState) = state.y
 
 previoussolution(state::NonlinearSolverState) = state.x̄
-previousvalue(state::NonlinearSolverState) = state.ȳ
+previousvalue(state::NonlinearSolverState) = state.ȳ
 
 """
     initial_residual(state)
@@ -104,7 +104,7 @@ function initialize!(state::NonlinearSolverState{T}, x::AbstractVector{T}, y::Ab
     state.y .= y
     state.r₀ = l2norm(y)   # record the initial residual as the relative-convergence scale
     state.x̄ .= T(NaN)
-    state.ȳ .= T(NaN)
+    state.ȳ .= T(NaN)
     state.stalls = 0
     state.stallflag = false
     # The initial residual is also the first progress reference: a solve is measured against
@@ -269,7 +269,7 @@ needs_refresh(state::NonlinearSolverState) = state.stallflag || stall_number(sta
 """
     update!(state, x, y)
 
-Update `x̄`, `ȳ`, `x` and `y`.
+Update `x̄`, `ȳ`, `x` and `y`.
 
 # Examples
 
