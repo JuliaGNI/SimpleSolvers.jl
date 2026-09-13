@@ -22,6 +22,22 @@ headroom on both sides. It is deliberately conservative:
 a direction whose singular value is below it contributes less to the solution than it costs in
 amplified error.
 
+# `Float16`
+
+The eight orders above are a `Float64` statement. In `Float16` the default is `0.031`, and the
+margins around it are one order rather than eight:
+
+| | |
+|---|---|
+| the default, `sqrt(eps(Float16))` | `3.1e-2` |
+| what rounding a deficient matrix into `Float16` already perturbs a zero singular value to | `~1e-3 · σ₁` |
+| the orthogonality the [`SVDSolver`](@ref) sweeps reach | `~1e-4` |
+
+So the default still sits a factor of thirty above the floor the *input* imposes, which is a
+property of the data rather than of the algorithm and which no method can get under. It is
+usable, and it is not comfortable. Where the rank itself is the answer at this precision, pass
+an `rtol` and say why.
+
 There is no default that is right for every problem. A matrix with a genuinely decaying
 spectrum and no gap has no correct rank, and this number is then the whole answer — pass it
 explicitly and say why.
@@ -63,16 +79,31 @@ number carries that many degrees of freedom the residual cannot see.
 
 # How far it agrees with `LinearAlgebra.rank`
 
-For [`SVDSolver`](@ref) the two are the same computation — both count the singular values above
-`rtol * σ₁` — so they agree whenever the `rtol` does.
+For the two singular value decompositions the two are the same computation — both count the
+singular values above `rtol * σ₁` — so they agree whenever the `rtol` does.
 
-For [`PivotedQR`](@ref) they usually agree and are not guaranteed to. The moduli of the `R`
-diagonal only *bound* the singular values, so column pivoting can fail to expose a small one:
-on a `70 × 70` Kahan matrix with ``\\theta = 1.15`` this returns `70`, where both
-`LinearAlgebra.rank(A; rtol = sqrt(eps()))` and [`SVDSolver`](@ref) return `69`. The
-disagreement is not confined to the reported number — the solve inherits it, and on that matrix
-the `x` that comes back differs from the pseudoinverse solution by a relative `0.30`. Where the
-rank itself is the answer rather than a means to one, use [`SVDSolver`](@ref).
+For a pivoted `QR` they usually agree and are not guaranteed to. The moduli of the `R` diagonal
+only *bound* the singular values, so column pivoting can fail to expose a small one. The
+classical matrix on which it does is Kahan's, and the two pivoted `QR`s here do not fail on it
+alike:
+
+| `n` | ``\\theta`` | [`PivotedQR`](@ref) | [`LapackPivotedQR`](@ref) | either SVD, and `LinearAlgebra.rank` |
+|---:|---:|---:|---:|---:|
+| 50 | 1.15 | 49 | **50** | 49 |
+| 70 | 1.15 | 69 | **70** | 69 |
+| 90 | 1.15 | 89 | **90** | 89 |
+| 90 | 1.35 | 89 | **90** | 89 |
+
+The difference is the pivot search. [`LapackPivotedQR`](@ref) carries running column norms and
+downdates them, which is asymptotically cheaper and drifts; [`PivotedQR`](@ref) recomputes them
+exactly at every step and here keeps the pivot order that exposes the small direction. That is
+a result on one adversarial family and not a guarantee — the bound is still only a bound, and
+a matrix that defeats both exists. Where the rank itself is the answer rather than a means to
+one, ask an SVD.
+
+The disagreement is not confined to the reported number: the solve inherits it, and on the
+`70 × 70` matrix above the `x` [`LapackPivotedQR`](@ref) returns differs from the pseudoinverse
+solution by a relative `0.30`.
 """
 function LinearAlgebra.rank(lsolver::LinearSolver{
         T, LSM}) where {T, LSM <: RankRevealingMethod}
@@ -222,17 +253,130 @@ end
 
 Throw an `ArgumentError` naming `T` unless LAPACK provides it.
 
-Both [`RankRevealingMethod`](@ref)s are LAPACK-backed — `geqp3`/`tzrzf` and `gesdd` — so both
-are restricted to the same four element types as [`LapackLU`](@ref), and neither has a
-self-contained fallback the way [`LU`](@ref) is one for `getrf`.
+The gate of the two LAPACK-backed methods, [`LapackPivotedQR`](@ref) and
+[`LapackSVDSolver`](@ref), which are restricted to the same four element types as
+[`LapackLU`](@ref). Their pure-Julia counterparts [`PivotedQR`](@ref) and [`SVDSolver`](@ref)
+take any floating-point type and use [`_float_eltype_check`](@ref) instead — the same split
+[`LU`](@ref) and [`LapackLU`](@ref) have.
 """
 function _blas_eltype_check(::LSM, ::Type{T}) where {LSM <: RankRevealingMethod, T}
     T <: LinearAlgebra.BlasFloat || throw(ArgumentError(
         "$(nameof(LSM)) is restricted to the element types LAPACK provides, i.e. Float32, " *
-        "Float64, ComplexF32 and ComplexF64, but got $(T); there is no rank-revealing " *
-        "method here for other element types"))
+        "Float64, ComplexF32 and ComplexF64, but got $(T); drop the `Lapack` prefix for a " *
+        "method that factorizes any floating-point type in plain Julia"))
     nothing
 end
+
+"""
+    _float_eltype_check(method, T)
+
+Throw an `ArgumentError` naming `T` unless it is a floating-point type.
+
+The gate of the two pure-Julia methods, [`PivotedQR`](@ref) and [`SVDSolver`](@ref). It is the
+same contract [`lucache_eltype`](@ref) enforces for [`LU`](@ref), and for the same reason: a
+Householder reflector and a Jacobi rotation are both built out of square roots, which a
+`Rational` or an `Integer` does not have.
+"""
+function _float_eltype_check(::LSM, ::Type{T}) where {LSM <: RankRevealingMethod, T}
+    T <: AbstractFloat || T <: Complex{<:AbstractFloat} ||
+        throw(ArgumentError(
+            "$(nameof(LSM)) only supports floating-point element types (AbstractFloat or " *
+            "Complex{<:AbstractFloat}); got $(T). Convert the problem to a floating-point type " *
+            "first, e.g. `float.(A)`."))
+    nothing
+end
+
+"""
+    _prescale!(A) -> s
+
+Scale `A` in place by a power of two `s` chosen so that `maximum(abs, A) ≤ 1`, and return `s`.
+
+A power of two is exact in binary floating point, so this costs no accuracy whatsoever — it
+moves an exponent and leaves every mantissa alone. It exists for `Float16`, which overflows at
+`65504`: a column of entries in the hundreds has a sum of squares that does not fit, where the
+same column scaled below one cannot overflow for any `n` a linear solver will see. Every norm,
+dot product and reflector application in the two pure-Julia decompositions is safe because of
+this one pass, which is why none of them carries a scaling of its own.
+
+The caller undoes it: [`PivotedQR`](@ref) multiplies the solution by `s`, since the `x` that
+solves `sAx = b` is `1/s` times the one that solves `Ax = b`; [`SVDSolver`](@ref) divides the
+singular values, the left and right factors being unaffected by a scalar.
+"""
+function _prescale!(A::AbstractMatrix{T}) where {T}
+    RT = real(T)
+    m = maximum(abs, A; init = zero(RT))
+    (iszero(m) || !isfinite(m)) && return one(RT)
+    # A subnormal `m` — in `Float16` that is every entry below `6.1e-5` — asks for a factor
+    # larger than `RT` can hold, and an infinite `s` would turn the whole matrix into `Inf`.
+    # Capping the exponent keeps `s` finite, and `maximum(abs, A) ≤ 1` still holds because a
+    # capped `s` is `2^E` against an `m` below `2^-E`.
+    s = ldexp(one(RT), min(-exponent(m) - 1, exponent(floatmax(RT))))
+    isone(s) || (A .*= s)
+    s
+end
+
+"""
+    _accumulator(T)
+
+The type an inner product over a column is summed in: `Float32` for `Float16`, and `T` itself
+for everything else.
+
+`Float16` arithmetic rounds to eleven bits after *every* operation, so a dot product of `n`
+terms loses far more than the `eps(Float16)` a single one does. Measured on a random
+`13 × 13` matrix, the one-sided Jacobi sweep of [`SVDSolver`](@ref) cannot drive the relative
+off-diagonality below `3.1e-2` when the three inner products of a rotation are summed in
+`Float16` — which is `32 · eps(Float16)`, and coarser than
+`rank_tolerance(SVDSolver(), Float16)` itself. The singular values would then carry an error
+of the same size as the threshold deciding which of them are zero, and the method could not
+answer the question it exists for. Summing in `Float32` puts the floor back at
+`eps(Float16)`.
+
+Storage, results and the reported singular values stay in `T`. What widens is the running sum
+inside [`_acc_dot`](@ref) and [`_acc_norm`](@ref), and with it the rotation and reflector
+coefficients computed from them — one rounding per stored entry instead of `n`.
+"""
+_accumulator(::Type{Float16}) = Float32
+_accumulator(::Type{ComplexF16}) = ComplexF32
+_accumulator(::Type{T}) where {T} = T
+
+"""
+    _acc_dot(x, y)
+
+``x^* y``, summed in [`_accumulator`](@ref)`(eltype(x))` and returned in it.
+
+No scaling, unlike `LinearAlgebra.dot`: [`_prescale!`](@ref) has already brought every entry
+below one in modulus, so a sum of `n` products cannot overflow and only entries far below the
+level that could affect the result underflow.
+"""
+function _acc_dot(x::AbstractVector{T}, y::AbstractVector{T}) where {T}
+    AT = _accumulator(T)
+    s = zero(AT)
+    @inbounds for i in eachindex(x, y)
+        s += conj(AT(x[i])) * AT(y[i])
+    end
+    s
+end
+
+"""
+    _acc_norm(x)
+
+``\\lVert x \\rVert_2``, summed as [`_acc_dot`](@ref) does and returned in its real type.
+"""
+_acc_norm(x::AbstractVector) = sqrt(real(_acc_dot(x, x)))
+
+"""
+    singular_values(lsolver)
+
+The singular values of the matrix that was factorized, in non-increasing order.
+
+Defined for [`SVDSolver`](@ref) and [`LapackSVDSolver`](@ref). The array is the cache's own, so
+it is overwritten by the next [`factorize!`](@ref) — copy it if it has to outlive one.
+
+There is no counterpart for either pivoted `QR`: the moduli of an `R` diagonal bound the
+singular values but are not equal to them, and reporting them under this name would invite
+reading a spectrum off numbers that are not one.
+"""
+function singular_values end
 
 # LAPACK spells the adjoint 'C' and the transpose 'T', and for a real matrix only 'T' is
 # accepted — so the orthogonal factors of a complex decomposition have to be applied with the

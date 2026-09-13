@@ -119,9 +119,22 @@ end
     @test PivotedQR(; rtol = 1e-10) isa PivotedQR
     @test LinearSolver(PivotedQR(), Amat) isa LinearSolver
 
+    @test LapackPivotedQR() isa LapackPivotedQR
+    @test LapackPivotedQR(; rtol = 1e-10) isa LapackPivotedQR
+    @test LinearSolver(LapackPivotedQR(), Amat) isa LinearSolver
+
     @test SVDSolver() isa SVDSolver
     @test SVDSolver(; rtol = 1e-10) isa SVDSolver
     @test LinearSolver(SVDSolver(), Amat) isa LinearSolver
+
+    @test LapackSVDSolver() isa LapackSVDSolver
+    @test LapackSVDSolver(; rtol = 1e-10) isa LapackSVDSolver
+    @test LinearSolver(LapackSVDSolver(), Amat) isa LinearSolver
+
+    # The two pure-Julia methods reach an element type LAPACK does not have, which is why
+    # they exist.
+    @test LinearSolver(PivotedQR(), zeros(Float16, 3, 3)) isa LinearSolver
+    @test LinearSolver(SVDSolver(), zeros(Float16, 3, 3)) isa LinearSolver
 end
 
 @testset "$(rpad("Line searches", 80))" begin

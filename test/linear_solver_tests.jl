@@ -1,5 +1,5 @@
 using LinearAlgebra: LinearAlgebra, det, diag, ldiv!, I, SingularException, Diagonal, norm,
-                     nullspace, pinv, qr, rank
+                     nullspace, opnorm, pinv, qr, rank, triu
 using Random: Random
 using RecursiveFactorization: RecursiveFactorization
 using SparseArrays: SparseArrays, SparseMatrixCSC, sparse, spzeros, nnz, nonzeros,
@@ -865,11 +865,14 @@ function rank_deficient(T, n, r)
     U = Matrix(qr(randn(T, n, n)).Q)
     V = Matrix(qr(randn(T, n, n)).Q)
     s = zeros(real(T), n)
-    s[1:r] .= exp.(range(0, -3, length = r))
+    # `range` refuses a single point between two different endpoints, so rank one is spelled
+    # out rather than swept up by the decay
+    s[1:r] .= r == 1 ? one(real(T)) : exp.(range(0, -3, length = r))
     U * Diagonal(T.(s)) * V'
 end
 
-@testset "$(nameof(typeof(m)))" for m in (PivotedQR(), SVDSolver())
+@testset "$(nameof(typeof(m)))" for m in (PivotedQR(), LapackPivotedQR(), SVDSolver(),
+    LapackSVDSolver())
     # a rank-deficient CONSISTENT system: solved exactly, and with no null-space component
     for T in (Float64, Float32, ComplexF64, ComplexF32)
         tol = sqrt(eps(real(T)))
@@ -939,6 +942,13 @@ end
     aliased = copy(bf)
     @test ldiv!(aliased, factorize!(LinearSolver(m, Af), Af), aliased) ≈ xf
 
+    # and again on a rank-deficient matrix, which is a different code path: it is the branch
+    # where a complete orthogonal factorization applies its second factor back
+    bdef = A * randn(13)
+    aliased_def = copy(bdef)
+    @test ldiv!(aliased_def, factorize!(LinearSolver(m, A), A), aliased_def) ≈
+          ldiv!(zeros(13), factorize!(LinearSolver(m, A), A), bdef)
+
     # using the factorization before it exists is an error, not a zero vector — an
     # unfactorized cache has `rank = 0`, which `ldiv!` would otherwise read as "all null"
     fresh = LinearSolver(m, Af)
@@ -946,14 +956,254 @@ end
     @test_throws ArgumentError rank(fresh)
     @test_throws ArgumentError singular_index(fresh)
 
-    # a matrix of the wrong size, and one LAPACK does not know about, are both refused
+    # a matrix of the wrong size is refused; which element types are, differs by method and
+    # is the subject of its own testset below
     @test_throws DimensionMismatch factorize!(LinearSolver(m, Af), randn(2, 2))
     @test_throws DimensionMismatch LinearSolver(m, randn(3, 4))
-    @test_throws ArgumentError LinearSolverCache(m, [big(1.0) big(2.0); big(3.0) big(4.0)])
+end
+
+# The four methods are two algorithms times two kernels, and the kernel is what decides which
+# element types are available — exactly the split `LU` and `LapackLU` have.
+@testset "the pure-Julia methods take any floating-point type, the LAPACK ones do not" begin
+    for m in (PivotedQR(), SVDSolver())
+        for M in (zeros(Float16, 2, 2), zeros(ComplexF16, 2, 2), zeros(Float32, 2, 2),
+            [big(1.0) big(2.0); big(3.0) big(4.0)])
+            @test LinearSolverCache(m, M) isa LinearSolverCache{eltype(M)}
+        end
+        # a square root is what a reflector and a rotation are built out of, so an exact type
+        # is refused rather than silently promoted
+        @test_throws ArgumentError LinearSolverCache(m, [1//1 0//1; 0//1 1//1])
+        @test_throws ArgumentError LinearSolverCache(m, [1 0; 0 1])
+    end
+
+    for m in (LapackPivotedQR(), LapackSVDSolver())
+        @test LinearSolverCache(m, zeros(Float32, 2, 2)) isa LinearSolverCache{Float32}
+        for M in (zeros(Float16, 2, 2), [big(1.0) big(2.0); big(3.0) big(4.0)],
+            [1//1 0//1; 0//1 1//1])
+            @test_throws ArgumentError LinearSolverCache(m, M)
+        end
+    end
+end
+
+# The pure-Julia kernels are reimplementations, and every way one of them can be subtly wrong —
+# the conjugation in `Hᴴ = I - τ̄ v vᴴ`, the order the reflectors of `Q` go in against those of
+# `Z`, the phase a complex Jacobi rotation carries — shows up as a wrong answer on a complex
+# matrix and nowhere else. So the reference they are checked against is LAPACK, and the two
+# complex element types are the point of the sweep rather than extra coverage.
+@testset "the pure-Julia kernels agree with LAPACK" begin
+    for T in (Float64, Float32, ComplexF64, ComplexF32)
+        tol = 1000 * sqrt(eps(real(T)))
+        for (n, r) in ((13, 5), (16, 8), (13, 13), (9, 8), (20, 1), (4, 0), (1, 1))
+            A = rank_deficient(T, n, r)
+            b = A * randn(T, n)
+            for (generic, lapack) in ((PivotedQR(), LapackPivotedQR()),
+                (SVDSolver(), LapackSVDSolver()))
+                lg = factorize!(LinearSolver(generic, A), A)
+                ll = factorize!(LinearSolver(lapack, A), A)
+                @test rank(lg) == rank(ll)
+                @test ldiv!(zeros(T, n), lg, copy(b))≈ldiv!(zeros(T, n), ll, copy(b)) rtol=tol atol=tol
+            end
+        end
+    end
+end
+
+# What the two decompositions claim about themselves, rather than about the system they solve.
+# A `ldiv!` that is right can rest on factors that are not, and then the next element type or
+# the next shape is where it shows.
+@testset "the pure-Julia factorizations reconstruct their matrix" begin
+    for T in (Float64, ComplexF64, Float32, ComplexF32)
+        tol = 1000 * sqrt(eps(real(T)))
+        for (n, r) in ((13, 5), (16, 8), (11, 11), (6, 1))
+            A = rank_deficient(T, n, r)
+
+            c = SimpleSolvers.cache(factorize!(LinearSolver(PivotedQR(), A), A))
+            # Q, rebuilt from the reflectors the cache stores
+            Q = Matrix{T}(I, n, n)
+            for k in n:-1:1
+                SimpleSolvers._reflect!(view(c.A, k:n, k), c.tau[k], view(Q, k:n, :))
+            end
+            @test opnorm(Q' * Q - I) < tol
+            @test A[:, c.jpvt]≈(Q*triu(c.A)) ./ c.scale rtol=tol atol=tol
+            # Column pivoting is what makes the rank a leading run of the diagonal. The
+            # tolerance here is `eps`, not the loose `tol` the reconstructions use: after
+            # `_prescale!` the diagonal is bounded by one, so `1000 * sqrt(eps(Float32))` is
+            # `0.34` and would assert almost nothing.
+            d = [abs(c.A[i, i]) for i in 1:n]
+            @test all(d[i] ≥ d[i + 1] - 10 * eps(real(T)) for i in 1:(n - 1))
+
+            s = SimpleSolvers.cache(factorize!(LinearSolver(SVDSolver(), A), A))
+            @test s.A*Diagonal(T.(s.S))*s.V'≈A rtol=tol atol=tol
+            @test opnorm(s.V' * s.V - I) < tol
+            @test s.S≈LinearAlgebra.svdvals(A) rtol=tol atol=tol
+            # `U` is orthonormal only where the rank reaches: beyond it the columns are zeroed
+            # rather than completed into a basis, which `_decompose!` documents
+            rk = s.rank
+            rk == 0 || @test opnorm(view(s.A, :, 1:rk)' * view(s.A, :, 1:rk) - I) < tol
+        end
+    end
+end
+
+"""
+A `Float16` or `ComplexF16` matrix of numerical rank `r`, built in double precision and rounded.
+
+`rank_deficient` cannot build one directly — it calls `qr`, which LAPACK does not have for
+`Float16`. Rounding a double-precision matrix is also what the assertions want: the reference
+to compare a `Float16` answer against is the matrix that was actually factorized, not the exact
+one it came from.
+
+`decay` sets the spread of the retained spectrum, and the default here is flatter than
+`rank_deficient`'s. At `exp(-3)` the effective condition number is 20, which multiplied into
+`eps(Float16)` leaves an error bound so loose that it asserts nothing; at `exp(-1)` it is 2.7.
+"""
+function rank_deficient16(::Type{T}, n, r; decay = -1) where {T}
+    W = T === Float16 ? Float64 : ComplexF64
+    Random.seed!(4242)
+    U = Matrix(qr(randn(W, n, n)).Q)
+    V = Matrix(qr(randn(W, n, n)).Q)
+    s = zeros(Float64, n)
+    s[1:r] .= r == 1 ? [1.0] : exp.(range(0, decay, length = r))
+    T.(U * Diagonal(W.(s)) * V')
+end
+
+# The reason the two pure-Julia methods exist. `LU` factorizes `Float16` and neither
+# LAPACK-backed rank-revealing method can, and NonlinearIntegrators computes in it.
+#
+# Three claims, with three separately argued bounds rather than one tuned number. `eps(Float16)`
+# is `9.8e-4`, so every one of them is coarse in absolute terms and none of them is slack: the
+# measured values sit six to twenty times inside.
+@testset "Float16" begin
+    ε = eps(Float16)
+
+    for T in (Float16, ComplexF16), (n, r) in ((13, 5), (20, 8), (13, 13), (30, 10))
+
+        W = T === Float16 ? Float64 : ComplexF64
+        A = rank_deficient16(T, n, r)
+        Aw = W.(A)                                  # the reference: the *rounded* matrix
+        tol = sqrt(ε)
+
+        for m in (PivotedQR(), SVDSolver())
+            ls = factorize!(LinearSolver(m, A), A)
+
+            # the rank, which is what a rank-revealing method is for
+            @test rank(ls) == LinearAlgebra.rank(Aw; rtol = tol) == r
+
+            # backward stability, on a system consistent by construction. This is the claim
+            # that does not depend on the conditioning of the problem.
+            b = T.(Aw * randn(W, n))
+            x = ldiv!(zeros(T, n), ls, copy(b))
+            @test norm(Aw * W.(x) - W.(b)) ≤ 5 * n * ε * opnorm(Aw) * norm(x)
+
+            # and the answer itself, against double precision. The bound is `n · eps` times
+            # the effective condition number of the retained spectrum, which `decay = -1`
+            # holds at 2.7 — see `rank_deficient16`.
+            @test W.(x)≈pinv(Aw; rtol = tol)*W.(b) rtol=5*n*ε atol=5*n*ε
+        end
+
+        # the spectrum, absolutely and scaled by σ₁ — a *relative* bound per singular value is
+        # not something backward stability promises, and asserting one would be asserting luck
+        s = singular_values(factorize!(LinearSolver(SVDSolver(), A), A))
+        @test maximum(abs, s - LinearAlgebra.svdvals(Aw)) ≤ 20 * n * ε * s[1]
+    end
+
+    # the LAPACK pair cannot be reached at this element type at all, which is the gap
+    @test_throws ArgumentError LinearSolver(LapackPivotedQR(), zeros(Float16, 3, 3))
+    @test_throws ArgumentError LinearSolver(LapackSVDSolver(), zeros(Float16, 3, 3))
+
+    # a full-rank `Float16` system, against `LU` — the one other method here that reaches it
+    Af = Float16[4 5 -2; 7 -1 2; 3 1 4]
+    bf = Float16[-14, 42, 28]
+    xlu = solve(LU(), Af, bf)
+    for m in (PivotedQR(), SVDSolver())
+        @test solve(m, Af, bf) ≈ xlu rtol=20 * ε
+    end
+
+    # every entry subnormal, which is the case `_prescale!` has to cap its exponent for: the
+    # power of two that would bring the maximum to one is not representable, and an infinite
+    # factor turns the matrix into `Inf`, the rank into zero and the solution into zero
+    As = fill(Float16(1e-5), 2, 2)
+    @test issubnormal(maximum(abs, As))
+    for m in (PivotedQR(), SVDSolver())
+        @test rank(factorize!(LinearSolver(m, As), As)) == 1
+        @test solve(m, copy(As), Float16[1e-5, 1e-5]) ≈ Float16[0.5, 0.5] rtol=20 * ε
+    end
+end
+
+# The three inner products of a Jacobi rotation are summed in `Float32` for a `Float16` matrix,
+# and this is the measurement that says they have to be. Summed in `Float16`, the sweep cannot
+# drive the columns closer to orthogonal than 32 · eps — coarser than the rank tolerance that
+# then has to read a rank off them.
+@testset "the Float16 accumulator is load-bearing" begin
+    @test SimpleSolvers._accumulator(Float16) === Float32
+    @test SimpleSolvers._accumulator(ComplexF16) === ComplexF32
+    @test SimpleSolvers._accumulator(Float64) === Float64
+    @test SimpleSolvers._accumulator(BigFloat) === BigFloat
+
+    x = fill(Float16(0.01), 64)
+    @test SimpleSolvers._acc_dot(x, x) isa Float32
+    @test SimpleSolvers._acc_norm(x) isa Float32
+
+    # the whole claim, stated as a comparison rather than against a hand-computed constant:
+    # summing the same products in `Float16` is four orders of magnitude worse
+    exact = 64 * Float64(x[1])^2
+    naive = let s = Float16(0)
+        for xᵢ in x
+            s += xᵢ * xᵢ
+        end
+        s
+    end
+    @test abs(Float64(naive) - exact) >
+          100 * abs(Float64(SimpleSolvers._acc_dot(x, x)) - exact)
+end
+
+# Both are allocation-free, unlike either LAPACK-backed method, and unlike them that is a
+# property callers can rely on rather than a note about the wrapper. Three shapes, because
+# `PivotedQR` takes a different branch at each: the second factorization runs, is skipped at
+# full rank, and is skipped again on a numerically zero matrix.
+#
+# Unguarded, as the `LapackLU` and `RecursiveLU` allocation tests above are: these are scalar
+# loops over preallocated arrays with no closure whose escape analysis `--check-bounds=yes`
+# could change. `BigFloat` is excluded because its arithmetic allocates per operation.
+@testset "the pure-Julia factorizations allocate nothing" begin
+    for T in (Float64, Float32, Float16, ComplexF64, ComplexF16)
+        for (n, r) in ((30, 12), (30, 30), (6, 0))
+            M = T.(rank_deficient16(T <: Complex ? ComplexF16 : Float16, n, r))
+            rhs = rand(T, n)
+            z = zeros(T, n)
+            for m in (PivotedQR(), SVDSolver())
+                ls = LinearSolver(m, M)
+                factorize!(ls, M)                    # warm up both
+                ldiv!(z, ls, rhs)
+                @test (@allocated factorize!(ls, M)) == 0
+                @test (@allocated ldiv!(z, ls, rhs)) == 0
+            end
+        end
+    end
+end
+
+# A Jacobi sweep divides by a column norm and by |γ|, and the interesting inputs are the ones
+# where those are zero or equal — the cases a formula derived on a generic matrix skips over.
+@testset "the Jacobi sweep survives its degenerate inputs" begin
+    for T in (Float64, Float16, ComplexF64)
+        for (name, A) in (("zero", zeros(T, 5, 5)),
+            ("identity", Matrix{T}(I, 5, 5)),
+        # every pair has γ = 0 already, so no rotation may be attempted
+            ("repeated singular values", Matrix{T}(Diagonal(T[2, 2, 2, 1, 1]))),
+        # and here two columns are identical, so one of the pair is pure null space
+            ("duplicated columns", T[1 1 0; 2 2 0; 3 3 1]),
+            ("one by one", fill(T(3), 1, 1)),
+            ("six decades of spread", Matrix{T}(Diagonal(T[1e3, 1, 1e-3, 1e-6, 0]))))
+            n = size(A, 1)
+            ls = factorize!(LinearSolver(SVDSolver(), A), A)
+            x = ldiv!(zeros(T, n), ls, ones(T, n))
+            @test all(isfinite, x)
+            @test rank(ls) == LinearAlgebra.rank(Float64.(A); rtol = sqrt(eps(real(T))))
+            @test issorted(singular_values(ls); rev = true)
+        end
+    end
 end
 
 @testset "the rank tolerance is an option with a per-element-type default" begin
-    for M in (PivotedQR, SVDSolver)
+    for M in (PivotedQR, LapackPivotedQR, SVDSolver, LapackSVDSolver)
         # `missing` resolves from the element type; an explicit value is used as given
         @test rank_tolerance(M(), Float64) == sqrt(eps(Float64))
         @test rank_tolerance(M(), Float32) == sqrt(eps(Float32))
@@ -975,9 +1225,9 @@ end
     end
 end
 
-@testset "SVDSolver reports the spectrum" begin
+@testset "$(nameof(typeof(m))) reports the spectrum" for m in (SVDSolver(), LapackSVDSolver())
     A = rank_deficient(Float64, 13, 5)
-    ls = LinearSolver(SVDSolver(), A)
+    ls = LinearSolver(m, A)
     @test_throws ArgumentError singular_values(ls)
     factorize!(ls, A)
     s = singular_values(ls)
@@ -987,9 +1237,10 @@ end
     @test s[5] / s[1] > 1e-2
     @test s[6] / s[1] < 1e-10
 
-    # there is deliberately no such method for `PivotedQR`
-    @test_throws MethodError singular_values(factorize!(
-        LinearSolver(PivotedQR(), A), A))
+    # there is deliberately no such method for either pivoted QR
+    for q in (PivotedQR(), LapackPivotedQR())
+        @test_throws MethodError singular_values(factorize!(LinearSolver(q, A), A))
+    end
 end
 
 # The one matrix where the two methods disagree, and the reason `rank`'s docstring stops short
@@ -1003,14 +1254,14 @@ end
 # 6.2e5× *below* it, so neither assertion is a near-miss that a different LAPACK build could
 # tip. At the more obvious `n = 90, θ = 1.35` the QR margin is a factor of 2.2, which for a
 # package whose issue #98 is a BLAS-dependent rank is not enough to pin in a test.
-@testset "PivotedQR can miss the rank a Kahan matrix hides" begin
+@testset "LapackPivotedQR can miss the rank a Kahan matrix hides" begin
     n, θ = 70, 1.15
     c, s = cos(θ), sin(θ)
     A = [j == i ? s^(i - 1) : j > i ? -c * s^(i - 1) : 0.0 for i in 1:n, j in 1:n]
     tol = sqrt(eps(Float64))
 
-    qrls = factorize!(LinearSolver(PivotedQR(), A), copy(A))
-    svdls = factorize!(LinearSolver(SVDSolver(), A), copy(A))
+    qrls = factorize!(LinearSolver(LapackPivotedQR(), A), copy(A))
+    svdls = factorize!(LinearSolver(LapackSVDSolver(), A), copy(A))
 
     @test rank(svdls) == LinearAlgebra.rank(A; rtol = tol) == n - 1
     @test rank(qrls) == n           # the documented shortfall, not an accident
@@ -1020,6 +1271,20 @@ end
     xref = pinv(A; rtol = tol) * b
     @test ldiv!(zeros(n), svdls, copy(b)) ≈ xref rtol = 1e-6
     @test norm(ldiv!(zeros(n), qrls, copy(b)) - xref) / norm(xref) > 0.1
+
+    # The pure-Julia pivoted QR does *not* miss it, and that is the one place the two kernels
+    # give different answers rather than the same one at different speeds. `geqp3` carries
+    # running column norms and downdates them; `PivotedQR` recomputes them exactly at every
+    # step, and here the drift is what costs LAPACK the pivot order that exposes the small
+    # direction. Pinned across the band because `rank`'s docstring tabulates it.
+    for (m, θ) in ((50, 1.15), (70, 1.15), (90, 1.15), (90, 1.35))
+        cm, sm = cos(θ), sin(θ)
+        K = [j == i ? sm^(i - 1) : j > i ? -cm * sm^(i - 1) : 0.0 for i in 1:m, j in 1:m]
+        @test rank(factorize!(LinearSolver(PivotedQR(), K), K)) ==
+              rank(factorize!(LinearSolver(SVDSolver(), K), K)) ==
+              LinearAlgebra.rank(K; rtol = tol) == m - 1
+        @test rank(factorize!(LinearSolver(LapackPivotedQR(), K), K)) == m
+    end
 end
 
 # The shape of NonlinearIntegrators #98, reduced to two unknowns: a residual whose Jacobian is
@@ -1033,7 +1298,7 @@ end
         NonlinearProblem(Fdeg, zeros(2)), Newton(); verbosity = 0,
         linear_solver_method = LapackLU())
 
-    for lsm in (PivotedQR(), SVDSolver())
+    for lsm in (PivotedQR(), LapackPivotedQR(), SVDSolver(), LapackSVDSolver())
         for nlm in (Newton(), QuasiNewton(), DogLeg())
             x = [0.0, 0.0]
             solve!(x, NonlinearProblem(Fdeg, zeros(2)), nlm; verbosity = 0,
@@ -1042,6 +1307,24 @@ end
             Fdeg(y, x, nothing)
             @test maximum(abs, y) < 1e-12          # a root, ...
             @test x ≈ [0.5, 0.5]                   # ... and the minimum-norm one
+        end
+    end
+
+    # and the same in `Float16`, which is the reason the pure-Julia pair exists: LAPACK has no
+    # `Float16`, so the two `Lapack` methods cannot reach this problem at all
+    Fdeg16(y, x, params) = (y[1] = x[1] + x[2] - Float16(1);
+        y[2] = x[1] + x[2] - Float16(1);
+        y)
+
+    for lsm in (PivotedQR(), SVDSolver())
+        for nlm in (Newton(), QuasiNewton(), DogLeg())
+            x = Float16[0, 0]
+            solve!(x, NonlinearProblem(Fdeg16, zeros(Float16, 2)), nlm; verbosity = 0,
+                linear_solver_method = lsm)
+            y = zeros(Float16, 2)
+            Fdeg16(y, x, nothing)
+            @test maximum(abs, y) == 0
+            @test x == Float16[0.5, 0.5]
         end
     end
 

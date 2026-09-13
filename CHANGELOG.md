@@ -2,7 +2,7 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased]
+## [Unreleased] — targeting 0.14.0
 
 ### Changed
 
@@ -17,6 +17,48 @@ All notable changes to SimpleSolvers.jl are documented here.
   Both files carry doctests, and no changed line falls inside a doctest block; the doctests contain
   no barred name at all. `x̄` has no precomposed codepoint and could not have changed either way;
   `ȳ` and `Ā` do have one, and they are what recomposed.
+
+### Breaking Changes
+
+Code that passed `PivotedQR()` or `SVDSolver()` still compiles and still returns the minimum-norm solution, but now runs the pure-Julia kernel, which is slower on the four LAPACK element types. Callers who want the LAPACK kernel add the `Lapack` prefix. Both names were introduced one release ago, so the blast radius is small.
+
+### Added
+
+**Two new pure-Julia rank-revealing linear solvers.**
+
+Version 0.13.3 added `PivotedQR` and `SVDSolver`, both LAPACK-backed and both restricted to `Float32`/`Float64`/`ComplexF32`/`ComplexF64`. NonlinearIntegrators computes in `Float16`, which LAPACK does not have, so neither was reachable from that work. `LU` already covered `Float16` because it is written in plain Julia loops; QR and SVD had no counterpart.
+
+The naming now mirrors `LU`/`LapackLU` exactly — the plain name is the self-contained Julia implementation, the `Lapack` prefix delegates:
+
+| method | kernel | element types |
+|---|---|---|
+| `PivotedQR` | pure Julia Businger–Golub QR plus a second QR for the complete orthogonal step | any `AbstractFloat` or `Complex{<:AbstractFloat}` |
+| `LapackPivotedQR` | `geqp3` + `tzrzf` — this is 0.13.3's `PivotedQR`, renamed | `BlasFloat` |
+| `SVDSolver` | pure Julia one-sided Jacobi | any `AbstractFloat` or `Complex{<:AbstractFloat}` |
+| `LapackSVDSolver` | `gesdd` — this is 0.13.3's `SVDSolver`, renamed | `BlasFloat` |
+
+See **Breaking Changes** above for the impact on existing code that uses `PivotedQR()` or `SVDSolver()`.
+
+**What a caller gets that they did not have:**
+
+1. **`Float16` and `BigFloat` rank-deficient systems are solvable.** A `Float16` Newton solve with a rank-deficient Jacobian now converges to the minimum-norm root through `Newton`, `QuasiNewton` and `DogLeg`. Verified in the test suite. A correctness issue discovered during this work: `SimpleSolvers._prescale!` overflowed to `Inf` when the largest entry of the matrix was subnormal — in `Float16` that is any entry below `6.1e-5`. The matrix became `Inf`, the rank read as zero, and `ldiv!` returned a zero vector with no error at all. The exponent is now capped, and a subnormal `Float16` matrix is covered by the test suite.
+
+2. **Both new methods are allocation-free in `factorize!` AND `ldiv!`**, for any `isbitstype` element type. Neither LAPACK-backed method is: their Julia wrappers allocate their own factors and workspace, and `ormrz` alone asks for 98496 bytes on every `LapackPivotedQR` solve. `BigFloat` is excluded — its arithmetic allocates per operation.
+
+3. **`PivotedQR` reports the rank a Kahan matrix hides, where `LapackPivotedQR` does not.** Measured, reproducible, and now tabulated in `rank`'s docstring:
+
+   | n | θ | `PivotedQR` | `LapackPivotedQR` | either SVD, and `LinearAlgebra.rank` |
+   |---|---|---|---|---|
+   | 50 | 1.15 | 49 | 50 | 49 |
+   | 70 | 1.15 | 69 | 70 | 69 |
+   | 90 | 1.15 | 89 | 90 | 89 |
+   | 90 | 1.35 | 89 | 90 | 89 |
+
+   The cause is the pivot search. `geqp3` carries running column norms and downdates them; `PivotedQR` recomputes them exactly at every step, which costs a constant factor and here keeps the pivot order that exposes the small direction. It is a result on one adversarial family, not a guarantee.
+
+**One caveat worth stating for `Float16`:** the inner products of a Jacobi rotation are summed in `Float32` for a `Float16` matrix. Summed in `Float16`, the sweep cannot drive the columns closer to orthogonal than `32 · eps(Float16)` — coarser than `rank_tolerance(SVDSolver(), Float16)` itself, i.e. the singular values would carry an error the size of the threshold deciding which of them are zero. Storage, results and the reported singular values stay in `Float16`. `rank_tolerance`'s docstring gained a `Float16` section: the default `sqrt(eps(Float16))` is `0.031` and the margins around it are one order rather than the eight a `Float64` caller has.
+
+**Unchanged:** `default_linear_solver_method` still never returns a rank-revealing method — that remains a deliberate decision, documented in its docstring. No new dependency: GenericLinearAlgebra was read as a reference only.
 
 ## [0.13.3]
 

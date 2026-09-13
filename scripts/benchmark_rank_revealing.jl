@@ -1,12 +1,15 @@
-# Cost and allocation of the two RankRevealingMethods against LapackLU.
+# Cost and allocation of the four RankRevealingMethods against LapackLU.
 #
-# This is the script behind the tables in the `PivotedQR` and `SVDSolver` docstrings and in
-# `docs/src/linear/linear_solvers.md`. Run it on the machine whose numbers are being quoted:
+# This is the script behind the tables in the `LapackPivotedQR` and `LapackSVDSolver`
+# docstrings and in `docs/src/linear/linear_solvers.md`, and behind the claim that the two
+# pure-Julia methods allocate nothing where the two LAPACK-backed ones do. Run it on the
+# machine whose numbers are being quoted:
 #
 #     julia --startup-file=no --project=. scripts/benchmark_rank_revealing.jl
 #
 # The matrices are rank deficient by construction, at rank ⌊n/2⌋ — the case these methods
-# exist for, and the one where `PivotedQR` does its `tzrzf` step and `LapackLU` would throw.
+# exist for, the one where the complete orthogonal factorization does its second step, and
+# the one where `LapackLU` would throw.
 # `LapackLU` is therefore timed on a *full-rank* matrix of the same size: it has no answer for
 # the deficient one, so its row is a scale rather than a comparison.
 #
@@ -73,6 +76,8 @@ for n in (13, 40, 128, 384)
     Afull = rank_deficient(T, n, n)
 
     for (method, A, label) in ((LapackLU(), Afull, "LapackLU*"),
+        (LapackPivotedQR(), Adef, "LapackPivotedQR"),
+        (LapackSVDSolver(), Adef, "LapackSVDSolver"),
         (PivotedQR(), Adef, "PivotedQR"),
         (SVDSolver(), Adef, "SVDSolver"))
         tf, af, tl, al = measure(method, A, b)

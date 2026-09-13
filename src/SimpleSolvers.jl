@@ -69,7 +69,7 @@ export check_jacobian,
 include("base/jacobian.jl")
 
 export LinearProblem, LinearSolver, LU, LapackLU, RecursiveLU, UmfpackLU, SparspakLU,
-       PivotedQR, SVDSolver, factorize!, linearproblem
+       PivotedQR, LapackPivotedQR, SVDSolver, LapackSVDSolver, factorize!, linearproblem
 
 include("linear/linear_problem.jl")
 include("linear/linear_solver_method.jl")
@@ -80,7 +80,9 @@ include("linear/pivoted_lu.jl")
 include("linear/lapack_lu_solver.jl")
 include("linear/rank_revealing.jl")
 include("linear/pivoted_qr_solver.jl")
+include("linear/lapack_pivoted_qr_solver.jl")
 include("linear/svd_solver.jl")
+include("linear/lapack_svd_solver.jl")
 include("linear/recursive_lu_solver.jl")
 include("linear/sparse_direct.jl")
 include("linear/umfpack_lu_solver.jl")
