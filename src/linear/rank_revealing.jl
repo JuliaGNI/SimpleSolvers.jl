@@ -87,12 +87,10 @@ only *bound* the singular values, so column pivoting can fail to expose a small 
 classical matrix on which it does is Kahan's, and the two pivoted `QR`s here do not fail on it
 alike:
 
-| `n` | ``\\theta`` | [`PivotedQR`](@ref) | [`LapackPivotedQR`](@ref) | either SVD, and `LinearAlgebra.rank` |
-|---:|---:|---:|---:|---:|
-| 50 | 1.15 | 49 | **50** | 49 |
-| 70 | 1.15 | 69 | **70** | 69 |
-| 90 | 1.15 | 89 | **90** | 89 |
-| 90 | 1.35 | 89 | **90** | 89 |
+| `n` | ``\\theta`` | [`PivotedQR`](@ref) | [`LapackPivotedQR`](@ref) | either SVD, and `LinearAlgebra.rank` | margin |
+|---:|---:|---:|---:|---:|---:|
+| 70 | 1.15 | 69 | **70** | 69 | ``2\\cdot10^4`` |
+| 90 | 1.15 | 89 | **90** | 89 | ``10^8`` |
 
 The difference is the pivot search. [`LapackPivotedQR`](@ref) carries running column norms and
 downdates them, which is asymptotically cheaper and drifts; [`PivotedQR`](@ref) recomputes them
@@ -100,6 +98,13 @@ exactly at every step and here keeps the pivot order that exposes the small dire
 a result on one adversarial family and not a guarantee — the bound is still only a bound, and
 a matrix that defeats both exists. Where the rank itself is the answer rather than a means to
 one, ask an SVD.
+
+The last column is how far the smallest ``|R_{ii}|`` sits below the tolerance, and it is what
+decides whether a row means anything. The effect is visible over a much wider band of `n` and
+``\\theta`` than these two rows, but most of that band is a near miss: at ``n = 90``,
+``\\theta = 1.35`` the margin is `1.2`, and a factor of `1.2` is a rounding difference between
+two Julia versions rather than a property of the algorithm. Only a row that clears the
+tolerance by orders is worth quoting, and only those two are pinned in the test suite.
 
 The disagreement is not confined to the reported number: the solve inherits it, and on the
 `70 × 70` matrix above the `x` [`LapackPivotedQR`](@ref) returns differs from the pseudoinverse
@@ -171,6 +176,10 @@ later: a deficient rank is an answer, not a failure. Read it with [`rank`](@ref)
 function factorize!(lsolver::LinearSolver{T, LSM}) where {T, LSM <: RankRevealingMethod}
     c = cache(lsolver)
     Base.require_one_based_indexing(c.A)
+    # cleared first, so that a `_decompose!` that throws — the Jacobi sweep cap is one way —
+    # leaves the cache unusable rather than holding the previous matrix's rank and factors
+    # behind a `factorized` flag that is still true.
+    c.factorized = false
     _decompose!(method(lsolver), c)
     c.factorized = true
     lsolver
@@ -291,16 +300,24 @@ end
 
 Scale `A` in place by a power of two `s` chosen so that `maximum(abs, A) ≤ 1`, and return `s`.
 
-A power of two is exact in binary floating point, so this costs no accuracy whatsoever — it
-moves an exponent and leaves every mantissa alone. It exists for `Float16`, which overflows at
-`65504`: a column of entries in the hundreds has a sum of squares that does not fit, where the
-same column scaled below one cannot overflow for any `n` a linear solver will see. Every norm,
-dot product and reflector application in the two pure-Julia decompositions is safe because of
-this one pass, which is why none of them carries a scaling of its own.
+A power of two moves an exponent and leaves every mantissa alone, so scaling up is exact and
+scaling down is exact for every entry that stays normal. It exists for `Float16`, which
+overflows at `65504`: a column of entries in the hundreds has a sum of squares that does not
+fit, where the same column scaled below one cannot overflow for any `n` a linear solver will
+see. Every norm, dot product and reflector application in the two pure-Julia decompositions is
+safe because of this one pass, which is why none of them carries a scaling of its own.
 
-The caller undoes it: [`PivotedQR`](@ref) multiplies the solution by `s`, since the `x` that
-solves `sAx = b` is `1/s` times the one that solves `Ax = b`; [`SVDSolver`](@ref) divides the
-singular values, the left and right factors being unaffected by a scalar.
+The exception is scaling down far enough to drive entries subnormal, which in `Float16` starts
+at a spread of about `2^11`: those entries do lose mantissa bits, and below `6.1e-5` relative
+they flush to zero. Both methods read a rank off a threshold relative to the largest `R`
+diagonal or singular value, and that threshold sits far above the subnormal range, so what is
+lost is already below the resolution either method reports.
+
+Both callers undo it by scaling the solution rather than the factors, since the `x` that
+solves `sAx = b` is `1/s` times the one that solves `Ax = b`. [`PivotedQR`](@ref) multiplies
+`c.y` on its way into `x`; [`SVDSolver`](@ref) divides by `S * s` and multiplies `x` at the
+end, which keeps the quotient from overflowing for a matrix small enough that `s` is large.
+`S` itself is stored unscaled, so [`singular_values`](@ref) needs no correction.
 """
 function _prescale!(A::AbstractMatrix{T}) where {T}
     RT = real(T)

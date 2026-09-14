@@ -152,10 +152,10 @@ catch e
 end
 ```
 
-Both new methods determine a *numerical rank* as they factorize, at a relative tolerance that
-is theirs to carry — `SimpleSolvers.rank_tolerance` documents the default and why it is looser
-than `LinearAlgebra.rank`'s. `LinearAlgebra.rank` reads it back off the factorization, and
-[`SVDSolver`](@ref) additionally hands back the spectrum it was read from:
+Every rank-revealing method determines a *numerical rank* as it factorizes, at a relative
+tolerance that is theirs to carry — `SimpleSolvers.rank_tolerance` documents the default and
+why it is looser than `LinearAlgebra.rank`'s. `LinearAlgebra.rank` reads it back off the
+factorization, and [`SVDSolver`](@ref) additionally hands back the spectrum it was read from:
 
 ```@example linear_system
 using LinearAlgebra: rank
@@ -200,8 +200,8 @@ At `Float16` the rank tolerance deserves a second look before it is trusted: the
 there is around it. All four are restricted to square matrices.
 
 !!! warning "Opt in, and only where the deficiency is real"
-    Neither method is ever chosen by `SimpleSolvers.default_linear_solver_method`, and that is
-    deliberate. For almost every caller a singular matrix is a bug, and the exception is how
+    None of the four is ever chosen by `SimpleSolvers.default_linear_solver_method`, and that
+    is deliberate. For almost every caller a singular matrix is a bug, and the exception is how
     they find out about it. A minimum-norm step returned by default would replace that report
     with a plausible-looking wrong answer, on exactly the problems where it matters most. Pass
     one as `linear_solver_method` where you have established that the null space belongs to

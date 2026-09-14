@@ -41,24 +41,28 @@ See **Breaking Changes** above for the impact on existing code that uses `Pivote
 
 **What a caller gets that they did not have:**
 
-1. **`Float16` and `BigFloat` rank-deficient systems are solvable.** A `Float16` Newton solve with a rank-deficient Jacobian now converges to the minimum-norm root through `Newton`, `QuasiNewton` and `DogLeg`. Verified in the test suite. A correctness issue discovered during this work: `SimpleSolvers._prescale!` overflowed to `Inf` when the largest entry of the matrix was subnormal — in `Float16` that is any entry below `6.1e-5`. The matrix became `Inf`, the rank read as zero, and `ldiv!` returned a zero vector with no error at all. The exponent is now capped, and a subnormal `Float16` matrix is covered by the test suite.
+1. **`Float16` and `BigFloat` rank-deficient systems are solvable.** A `Float16` Newton solve with a rank-deficient Jacobian now converges to the minimum-norm root through `Newton`, `QuasiNewton` and `DogLeg`. Verified in the test suite. Both methods prescale the matrix by a power of two before factorizing, which is what keeps every norm and dot product below `Float16`'s overflow at `65504`; the solution carries the factor back. A matrix whose entries are all subnormal, and one small enough that the reciprocal of a singular value overflows while the solution itself is representable, are both covered by the test suite.
 
 2. **Both new methods are allocation-free in `factorize!` AND `ldiv!`**, for any `isbitstype` element type. Neither LAPACK-backed method is: their Julia wrappers allocate their own factors and workspace, and `ormrz` alone asks for 98496 bytes on every `LapackPivotedQR` solve. `BigFloat` is excluded — its arithmetic allocates per operation.
 
 3. **`PivotedQR` reports the rank a Kahan matrix hides, where `LapackPivotedQR` does not.** Measured, reproducible, and now tabulated in `rank`'s docstring:
 
-   | n | θ | `PivotedQR` | `LapackPivotedQR` | either SVD, and `LinearAlgebra.rank` |
-   |---|---|---|---|---|
-   | 50 | 1.15 | 49 | 50 | 49 |
-   | 70 | 1.15 | 69 | 70 | 69 |
-   | 90 | 1.15 | 89 | 90 | 89 |
-   | 90 | 1.35 | 89 | 90 | 89 |
+   | n | θ | `PivotedQR` | `LapackPivotedQR` | either SVD, and `LinearAlgebra.rank` | margin |
+   |---|---|---|---|---|---|
+   | 70 | 1.15 | 69 | 70 | 69 | 2·10⁴ |
+   | 90 | 1.15 | 89 | 90 | 89 | 10⁸ |
 
    The cause is the pivot search. `geqp3` carries running column norms and downdates them; `PivotedQR` recomputes them exactly at every step, which costs a constant factor and here keeps the pivot order that exposes the small direction. It is a result on one adversarial family, not a guarantee.
+
+   The margin is how far the smallest `|R_ii|` sits below the tolerance, and it is what makes a row worth quoting. The effect is visible over a much wider band of `n` and `θ`, but most of that band is a near miss — at `n = 90`, `θ = 1.35` the margin is `1.2`, which is a rounding difference between two Julia versions rather than a property of the algorithm. Only these two rows are pinned in the test suite.
 
 **One caveat worth stating for `Float16`:** the inner products of a Jacobi rotation are summed in `Float32` for a `Float16` matrix. Summed in `Float16`, the sweep cannot drive the columns closer to orthogonal than `32 · eps(Float16)` — coarser than `rank_tolerance(SVDSolver(), Float16)` itself, i.e. the singular values would carry an error the size of the threshold deciding which of them are zero. Storage, results and the reported singular values stay in `Float16`. `rank_tolerance`'s docstring gained a `Float16` section: the default `sqrt(eps(Float16))` is `0.031` and the margins around it are one order rather than the eight a `Float64` caller has.
 
 **Unchanged:** `default_linear_solver_method` still never returns a rank-revealing method — that remains a deliberate decision, documented in its docstring. No new dependency: GenericLinearAlgebra was read as a reference only.
+
+### Fixed
+
+`factorize!` on a rank-revealing solver now clears the cache's `factorized` flag before it decomposes, not only after. Previously a `factorize!` that threw on its second or later call left the flag set from the first, so `rank`, `singular_values` and `ldiv!` went on answering for the matrix before it, with no indication that the factorization they describe had failed. Present since these methods arrived in 0.13.3; this release adds a new way to reach it, since the one-sided Jacobi sweep in `SVDSolver` raises when it does not converge.
 
 ## [0.13.3]
 

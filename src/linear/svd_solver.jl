@@ -110,8 +110,14 @@ The cache of an [`SVDSolver`](@ref).
 - `S`: the singular values, non-increasing, and real even for a complex matrix,
 - `y`: an `n`-vector holding ``U^* b`` while it is scaled, so that [`ldiv!`](@ref) allocates
   nothing and tolerates `x === b`,
+- `scale`: the power of two [`_prescale!`](@ref) multiplied the matrix by,
 - `rank`: the numerical rank [`factorize!`](@ref) found,
 - `factorized`: whether [`factorize!`](@ref) has run at all, which `rank == 0` cannot express.
+
+`S` holds the singular values of the matrix the caller passed, not of the scaled one, so
+[`singular_values`](@ref) needs no correction. [`ldiv!`](@ref) divides by `S * scale` instead
+and applies `scale` to the solution, which keeps the quotient in the range the scaling was
+chosen to make safe — see [`_prescale!`](@ref).
 
 There is no `U` field, and that is the point of the algorithm rather than an omission: a
 one-sided Jacobi sweep rotates the columns of `A` in place, leaving ``\\sigma_j u_j`` in column
@@ -128,6 +134,7 @@ mutable struct SVDCache{T, RT <: Real, AT <: AbstractMatrix{T}} <: LinearSolverC
     V::Matrix{T}
     S::Vector{RT}
     y::Vector{T}
+    scale::RT
     rank::Int
     factorized::Bool
 end
@@ -136,8 +143,8 @@ function LinearSolverCache(method::SVDSolver, A::AbstractMatrix{T}) where {T}
     _float_eltype_check(method, T)
     n = checksquare(A)
     Ā = Matrix{T}(A)
-    SVDCache{T, real(T), typeof(Ā)}(Ā, zeros(T, n, n), zeros(real(T), n), zeros(T, n), 0,
-        false)
+    SVDCache{T, real(T), typeof(Ā)}(Ā, zeros(T, n, n), zeros(real(T), n), zeros(T, n),
+        one(real(T)), 0, false)
 end
 
 """
@@ -277,7 +284,7 @@ about when comparing the two caches directly.
 """
 function _decompose!(method::SVDSolver, c::SVDCache{T, RT}) where {T, RT}
     n = size(c.A, 1)
-    scale = _prescale!(c.A)
+    scale = c.scale = _prescale!(c.A)
 
     fill!(c.V, zero(T))
     @inbounds for i in 1:n
@@ -350,10 +357,19 @@ function LinearAlgebra.ldiv!(x::AbstractVector{T}, lsolver::LinearSolver{T, LSM}
     # of the minimum-norm property: those are the coordinates along the null space, and
     # dividing by a singular value that is rounding noise is what produced the enormous steps
     # this method exists to avoid.
+    #
+    # `c.S` holds the singular values of the caller's matrix, so `c.S * c.scale` recovers those
+    # of the scaled one — exactly, `c.scale` being a power of two. Dividing by those instead
+    # keeps the quotient below `‖b‖ √n / rank_tolerance`, where dividing by `c.S` directly
+    # overflows for a matrix small enough that `c.scale` is large: in `Float16` the quotient
+    # can exceed `floatmax` while the solution itself is representable.
     for i in 1:n
-        c.y[i] = i ≤ r ? c.y[i] / c.S[i] : zero(T)
+        c.y[i] = i ≤ r ? c.y[i] / (c.S[i] * c.scale) : zero(T)
     end
 
+    # and `x` carries the factor the division no longer does, as it does for `PivotedQR`: the
+    # `x` that solves `sAx = b` is `1/s` times the one that solves `Ax = b`.
     mul!(x, c.V, c.y)
+    isone(c.scale) || (x .*= c.scale)
     x
 end

@@ -1057,7 +1057,9 @@ one it came from.
 """
 function rank_deficient16(::Type{T}, n, r; decay = -1) where {T}
     W = T === Float16 ? Float64 : ComplexF64
-    Random.seed!(4242)
+    # the shape goes into the seed, so each `(n, r)` in a sweep draws its own stream and the
+    # `randn` a caller takes afterwards is not the same one every time
+    Random.seed!(4242 + 1000n + r)
     U = Matrix(qr(randn(W, n, n)).Q)
     V = Matrix(qr(randn(W, n, n)).Q)
     s = zeros(Float64, n)
@@ -1126,6 +1128,50 @@ end
         @test rank(factorize!(LinearSolver(m, As), As)) == 1
         @test solve(m, copy(As), Float16[1e-5, 1e-5]) ≈ Float16[0.5, 0.5] rtol=20 * ε
     end
+
+    # the same matrix against a right-hand side of ones, where the reciprocal of the one
+    # non-zero singular value overflows `Float16` although the solution does not: the exact
+    # minimum-norm `x` is 4.99e4 against a `floatmax` of 6.55e4. `SVDSolver` divides by the
+    # singular values of the *scaled* matrix and scales `x` afterwards for this reason; the
+    # sum of the two entries is what the rank-one system actually determines.
+    xref = Float64(1) / (2 * Float64(As[1, 1]))
+    for m in (PivotedQR(), SVDSolver())
+        x = solve(m, copy(As), Float16[1, 1])
+        @test all(isfinite, x)
+        @test sum(Float64.(x)) ≈ 2 * xref rtol=20 * ε
+    end
+end
+
+# `factorize!` clears `factorized` before it decomposes, so a decomposition that throws leaves
+# the cache unusable rather than answering for the matrix before it.
+#
+# The one throw site in a real `_decompose!` is the Jacobi sweep cap, and no constructible
+# matrix reaches it — a non-finite entry stops the sweep rather than prolonging it, and the
+# worst conditioning tried here converges in eight of the thirty. So the contract is asserted
+# against a method that decomposes normally and then fails on demand.
+struct ThrowingRankRevealing <: SimpleSolvers.RankRevealingMethod{Missing} end
+
+function SimpleSolvers.LinearSolverCache(::ThrowingRankRevealing, A::AbstractMatrix)
+    SimpleSolvers.LinearSolverCache(SVDSolver(), A)
+end
+
+function SimpleSolvers._decompose!(::ThrowingRankRevealing, c::SimpleSolvers.SVDCache)
+    any(isnan, c.A) && error("this decomposition fails on demand")
+    SimpleSolvers._decompose!(SVDSolver(), c)
+end
+
+@testset "a failed refactorization invalidates the cache" begin
+    ls = LinearSolver(ThrowingRankRevealing(), zeros(2, 2))
+    factorize!(ls, [2.0 0.0; 0.0 3.0])
+    @test SimpleSolvers.cache(ls).factorized
+    @test rank(ls) == 2
+
+    @test_throws ErrorException factorize!(ls, [NaN 0.0; 0.0 3.0])
+
+    # `checkfactorized` is what every reader goes through, so clearing the flag is what stops
+    # `rank`, `singular_values` and `ldiv!` answering for the matrix before it
+    @test !SimpleSolvers.cache(ls).factorized
+    @test_throws ArgumentError rank(ls)
 end
 
 # The three inner products of a Jacobi rotation are summed in `Float32` for a `Float16` matrix,
@@ -1252,7 +1298,7 @@ end
 # `n = 70, θ = 1.15` is chosen for margin, not for the effect — which is visible over a wide
 # band of both. Here min|R_ii|/max|R_ii| sits 1.2e5× *above* the tolerance and σ_min/σ_1 sits
 # 6.2e5× *below* it, so neither assertion is a near-miss that a different LAPACK build could
-# tip. At the more obvious `n = 90, θ = 1.35` the QR margin is a factor of 2.2, which for a
+# tip. At the more obvious `n = 90, θ = 1.35` the QR margin is a factor of 1.2, which for a
 # package whose issue #98 is a BLAS-dependent rank is not enough to pin in a test.
 @testset "LapackPivotedQR can miss the rank a Kahan matrix hides" begin
     n, θ = 70, 1.15
@@ -1276,8 +1322,14 @@ end
     # give different answers rather than the same one at different speeds. `geqp3` carries
     # running column norms and downdates them; `PivotedQR` recomputes them exactly at every
     # step, and here the drift is what costs LAPACK the pivot order that exposes the small
-    # direction. Pinned across the band because `rank`'s docstring tabulates it.
-    for (m, θ) in ((50, 1.15), (70, 1.15), (90, 1.15), (90, 1.35))
+    # direction. Pinned because `rank`'s docstring tabulates these two rows.
+    #
+    # Only two, for the reason the paragraph above gives. The effect is visible over a wide
+    # band, but the margin — how far min|R_ii| sits below the tolerance — collapses over most
+    # of it: 1.2 at (90, 1.35) and 3.5 at (50, 1.15), against 2e4 here and 1e8 at (90, 1.15).
+    # A factor of 1.2 is a rounding difference between two Julia versions, and pinning it
+    # asserts the version rather than the algorithm.
+    for (m, θ) in ((70, 1.15), (90, 1.15))
         cm, sm = cos(θ), sin(θ)
         K = [j == i ? sm^(i - 1) : j > i ? -cm * sm^(i - 1) : 0.0 for i in 1:m, j in 1:m]
         @test rank(factorize!(LinearSolver(PivotedQR(), K), K)) ==
