@@ -152,10 +152,10 @@ catch e
 end
 ```
 
-Both new methods determine a *numerical rank* as they factorize, at a relative tolerance that
-is theirs to carry — `SimpleSolvers.rank_tolerance` documents the default and why it is looser
-than `LinearAlgebra.rank`'s. `LinearAlgebra.rank` reads it back off the factorization, and
-[`SVDSolver`](@ref) additionally hands back the spectrum it was read from:
+Every rank-revealing method determines a *numerical rank* as it factorizes, at a relative
+tolerance that is theirs to carry — `SimpleSolvers.rank_tolerance` documents the default and
+why it is looser than `LinearAlgebra.rank`'s. `LinearAlgebra.rank` reads it back off the
+factorization, and [`SVDSolver`](@ref) additionally hands back the spectrum it was read from:
 
 ```@example linear_system
 using LinearAlgebra: rank
@@ -171,13 +171,37 @@ smoothly* is ill-conditioned, has no correct rank, and truncating it is a modell
 rather than a numerical one.
 
 Which of the two to use follows the ratio of solves to factorizations rather than the size of
-the matrix — [`PivotedQR`](@ref) has the cheaper factorization and the more expensive solve,
-[`SVDSolver`](@ref) the reverse — and the measured table is in [`PivotedQR`](@ref)'s docstring.
-Both are restricted to LAPACK's four element types and to square matrices.
+the matrix — a complete orthogonal factorization has the cheaper factorization and the more
+expensive solve, a singular value decomposition the reverse — and the measured table is in
+[`LapackPivotedQR`](@ref)'s docstring.
+
+Each comes in two kernels, exactly as [`LU`](@ref) and [`LapackLU`](@ref) do:
+
+| | pure Julia | LAPACK |
+|---|---|---|
+| complete orthogonal | [`PivotedQR`](@ref) | [`LapackPivotedQR`](@ref) |
+| singular value decomposition | [`SVDSolver`](@ref) | [`LapackSVDSolver`](@ref) |
+
+The `Lapack` pair is faster and restricted to `Float32`, `Float64`, `ComplexF32` and
+`ComplexF64`. The other two are written in plain Julia and take **any floating-point element
+type**, which is what makes a rank-deficient system in `Float16` or `BigFloat` solvable at all:
+
+```@example linear_system
+A16 = Float16[1 2; 2 4]          # rank 1, and LAPACK has no Float16
+solve(SVDSolver(), A16, Float16[1, 2])
+```
+
+They are also the allocation-free pair. LAPACK's Julia wrappers allocate their own factors and
+workspace on every call — `ormrz` alone asks for 98496 bytes per solve — where the pure-Julia
+caches are written once at construction and only written into thereafter.
+
+At `Float16` the rank tolerance deserves a second look before it is trusted: the default
+`sqrt(eps(Float16))` is `0.031`, and `SimpleSolvers.rank_tolerance` sets out how much room
+there is around it. All four are restricted to square matrices.
 
 !!! warning "Opt in, and only where the deficiency is real"
-    Neither method is ever chosen by `SimpleSolvers.default_linear_solver_method`, and that is
-    deliberate. For almost every caller a singular matrix is a bug, and the exception is how
+    None of the four is ever chosen by `SimpleSolvers.default_linear_solver_method`, and that
+    is deliberate. For almost every caller a singular matrix is a bug, and the exception is how
     they find out about it. A minimum-norm step returned by default would replace that report
     with a plausible-looking wrong answer, on exactly the problems where it matters most. Pass
     one as `linear_solver_method` where you have established that the null space belongs to
@@ -185,7 +209,7 @@ Both are restricted to LAPACK's four element types and to square matrices.
 
 ## Choosing a Method
 
-Seven methods. For the five that require a non-singular matrix the choice is made by two
+Nine methods. For the five that require a non-singular matrix the choice is made by two
 things: whether the matrix is sparse, and whether its element type is one LAPACK knows.
 `SimpleSolvers.default_linear_solver_method` encodes the answer, and it is what a nonlinear
 solver uses when no `linear_solver_method` is given:
@@ -197,8 +221,8 @@ solver uses when no `linear_solver_method` is given:
 | sparse | `Float64`/`ComplexF64` | [`UmfpackLU`](@ref) |
 | sparse | anything else | none — an `ArgumentError`; see below |
 
-[`RecursiveLU`](@ref) is never chosen automatically; see below. Neither is
-[`PivotedQR`](@ref) nor [`SVDSolver`](@ref) — see the warning above.
+[`RecursiveLU`](@ref) is never chosen automatically; see below. Nor is any of the four
+rank-revealing methods — see the warning above.
 
 ### Dense
 

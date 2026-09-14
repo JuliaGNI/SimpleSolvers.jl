@@ -268,9 +268,10 @@ know to pass `linear_solver_method`: downstream it came to 74 % of an implicit t
 useful range depends on which BLAS is loaded, and it is not always installed. Choose it
 explicitly.
 
-Neither [`RankRevealingMethod`](@ref) — [`PivotedQR`](@ref) and [`SVDSolver`](@ref) — is ever
-selected automatically either, and that one is a decision rather than a packaging accident.
-Both solve a singular system instead of refusing it, by returning the minimum-norm solution.
+None of the four [`RankRevealingMethod`](@ref)s — [`PivotedQR`](@ref),
+[`LapackPivotedQR`](@ref), [`SVDSolver`](@ref) and [`LapackSVDSolver`](@ref) — is ever selected
+automatically either, and that one is a decision rather than a packaging accident. All four
+solve a singular system instead of refusing it, by returning the minimum-norm solution.
 For almost every caller a singular matrix is a *bug*: a Jacobian that has lost a row, a step
 that has collapsed, a model that is not identifiable. The `SingularException` an LU raises is
 how they find out. A default that quietly returned a minimum-norm step everywhere would
