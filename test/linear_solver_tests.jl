@@ -861,7 +861,9 @@ end
 
 "A square `n × n` matrix of element type `T` with exactly `r` non-zero singular values."
 function rank_deficient(T, n, r)
-    Random.seed!(4242)
+    # the shape goes into the seed, so each `(n, r)` in a sweep draws its own stream and the
+    # `randn` a caller takes afterwards is not the same one every time
+    Random.seed!(4242 + 1000n + r)
     U = Matrix(qr(randn(T, n, n)).Q)
     V = Matrix(qr(randn(T, n, n)).Q)
     s = zeros(real(T), n)
@@ -981,6 +983,38 @@ end
         for M in (zeros(Float16, 2, 2), [big(1.0) big(2.0); big(3.0) big(4.0)],
             [1//1 0//1; 0//1 1//1])
             @test_throws ArgumentError LinearSolverCache(m, M)
+        end
+    end
+end
+
+# Accepting a `BigFloat` into the cache is not the same as factorizing and solving in it, and
+# `BigFloat` is the other element type LAPACK does not reach. This drives the prescaling, the
+# Householder and Jacobi arithmetic, the rank and the solve end to end at a tolerance only an
+# extended-precision type can meet. The reference is written out of the factors the matrix is
+# built from, because `pinv` and `nullspace` both go through a `BlasFloat`-only `svd`.
+#
+# The bound is a multiple of `eps`, not of `sqrt(eps)`: these draws are well conditioned, and both
+# methods land within `11 · eps(BigFloat)` of the reference, so `sqrt(eps)` would pass 37 orders of
+# magnitude short of the accuracy the kernels actually reach.
+@testset "the pure-Julia methods solve a rank-deficient BigFloat system" begin
+    tol = 1000 * eps(BigFloat)
+
+    @testset "$(nameof(typeof(m)))" for m in (PivotedQR(), SVDSolver())
+        for (n, r) in ((7, 3), (9, 9))
+            Random.seed!(20 + 1000n + r)
+            U = Matrix(qr(randn(BigFloat, n, n)).Q)
+            V = Matrix(qr(randn(BigFloat, n, n)).Q)
+            s = zeros(BigFloat, n)
+            s[1:r] .= exp.(range(big(0.0), big(-3.0), length = r))
+            A = U * Diagonal(s) * V'
+            b = A * randn(BigFloat, n)
+            xref = V[:, 1:r] * ((U[:, 1:r]' * b) ./ s[1:r])
+
+            lsolver = factorize!(LinearSolver(m, A), copy(A))
+            @test rank(lsolver) == r
+            x = ldiv!(zeros(BigFloat, n), lsolver, copy(b))
+            @test norm(A * x - b) < tol * norm(b)          # consistent: solved exactly
+            @test norm(x - xref) < tol * norm(xref)        # and it is the min-norm one
         end
     end
 end
