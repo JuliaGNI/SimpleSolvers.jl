@@ -18,6 +18,22 @@ All notable changes to SimpleSolvers.jl are documented here.
   no barred name at all. `x̄` has no precomposed codepoint and could not have changed either way;
   `ȳ` and `Ā` do have one, and they are what recomposed.
 
+### Fixed
+
+The documentation builds again. `docs/make.jl` compiles the two dogleg figures from their TikZ
+sources before Documenter runs, and the workflow installed no TeX toolchain, so every build since
+the workflows were unified died with `pdflatex: No such file or directory` before Documenter saw a
+single page — which meant no documentation change had been checked on CI for as long as that
+lasted. The workflow now installs `texlive-latex-base`, `texlive-latex-extra`, `texlive-pictures`
+and `poppler-utils`.
+
+**If you build the documentation locally you now need `poppler`, not ImageMagick.**
+`docs/src/trust_region/Makefile` rasterises with `pdftocairo` instead of `convert`, because
+ImageMagick's default policy on Ubuntu refuses to read a PDF and patching `policy.xml` on the
+runner is the more fragile of the two fixes. The `-transp` flag is load bearing: the dark-theme
+figure is drawn in white, and on the opaque background `pdftocairo` writes by default every label
+and the trust region circle disappear.
+
 ## [0.13.3]
 
 ### Added
