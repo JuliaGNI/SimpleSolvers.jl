@@ -64,6 +64,20 @@ See **Breaking Changes** above for the impact on existing code that uses `Pivote
 
 `factorize!` on a rank-revealing solver now clears the cache's `factorized` flag before it decomposes, not only after. Previously a `factorize!` that threw on its second or later call left the flag set from the first, so `rank`, `singular_values` and `ldiv!` went on answering for the matrix before it, with no indication that the factorization they describe had failed. Present since these methods arrived in 0.13.3; this release adds a new way to reach it, since the one-sided Jacobi sweep in `SVDSolver` raises when it does not converge.
 
+The documentation builds again. `docs/make.jl` compiles the two dogleg figures from their TikZ
+sources before Documenter runs, and the workflow installed no TeX toolchain, so every build since
+the workflows were unified died with `pdflatex: No such file or directory` before Documenter saw a
+single page — which meant no documentation change had been checked on CI for as long as that
+lasted. The workflow now installs `texlive-latex-base`, `texlive-latex-extra`, `texlive-pictures`
+and `poppler-utils`.
+
+**If you build the documentation locally you now need `poppler`, not ImageMagick.**
+`docs/src/trust_region/Makefile` rasterises with `pdftocairo` instead of `convert`, because
+ImageMagick's default policy on Ubuntu refuses to read a PDF and patching `policy.xml` on the
+runner is the more fragile of the two fixes. The `-transp` flag is load bearing: the dark-theme
+figure is drawn in white, and on the opaque background `pdftocairo` writes by default every label
+and the trust region circle disappear.
+
 ## [0.13.3]
 
 ### Added

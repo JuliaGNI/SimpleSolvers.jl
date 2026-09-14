@@ -1,3 +1,13 @@
+# The dogleg figures on the trust region page, compiled from their TikZ sources.
+#
+# Each figure exists twice, once for each Documenter theme. The PNGs are build products and are
+# not committed — `.gitignore` covers them — so `docs/make.jl` runs `all` before Documenter, and
+# a build without this step reports missing images.
+#
+# Needs `pdflatex` (texlive-latex-base, texlive-latex-extra, texlive-pictures) and `pdftocairo`
+# (poppler-utils). `pdftocairo` rather than ImageMagick `convert`: the default Ubuntu policy for
+# ImageMagick refuses to read a PDF, so a runner would need its `policy.xml` patched as well.
+
 # Tell make that these are commands, not files
 .PHONY: all clean
 
@@ -10,11 +20,13 @@ dogleg_tikz_light.pdf: dogleg_tikz_light.tex
 dogleg_tikz_dark.pdf: dogleg_tikz_dark.tex
 	pdflatex -shell-escape dogleg_tikz_dark.tex
 
+# `-transp` is load bearing: the dark variant draws in white, so on the opaque background
+# `pdftocairo` writes by default every label and the trust region circle disappear.
 dogleg_tikz_light.png: dogleg_tikz_light.pdf
-	convert -density 300 dogleg_tikz_light.pdf -quality 90 dogleg_tikz_light.png
+	pdftocairo -png -r 300 -transp -singlefile dogleg_tikz_light.pdf dogleg_tikz_light
 
 dogleg_tikz_dark.png: dogleg_tikz_dark.pdf
-	convert -density 300 dogleg_tikz_dark.pdf -quality 90 dogleg_tikz_dark.png
+	pdftocairo -png -r 300 -transp -singlefile dogleg_tikz_dark.pdf dogleg_tikz_dark
 
 # Clean up auxiliary LaTeX files
 clean:
