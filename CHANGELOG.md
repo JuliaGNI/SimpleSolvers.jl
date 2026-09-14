@@ -18,6 +18,21 @@ All notable changes to SimpleSolvers.jl are documented here.
   no barred name at all. `x̄` has no precomposed codepoint and could not have changed either way;
   `ȳ` and `Ā` do have one, and they are what recomposed.
 
+**`Pkg.test()` now runs the doctests.** They were checked only by the documentation build and by
+`CI.yml`'s pinned `Doctests` job, so a green local suite was no evidence that the examples in the
+docstrings still worked. `test/doctest.jl` runs `doctest(SimpleSolvers; manual = false)` and
+`test/runtests.jl` includes it as a final testset.
+
+They stay off the CI test matrix, and that is deliberate rather than an oversight: doctest output
+depends on the Julia version and on the architecture — the last ULP of an `ldiv!` result differs
+between `x86_64` and `aarch64` — so a matrix entry that disagrees reports a real difference that is
+not a defect. The guard is `ENV["CI"]`, and `SIMPLESOLVERS_DOCTESTS=true` forces them on anywhere,
+that matrix included. The manual pages under `docs/src` are excluded, because they need the
+documentation environment's own packages; the documentation build is what checks those.
+
+`Documenter` is therefore a test dependency now, in `[extras]` and `[targets] test`. It is not a
+runtime dependency and does not appear in `[deps]`.
+
 ### Breaking Changes
 
 Code that passed `PivotedQR()` or `SVDSolver()` still compiles and still returns the minimum-norm solution, but now runs the pure-Julia kernel, which is slower on the four LAPACK element types. Callers who want the LAPACK kernel add the `Lapack` prefix. Both names were introduced one release ago, so the blast radius is small.
@@ -74,9 +89,22 @@ and `poppler-utils`.
 **If you build the documentation locally you now need `poppler`, not ImageMagick.**
 `docs/src/trust_region/Makefile` rasterises with `pdftocairo` instead of `convert`, because
 ImageMagick's default policy on Ubuntu refuses to read a PDF and patching `policy.xml` on the
-runner is the more fragile of the two fixes. The `-transp` flag is load bearing: the dark-theme
-figure is drawn in white, and on the opaque background `pdftocairo` writes by default every label
-and the trust region circle disappear.
+runner is the more fragile of the two fixes. The `-transp` flag is load bearing: by default
+`pdftocairo` fills the background opaque white, and the dark-theme figure draws its content in
+white, so without the flag every label and the trust region circle vanishes into that background.
+
+The same Makefile now calls `pdflatex` without `-shell-escape`. Neither TikZ source uses a feature
+that needs the flag, and the documentation workflow runs this make step on every pull request, in a
+job whose environment carries `DOCUMENTER_KEY`. With the flag in place, a `\write18` added to one of
+the tracked sources would have run there. Both figures rasterise byte-identically without it.
+
+`SVDSolver`'s documentation no longer overstates what its cache holds. `_decompose!`'s docstring said
+that `A = UΣV*` "stays exact" and that the loss of `U*U = I` is something "no caller can observe".
+Neither held. The columns beyond the rank are zeroed while the singular values they belong to are
+kept, so what the cache reconstructs is the rank-`r` truncation — the discarded values sit at or
+below the rank tolerance times the largest — and `cache(lsolver)` hands back the whole `SVDCache`, so
+`U` is reachable through it. Documentation only: no behaviour changes, and `ldiv!` was always
+correct, because it zeroes those coordinates before the second product.
 
 ## [0.13.3]
 

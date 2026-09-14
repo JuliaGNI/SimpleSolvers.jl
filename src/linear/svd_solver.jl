@@ -274,13 +274,18 @@ order them, determine the numerical rank and normalize `c.A` into `U`.
 
 # The columns beyond the rank
 
-They are set to zero rather than completed into an orthonormal basis. ``A = U\\Sigma V^*``
-stays exact — a zero column paired against a zero singular value contributes nothing — and
-[`ldiv!`](@ref) never reads them, because the truncation zeroes those coordinates before the
-second product. What is given up is ``U^* U = I``, which no caller can observe: `U` is not
-exposed by any accessor. Completing the basis would be work in service of an invariant nothing
-checks. LAPACK's `gesdd` does return an orthogonal `U`, so the difference is worth knowing
-about when comparing the two caches directly.
+They are set to zero rather than completed into an orthonormal basis, while `c.S` keeps the
+singular values they belong to. So ``U\\Sigma V^*`` read back off the cache is the rank-``r``
+truncation of `A`, not `A` itself: the two differ by the discarded singular values, which the
+rank tolerance has already placed at or below `rank_tolerance(method, T)` times the largest.
+[`ldiv!`](@ref) is unaffected — it zeroes those coordinates before the second product, which is
+the minimum-norm property itself.
+
+What is given up is ``U^* U = I``. No accessor returns `U` on its own, but [`cache`](@ref)
+hands back the whole [`SVDCache`](@ref), so a caller reading `c.A` does see it, and LAPACK's
+`gesdd` returns an orthogonal `U` — worth knowing when comparing the two caches directly.
+Completing the basis would be work in service of an invariant neither [`ldiv!`](@ref),
+[`rank`](@ref) nor [`singular_values`](@ref) reads.
 """
 function _decompose!(method::SVDSolver, c::SVDCache{T, RT}) where {T, RT}
     n = size(c.A, 1)

@@ -7,6 +7,10 @@
 # Needs `pdflatex` (texlive-latex-base, texlive-latex-extra, texlive-pictures) and `pdftocairo`
 # (poppler-utils). `pdftocairo` rather than ImageMagick `convert`: the default Ubuntu policy for
 # ImageMagick refuses to read a PDF, so a runner would need its `policy.xml` patched as well.
+#
+# `pdflatex` runs without `-shell-escape`. Neither source uses a feature that needs it, and the
+# documentation workflow runs this make on a `pull_request` in a job that holds `DOCUMENTER_KEY`,
+# where the flag would let a `\write18` in an edited source run as the deploy step does.
 
 # Tell make that these are commands, not files
 .PHONY: all clean
@@ -15,13 +19,14 @@
 all: dogleg_tikz_light.png dogleg_tikz_dark.png
 
 dogleg_tikz_light.pdf: dogleg_tikz_light.tex
-	pdflatex -shell-escape dogleg_tikz_light.tex
+	pdflatex dogleg_tikz_light.tex
 
 dogleg_tikz_dark.pdf: dogleg_tikz_dark.tex
-	pdflatex -shell-escape dogleg_tikz_dark.tex
+	pdflatex dogleg_tikz_dark.tex
 
-# `-transp` is load bearing: the dark variant draws in white, so on the opaque background
-# `pdftocairo` writes by default every label and the trust region circle disappear.
+# `-transp` is load bearing. By default `pdftocairo` fills the background opaque white, and the
+# dark variant draws its content in white, so without the flag every label and the trust region
+# circle vanishes into that background.
 dogleg_tikz_light.png: dogleg_tikz_light.pdf
 	pdftocairo -png -r 300 -transp -singlefile dogleg_tikz_light.pdf dogleg_tikz_light
 
