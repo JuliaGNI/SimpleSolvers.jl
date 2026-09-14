@@ -1,19 +1,20 @@
-# Canonical documentation workflow. Copied verbatim into every repository that has a tracked
-# docs/make.jl, by install-workflows.sh — edit this file and re-run the installer, never a copy in a
-# repository.
+# The canonical documentation workflow, plus the TeX toolchain this repository's figures need.
+# SimpleSolvers is in DOCS_EXCEPTIONS in install-workflows.sh for that reason, so the installer
+# leaves this file alone rather than overwriting it with the template.
 #
-# The file name is Documenter.yml everywhere. Three repositories called it Documentation.yml and one
-# Documentation.yaml; nothing depends on the file name, but a tree in which the same workflow has
-# three names cannot be checked for drift.
+# The one addition to the canonical body is the `Install the TeX toolchain` step. Without it the
+# build fails before Documenter loads a single page:
+#
+#     make: pdflatex: No such file or directory
+#     make: *** [Makefile:8: dogleg_tikz_light.pdf] Error 127
+#
+# Keep the rest in step with Knowledge/AI/githooks/workflows/Documenter.yml: take any other
+# change from there rather than editing it here.
 #
 # DOCTESTS ARE NOT HERE. They run in CI.yml, in a job pinned to one OS and one Julia version, so
 # that they produce a required status check of their own. Before that, five repositories listed
 # `:doctest` in `warnonly` and one had `doctest = false`, which meant a doctest failure was a
 # warning inside a docs build that nothing gated.
-#
-# Two repositories legitimately keep their own version of this file, because their docs are a
-# multi-job pipeline rather than a single build and so are not scaffolding drift:
-# Experiments/GeometricExamples (Weave matrix) and Experiments/SolverBenchmark (sweep matrix).
 
 name: Documentation
 
@@ -44,6 +45,16 @@ jobs:
             GKSwstype: "100"
         steps:
             - uses: actions/checkout@v7
+            # The two dogleg figures are compiled from the tracked TikZ sources in
+            # docs/src/trust_region. They are build products and are not committed, so they have
+            # to be built before Documenter checks links. docs/make.jl runs the make itself —
+            # which is what makes a local build work too — so there is no make step here, only
+            # the toolchain it calls.
+            - name: Install the TeX toolchain the TikZ figures need
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y texlive-latex-base texlive-latex-extra \
+                                          texlive-pictures poppler-utils
             - uses: julia-actions/setup-julia@v3
               with:
                   version: "1"
