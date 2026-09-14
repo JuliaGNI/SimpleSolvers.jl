@@ -992,8 +992,12 @@ end
 # Householder and Jacobi arithmetic, the rank and the solve end to end at a tolerance only an
 # extended-precision type can meet. The reference is written out of the factors the matrix is
 # built from, because `pinv` and `nullspace` both go through a `BlasFloat`-only `svd`.
+#
+# The bound is a multiple of `eps`, not of `sqrt(eps)`: these draws are well conditioned, and both
+# methods land within `11 · eps(BigFloat)` of the reference, so `sqrt(eps)` would pass 37 orders of
+# magnitude short of the accuracy the kernels actually reach.
 @testset "the pure-Julia methods solve a rank-deficient BigFloat system" begin
-    tol = sqrt(eps(BigFloat))
+    tol = 1000 * eps(BigFloat)
 
     @testset "$(nameof(typeof(m)))" for m in (PivotedQR(), SVDSolver())
         for (n, r) in ((7, 3), (9, 9))
@@ -1009,8 +1013,8 @@ end
             lsolver = factorize!(LinearSolver(m, A), copy(A))
             @test rank(lsolver) == r
             x = ldiv!(zeros(BigFloat, n), lsolver, copy(b))
-            @test norm(A * x - b) < 100 * tol * norm(b)          # consistent: solved exactly
-            @test norm(x - xref) < 100 * tol * norm(xref)        # and it is the min-norm one
+            @test norm(A * x - b) < tol * norm(b)          # consistent: solved exactly
+            @test norm(x - xref) < tol * norm(xref)        # and it is the min-norm one
         end
     end
 end

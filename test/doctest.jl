@@ -14,14 +14,11 @@
 using SimpleSolvers
 using Documenter: DocMeta, doctest
 
-# A doctest compares printed output, and a type prints unqualified only where its module is visible
-# from the printing context, which is `Main`. The expected outputs are written that way — see
-# `linearsolver`'s, where the exported `LinearSolver` is bare and the internal `PivotedLUCache`
-# carries the module — because `docs/make.jl` runs `using SimpleSolvers` in `Main`. Run through
-# `runtests.jl` this file lives inside a `@safetestset`, i.e. an anonymous module, so nothing binds
-# the name in `Main` and every such name comes back qualified. Bind it explicitly.
-@eval Main using SimpleSolvers
-
+# The printing context of a doctest block is the sandbox module Documenter evaluates it in, not
+# `Main`, and this `DocTestSetup` is evaluated into that sandbox. So a name exported by
+# SimpleSolvers prints bare there and an internal one prints qualified, which is how the expected
+# outputs are written — see `linearsolver`'s, where `LinearSolver` is bare and `PivotedLUCache`
+# carries the module. Nothing has to be bound in `Main` for that.
 DocMeta.setdocmeta!(SimpleSolvers, :DocTestSetup, :(using SimpleSolvers); recursive = true)
 
 doctest(SimpleSolvers; manual = false)
