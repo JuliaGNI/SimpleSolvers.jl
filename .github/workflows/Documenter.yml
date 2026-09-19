@@ -8,11 +8,12 @@
 #     make: pdflatex: No such file or directory
 #     make: *** [Makefile:8: dogleg_tikz_light.pdf] Error 127
 #
-# Keep the rest in step with Knowledge/AI/githooks/workflows/Documenter.yml: take any other change
-# from there rather than editing it here. That is checked, not merely asked for — SimpleSolvers is
-# in DOCS_ADDITIONS in verify-workflows.jl, whose `documenter_additions_intact` requires every
-# behavioural line of the template to survive inside this file, in order. Comments are ignored, so
-# this header is free to differ; a canonical step that is dropped, reordered or edited here is not.
+# Keep the rest in step with Environment/Harness/githooks/workflows/Documenter.yml: take any
+# other change from there rather than editing it here. That is checked, not merely asked for —
+# SimpleSolvers is in DOCS_ADDITIONS in verify-workflows.jl, whose
+# `documenter_additions_intact` requires every behavioural line of the template to survive inside
+# this file, in order. Comments are ignored, so this header is free to differ; a canonical step
+# that is dropped, reordered or edited here is not.
 #
 # DOCTESTS ARE NOT HERE. They run in CI.yml, in a job pinned to one OS and one Julia version, so
 # that they produce a required status check of their own. Before that, five repositories listed
