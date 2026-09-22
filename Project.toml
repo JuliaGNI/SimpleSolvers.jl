@@ -28,8 +28,10 @@ Aqua = "0.8"
 Distances = "0.10"
 Documenter = "1"
 ForwardDiff = "0.10, 1"
+GPUArraysCore = "0.2"
 GeometricBase = "0.13, 0.14"
 JET = "0.9, 0.10, 0.11, 0.12"
+JLArrays = "0.3"
 LinearAlgebra = "1"
 NaNMath = "1"
 NeuralNetworkParameters = "0.3"
@@ -46,7 +48,9 @@ julia = "1.11"
 [extras]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+JLArrays = "27aeb0d3-9eb9-45fb-866b-73c2ecf80fcb"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NaNMath = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 NeuralNetworkParameters = "67f4d93a-60e9-472b-8cdd-1ccf6005724a"
@@ -58,4 +62,4 @@ Sparspak = "e56a9233-b9d6-4f03-8d0f-1825330902ac"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Aqua", "Documenter", "JET", "LinearAlgebra", "NaNMath", "NeuralNetworkParameters", "Random", "RecursiveFactorization", "SafeTestsets", "SparseArrays", "Sparspak", "Test"]
+test = ["Aqua", "Documenter", "GPUArraysCore", "JET", "JLArrays", "LinearAlgebra", "NaNMath", "NeuralNetworkParameters", "Random", "RecursiveFactorization", "SafeTestsets", "SparseArrays", "Sparspak", "Test"]

@@ -2,6 +2,16 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased] — targeting 0.15.0
+
+### Added
+
+- **`GradientFiniteDifferences(F, ps::NetworkParameters)`** wraps finite-difference gradients around whole neural-network parameter sets, matching the interface of `GradientAutodiff(F, ps::NetworkParameters)`. Flattens `ps` once and captures the layout in a closure, then differentiates the flat vector via finite differences. Previously, `GradientFiniteDifferences` offered no way to compute gradients for a whole `NetworkParameters` set — only for a bare vector via the integer-size constructor. Now it mirrors `GradientAutodiff(F, ps::NetworkParameters)`, eliminating the need for manual flattening. The new method is in `ext/SimpleSolversNeuralNetworkParametersExt.jl` alongside `GradientAutodiff`. `test/network_parameters_tests.jl` gains a testset comparing both methods in `Float32` and `Float64`.
+
+### Fixed
+
+- **`outer!(O, x, y)` now runs on device arrays.** Scalar element-wise indexing (`O[i, j] = x[i] * y[j]`) fails on a GPU array when `allowscalar(false)` is set — the standard condition for ensuring GPU code respects the device. The method is now written as a broadcast, `O .= x .* transpose(y)`, that runs natively on the device. The shape validation has moved from `@assert` to proper `throw(DimensionMismatch(...))` checks, since assertions can be compiled out and this is public-facing input validation. This unblocks `GeometricOptimizers` 0.9's own device-safety fixes. `test/device_outer.jl`, a new test file, asserts correctness on a JLArray under `allowscalar(false)` and covers the dimension-mismatch case.
+
 ## [0.14.0]
 
 ### Changed

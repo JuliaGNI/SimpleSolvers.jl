@@ -1,15 +1,16 @@
-# The `NeuralNetworkParameters` extension: the two `Gradient` constructors and `alloc_h` for a
+# The `NeuralNetworkParameters` extension: the three `Gradient` constructors and `alloc_h` for a
 # parameter set.
 #
-# These three methods lived in `GeometricOptimizers` until 0.6.1, where they were type piracy --
-# the functions are this package's and the parameter set is `NeuralNetworkParameters`', so neither
-# side of the signature belonged to the package defining them. They are asserted here and not only
-# downstream because a guarantee holds where it is asserted and nowhere else.
+# `GradientAutodiff`, `GradientFunction` and `alloc_h` lived in `GeometricOptimizers` until 0.6.1,
+# where they were type piracy -- the functions are this package's and the parameter set is
+# `NeuralNetworkParameters`', so neither side of the signature belonged to the package defining
+# them. They are asserted here and not only downstream because a guarantee holds where it is
+# asserted and nowhere else.
 
 using ForwardDiff
 using NeuralNetworkParameters
 using SimpleSolvers
-using SimpleSolvers: GradientAutodiff, GradientFunction, alloc_h
+using SimpleSolvers: GradientAutodiff, GradientFiniteDifferences, GradientFunction, alloc_h
 using Test
 
 const nt = (L1 = (W = [1.0 2.0; 3.0 4.0], b = [5.0, 6.0]), L2 = (W = [7.0 8.0], b = [9.0]))
@@ -22,9 +23,10 @@ F(x) = foldstorage((acc, s) -> acc + sum(abs2, s), 0.0, x)
 @testset "the extension loads beside `NeuralNetworkParameters`" begin
     ext = Base.get_extension(SimpleSolvers, :SimpleSolversNeuralNetworkParametersExt)
     @test ext isa Module
-    # Every one of the three methods has to come from the extension and not from a downstream
+    # Every one of these methods has to come from the extension and not from a downstream
     # package: that is the property, and a count of sites goes stale where this does not.
     for m in (which(GradientAutodiff, Tuple{typeof(F), typeof(ps)}),
+        which(GradientFiniteDifferences, Tuple{typeof(F), typeof(ps)}),
         which(GradientFunction, Tuple{typeof(F), Function, typeof(ps)}),
         which(alloc_h, Tuple{typeof(ps)}))
         @test m.module === ext
@@ -47,12 +49,31 @@ end
     @test ForwardDiff.gradient(_x -> F(unflatten(layout, _x)), v) ≈ 2v
 end
 
+@testset "`GradientFiniteDifferences` matches `GradientAutodiff` on a set of parameters" begin
+    for T in (Float32, Float64)
+        nt_T = (L1 = (W = T[1 2; 3 4], b = T[5, 6]), L2 = (W = T[7 8], b = T[9]))
+        ps_T = NetworkParameters(nt_T)
+        v, _ = flatten(ps_T)
+
+        gauto = GradientAutodiff(F, ps_T)
+        gfd = GradientFiniteDifferences(F, ps_T)
+        @test gfd isa GradientFiniteDifferences{T}
+
+        g_auto = similar(v)
+        g_fd = similar(v)
+        gauto(g_auto, v)
+        gfd(g_fd, v)
+        @test g_fd ≈ g_auto atol=sqrt(eps(T))
+    end
+end
+
 # The narrowing, stated as a property rather than left to the absence of a test. A whole set of
 # parameters is a `NetworkParameters`; the bare `NamedTuple` it wraps is a *branch* of one, and these
-# three take the set. A method on the union would be a method on `Base.NamedTuple`, which is what
+# four take the set. A method on the union would be a method on `Base.NamedTuple`, which is what
 # `NeuralNetworkParameters` 0.3.0 removed `ParameterSet` to stop.
 @testset "a bare `NamedTuple` is turned away, and wrapping shares its arrays" begin
     @test_throws MethodError GradientAutodiff(F, nt)
+    @test_throws MethodError GradientFiniteDifferences(F, nt)
     @test_throws MethodError GradientFunction(F, (g, x) -> (g .= 2 .* x), nt)
     @test_throws MethodError alloc_h(nt)
 

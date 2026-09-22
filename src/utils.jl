@@ -148,13 +148,11 @@ function add_to_diagonal!(A::SparseMatrixCSC, α)
 end
 
 function outer!(O, x, y)
-    @assert axes(O, 1) == axes(x, 1)
-    @assert axes(O, 2) == axes(y, 1)
-    @inbounds @simd for i in axes(O, 1)
-        for j in axes(O, 2)
-            O[i, j] = x[i] * y[j]
-        end
-    end
+    axes(O, 1) == axes(x, 1) || throw(DimensionMismatch(
+        "outer!: axes(O, 1) = $(axes(O, 1)) does not match axes(x, 1) = $(axes(x, 1))"))
+    axes(O, 2) == axes(y, 1) || throw(DimensionMismatch(
+        "outer!: axes(O, 2) = $(axes(O, 2)) does not match axes(y, 1) = $(axes(y, 1))"))
+    O .= x .* transpose(y)
 end
 
 """
