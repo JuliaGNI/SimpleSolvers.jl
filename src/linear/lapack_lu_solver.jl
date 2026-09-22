@@ -45,7 +45,7 @@ Max against OpenBLAS, in microseconds for `factorize!` including the copy-in:
 crossover in the factorization sits and why it depends on the BLAS in use.
 
 The effect on a real problem is large. Measured from
-[PoissonBrackets.jl](https://github.com/JuliaGNI/PoissonBrackets.jl), where a Newton step
+[GeometricBrackets.jl](https://github.com/JuliaGNI/GeometricBrackets.jl), where a Newton step
 factorizes a dense ``384 \\times 384`` Jacobian, [`LU`](@ref) accounted for 74 % of the cost
 of one implicit time step — about 17 ms against 0.6 ms for the same factorization through
 LAPACK.

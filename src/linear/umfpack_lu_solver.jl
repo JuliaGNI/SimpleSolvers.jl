@@ -63,7 +63,7 @@ that a quasi-Newton method that factorizes speculatively is not interrupted.
     A sparse direct solver relaxes pivoting to preserve sparsity, and UMFPACK's ordering plus
     threshold pivoting is not always up to a matrix whose *blocks* have very different norms —
     a saddle-point or mixed formulation, for instance. Measured on the `2N × 2N` Newton matrix
-    of PoissonBrackets.jl's mixed two-field formulation, whose four banded blocks span seven
+    of GeometricBrackets.jl's mixed two-field formulation, whose four banded blocks span seven
     orders of magnitude: from `n = 1536` upward the computed solution is wrong by a factor of
     150, with a linear residual `2000×` the right-hand side, while `issuccess` returns `true`
     and no exception is raised. Dense [`LapackLU`](@ref) on the same matrix is accurate to
