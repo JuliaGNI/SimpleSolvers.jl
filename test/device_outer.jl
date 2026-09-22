@@ -1,9 +1,9 @@
 # `outer!` on a device backend.
 #
 # `outer!` forms `O` without indexing it one entry at a time, because a scalar index fails on a
-# device array. `allowscalar(false)` is what makes this a test rather than a description: without
-# it a scalar index on a `JLArray` merely warns. `JLArrays` stands in for
-# the device, as it does in `GeometricOptimizers`' own device tests.
+# device array. `allowscalar(false)` makes the test independent of the default, which disallows a
+# scalar index only in a non-interactive session; it sets that default for the whole process.
+# `JLArrays` stands in for the device, as it does in `GeometricOptimizers`' own device tests.
 
 using GPUArraysCore: allowscalar
 using JLArrays: JLArray

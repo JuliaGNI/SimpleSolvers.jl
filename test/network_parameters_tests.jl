@@ -1,11 +1,10 @@
 # The `NeuralNetworkParameters` extension: the three `Gradient` constructors and `alloc_h` for a
 # parameter set.
 #
-# `GradientAutodiff`, `GradientFunction` and `alloc_h` lived in `GeometricOptimizers` until 0.6.1,
-# where they were type piracy -- the functions are this package's and the parameter set is
-# `NeuralNetworkParameters`', so neither side of the signature belonged to the package defining
-# them. They are asserted here and not only downstream because a guarantee holds where it is
-# asserted and nowhere else.
+# The functions are this package's and the parameter set is `NeuralNetworkParameters`', so in any
+# third package these methods would be type piracy -- neither side of the signature would belong to
+# the package defining them. They are asserted here and not only downstream because a guarantee
+# holds where it is asserted and nowhere else.
 
 using ForwardDiff
 using NeuralNetworkParameters
@@ -58,6 +57,7 @@ end
         gauto = GradientAutodiff(F, ps_T)
         gfd = GradientFiniteDifferences(F, ps_T)
         @test gfd isa GradientFiniteDifferences{T}
+        @test GradientFiniteDifferences(F, ps_T; ϵ = T(1e-3)).ϵ === T(1e-3)
 
         g_auto = similar(v)
         g_fd = similar(v)

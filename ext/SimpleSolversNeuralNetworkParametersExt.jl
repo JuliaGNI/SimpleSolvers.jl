@@ -9,10 +9,10 @@ objective was written for. `NeuralNetworkParameters` provides exactly that
 ([`NeuralNetworkParameters.flatten`](@extref) and a [`NeuralNetworkParameters.ParameterLayout`](@extref)
 that is a *value*), and these methods are the whole of the seam.
 
-`GeometricOptimizers` carried all three until 0.6.1. `GradientAutodiff`, `GradientFunction` and
-`alloc_h` are this package's functions and a parameter set is `NeuralNetworkParameters`', so those
-methods owned neither side of their own signatures; a weak dependency puts them with the functions
-and costs nothing to anyone who does not load `NeuralNetworkParameters`.
+`GradientAutodiff`, `GradientFiniteDifferences`, `GradientFunction` and `alloc_h` are this
+package's functions and a parameter set is `NeuralNetworkParameters`', so in any third package
+these methods would own neither side of their own signatures; a weak dependency puts them with the
+functions and costs nothing to anyone who does not load `NeuralNetworkParameters`.
 """
 module SimpleSolversNeuralNetworkParametersExt
 
@@ -43,17 +43,20 @@ function GradientAutodiff(F, ps::NetworkParameters)
 end
 
 """
-    GradientFiniteDifferences(F, ps::NetworkParameters)
+    GradientFiniteDifferences(F, ps::NetworkParameters; ϵ)
 
 The finite-difference gradient of `F` at a set of neural network parameters.
 
 `ps` is flattened once here and the layout is captured in the closure, so the finite differences
 run on the flat vector while `F` sees the shape it was written for. The element type comes from
-`ps` itself, matching [`GradientAutodiff`](@ref).
+`ps` itself, matching [`GradientAutodiff`](@ref). The step `ϵ` is passed through to the vector
+constructor, with the same default.
 """
-function GradientFiniteDifferences(F, ps::NetworkParameters)
+function GradientFiniteDifferences(F, ps::NetworkParameters; kwargs...)
     v, layout = flatten(ps)
-    GradientFiniteDifferences{parameter_eltype(ps)}(_x -> F(unflatten(layout, _x)), length(v))
+    GradientFiniteDifferences{parameter_eltype(ps)}(
+        _x -> F(unflatten(layout, _x)), length(v);
+        kwargs...)
 end
 
 """
