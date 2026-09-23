@@ -147,14 +147,22 @@ function add_to_diagonal!(A::SparseMatrixCSC, α)
     A
 end
 
+"""
+    outer!(O, x, y)
+
+Overwrite `O` with the outer product of the vectors `x` and `y`, `O[i, j] = x[i] * y[j]`, and
+return `O`. The entries are scalars.
+
+`O` is written as one broadcast, `O .= x .* transpose(y)`, and not one entry at a time, so it
+runs on a device array under `allowscalar(false)`. Throws a `DimensionMismatch` unless
+`axes(O, 1) == axes(x, 1)` and `axes(O, 2) == axes(y, 1)`.
+"""
 function outer!(O, x, y)
-    @assert axes(O, 1) == axes(x, 1)
-    @assert axes(O, 2) == axes(y, 1)
-    @inbounds @simd for i in axes(O, 1)
-        for j in axes(O, 2)
-            O[i, j] = x[i] * y[j]
-        end
-    end
+    axes(O, 1) == axes(x, 1) || throw(DimensionMismatch(
+        "outer!: axes(O, 1) = $(axes(O, 1)) does not match axes(x, 1) = $(axes(x, 1))"))
+    axes(O, 2) == axes(y, 1) || throw(DimensionMismatch(
+        "outer!: axes(O, 2) = $(axes(O, 2)) does not match axes(y, 1) = $(axes(y, 1))"))
+    O .= x .* transpose(y)
 end
 
 """

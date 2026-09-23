@@ -24,6 +24,9 @@ end
 @safetestset "Neural Network Parameters                                                       " begin
     include("network_parameters_tests.jl")
 end
+@safetestset "Device Outer Product                                                           " begin
+    include("device_outer.jl")
+end
 @safetestset "Hessians                                                                        " begin
     include("hessian_tests.jl")
 end

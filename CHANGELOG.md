@@ -2,6 +2,24 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased] — targeting 0.14.1
+
+### Added
+
+- **`GradientFiniteDifferences(F, ps::NetworkParameters)`** computes finite-difference gradients
+  directly on a neural-network parameter set, capturing the layout in a closure so that finite
+  differences run on the flat vector while `F` sees the shape it was written for. The element
+  type comes from `ps` itself, matching [`GradientAutodiff(F, ps::NetworkParameters)`](@ref).
+
+### Fixed
+
+- **`outer!(O, x, y)` now runs on device arrays** because it uses a broadcast `O .= x .*
+  transpose(y)` instead of scalar element-wise operations. Such operations fail on GPU arrays
+  when `allowscalar(false)` is set — the standard condition for ensuring GPU code respects the
+  device. Shape mismatches now throw `DimensionMismatch` instead of raising an assertion,
+  providing better diagnostics. This unblocks `GeometricOptimizers` 0.9's own device-safety
+  fixes.
+
 ## [0.14.0]
 
 ### Changed
