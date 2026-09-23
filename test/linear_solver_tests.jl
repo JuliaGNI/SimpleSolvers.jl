@@ -805,7 +805,7 @@ end
         [1:n; [mod1(i - 1, n) for i in 1:n]; [mod1(i + 1, n) for i in 1:n]],
         [ones(n); fill(-0.2, n); fill(-0.2, n)])
     function DFb!(j, x, params)
-        fill!(nonzeros(j), 0.0)
+        fill!(nonzeros(j), zero(eltype(j)))
         for i in 1:n
             j[i, i] = 1 + 0.2 * x[i]
             j[i, mod1(i - 1, n)] -= 0.2
