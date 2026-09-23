@@ -16,8 +16,9 @@ const nt = (L1 = (W = [1.0 2.0; 3.0 4.0], b = [5.0, 6.0]), L2 = (W = [7.0 8.0], 
 const ps = NetworkParameters(nt)
 
 # A quadratic in every entry, so that the gradient is `2x` at every leaf and the answer can be
-# written down rather than compared against a second implementation of the same walk.
-F(x) = foldstorage((acc, s) -> acc + sum(abs2, s), 0.0, x)
+# written down rather than compared against a second implementation of the same walk. The sum
+# starts from the parameters' own zero, so a `Float32` set gives a `Float32` objective.
+F(x) = foldstorage((acc, s) -> acc + sum(abs2, s), zero(parameter_eltype(x)), x)
 
 @testset "the extension loads beside `NeuralNetworkParameters`" begin
     ext = Base.get_extension(SimpleSolvers, :SimpleSolversNeuralNetworkParametersExt)
@@ -48,22 +49,20 @@ end
     @test ForwardDiff.gradient(_x -> F(unflatten(layout, _x)), v) ≈ 2v
 end
 
-@testset "`GradientFiniteDifferences` matches `GradientAutodiff` on a set of parameters" begin
+@testset "`GradientFiniteDifferences` on a set of parameters" begin
     for T in (Float32, Float64)
         nt_T = (L1 = (W = T[1 2; 3 4], b = T[5, 6]), L2 = (W = T[7 8], b = T[9]))
         ps_T = NetworkParameters(nt_T)
         v, _ = flatten(ps_T)
+        @test F(ps_T) isa T
 
-        gauto = GradientAutodiff(F, ps_T)
         gfd = GradientFiniteDifferences(F, ps_T)
         @test gfd isa GradientFiniteDifferences{T}
         @test GradientFiniteDifferences(F, ps_T; ϵ = T(1e-3)).ϵ === T(1e-3)
 
-        g_auto = similar(v)
         g_fd = similar(v)
-        gauto(g_auto, v)
         gfd(g_fd, v)
-        @test g_fd ≈ g_auto atol=sqrt(eps(T))
+        @test g_fd ≈ 2v
     end
 end
 
