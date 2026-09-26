@@ -14,7 +14,7 @@ follows is what is left.
   GeometricOptimizers implements `store_trace` itself for this reason. Either implement them or
   remove them; both are breaking, so neither belongs in a release driven by something else.
 - **kind:** dead code
-- **found:** 2026-08-14; one issue with GeometricOptimizers `D2` and `B2`
+- **found:** 2026-08-14; one issue with GeometricOptimizers `D2`
 
 ## Raised while fixing D6 (the step ceiling), not addressed
 
