@@ -5,6 +5,5 @@ using SimpleSolvers
 using Test
 
 @testset "JET report_package" begin
-    reports = JET.get_reports(JET.report_package(SimpleSolvers; toplevel_logger = nothing))
-    @test_broken isempty(reports) # issue #196
+    @test_broken isempty(JET.get_reports(JET.report_package(SimpleSolvers; toplevel_logger = nothing))) # issue #196
 end
