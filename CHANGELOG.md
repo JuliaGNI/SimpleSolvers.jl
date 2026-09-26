@@ -17,9 +17,10 @@ All notable changes to SimpleSolvers.jl are documented here.
   dependencies isolated in `test/Project.toml`. Doctests run everywhere as part of the suite
   with `manual = true`, removing the `SIMPLESOLVERS_DOCTESTS` environment variable gate.
   `runtests.jl` selects test groups via command-line arguments (`core` or `slow`; empty runs both).
-  JET static checks (previously commented out) and print-statement tests are now included; the
-  latter marked `@test_broken` for issue #195. Non-test benchmark and profile scripts are removed.
-  Random seeds fixed in certain tests for reproducibility.
+  The JET file runs again, as a diagnostic that logs its reports and cannot fail (issue #196).
+  The print-statement tests run again and are `@test_broken` (issue #195). The benchmark and
+  profile scripts, which hold no test, move from `test/` to `scripts/`. Two test files now fix
+  their random seed.
 
 ### Fixed
 
