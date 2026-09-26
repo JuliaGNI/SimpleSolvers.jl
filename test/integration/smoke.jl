@@ -108,7 +108,7 @@ end
 
     # The extension-backed methods: the *type* is constructible whether or not the backend is
     # loaded, which is the point of defining it in `src/`. Building a `LinearSolver` needs the
-    # extension, and is covered in `linear_solver_tests.jl`, which imports both backends.
+    # extension, and is covered in `test/linear/linear_solvers.jl`, which imports both backends.
     @test RecursiveLU() isa RecursiveLU
     @test SparspakLU() isa SparspakLU
 

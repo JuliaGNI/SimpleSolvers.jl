@@ -1891,10 +1891,10 @@ end
 end
 
 @testset "$(rpad("a converged solve allocates nothing", 80))" begin
-    # The companion of the line-search assertion in `linesearch_tests.jl`, for the two solvers that
-    # take no line search. Measured inside a function, because from global scope the arguments are
-    # boxed and the number says nothing about the code under test — and guarded, because under
-    # `--check-bounds=yes` it says nothing either (see `AS_A_CALLER_COMPILES_IT`).
+    # The companion of the line-search assertion in `test/linesearch/linesearch.jl`, for the two
+    # solvers that take no line search. Measured inside a function, because from global scope the
+    # arguments are boxed and the number says nothing about the code under test — and guarded,
+    # because under `--check-bounds=yes` it says nothing either (see `AS_A_CALLER_COMPILES_IT`).
     for f in (solver_step!, SimpleSolvers.directions!, SimpleSolvers.nan_recovery!)
         @test !has_boxed_capture(f)
     end
