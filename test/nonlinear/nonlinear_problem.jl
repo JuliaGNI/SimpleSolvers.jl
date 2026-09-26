@@ -1,6 +1,9 @@
 using SimpleSolvers
 using SimpleSolvers: value!, jacobian!
+using Random
 using Test
+
+Random.seed!(1234)
 
 function F(f::AbstractVector{T}, x::AbstractVector{T}, params) where {T}
     f .= (params.A * x + params.b) .^ 2

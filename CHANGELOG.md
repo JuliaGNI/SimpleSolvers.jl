@@ -11,6 +11,18 @@ All notable changes to SimpleSolvers.jl are documented here.
   differences run on the flat vector while `F` sees the shape it was written for. The element
   type comes from `ps` itself, matching [`GradientAutodiff(F, ps::NetworkParameters)`](@ref).
 
+### Changed
+
+- **Test infrastructure reorganized:** Tests now organize to mirror the package structure, with
+  dependencies isolated in `test/Project.toml`. Doctests run everywhere as part of the suite
+  with `manual = true`, removing the `SIMPLESOLVERS_DOCTESTS` environment variable gate.
+  `runtests.jl` selects test groups via command-line arguments (`core` or `slow`; empty runs both).
+  The JET file runs again. It asserts that `JET.report_package` finds no report, and it is
+  `@test_broken` because JET finds some (issue #196).
+  The print-statement tests run again and are `@test_broken` (issue #195). The benchmark and
+  profile scripts, which hold no test, move from `test/` to `scripts/`. Two test files now fix
+  their random seed.
+
 ### Fixed
 
 - **`outer!(O, x, y)` now runs on device arrays** because it uses a broadcast `O .= x .*

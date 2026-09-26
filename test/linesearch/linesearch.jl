@@ -15,7 +15,7 @@ using SimpleSolvers: steplength, outcome, trials, armijo_tolerance, armijo_ulps,
                      backtracking_interpolation, backtracking_extrapolation, with_config,
                      problem, method, config
 
-include("lowered_code.jl")
+include("../helpers/lowered_code.jl")
 
 f(x) = x^2 - 1
 g(x) = 2x

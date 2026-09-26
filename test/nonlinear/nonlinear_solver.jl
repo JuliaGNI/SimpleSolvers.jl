@@ -22,7 +22,7 @@ using Random
 using ForwardDiff
 using LinearAlgebra: SingularException
 
-include("lowered_code.jl")
+include("../helpers/lowered_code.jl")
 
 Random.seed!(1234)
 
@@ -1830,7 +1830,7 @@ end
     # `Jacobian` — so a message in any of their bodies is re-inferred and re-codegen'd once per
     # problem a solver is built for. Every one of them therefore delegates to a `@noinline` reporter
     # taking nothing but numbers and the `Options`. See `report_linesearch_status` for why, and
-    # `has_logging_code` in `test/lowered_code.jl` for the check.
+    # `has_logging_code` in `test/helpers/lowered_code.jl` for the check.
     for f in (SimpleSolvers.report_dogleg_singular, SimpleSolvers.report_dogleg_nan,
         SimpleSolvers.report_dogleg_underflow, SimpleSolvers.report_nan_direction,
         SimpleSolvers.report_static_refactorize,
@@ -1891,10 +1891,10 @@ end
 end
 
 @testset "$(rpad("a converged solve allocates nothing", 80))" begin
-    # The companion of the line-search assertion in `linesearch_tests.jl`, for the two solvers that
-    # take no line search. Measured inside a function, because from global scope the arguments are
-    # boxed and the number says nothing about the code under test — and guarded, because under
-    # `--check-bounds=yes` it says nothing either (see `AS_A_CALLER_COMPILES_IT`).
+    # The companion of the line-search assertion in `test/linesearch/linesearch.jl`, for the two
+    # solvers that take no line search. Measured inside a function, because from global scope the
+    # arguments are boxed and the number says nothing about the code under test — and guarded,
+    # because under `--check-bounds=yes` it says nothing either (see `AS_A_CALLER_COMPILES_IT`).
     for f in (solver_step!, SimpleSolvers.directions!, SimpleSolvers.nan_recovery!)
         @test !has_boxed_capture(f)
     end
