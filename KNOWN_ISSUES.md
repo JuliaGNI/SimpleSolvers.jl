@@ -30,7 +30,7 @@ follows is what is left.
   cannot pick up until their `[compat]` moves off `SimpleSolvers = "0.11"`. **A1b stays open until
   then.** Choosing the constant `c` is a decision about their geometry, not about `φ`, which is
   exactly why this package does not make it for them.
-- **kind:** upstream
+- **kind:** defect
 - **found:** 2026-08-14
 
 ### K3 · A binding ceiling leaves no trace in the `LinesearchStatus`.
