@@ -1,51 +1,22 @@
 using SafeTestsets
 
-# @safetestset "Print Statements                                                                " begin
-#     include("check_print_statements.jl")
-# end
-@safetestset "Smoke Tests (construct every exported type)                                     " begin
-    include("smoke_tests.jl")
-end
-@safetestset "Aqua Quality Assurance                                                          " begin
-    include("aqua_tests.jl")
-end
-# @safetestset "JET Static Analysis                                                             " begin
-#     include("jet_tests.jl")
-# end
-@safetestset "Gradients                                                                       " begin
-    include("gradient_tests.jl")
-end
-@safetestset "Jacobians                                                                       " begin
-    include("jacobian_tests.jl")
-end
-@safetestset "Nonlinear Problems                                                              " begin
-    include("nonlinear_problem_tests.jl")
-end
-@safetestset "Neural Network Parameters                                                       " begin
-    include("network_parameters_tests.jl")
-end
-@safetestset "Device Outer Product                                                           " begin
-    include("device_outer.jl")
-end
-@safetestset "Hessians                                                                        " begin
-    include("hessian_tests.jl")
-end
-@safetestset "Linear Solvers                                                                  " begin
-    include("linear_solver_tests.jl")
-end
-@safetestset "Line Searches                                                                   " begin
-    include("linesearch_tests.jl")
-end
-@safetestset "Nonlinear Solvers                                                               " begin
-    include("nonlinear_solver_tests.jl")
-end
+const GROUPS = isempty(ARGS) ? ["core", "slow"] : ARGS
 
-# Doctests run in a local `Pkg.test()` but not across the CI test matrix: their output is
-# architecture- and version-sensitive, and `CI.yml`'s pinned `Doctests` job is what checks them
-# there. See `doctest.jl`. `SIMPLESOLVERS_DOCTESTS=true` forces them on anywhere.
-if get(ENV, "SIMPLESOLVERS_DOCTESTS", "false") == "true" ||
-   get(ENV, "CI", "false") != "true"
-    @safetestset "Doctests                                                                        " begin
-        include("doctest.jl")
-    end
+if "core" in GROUPS
+    @safetestset "Aqua" include("quality/aqua.jl")
+    @safetestset "JET" include("quality/jet.jl")
+    @safetestset "Smoke tests" include("integration/smoke.jl")
+    @safetestset "Gradients" include("base/gradient.jl")
+    @safetestset "Jacobians" include("base/jacobian.jl")
+    @safetestset "Hessians" include("base/hessian.jl")
+    @safetestset "Outer product on a device" include("utils.jl")
+    @safetestset "Neural network parameters" include("integration/neural_network_parameters_ext.jl")
+    @safetestset "Linear solvers" include("linear/linear_solvers.jl")
+    @safetestset "Line searches" include("linesearch/linesearch.jl")
+    @safetestset "Nonlinear problems" include("nonlinear/nonlinear_problem.jl")
+    @safetestset "Nonlinear solvers" include("nonlinear/nonlinear_solver.jl")
+    @safetestset "Print statements" include("nonlinear/print_statements.jl")
+end
+if "slow" in GROUPS
+    @safetestset "Doctests" include("quality/doctests.jl")
 end

@@ -11,6 +11,16 @@ All notable changes to SimpleSolvers.jl are documented here.
   differences run on the flat vector while `F` sees the shape it was written for. The element
   type comes from `ps` itself, matching [`GradientAutodiff(F, ps::NetworkParameters)`](@ref).
 
+### Changed
+
+- **Test infrastructure reorganized:** Tests now organize to mirror the package structure, with
+  dependencies isolated in `test/Project.toml`. Doctests run everywhere as part of the suite
+  with `manual = true`, removing the `SIMPLESOLVERS_DOCTESTS` environment variable gate.
+  `runtests.jl` selects test groups via command-line arguments (`core` or `slow`; empty runs both).
+  JET static checks (previously commented out) and print-statement tests are now included; the
+  latter marked `@test_broken` for issue #195. Non-test benchmark and profile scripts are removed.
+  Random seeds fixed in certain tests for reproducibility.
+
 ### Fixed
 
 - **`outer!(O, x, y)` now runs on device arrays** because it uses a broadcast `O .= x .*

@@ -1,5 +1,8 @@
+using Random
 using SimpleSolvers
 using Test
+
+Random.seed!(1234)
 
 @testset "Basic Jacobian functionality and consistency" begin
     n = 1

@@ -26,7 +26,7 @@ function compare_statements(s::NewtonSolver, expected_statement::String)
     io = IOBuffer()
     show(io, s)
     statement_we_have = String(take!(io))
-    @test statement_we_have == expected_statement
+    @test_broken statement_we_have == expected_statement # issue #195
 end
 
 for T in (Float32, Float64)
