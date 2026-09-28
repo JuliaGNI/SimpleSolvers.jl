@@ -24,6 +24,10 @@ All notable changes to SimpleSolvers.jl are documented here.
   their random seed.
 - **`test/nonlinear/nonlinear_solver.jl` asserts `!needs_refresh(state)` directly**, not
   `== false`, so a non-`Bool` result fails the test. No source file changes.
+- **An ExplicitImports guard runs in the `core` group.** `test/quality/explicit_imports.jl`
+  fails on a stale explicit import, on an import or a qualified access through a module other
+  than the owner of the name, and on a self-qualified access. The checks for implicit imports and
+  for non-public names are off. ExplicitImports 1.15 is a new test dependency.
 
 ### Fixed
 

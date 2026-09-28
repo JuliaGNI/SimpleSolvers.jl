@@ -59,7 +59,6 @@ MuteLinesearch(::Type{T} = Float64) where {T} = MuteLinesearch{T}()
 
 function test_linesearch(method::LinesearchMethod, n::Integer = 1)
     x₀ = -3.0
-    x₁ = +3.0
     xₛ = 0.0
 
     ls = Linesearch(make_linesearch_problem(x₀), method; x_abstol = zero(x₀))
@@ -611,7 +610,7 @@ end
         end
 
         jacobian = JacobianFunction{T}(f!, j!)
-        solver = NewtonSolver(x, f.(x); F = f!, (DF!) = j!, jacobian = jacobian)
+        solver = NewtonSolver(x, f.(x); F = f!, DF! = j!, jacobian = jacobian)
         state = NonlinearSolverState(x, value(cache(solver)))
 
         direction!(solver, x, params, iteration_number(state))

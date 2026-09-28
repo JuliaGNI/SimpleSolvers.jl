@@ -603,7 +603,7 @@ function Options(T = Float64;
     )
 end
 
-function Base.show(io::IO, o::SimpleSolvers.Options)
+function Base.show(io::IO, o::Options)
     for k in fieldnames(typeof(o))
         v = getfield(o, k)
         if v isa Nothing
