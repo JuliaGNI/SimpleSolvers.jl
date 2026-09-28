@@ -2,16 +2,18 @@ using ExplicitImports
 using SimpleSolvers
 using Test
 
-# Fails on a stale explicit import, and on an explicit import or a qualified access through a
-# module other than the owner of the name.
+# Fails on a stale explicit import, on an explicit import or a qualified access through a module
+# other than the owner of the name, and on a self-qualified access.
 test_explicit_imports(
     SimpleSolvers;
-    # `src/SimpleSolvers.jl` loads `LinearAlgebra`, `ForwardDiff` and `Distances` with `using`
+    # `src/SimpleSolvers.jl` loads `Distances`, `ForwardDiff`, `LinearAlgebra`, `Printf`,
+    # `SparseArrays` and `StaticArrays` with a bare `using`
     no_implicit_imports = false,
     # `src/SimpleSolvers.jl` imports `SparseArrays.getcolptr` and `GeometricBase.update!`, which
     # their owners do not mark `public`
     all_explicit_imports_are_public = false,
-    # `src/linear/` reaches `LinearAlgebra.BlasFloat` and `src/base/` reaches
-    # `ForwardDiff.GradientConfig`, which their owners do not mark `public`
+    # `src/` reaches names that their owners do not mark `public`, such as
+    # `LinearAlgebra.BlasFloat`, `LinearAlgebra.LAPACK.getrf!`, `ForwardDiff.GradientConfig` and
+    # `Base.RefValue`
     all_qualified_accesses_are_public = false
 )
