@@ -1810,7 +1810,7 @@ end
     @test SimpleSolvers.needs_refresh(state)      # still true, now via the counter
     update!(state, [5.0], [1.0])                  # the iterate moved
     record_stall!(state, config(s))
-    @test SimpleSolvers.needs_refresh(state) == false
+    @test !SimpleSolvers.needs_refresh(state)
 
     # end to end: a solve that stagnates with refactorize = 5 still stops on the stall counter
     # rather than running to max_iterations
