@@ -22,6 +22,8 @@ All notable changes to SimpleSolvers.jl are documented here.
   The print-statement tests run again and are `@test_broken` (issue #195). The benchmark and
   profile scripts, which hold no test, move from `test/` to `scripts/`. Two test files now fix
   their random seed.
+- **`test/nonlinear/nonlinear_solver.jl` asserts `!needs_refresh(state)` directly**, not
+  `== false`, so a non-`Bool` result fails the test. No source file changes.
 
 ### Fixed
 
