@@ -1918,7 +1918,7 @@ end
     end
     for ls in (Static(), Backtracking(), Backtracking(; expand = true),
         Bisection(), Quadratic(), BierlaireQuadratic())
-        @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT
+        @test solve_allocations(ls) == 0 skip = !AS_A_CALLER_COMPILES_IT # #207
     end
 
     # A caller that supplies no ceiling pays nothing for the one it could have: `hasproperty` on the
@@ -1932,8 +1932,8 @@ end
     end
     for m in (Static(), Backtracking(), Backtracking(; expand = true),
         Bisection(), Quadratic(), BierlaireQuadratic())
-        @test ceiling_allocations(m, (x = 2.0, αmax = 10.0)) == 0 skip = !AS_A_CALLER_COMPILES_IT
-        @test ceiling_allocations(m, (x = 2.0,)) == 0 skip = !AS_A_CALLER_COMPILES_IT
+        @test ceiling_allocations(m, (x = 2.0, αmax = 10.0)) == 0 skip = !AS_A_CALLER_COMPILES_IT # #207
+        @test ceiling_allocations(m, (x = 2.0,)) == 0 skip = !AS_A_CALLER_COMPILES_IT # #207
     end
 
     function wolfe_allocations()
@@ -1941,5 +1941,5 @@ end
         solve_with_status(ls, 1.0)
         @allocated solve_with_status(ls, 1.0)
     end
-    @test wolfe_allocations() ≤ 64 skip = !AS_A_CALLER_COMPILES_IT
+    @test wolfe_allocations() ≤ 64 skip = !AS_A_CALLER_COMPILES_IT # #207
 end
