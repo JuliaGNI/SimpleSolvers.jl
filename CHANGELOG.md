@@ -31,6 +31,10 @@ All notable changes to SimpleSolvers.jl are documented here.
   Test-only entries are unchanged.
 - **The six allocation tests skipped under `--check-bounds=yes` or code coverage name issue
   #207** on their lines (`test/linesearch/linesearch.jl`, `test/nonlinear/nonlinear_solver.jl`).
+- **An ExplicitImports guard runs in the `core` group.** `test/quality/explicit_imports.jl`
+  fails on a stale explicit import, on an import or a qualified access through a module other
+  than the owner of the name, and on a self-qualified access. The checks for implicit imports and
+  for non-public names are off. ExplicitImports 1.15 is a new test dependency.
 
 ### Fixed
 

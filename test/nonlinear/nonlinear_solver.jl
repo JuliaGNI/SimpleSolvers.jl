@@ -239,7 +239,7 @@ for T in (Float64, Float32)
 
             x .= T.(x₀)
             # use custom Jacobian
-            nl = Solver(x, y; F = F!, (DF!) = J!, verbosity = 0, kwarguments...)
+            nl = Solver(x, y; F = F!, DF! = J!, verbosity = 0, kwarguments...)
             ss = SolverState(nl)
 
             solve!(x, nl, ss)
