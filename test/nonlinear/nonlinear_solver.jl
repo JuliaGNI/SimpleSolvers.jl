@@ -1911,8 +1911,8 @@ end
     # `PicardSolver` has no linear solver at all; `DogLegSolver` defaults to `LapackLU`, whose
     # `factorize!` and `ldiv!` are both allocation-free once the solver is built. So the same
     # assertion holds for either of them.
-    @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
-    @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT
+    @test solve_allocations(PicardSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT # #207
+    @test solve_allocations(DogLegSolver) == 0 skip = !AS_A_CALLER_COMPILES_IT # #207
 end
 
 @testset "$(rpad("the solver report backs off geometrically instead of going silent", 80))" begin
