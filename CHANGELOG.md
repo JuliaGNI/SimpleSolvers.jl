@@ -27,7 +27,7 @@ All notable changes to SimpleSolvers.jl are documented here.
 - **`test/Project.toml` no longer carries `[compat]` entries for dependencies of the root
   `Project.toml`**: ForwardDiff, LinearAlgebra, NaNMath, NeuralNetworkParameters,
   RecursiveFactorization, SparseArrays, Sparspak and StaticArrays. The test environment contains
-  the package, so the root's bounds apply there; a copy could only narrow them. Test-only entries
+  the package, so the root's bounds apply there; a copy could only repeat or narrow them. Test-only entries
   are unchanged.
 - **The six allocation tests skipped under `--check-bounds=yes` or code coverage name issue
   #207** on their lines (`test/linesearch/linesearch.jl`, `test/nonlinear/nonlinear_solver.jl`).
