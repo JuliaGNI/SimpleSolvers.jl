@@ -35,6 +35,7 @@ All notable changes to SimpleSolvers.jl are documented here.
   fails on a stale explicit import, on an import or a qualified access through a module other
   than the owner of the name, and on a self-qualified access. The checks for implicit imports and
   for non-public names are off. ExplicitImports 1.15 is a new test dependency.
+- **`test/linesearch/linesearch.jl` drops unused locals.** No source file changes.
 
 ### Fixed
 
