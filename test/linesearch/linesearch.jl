@@ -97,9 +97,6 @@ end
 
 @testset "$(rpad("Static",80))" begin
     x₀ = -3.0
-    x₁ = +3.0
-    δx = x₁ - x₀
-    x = copy(x₀)
 
     ls_problem = make_linesearch_problem(x₀)
 
@@ -1271,7 +1268,7 @@ end
     descending(x) = 1.0 - x                    # never turns, so only the ceiling can stop it
     turning(x) = (x - 1.0)^2                   # turns at 1, well inside the ceilings below
 
-    a, b, ya, yb, _, st = SimpleSolvers._bracket_minimum_with_fixed_point_core(
+    _, b, _, yb, _, st = SimpleSolvers._bracket_minimum_with_fixed_point_core(
         descending, 0.0, 0.01, 2.0, 100, 5.0)
     @test st === :capped
     @test b == 5.0 && yb == descending(5.0)
@@ -1281,7 +1278,7 @@ end
     @test SimpleSolvers._bracket_minimum_with_fixed_point_core(
         descending, 0.0, 0.01, 2.0, 100, Inf)[end] === :unbracketable
 
-    lo, hi, _, stm = SimpleSolvers._bracket_minimum_core(
+    _, hi, _, stm = SimpleSolvers._bracket_minimum_core(
         descending, 0.0, 0.01, 2.0, 100, 5.0)
     @test stm === :capped && hi == 5.0
     @test SimpleSolvers._bracket_minimum_core(turning, 0.0, 0.01, 2.0, 100, 5.0)[end] ===
