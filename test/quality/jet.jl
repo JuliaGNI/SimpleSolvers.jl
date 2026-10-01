@@ -4,7 +4,8 @@
 # `factorize!` and `ldiv!` of `LapackLU`, `RecursiveLU`, `PivotedQR` and `SVDSolver`, `ldiv!` of
 # `UmfpackLU` (`test/linear/linear_solvers.jl`), `report_linesearch_status` and
 # `solve_with_status` (`test/linesearch/linesearch.jl`), and `solve!` with a state
-# (`test/linesearch/linesearch.jl`, `test/nonlinear/nonlinear_solver.jl`). Each line runs
+# (`test/linesearch/linesearch.jl`, `test/nonlinear/nonlinear_solver.jl`). The bound on
+# `solve_with_status` of `StrongWolfe` is 64 bytes, not zero. Each line runs
 # `JET.report_opt` at the concrete argument types of one test call, and asserts that JET reports
 # no runtime dispatch in a frame of SimpleSolvers, or of the extension that the call reaches.
 #
@@ -107,7 +108,8 @@ if JET_WORKS
 
     @testset "solve_with_status of $(nameof(M))" for M in (Static, Backtracking, Bisection,
         Quadratic, BierlaireQuadratic, StrongWolfe)
-        # `@allocated`: with a ceiling and without one; `StrongWolfe` with no parameters argument
+        # `@allocated`: with a ceiling and without one; `StrongWolfe` with no parameters argument.
+        # `Backtracking(; expand = true)` has the type of `Backtracking()`, so it adds no line.
         ls = Linesearch(make_linesearch_problem(2.0), M(); verbosity = 0)
         params = M === StrongWolfe ? ((),) :
                  ((typeof((x = 2.0, αmax = 10.0)),), (typeof((x = 2.0,)),))

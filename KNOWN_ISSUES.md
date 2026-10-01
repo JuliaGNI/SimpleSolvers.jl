@@ -209,16 +209,16 @@ follows is what is left.
 
 ## Upstream
 
-### K14 · Revise prints EMFILE errors in the test log
+### K14 · Revise prints EMFILE errors in the test log.
 
 - **location:** `test/quality/jet.jl`
 - **evidence:** JET 0.12 loads Revise, and its file watcher runs out of file handles. Each block
   is an `IOError: FolderMonitor: too many open files (EMFILE)` stack trace. `grep -c 'UNHANDLED
-  TASK ERROR'` on a `run-tests.jl <repository> full` log on Julia 1.13 counts 8 blocks on the
-  branch that replaces `report_package` by the per-entry-point lines, and 14 on its base, whose
-  `quality/jet.jl` also loads JET. The count varies from run to run: runs of `quality/jet.jl`
-  alone gave 19 on the branch and 20 on the base, and an `affected` run gave 7. The test totals do
-  not change.
+  TASK ERROR'` on a `run-tests.jl <repository> full` log on Julia 1.13 counts 8 blocks with the
+  per-entry-point lines of `quality/jet.jl`, and 14 with a `quality/jet.jl` that holds a
+  `JET.report_package` line instead and also loads JET. The count varies from run to run: runs of
+  `quality/jet.jl` alone gave 19 and 20 for the two forms, and an `affected` run gave 7. The test
+  totals do not change.
 - **kind:** upstream
 - **found:** 2026-10-01
 
@@ -228,10 +228,10 @@ follows is what is left.
 
 - **location:** `ext/SimpleSolversSparspakExt.jl:4`
 - **evidence:** `using SparseArrays: SparseMatrixCSC` is stale. ExplicitImports checks only the
-  extensions that are loaded, and no test file before `test/quality/explicit_imports.jl` loaded
-  Sparspak, so the check did not see it. With Sparspak loaded, `test_explicit_imports` reports
+  extensions that are loaded, so the check sees the import only in a process that has loaded
+  Sparspak. With Sparspak loaded, `test_explicit_imports` reports
   `unused explicit import in SimpleSolversSparspakExt: SparseMatrixCSC`.
-  `test/quality/explicit_imports.jl` now loads Sparspak and marks
+  `test/quality/explicit_imports.jl` loads Sparspak and marks
   `check_no_stale_explicit_imports(SimpleSolvers)` as `@test_broken` (issue #210). The mutant that
   deletes the import makes that line an Unexpected Pass.
 - **kind:** defect

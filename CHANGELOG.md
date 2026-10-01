@@ -38,12 +38,15 @@ All notable changes to SimpleSolvers.jl are documented here.
 - **`test/linesearch/linesearch.jl` drops unused locals.** No source file changes.
 - **`test/quality/jet.jl` checks the hot path, not the whole package.** It holds one
   `JET.report_opt` line per entry point and element type, and no `JET.report_package` line:
-  `report_package` still finds reports (issue #196), and the file does not assert on them. The entry points are the functions that the tests assert allocation
-  free: `factorize!` and `ldiv!` of `LapackLU`, `RecursiveLU`, `PivotedQR` and `SVDSolver`,
-  `ldiv!` of the sparse direct methods, `report_linesearch_status`, `solve_with_status` of each
-  line search, and `solve!` of a nonlinear solver with a state. Each line asserts that JET finds
-  no runtime dispatch in SimpleSolvers or in the extension that the call reaches. On a Julia
-  version that JET does not support, the file records one `@test_skip`. No source file changes.
+  `report_package` still finds reports (issue #196), and the file does not assert on them. The
+  entry points are the functions whose allocations the tests bound: `factorize!` and `ldiv!` of
+  `LapackLU`, `RecursiveLU`, `PivotedQR` and `SVDSolver`, `ldiv!` of `UmfpackLU` (also analysed
+  at the element types that the `SparspakLU` tests pass to the same method),
+  `report_linesearch_status`, `solve_with_status` of each line search (`StrongWolfe`: at most
+  64 bytes, the others zero), and `solve!` of a nonlinear solver with a state. Each line asserts
+  that JET finds no runtime dispatch in SimpleSolvers or in the extension that the call reaches.
+  On a Julia version that JET does not support, the file records one `@test_skip`. No source file
+  changes.
 - **`test/quality/explicit_imports.jl` loads Sparspak, and its stale-import check is
   `@test_broken` (issue #210).** `test/quality/jet.jl` loads Sparspak before this file runs, so the
   check now sees `SimpleSolversSparspakExt`, whose import of `SparseMatrixCSC` is unused. Loading
