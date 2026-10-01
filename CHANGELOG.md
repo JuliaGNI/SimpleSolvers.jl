@@ -17,8 +17,7 @@ All notable changes to SimpleSolvers.jl are documented here.
   dependencies isolated in `test/Project.toml`. Doctests run everywhere as part of the suite
   with `manual = true`, removing the `SIMPLESOLVERS_DOCTESTS` environment variable gate.
   `runtests.jl` selects test groups via command-line arguments (`core` or `slow`; empty runs both).
-  The JET file runs again. It asserts that `JET.report_package` finds no report, and it is
-  `@test_broken` because JET finds some (issue #196).
+  The JET file runs again (see the `test/quality/jet.jl` entry below).
   The print-statement tests run again and are `@test_broken` (issue #195). The benchmark and
   profile scripts, which hold no test, move from `test/` to `scripts/`. Two test files now fix
   their random seed.
@@ -32,10 +31,29 @@ All notable changes to SimpleSolvers.jl are documented here.
 - **The six allocation tests skipped under `--check-bounds=yes` or code coverage name issue
   #207** on their lines (`test/linesearch/linesearch.jl`, `test/nonlinear/nonlinear_solver.jl`).
 - **An ExplicitImports guard runs in the `core` group.** `test/quality/explicit_imports.jl`
-  fails on a stale explicit import, on an import or a qualified access through a module other
-  than the owner of the name, and on a self-qualified access. The checks for implicit imports and
-  for non-public names are off. ExplicitImports 1.15 is a new test dependency.
+  fails on an import or a qualified access through a module other than the owner of the name,
+  and on a self-qualified access. Its stale-import check is `@test_broken` (issue #210), see the
+  entry below. The checks for implicit imports and for non-public names are off. ExplicitImports
+  1.15 is a new test dependency.
 - **`test/linesearch/linesearch.jl` drops unused locals.** No source file changes.
+- **`test/quality/jet.jl` checks the hot path, not the whole package.** It holds one
+  `JET.report_opt` line per entry point and element type, and no `JET.report_package` line:
+  `report_package` still finds reports (issue #196), and the file does not assert on them. The
+  entry points are the functions whose allocations the tests bound: `factorize!` and `ldiv!` of
+  `LapackLU`, `RecursiveLU`, `PivotedQR` and `SVDSolver`, `ldiv!` of `UmfpackLU` (also analysed
+  at the element types that the `SparspakLU` tests pass to the same method),
+  `report_linesearch_status`, `solve_with_status` of each line search (`StrongWolfe`: at most
+  64 bytes, the others zero), and `solve!` of a nonlinear solver with a state. Each line asserts
+  that JET finds no runtime dispatch in SimpleSolvers or in the extension that the call reaches.
+  On a Julia version that JET does not support, the file records one `@test_skip`. No source file
+  changes.
+- **`test/quality/explicit_imports.jl` loads Sparspak, and its stale-import check is
+  `@test_broken` (issue #210).** `test/quality/jet.jl` loads Sparspak before this file runs, so the
+  check now sees `SimpleSolversSparspakExt`, whose import of `SparseMatrixCSC` is unused. Loading
+  Sparspak in the file itself gives the same result whatever ran before it. The check is off in
+  `test_explicit_imports` and runs on its own line as `check_no_stale_explicit_imports`, so until
+  #210 is fixed the suite does not detect a new stale import anywhere in the package. One test of
+  this file goes from pass to broken.
 
 ### Fixed
 

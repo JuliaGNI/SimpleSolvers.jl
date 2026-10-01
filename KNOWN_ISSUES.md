@@ -206,3 +206,33 @@ follows is what is left.
   independent solves can suppress each other's reports.
 - **kind:** defect
 - **found:** 2026-08-14
+
+## Upstream
+
+### K14 · Revise prints EMFILE errors in the test log.
+
+- **location:** `test/quality/jet.jl`
+- **evidence:** JET 0.12 loads Revise, and its file watcher runs out of file handles. Each block
+  is an `IOError: FolderMonitor: too many open files (EMFILE)` stack trace. `grep -c 'UNHANDLED
+  TASK ERROR'` on a `run-tests.jl <repository> full` log on Julia 1.13 counts 8 blocks with the
+  per-entry-point lines of `quality/jet.jl`, and 14 with a `quality/jet.jl` that holds a
+  `JET.report_package` line instead and also loads JET. The count varies from run to run: runs of
+  `quality/jet.jl` alone gave 19 and 20 for the two forms, and an `affected` run gave 7. The test
+  totals do not change.
+- **kind:** upstream
+- **found:** 2026-10-01
+
+## Raised while adding the JET lines of the hot path, not addressed
+
+### K15 · The Sparspak extension imports `SparseMatrixCSC` and never uses it.
+
+- **location:** `ext/SimpleSolversSparspakExt.jl:4`
+- **evidence:** `using SparseArrays: SparseMatrixCSC` is stale. ExplicitImports checks only the
+  extensions that are loaded, so the check sees the import only in a process that has loaded
+  Sparspak. With Sparspak loaded, `test_explicit_imports` reports
+  `unused explicit import in SimpleSolversSparspakExt: SparseMatrixCSC`.
+  `test/quality/explicit_imports.jl` loads Sparspak and marks
+  `check_no_stale_explicit_imports(SimpleSolvers)` as `@test_broken` (issue #210). The mutant that
+  deletes the import makes that line an Unexpected Pass.
+- **kind:** defect
+- **found:** 2026-10-01
