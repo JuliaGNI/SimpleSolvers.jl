@@ -36,6 +36,14 @@ All notable changes to SimpleSolvers.jl are documented here.
   than the owner of the name, and on a self-qualified access. The checks for implicit imports and
   for non-public names are off. ExplicitImports 1.15 is a new test dependency.
 - **`test/linesearch/linesearch.jl` drops unused locals.** No source file changes.
+- **`test/quality/jet.jl` checks the hot path, not the whole package.** The `report_package`
+  line, which was `@test_broken` (issue #196), is replaced by one `JET.report_opt` line per entry
+  point and element type. The entry points are the functions that the tests assert allocation
+  free: `factorize!` and `ldiv!` of `LapackLU`, `RecursiveLU`, `PivotedQR` and `SVDSolver`,
+  `ldiv!` of the sparse direct methods, `report_linesearch_status`, `solve_with_status` of each
+  line search, and `solve!` of a nonlinear solver with a state. Each line asserts that JET finds
+  no runtime dispatch in SimpleSolvers or in the extension that the call reaches. On a Julia
+  version that JET does not support, the file records one `@test_skip`. No source file changes.
 
 ### Fixed
 

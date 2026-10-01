@@ -206,3 +206,17 @@ follows is what is left.
   independent solves can suppress each other's reports.
 - **kind:** defect
 - **found:** 2026-08-14
+
+## Upstream
+
+### K14 · Revise prints EMFILE errors in the test log
+
+- **location:** `test/quality/jet.jl`
+- **evidence:** JET 0.12 loads Revise, and its file watcher runs out of file handles.
+  `grep -c 'UNHANDLED TASK ERROR'` on a `run-tests.jl <repository> quality/jet.jl` log of the
+  branch that replaces `report_package` by the per-entry-point lines counts 19 blocks, each an
+  `IOError: FolderMonitor: too many open files (EMFILE)` stack trace. The `quality/jet.jl` of its
+  base, which calls `report_package`, also loads JET, and gives 20 such blocks. The test totals do
+  not change.
+- **kind:** upstream
+- **found:** 2026-10-01
