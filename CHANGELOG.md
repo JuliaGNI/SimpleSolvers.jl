@@ -44,6 +44,12 @@ All notable changes to SimpleSolvers.jl are documented here.
   line search, and `solve!` of a nonlinear solver with a state. Each line asserts that JET finds
   no runtime dispatch in SimpleSolvers or in the extension that the call reaches. On a Julia
   version that JET does not support, the file records one `@test_skip`. No source file changes.
+- **`test/quality/explicit_imports.jl` loads Sparspak, and its stale-import check is
+  `@test_broken` (issue #210).** `test/quality/jet.jl` loads Sparspak before this file runs, so the
+  check now sees `SimpleSolversSparspakExt`, whose import of `SparseMatrixCSC` is unused. Loading
+  Sparspak in the file itself gives the same result whatever ran before it. The check is off in
+  `test_explicit_imports` and runs on its own line as `check_no_stale_explicit_imports`. One test
+  of this file goes from pass to broken.
 
 ### Fixed
 

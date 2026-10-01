@@ -207,6 +207,21 @@ follows is what is left.
 - **kind:** defect
 - **found:** 2026-08-14
 
+## Raised while adding the JET lines of the hot path, not addressed
+
+### K15 · The Sparspak extension imports `SparseMatrixCSC` and never uses it.
+
+- **location:** `ext/SimpleSolversSparspakExt.jl:4`
+- **evidence:** `using SparseArrays: SparseMatrixCSC` is stale. ExplicitImports checks only the
+  extensions that are loaded, and no test file before `test/quality/explicit_imports.jl` loaded
+  Sparspak, so the check did not see it. With Sparspak loaded, `test_explicit_imports` reports
+  `unused explicit import in SimpleSolversSparspakExt: SparseMatrixCSC`.
+  `test/quality/explicit_imports.jl` now loads Sparspak and marks
+  `check_no_stale_explicit_imports(SimpleSolvers)` as `@test_broken` (issue #210). The mutant that
+  deletes the import makes that line an Unexpected Pass.
+- **kind:** defect
+- **found:** 2026-10-01
+
 ## Upstream
 
 ### K14 · Revise prints EMFILE errors in the test log
