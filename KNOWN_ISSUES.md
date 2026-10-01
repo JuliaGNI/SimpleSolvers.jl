@@ -207,6 +207,21 @@ follows is what is left.
 - **kind:** defect
 - **found:** 2026-08-14
 
+## Upstream
+
+### K14 · Revise prints EMFILE errors in the test log
+
+- **location:** `test/quality/jet.jl`
+- **evidence:** JET 0.12 loads Revise, and its file watcher runs out of file handles. Each block
+  is an `IOError: FolderMonitor: too many open files (EMFILE)` stack trace. `grep -c 'UNHANDLED
+  TASK ERROR'` on a `run-tests.jl <repository> full` log on Julia 1.13 counts 8 blocks on the
+  branch that replaces `report_package` by the per-entry-point lines, and 14 on its base, whose
+  `quality/jet.jl` also loads JET. The count varies from run to run: runs of `quality/jet.jl`
+  alone gave 19 on the branch and 20 on the base, and an `affected` run gave 7. The test totals do
+  not change.
+- **kind:** upstream
+- **found:** 2026-10-01
+
 ## Raised while adding the JET lines of the hot path, not addressed
 
 ### K15 · The Sparspak extension imports `SparseMatrixCSC` and never uses it.
@@ -220,18 +235,4 @@ follows is what is left.
   `check_no_stale_explicit_imports(SimpleSolvers)` as `@test_broken` (issue #210). The mutant that
   deletes the import makes that line an Unexpected Pass.
 - **kind:** defect
-- **found:** 2026-10-01
-
-## Upstream
-
-### K14 · Revise prints EMFILE errors in the test log
-
-- **location:** `test/quality/jet.jl`
-- **evidence:** JET 0.12 loads Revise, and its file watcher runs out of file handles.
-  `grep -c 'UNHANDLED TASK ERROR'` on a `run-tests.jl <repository> quality/jet.jl` log of the
-  branch that replaces `report_package` by the per-entry-point lines counts 19 blocks, each an
-  `IOError: FolderMonitor: too many open files (EMFILE)` stack trace. The `quality/jet.jl` of its
-  base, which calls `report_package`, also loads JET, and gives 20 such blocks. The test totals do
-  not change.
-- **kind:** upstream
 - **found:** 2026-10-01

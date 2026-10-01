@@ -24,7 +24,7 @@ using SparseArrays
 using Sparspak
 using Test
 
-using SimpleSolvers: BierlaireQuadratic, Quadratic, NullParameters, factorize!
+using SimpleSolvers: BierlaireQuadratic, Quadratic, factorize!
 
 const JET_WORKS = isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
 
@@ -107,18 +107,20 @@ if JET_WORKS
 
     @testset "solve_with_status of $(nameof(M))" for M in (Static, Backtracking, Bisection,
         Quadratic, BierlaireQuadratic, StrongWolfe)
-        # `@allocated`: with a ceiling and without one; `StrongWolfe` with no parameters
+        # `@allocated`: with a ceiling and without one; `StrongWolfe` with no parameters argument
         ls = Linesearch(make_linesearch_problem(2.0), M(); verbosity = 0)
-        params = M === StrongWolfe ? (NullParameters(),) :
-                 ((x = 2.0, αmax = 10.0), (x = 2.0,))
+        params = M === StrongWolfe ? ((),) :
+                 ((typeof((x = 2.0, αmax = 10.0)),), (typeof((x = 2.0,)),))
         for p in params
             @test isempty(JET.get_reports(JET.report_opt(solve_with_status,
-                (typeof(ls), Float64, typeof(p)); target_modules = (SimpleSolvers,))))
+                (typeof(ls), Float64, p...); target_modules = (SimpleSolvers,))))
         end
         # Float32 and Float16, the other element types of "the line search contract holds for
-        # every method"
+        # every method". The merit captures `one_T`, as that test does: a closure that captures
+        # `T` infers `one(T)` as `Any` on Julia 1.11.
         for T in (Float32, Float16)
-            lsT = Linesearch(LinesearchProblem{T}((α, _) -> one(T) - α, (α, _) -> -one(T)),
+            one_T = one(T)
+            lsT = Linesearch(LinesearchProblem{T}((α, _) -> one_T - α, (α, _) -> -one_T),
                 M(T); verbosity = 0)
             @test isempty(JET.get_reports(JET.report_opt(
                 solve_with_status, (typeof(lsT), T);
