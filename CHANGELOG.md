@@ -54,6 +54,11 @@ All notable changes to SimpleSolvers.jl are documented here.
   `test_explicit_imports` and runs on its own line as `check_no_stale_explicit_imports`, so until
   #210 is fixed the suite does not detect a new stale import anywhere in the package. One test of
   this file goes from pass to broken.
+- **The `[compat]` floors are raised to `GeometricBase = "0.15.0"` and
+  `NeuralNetworkParameters = "0.4.2"`**, because GeometricBase 0.15 declares its stubs public and
+  requires Julia 1.11, and NeuralNetworkParameters 0.4.2 is its first release that allows
+  GeometricBase 0.15. The `julia = "1.11"` floor is unchanged. GeometricBase 0.14 users keep
+  0.14.0.
 
 ### Fixed
 
