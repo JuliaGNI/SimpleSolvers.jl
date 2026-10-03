@@ -243,7 +243,7 @@ follows is what is left.
 
 - **location:** `docs/src/assets/extra_styles.css:1-12`
 - **evidence:** `grep -rn -E 'display-(light|dark)-only' docs/src src docs/make.jl` finds only the
-  four rules in `extra_styles.css`, on `origin/main` and on the branch. No page uses either class.
+  four rules in `extra_styles.css`. No page uses either class.
   If the rules go, nothing remains in the file, and the file and its `assets` entry in
   `docs/make.jl` go too.
 - **kind:** dead code
