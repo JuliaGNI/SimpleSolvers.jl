@@ -133,8 +133,8 @@ for ``\tau \in (1, 2]``. The two solutions are (for ``\beta = \tau - 1``):
 The solution that lies in the interval ``(1, 2]`` is chosen.
 
 This can be visualized:
-![](dogleg_tikz_light.png)
-![](dogleg_tikz_dark.png)
+![The dogleg path of a trust-region step, from the iterate through p^U to the Newton point p^B.](https://juliagni.github.io/GeometricFigures.jl/figures/solvers/dogleg-tikz/dogleg-tikz_light.svg)
+![The dogleg path of a trust-region step, from the iterate through p^U to the Newton point p^B.](https://juliagni.github.io/GeometricFigures.jl/figures/solvers/dogleg-tikz/dogleg-tikz_dark.svg)
 
 !!! tip "Performance"
     The Dogleg method is significantly faster than exact subproblem solvers because it only requires one linear system solve (to find ``p^B``) per iteration. It offers a smooth transition between steepest descent (when the trust region is small) and Newton's method (when the trust region is large), often leading to superlinear convergence near the solution.

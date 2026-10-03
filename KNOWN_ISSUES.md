@@ -236,3 +236,15 @@ follows is what is left.
   deletes the import makes that line an Unexpected Pass.
 - **kind:** defect
 - **found:** 2026-10-01
+
+## Raised while moving the TikZ figures to GeometricFigures, not addressed
+
+### K16 · The `.display-light-only` and `.display-dark-only` CSS rules have no user.
+
+- **location:** `docs/src/assets/extra_styles.css:1-12`
+- **evidence:** `grep -rn -E 'display-(light|dark)-only' docs/src src docs/make.jl` finds only the
+  four rules in `extra_styles.css`. No page uses either class.
+  If the rules go, nothing remains in the file, and the file and its `assets` entry in
+  `docs/make.jl` go too.
+- **kind:** dead code
+- **found:** 2026-10-03

@@ -37,7 +37,3 @@ docs/Manifest.toml
 # Images
 *.pdf
 *.png
-
-# Temporary Latex files
-*.aux
-*.log
