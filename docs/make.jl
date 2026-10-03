@@ -11,10 +11,6 @@ using SimpleSolvers: update!, solver_step!, NonlinearSolverStatus, solution,
 bib = CitationBibliography(joinpath(@__DIR__, "src", "SimpleSolvers.bib"))
 Bibliography.sort_bibliography!(bib.entries, :nyt)  # name-year-title
 
-const buildpath = haskey(ENV, "CI") ? ".." : ""
-
-run(`make -C $(joinpath(@__DIR__, "src", "trust_region"))`)
-
 makedocs(;
     plugins = [bib],
     modules = [SimpleSolvers],
@@ -26,7 +22,10 @@ makedocs(;
         canonical = "https://JuliaGNI.github.io/SimpleSolvers.jl",
         size_threshold = 1_048_576,
         size_threshold_warn = 1_048_576,
-        assets = ["assets/extra_styles.css"]
+        assets = [
+            "assets/extra_styles.css",
+            asset("https://juliagni.github.io/GeometricFigures.jl/figures.css", class = :css)
+        ]
     ),
     pages = [
         "Home" => "index.md",

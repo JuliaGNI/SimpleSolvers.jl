@@ -2,6 +2,17 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## Unreleased
+
+### Changed
+
+- **Documentation no longer requires a TeX toolchain.** The dogleg TikZ figures have moved to the
+  GeometricFigures package and are published as SVGs. The trust-region page links to these
+  published figures, and `docs/make.jl` drops the TeX build step and loads the GeometricFigures
+  stylesheet `figures.css`, which shows the figure of the active Documenter theme. The
+  Makefile and TikZ sources in `docs/src/trust_region/` and `docs/src/tikz/` are gone. Building
+  documentation locally and the GitHub Documenter workflow no longer require pdflatex or poppler.
+
 ## [0.14.1]
 
 ### Added
