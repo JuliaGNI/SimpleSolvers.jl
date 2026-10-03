@@ -2,9 +2,9 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## Unreleased
+## [Unreleased]
 
-### Changed
+### Documentation
 
 - **Documentation no longer requires a TeX toolchain.** The dogleg TikZ figures have moved to the
   GeometricFigures package and are published as SVGs. The trust-region page links to these
@@ -12,6 +12,9 @@ All notable changes to SimpleSolvers.jl are documented here.
   stylesheet `figures.css`, which shows the figure of the active Documenter theme. The
   Makefile and TikZ sources in `docs/src/trust_region/` and `docs/src/tikz/` are gone. Building
   documentation locally and the GitHub Documenter workflow no longer require pdflatex or poppler.
+- The light and dark plots on the line-search pages now switch with the Documenter theme, through
+  `figures.css`, and no longer with the browser's `prefers-color-scheme`. The two
+  `prefers-color-scheme` image rules in `docs/src/assets/extra_styles.css` are gone.
 
 ## [0.14.1]
 
