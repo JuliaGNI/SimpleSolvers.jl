@@ -4,6 +4,11 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **CI uploads coverage from the `Julia 1 - ubuntu-latest` job** instead of `Julia min`, and a
+  test job saves the Julia cache only when it succeeds.
+
 ### Documentation
 
 - **Documentation no longer requires a TeX toolchain.** The dogleg TikZ figures have moved to the
