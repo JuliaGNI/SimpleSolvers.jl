@@ -255,20 +255,21 @@ follows is what is left.
 
 - **location:** `test/linear/linear_solvers.jl:583`
 - **evidence:** the `Julia nightly` job fails `@test (@allocated ldiv!(x, ls, bs)) == 0` in the
-  testset `UmfpackLU specifics` with `Evaluated: 512 == 0`; every other test passes (1059 passed,
+  testset `UmfpackLU specifics` with `Evaluated: 512 == 0`; no other test fails (1059 passed,
   1 failed). Measured on Julia 1.14.0-DEV.3555, CI run 37943670108 at `ebd3dca`. The `min`, `1`
   and `pre` jobs pass the same line, so the allocation comes from the nightly, not from this
   package. The job is advisory and stays red until the cause is known.
 - **kind:** upstream
-- **found:** 2026-10-02
+- **found:** 2026-10-09
 
 ### K18 · The `ForwardDiff` floor `0.10` does not resolve to `0.10.0`.
 
-- **location:** `Project.toml`, `[compat]`, `ForwardDiff = "0.10, 1"`
+- **location:** `Project.toml:28`
 - **evidence:** the `Downgrade` job fails at its `forcedeps` check with
   `ForwardDiff resolved to 0.10.26 but lower bound is 0.10.0`, before the suite runs. Every other
-  direct dependency resolves to its floor. Measured on Julia 1.11 (`min`), CI run 37943670108 at
-  `ebd3dca`. Which constraint excludes `0.10.0`–`0.10.25` is not yet measured; the fix is either
-  the floor that resolves, or the constraint removed.
+  direct dependency outside the standard library resolves to its floor. Measured on Julia 1.11
+  (`min`), CI run 37943670108 at `ebd3dca`. The cause is this package's own `NaNMath = "1"`: in
+  the General registry, `ForwardDiff` `0.10.0`–`0.10.25` require `NaNMath = "0.2.2-0.3"`, and
+  `0.10.26` is the first that accepts `NaNMath` 1. The floor that resolves is `0.10.26`.
 - **kind:** defect
-- **found:** 2026-10-02
+- **found:** 2026-10-09
