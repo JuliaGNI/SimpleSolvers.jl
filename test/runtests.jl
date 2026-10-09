@@ -18,6 +18,6 @@ if "core" in GROUPS
     @safetestset "Nonlinear solvers" include("nonlinear/nonlinear_solver.jl")
     @safetestset "Print statements" include("nonlinear/print_statements.jl")
 end
-if "slow" in GROUPS
+if "doctests" in GROUPS
     @safetestset "Doctests" include("quality/doctests.jl")
 end
