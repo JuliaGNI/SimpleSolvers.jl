@@ -248,3 +248,27 @@ follows is what is left.
   `docs/make.jl` go too.
 - **kind:** dead code
 - **found:** 2026-10-03
+
+## Raised by the advisory CI jobs of `main`, not addressed
+
+### K17 · On Julia nightly, the `UmfpackLU` `ldiv!` allocates 512 B.
+
+- **location:** `test/linear/linear_solvers.jl:583`
+- **evidence:** the `Julia nightly` job fails `@test (@allocated ldiv!(x, ls, bs)) == 0` in the
+  testset `UmfpackLU specifics` with `Evaluated: 512 == 0`; every other test passes (1059 passed,
+  1 failed). Measured on Julia 1.14.0-DEV.3555, CI run 37943670108 at `ebd3dca`. The `min`, `1`
+  and `pre` jobs pass the same line, so the allocation comes from the nightly, not from this
+  package. The job is advisory and stays red until the cause is known.
+- **kind:** upstream
+- **found:** 2026-10-02
+
+### K18 · The `ForwardDiff` floor `0.10` does not resolve to `0.10.0`.
+
+- **location:** `Project.toml`, `[compat]`, `ForwardDiff = "0.10, 1"`
+- **evidence:** the `Downgrade` job fails at its `forcedeps` check with
+  `ForwardDiff resolved to 0.10.26 but lower bound is 0.10.0`, before the suite runs. Every other
+  direct dependency resolves to its floor. Measured on Julia 1.11 (`min`), CI run 37943670108 at
+  `ebd3dca`. Which constraint excludes `0.10.0`–`0.10.25` is not yet measured; the fix is either
+  the floor that resolves, or the constraint removed.
+- **kind:** defect
+- **found:** 2026-10-02
