@@ -8,6 +8,10 @@ All notable changes to SimpleSolvers.jl are documented here.
 
 - **CI uploads coverage from the `Julia 1 - ubuntu-latest` job** instead of `Julia min`, and a
   test job saves the Julia cache only when it succeeds.
+- **The `[compat]` entry admits `NeuralNetworkParameters = "0.4.2, 0.5"`** (compat only; this
+  package's behaviour does not change), so that downstream packages that move to
+  NeuralNetworkParameters 0.5 can load the weak-dependency extension with it. The extension and
+  its tests pass unchanged against 0.5.0 and 0.4.2.
 - `Pkg.test()` no longer runs the doctests. `test/quality/doctests.jl` is now the group `doctests`, which an empty `ARGS` does not run; `Pkg.test(test_args = ["doctests"])` runs it. In CI the Doctests job stays their runner, so the test matrix no longer runs them a second time.
 
 ### Documentation
