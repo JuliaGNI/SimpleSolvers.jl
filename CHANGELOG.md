@@ -2,7 +2,7 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased]
+## [0.14.2]
 
 ### Changed
 
