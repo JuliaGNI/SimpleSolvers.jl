@@ -2,6 +2,24 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased] — targeting 0.15.0
+
+### Changed
+
+- **Julia 1.12 is the floor** (`[compat] julia = "1.12"`, from 1.11). A breaking change under
+  this package's pre-1.0 convention: a caller on Julia 1.11 can no longer install this version.
+  The repository records no reason for the raise. The test in `test/quality/jet.jl` that checks
+  the `Float32` and `Float16` line searches no longer binds `one(T)` to a local outside the merit
+  closure, a form that existed because a closure capturing `T` inferred `one(T)` as `Any` on
+  Julia 1.11: on 1.12.7 `JET.report_opt` of `solve_with_status` reports nothing for the closure
+  that calls `one(T)` itself.
+- **`SufficientDecreaseCondition` and `CurvatureCondition` check their numeric argument with
+  `throw(AssertionError(...))` instead of `@assert`** (the constructor check `τ ≥ 0` and
+  `0 < c < 1`; the error type and message are unchanged). Since Julia 1.12 an `@assert` with an
+  interpolated message builds that message through a type barrier, so JET reported a runtime
+  dispatch in `solve_with_status` of `Backtracking` and `StrongWolfe` and in `solve!` of the
+  nonlinear solvers on every construction of the condition.
+
 ## [0.14.2]
 
 ### Changed

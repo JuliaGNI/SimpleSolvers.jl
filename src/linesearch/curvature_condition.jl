@@ -39,7 +39,10 @@ struct CurvatureCondition{T, DT <: Callable, COND} <: BacktrackingCondition{T}
     function CurvatureCondition(c::T, d₀::T, D::DT,
             ::Val{COND} = Val(:Standard)) where {T <: Number, DT <: Callable, COND}
         @assert ((COND == :Standard) || (COND == :Strong)) "Mode has to be either :Strong or :Standard!"
-        @assert zero(T) < c < one(T) "The curvature constant c must lie in (0, 1), it is $(c)."
+        # Not `@assert`: since Julia 1.12 its interpolated message is typed `Any`, which JET
+        # reports as a runtime dispatch on every construction of the condition.
+        zero(T) < c < one(T) ||
+            throw(AssertionError("The curvature constant c must lie in (0, 1), it is $(c)."))
         @assert !isnan(d₀) "d₀ is NaN"
         new{T, DT, COND}(c, d₀, D)
     end
