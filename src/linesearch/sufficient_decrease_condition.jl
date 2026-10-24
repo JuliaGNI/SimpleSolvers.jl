@@ -58,7 +58,11 @@ struct SufficientDecreaseCondition{T, FT} <: BacktrackingCondition{T}
         @assert T == Tc "You are computing with mixed precision ($(T) and $(Tc)). This is probably not intended (and not supported)."
         @assert !isnan(f₀) "f₀ is NaN"
         @assert !isnan(d₀) "d₀ is NaN"
-        @assert τ ≥ zero(T) "The round-off allowance τ has to be nonnegative, it is $(τ)."
+        # Not `@assert`: it builds an interpolated message through a type barrier, which types
+        # the `AssertionError` argument `Any` and JET reports as a runtime dispatch on every
+        # construction of the condition.
+        τ ≥ zero(T) ||
+            throw(AssertionError("The round-off allowance τ has to be nonnegative, it is $(τ)."))
         new{T, FT}(c, f₀, d₀, τ, F)
     end
 end

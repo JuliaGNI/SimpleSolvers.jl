@@ -118,11 +118,9 @@ if JET_WORKS
                 (typeof(ls), Float64, p...); target_modules = (SimpleSolvers,))))
         end
         # Float32 and Float16, the other element types of "the line search contract holds for
-        # every method". The merit captures `one_T`, as that test does: a closure that captures
-        # `T` infers `one(T)` as `Any` on Julia 1.11.
+        # every method". The merit calls `one(T)` inside the closure.
         for T in (Float32, Float16)
-            one_T = one(T)
-            lsT = Linesearch(LinesearchProblem{T}((α, _) -> one_T - α, (α, _) -> -one_T),
+            lsT = Linesearch(LinesearchProblem{T}((α, _) -> one(T) - α, (α, _) -> -one(T)),
                 M(T); verbosity = 0)
             @test isempty(JET.get_reports(JET.report_opt(
                 solve_with_status, (typeof(lsT), T);
