@@ -2,12 +2,12 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased] — targeting 0.15.0
+## [0.14.3] — 2026-10-24
 
 ### Changed
 
-- **Julia 1.12 is the floor** (`[compat] julia = "1.12"`, from 1.11). A breaking change under
-  this package's pre-1.0 convention: a caller on Julia 1.11 can no longer install this version.
+- **Julia 1.12 is the floor** (`[compat] julia = "1.12"`, from 1.11). A patch release, because no
+  API changes: a caller on Julia 1.11 can no longer install this version.
   The test in `test/quality/jet.jl` that checks the `Float32` and `Float16` line searches no
   longer binds `one(T)` to a local outside the merit closure, a form that existed because a
   closure capturing `T` inferred `one(T)` as `Any` on Julia 1.11: on 1.12.7 `JET.report_opt`
