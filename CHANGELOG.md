@@ -2,6 +2,29 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **The `[compat]` lower bounds are ones that resolve and pass the test suite on Julia 1.12**
+  (compat only; the code does not change). The CI `Downgrade` job resolves `Project.toml` and
+  `test/Project.toml` together at their lower bounds and runs the suite there. Fixes K18.
+  - `ForwardDiff` `0.10` → `0.10.26`: `ForwardDiff` 0.10.0–0.10.25 require `NaNMath` 0.2.2–0.3,
+    and this package requires `NaNMath` 1.
+  - `Sparspak` `0.3` → `0.3.10`: the extension calls
+    `Sparspak.SparseCSCInterface.sparspaklu!` with the keyword `allow_pattern_change`.
+    `SparseCSCInterface` first exists in 0.3.3, and the keyword first exists in 0.3.10.
+  - `RecursiveFactorization` `0.2` → `0.2.15`: with 0.2.0 and with 0.2.13 the resolved
+    dependency stack contains `ArrayInterface` 3, which does not precompile on Julia 1.12.
+    With 0.2.14, `factorize!` of `RecursiveLU` on a 50×50 matrix allocates 33632 bytes, and the
+    test asserts zero allocations; 0.2.15 allocates nothing.
+  - In `test/Project.toml`, `Aqua` `0.8` → `0.8.14`: the piracy check of earlier releases reads
+    the field `TypeName.mt`, which Julia 1.12 removes. 0.8.14 is the first release that reads
+    `Core.methodtable` instead.
+  - In `test/Project.toml`, `JET` `0.9, 0.10, 0.11, 0.12` → `0.10.1, 0.11, 0.12`: JET 0.9
+    requires Julia 1.11, and JET 0.10.0 throws `unhandled LimitedAccuracy` in `report_opt` of
+    `solve!`; 0.10.1 is the first release that calls `ignorelimited` there.
+
 ## [0.14.3] — 2026-10-24
 
 ### Changed

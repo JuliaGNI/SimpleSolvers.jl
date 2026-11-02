@@ -22,11 +22,11 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 SimpleSolvers = {path = ".."}
 
 [compat]
-Aqua = "0.8"
+Aqua = "0.8.14"
 Documenter = "1"
 ExplicitImports = "1.15"
 GPUArraysCore = "0.2"
-JET = "0.9, 0.10, 0.11, 0.12"
+JET = "0.10.1, 0.11, 0.12"
 JLArrays = "0.3"
 Random = "1"
 SafeTestsets = "0.1.0"
