@@ -31,9 +31,13 @@ All notable changes to SimpleSolvers.jl are documented here.
   factorization of `SparseArrays` no longer holds its scratch space, and its `ldiv!` allocates
   that space on each call unless the keyword `workspace` passes one. The
   `SparseFactorizationCache` now carries a workspace for `UmfpackLU` from 1.14 and passes it; on
-  1.12 and 1.13 it carries `nothing`, and the factorization keeps its own. On 1.14.0-alpha2,
+  1.12 and 1.13 its `workspace` is `nothing`, and the factorization keeps its own. On 1.14.0-alpha2,
   `ldiv!` with the 24×24 `Float64` matrix of the test allocated 1360 bytes per call and now
   allocates none. Fixes K17.
+- **The `UmfpackLU` solve with `x === b` is allocation-free.** It used the two-argument
+  `ldiv!(F, x)` of `SparseArrays`, which copies `x` into a new array on every call: at
+  `n = 384`, 3136 bytes on 1.12 and 1.13, and 3328 bytes on 1.14.0-alpha2. The cache now holds that copy, `rhs` beside `workspace` in its `ws` field, and
+  the solve allocates none on Julia 1.12, 1.13 and 1.14.0-alpha2.
 - **The `directions!` doctest rounds `direction₁` as it rounds `direction₂`.** The last digit of
   its first component differs between `aarch64` and the `x86_64` runners of CI.
 

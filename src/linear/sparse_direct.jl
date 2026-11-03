@@ -11,9 +11,10 @@ The cache shared by the [`SparseDirectMethod`](@ref)s, [`UmfpackLU`](@ref) and
 - `info`: `0` if the last factorization or solve found nothing wrong, non-zero otherwise; see
   [`singular_index`](@ref),
 - `factorized`: whether [`factorize!`](@ref) has run at all,
-- `ws`: the scratch space that [`ldiv!`](@ref) passes to the backend: from Julia 1.14 a
-  workspace for [`UmfpackLU`](@ref), whose factorization holds none there, and `nothing` for
-  [`UmfpackLU`](@ref) before 1.14 and for [`SparspakLU`](@ref).
+- `ws`: the scratch space of [`ldiv!`](@ref). For [`UmfpackLU`](@ref) it holds `workspace`,
+  which from Julia 1.14 is passed to the backend, whose factorization holds none there, and is
+  `nothing` before 1.14; and `rhs`, the copy of the right-hand side that a solve with `x === b`
+  needs. For [`SparspakLU`](@ref) it is `nothing`.
 
 Unlike [`PivotedLUCache`](@ref) there is no working copy of the matrix: both backends take the
 `SparseMatrixCSC` as an argument to their refactorize call and read its `nzval` directly, so a

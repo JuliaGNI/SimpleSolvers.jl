@@ -581,6 +581,12 @@ end
     # the solve is allocation-free even though the factorization is not; see
     # `SparseFactorizationCache`
     @test (@allocated ldiv!(x, ls, bs)) == 0
+    # so is the aliased one, which copies `b` into the cache rather than a new array
+    v = copy(bs)
+    ldiv!(v, ls, v)
+    copyto!(v, bs)
+    @test (@allocated ldiv!(v, ls, v)) == 0
+    @test v ≈ x
 
     # singularity is known at factorization time, unlike Sparspak
     Ssing = copy(S)

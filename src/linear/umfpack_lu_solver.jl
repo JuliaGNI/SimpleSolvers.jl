@@ -93,7 +93,8 @@ function LinearSolverCache(method::UmfpackLU, A::AbstractMatrix{T}) where {T}
     #
     # `check=false`: a singular matrix is reported by `ldiv!`, not here — see the docstring.
     F = lu(A; check = false)
-    SparseFactorizationCache{T}(F, n, umfpack_workspace(F))
+    ws = (; workspace = umfpack_workspace(F), rhs = zeros(T, n))
+    SparseFactorizationCache{T}(F, n, ws)
 end
 
 # Up to Julia 1.13 the factorization holds UMFPACK's scratch space and `ldiv!` uses it. From
@@ -125,14 +126,14 @@ function factorize!(lsolver::LinearSolver{T, UmfpackLU}, A::AbstractMatrix{T}) w
     lsolver
 end
 
-# UMFPACK's three-argument `ldiv!` refuses aliased arrays, but every other method here
-# tolerates `x === b` — `solve!(x, lsolver, x)` is a legitimate call — so route the aliased
-# case through the two-argument form, which solves in place. Both are allocation-free.
+# UMFPACK cannot solve in place, but every other method here tolerates `x === b` —
+# `solve!(x, lsolver, x)` is a legitimate call — so the aliased case copies `b` into the
+# cache's `rhs` first. The two-argument `ldiv!` would allocate that copy on every call.
 function _sparse_ldiv!(::UmfpackLU, c::SparseFactorizationCache{T},
         x::AbstractVector{T}, b::AbstractVector{T}) where {T}
-    kw = c.ws === nothing ? (;) : (; workspace = c.ws)
+    kw = c.ws.workspace === nothing ? (;) : (; c.ws.workspace)
     if x === b
-        ldiv!(c.F, x; kw...)
+        ldiv!(x, c.F, copyto!(c.ws.rhs, b); kw...)
     else
         ldiv!(x, c.F, b; kw...)
     end
