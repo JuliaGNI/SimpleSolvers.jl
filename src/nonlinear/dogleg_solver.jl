@@ -81,10 +81,10 @@ julia> x = zeros(2); y = similar(x); s = DogLegSolver(x, y; F = f);
 
 julia> directions!(s, x, NullParameters());
 
-julia> direction₁(cache(s))
+julia> round.(direction₁(cache(s)); digits = 11)
 2-element Vector{Float64}:
- -0.25513686072399455
-  0.1601152321012896
+ -0.25513686072
+  0.1601152321
 
 julia> round.(direction₂(cache(s)); digits = 11)
 2-element Vector{Float64}:
@@ -92,15 +92,16 @@ julia> round.(direction₂(cache(s)); digits = 11)
   0.22882877718
 ```
 
-The rounding is not decoration. [`direction₂`](@ref) comes out of the LU solve, so its last bit
-carries the accumulation order of whichever BLAS kernel is underneath — and that varies by
-machine, not by Julia version. Mathematically the two components of this one are exact
+The rounding is not decoration. The last bit of both directions carries the accumulation order of
+whichever kernel is underneath — and that varies by machine, not by Julia version.
+[`direction₂`](@ref) comes out of the LU solve. Mathematically its two components are exact
 negatives; printed to sixteen significant digits they are `-0.22882877718014286` and
 `0.22882877718014286` on `aarch64` (identically on Julia 1.11, 1.12 and 1.13) and
 `-0.22882877718014286` and `0.22882877718014288` on `x86_64` OpenBLAS, which is what CI runs on.
-Asserting that last digit is asserting the noise rather than the result.
-[`direction₁`](@ref) above needs no such treatment: it is `mul!` and norms, and never touches
-the factorization.
+[`direction₁`](@ref) never touches the factorization, but its `mul!` and norms still differ in
+the last bit: its first component is `-0.25513686072399455` on `aarch64` and
+`-0.2551368607239946` on `x86_64`. Asserting that last digit is asserting the noise rather than
+the result.
 
 # Extended help
 

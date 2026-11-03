@@ -10,7 +10,11 @@ The cache shared by the [`SparseDirectMethod`](@ref)s, [`UmfpackLU`](@ref) and
 - `n`: the leading dimension, kept here because the two backends store it differently,
 - `info`: `0` if the last factorization or solve found nothing wrong, non-zero otherwise; see
   [`singular_index`](@ref),
-- `factorized`: whether [`factorize!`](@ref) has run at all.
+- `factorized`: whether [`factorize!`](@ref) has run at all,
+- `ws`: the scratch space of [`ldiv!`](@ref). For [`UmfpackLU`](@ref) it holds `workspace`,
+  which from Julia 1.14 is passed to the backend, whose factorization holds none there, and is
+  `nothing` before 1.14; and `rhs`, the copy of the right-hand side that a solve with `x === b`
+  needs. For [`SparspakLU`](@ref) it is `nothing`.
 
 Unlike [`PivotedLUCache`](@ref) there is no working copy of the matrix: both backends take the
 `SparseMatrixCSC` as an argument to their refactorize call and read its `nzval` directly, so a
@@ -23,15 +27,16 @@ Measured on a periodic banded matrix at `n = 384`: [`UmfpackLU`](@ref) allocates
 refactorization but **0 B** per [`ldiv!`](@ref); [`SparspakLU`](@ref) allocates ~11 kB per
 refactorization and ~10 kB per [`ldiv!`](@ref).
 """
-mutable struct SparseFactorizationCache{T, FT} <: LinearSolverCache{T}
+mutable struct SparseFactorizationCache{T, FT, WT} <: LinearSolverCache{T}
     F::FT
     n::Int
     info::Int
     factorized::Bool
+    ws::WT
 end
 
-function SparseFactorizationCache{T}(F::FT, n::Integer) where {T, FT}
-    SparseFactorizationCache{T, FT}(F, Int(n), 0, false)
+function SparseFactorizationCache{T}(F::FT, n::Integer, ws::WT = nothing) where {T, FT, WT}
+    SparseFactorizationCache{T, FT, WT}(F, Int(n), 0, false, ws)
 end
 
 """
