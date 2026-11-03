@@ -248,16 +248,3 @@ follows is what is left.
   `docs/make.jl` go too.
 - **kind:** dead code
 - **found:** 2026-10-03
-
-## Raised by the advisory CI jobs of `main`, not addressed
-
-### K17 · On Julia nightly, the `UmfpackLU` `ldiv!` allocates 512 B.
-
-- **location:** `test/linear/linear_solvers.jl:583`
-- **evidence:** the `Julia nightly` job fails `@test (@allocated ldiv!(x, ls, bs)) == 0` in the
-  testset `UmfpackLU specifics` with `Evaluated: 512 == 0`; no other test fails (1059 passed,
-  1 failed). Measured on Julia 1.14.0-DEV.3555, CI run 37943670108 at `ebd3dca`. The `min`, `1`
-  and `pre` jobs pass the same line, so the allocation comes from the nightly, not from this
-  package. The job is advisory and stays red until the cause is known.
-- **kind:** upstream
-- **found:** 2026-10-09

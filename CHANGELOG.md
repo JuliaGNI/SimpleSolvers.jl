@@ -25,6 +25,18 @@ All notable changes to SimpleSolvers.jl are documented here.
     requires Julia 1.11, and JET 0.10.0 throws `unhandled LimitedAccuracy` in `report_opt` of
     `solve!`; 0.10.1 is the first release that calls `ignorelimited` there.
 
+### Fixed
+
+- **The `UmfpackLU` solve is allocation-free on Julia 1.14 too.** From 1.14, the UMFPACK
+  factorization of `SparseArrays` no longer holds its scratch space, and its `ldiv!` allocates
+  that space on each call unless the keyword `workspace` passes one. The
+  `SparseFactorizationCache` now carries a workspace for `UmfpackLU` from 1.14 and passes it; on
+  1.12 and 1.13 it carries `nothing`, and the factorization keeps its own. On 1.14.0-alpha2,
+  `ldiv!` with the 24×24 `Float64` matrix of the test allocated 1360 bytes per call and now
+  allocates none. Fixes K17.
+- **The `directions!` doctest rounds `direction₁` as it rounds `direction₂`.** The last digit of
+  its first component differs between `aarch64` and the `x86_64` runners of CI.
+
 ## [0.14.3] — 2026-10-24
 
 ### Changed

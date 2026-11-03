@@ -92,7 +92,15 @@ function LinearSolverCache(method::UmfpackLU, A::AbstractMatrix{T}) where {T}
     # ordering and symbolic factorization, which is where the saving is.
     #
     # `check=false`: a singular matrix is reported by `ldiv!`, not here — see the docstring.
-    SparseFactorizationCache{T}(lu(A; check = false), n)
+    F = lu(A; check = false)
+    SparseFactorizationCache{T}(F, n, umfpack_workspace(F))
+end
+
+# Up to Julia 1.13 the factorization holds UMFPACK's scratch space and `ldiv!` uses it. From
+# 1.14 it does not: `ldiv!` takes the scratch space as the keyword `workspace` and allocates it
+# on each call without one. The workspace grows as needed, so a refactorization keeps it valid.
+function umfpack_workspace(F)
+    hasfield(typeof(F), :workspace) ? nothing : SparseArrays.UMFPACK.UmfpackWS(F)
 end
 
 """
@@ -122,10 +130,11 @@ end
 # case through the two-argument form, which solves in place. Both are allocation-free.
 function _sparse_ldiv!(::UmfpackLU, c::SparseFactorizationCache{T},
         x::AbstractVector{T}, b::AbstractVector{T}) where {T}
+    kw = c.ws === nothing ? (;) : (; workspace = c.ws)
     if x === b
-        ldiv!(c.F, x)
+        ldiv!(c.F, x; kw...)
     else
-        ldiv!(x, c.F, b)
+        ldiv!(x, c.F, b; kw...)
     end
     x
 end
