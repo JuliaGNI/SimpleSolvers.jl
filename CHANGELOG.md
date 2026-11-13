@@ -24,6 +24,11 @@ All notable changes to SimpleSolvers.jl are documented here.
   - In `test/Project.toml`, `JET` `0.9, 0.10, 0.11, 0.12` → `0.10.1, 0.11, 0.12`: JET 0.9
     requires Julia 1.11, and JET 0.10.0 throws `unhandled LimitedAccuracy` in `report_opt` of
     `solve!`; 0.10.1 is the first release that calls `ignorelimited` there.
+- **A pull request that changes `src/`, `ext/` or `Project.toml` runs the `core` tests of the 9
+  direct dependents against its head** (`.github/workflows/Dependents.yml`, advisory). The list is
+  `.github/dependents.toml`, written by `harness dependents`. A red dependent runs again against
+  `main`: only a failure on the head that `main` does not have fails the job, and a head outside a
+  dependent's `[compat]` is reported as excluded.
 
 ### Fixed
 
