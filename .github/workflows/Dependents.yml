@@ -91,11 +91,20 @@ jobs:
               with:
                   ref: ${{ github.event.repository.default_branch }}
                   path: main
+            # A second checkout of the dependent: the run against the head wrote a Manifest.toml
+            # into the first, and Pkg.develop keeps the versions it can, so the run against the
+            # default branch would inherit a resolution that only the head forced.
+            - name: Check out the default branch of the dependent again
+              if: steps.head.outcome == 'failure'
+              uses: actions/checkout@v7
+              with:
+                  repository: ${{ matrix.dependent.repository }}
+                  path: dependent-main
             - name: Test the dependent against the default branch of the base
               id: main
               if: steps.head.outcome == 'failure'
               continue-on-error: true
-              run: julia --startup-file=no --project=dependent -e 'using Pkg; Pkg.develop(path = abspath("main")); Pkg.test(test_args = ["core"])'
+              run: julia --startup-file=no --project=dependent-main -e 'using Pkg; Pkg.develop(path = abspath("main")); Pkg.test(test_args = ["core"])'
             - name: Write the row of the dependent
               if: always()
               env:
