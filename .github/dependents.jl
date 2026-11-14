@@ -4,7 +4,7 @@
 #
 #   julia dependents.jl list <dependents.toml>
 #   julia dependents.jl excluded <base> <dependent>
-#   julia dependents.jl row <name> <excluded> <head outcome> <main outcome>
+#   julia dependents.jl row <name> <excluded> <head setup> <head test> <main setup> <main test>
 #
 # `list` prints the [[dependent]] tables of <dependents.toml> as a JSON array of objects with
 # `name` and `repository`, the matrix of the test job. A missing file exits 2 with a line that
@@ -18,11 +18,20 @@
 # A file that is not TOML, an entry that is malformed and a [compat] entry that is no version
 # specifier exit 2 with one line on stderr.
 #
-# `row` classifies a dependent from `excluded` and the outcomes of the test steps against the head
-# of the pull request and against the default branch of the base: excluded; head `success`:
-# green; head `failure` and main `success`: regression; both `failure`: known red. It prints the
-# row and appends it, under a header, to the job summary. A regression exits 1, so of the four
-# rows only a regression fails the job; a combination that is none of these exits 2.
+# `row` classifies a dependent from `excluded` and the outcomes of the setup and the test steps
+# against the head of the pull request and against the default branch of the base; `skipped` or
+# empty is a step that did not run:
+#
+#   excluded `true`: excluded
+#   head setup and test `success`, main did not run: green
+#   head setup `failure`, main setup `success`: regression
+#   head test `failure`, main setup and test `success`: regression
+#   head test `failure`, main setup `success`, main test `failure`: known red
+#   head setup or head test `failure`, main setup `failure`: inconclusive, with the failed setups
+#
+# After a failed setup, its test step does not run. `row` prints the row and appends it, under a
+# header, to the job summary. A regression and an inconclusive row exit 1, which fails the job;
+# a combination that is none of these exits 2.
 #
 # `list` and `excluded` also append their result to $GITHUB_OUTPUT, and `row` to
 # $GITHUB_STEP_SUMMARY, where the variable is set.
@@ -30,7 +39,7 @@
 using Pkg: Pkg
 using TOML
 
-const USAGE = "usage: dependents.jl list <dependents.toml> | excluded <base> <dependent> | row <name> <excluded> <head> <main>"
+const USAGE = "usage: dependents.jl list <dependents.toml> | excluded <base> <dependent> | row <name> <excluded> <head setup> <head test> <main setup> <main test>"
 # A repository name, and a GitHub `owner/name`: the values that a [[dependent]] table may hold.
 const NAME = r"^[A-Za-z0-9._-]+$"
 const REPOSITORY = r"^[A-Za-z0-9-]+/[A-Za-z0-9._-]+$"
@@ -107,29 +116,48 @@ function excluded(base, dependent)
     return 0
 end
 
-function row(name, isexcluded, head, main)
+# GitHub reports a step that did not run as `skipped`, or as empty where the step is never reached.
+notrun(outcome) = outcome in ("", "skipped")
+
+function row(name, isexcluded, headsetup, headtest, mainsetup, maintest)
+    headfailed = (headsetup == "failure" && notrun(headtest)) ||
+                 (headsetup == "success" && headtest == "failure")
     result = if isexcluded == "true"
         "excluded"
-    elseif isexcluded == "false" && head == "success"
+    elseif isexcluded != "false"
+        nothing
+    elseif headsetup == "success" && headtest == "success" && notrun(mainsetup) &&
+           notrun(maintest)
         "green"
-    elseif isexcluded == "false" && head == "failure" && main == "success"
+    elseif !headfailed
+        nothing
+    elseif headsetup == "failure" && mainsetup == "success"
         "regression"
-    elseif isexcluded == "false" && head == "failure" && main == "failure"
+    elseif mainsetup == "success" && maintest == "success"
+        "regression"
+    elseif mainsetup == "success" && maintest == "failure"
         "known red"
+    elseif mainsetup == "failure" && notrun(maintest)
+        against = headsetup == "failure" ? "the head and the default branch" :
+                  "the default branch"
+        "inconclusive: the setup failed against $against"
     else
-        fail("cannot classify $name: excluded $(repr(isexcluded)), head $(repr(head)), main $(repr(main))")
+        nothing
     end
+    result === nothing &&
+        fail("cannot classify $name: excluded $(repr(isexcluded)), head setup $(repr(headsetup)), " *
+             "head test $(repr(headtest)), main setup $(repr(mainsetup)), main test $(repr(maintest))")
     line = "| $name | $result |"
     println(line)
     append("GITHUB_STEP_SUMMARY", "| dependent | result |\n|:--|:--|\n$line\n")
-    return result == "regression" ? 1 : 0
+    return result == "regression" || startswith(result, "inconclusive") ? 1 : 0
 end
 
 function main(args)
     command = isempty(args) ? "" : args[1]
     command == "list" && length(args) == 2 && return list(args[2])
     command == "excluded" && length(args) == 3 && return excluded(args[2], args[3])
-    command == "row" && length(args) == 5 && return row(args[2:5]...)
+    command == "row" && length(args) == 7 && return row(args[2:7]...)
     return fail(USAGE)
 end
 
