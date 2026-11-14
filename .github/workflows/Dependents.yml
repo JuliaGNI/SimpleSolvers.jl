@@ -1,0 +1,121 @@
+# Canonical dependents workflow. `harness workflows` copies it into each base package that the
+# profile key `dependents_bases` lists, beside .github/dependents.jl, and removes both from every
+# other repository — edit this file and re-run the installer, never a copy in a repository.
+# Byte-identical everywhere it is installed; verify-workflows.jl asserts it.
+#
+# It runs the `core` test group of each direct dependent of the base with the pull request's head
+# developed into the dependent's project. The dependents are the [[dependent]] tables of
+# .github/dependents.toml, which `harness dependents --apply` writes from the Project.toml files
+# of the research tree, and which the base commits.
+#
+# A dependent whose [compat] entry excludes the head's version, such as after a breaking bump, is
+# excluded and not tested: testing it would need a compat override, a combination that no user
+# can install. A dependent that fails against the head runs again against the base's default
+# branch: red on the head and green there is a regression of the pull request, and red on both is
+# known red, which the pull request does not cause. Of the four rows, only a regression fails a
+# job, and the workflow is advisory: no required status check names it.
+#
+# The logic of a job is in dependents.jl, not inline here, so that the harness's tests can run it.
+
+name: Dependents
+
+on:
+    pull_request:
+        paths:
+            - "src/**"
+            - "ext/**"
+            - "Project.toml"
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    list:
+        name: List the dependents
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        outputs:
+            dependents: ${{ steps.list.outputs.dependents }}
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  persist-credentials: false
+            - uses: julia-actions/setup-julia@v3
+              with:
+                  version: "1"
+            - name: Read .github/dependents.toml
+              id: list
+              run: julia --startup-file=no .github/dependents.jl list .github/dependents.toml
+
+    test:
+        name: ${{ matrix.dependent.name }}
+        needs: list
+        if: needs.list.outputs.dependents != '[]'
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        strategy:
+            fail-fast: false
+            matrix:
+                dependent: ${{ fromJSON(needs.list.outputs.dependents) }}
+        steps:
+            - name: Check out the head of the base
+              uses: actions/checkout@v7
+              with:
+                  path: base
+                  persist-credentials: false
+            - name: Check out the default branch of the dependent
+              uses: actions/checkout@v7
+              with:
+                  repository: ${{ matrix.dependent.repository }}
+                  path: dependent
+                  persist-credentials: false
+            - uses: julia-actions/setup-julia@v3
+              with:
+                  version: "1"
+            - uses: julia-actions/cache@v3
+              with:
+                  # The workflow can read the repository only, and deleting a cache needs more.
+                  delete-old-caches: "false"
+            - name: Check the compat of the head
+              id: compat
+              run: julia --startup-file=no base/.github/dependents.jl excluded base dependent
+            - name: Test the dependent against the head
+              id: head
+              if: steps.compat.outputs.excluded == 'false'
+              continue-on-error: true
+              run: julia --startup-file=no --project=dependent -e 'using Pkg; Pkg.develop(path = abspath("base")); Pkg.test(test_args = ["core"])'
+            - name: Check out the default branch of the base
+              if: steps.head.outcome == 'failure'
+              uses: actions/checkout@v7
+              with:
+                  ref: ${{ github.event.repository.default_branch }}
+                  path: main
+                  persist-credentials: false
+            # A second checkout of the dependent: the run against the head wrote a Manifest.toml
+            # into the first, and Pkg.develop keeps the versions it can, so the run against the
+            # default branch would inherit a resolution that only the head forced.
+            - name: Check out the default branch of the dependent again
+              if: steps.head.outcome == 'failure'
+              uses: actions/checkout@v7
+              with:
+                  repository: ${{ matrix.dependent.repository }}
+                  path: dependent-main
+                  persist-credentials: false
+            - name: Test the dependent against the default branch of the base
+              id: main
+              if: steps.head.outcome == 'failure'
+              continue-on-error: true
+              run: julia --startup-file=no --project=dependent-main -e 'using Pkg; Pkg.develop(path = abspath("main")); Pkg.test(test_args = ["core"])'
+            - name: Write the row of the dependent
+              if: always()
+              env:
+                  NAME: ${{ matrix.dependent.name }}
+                  EXCLUDED: ${{ steps.compat.outputs.excluded }}
+                  HEAD_OUTCOME: ${{ steps.head.outcome }}
+                  MAIN_OUTCOME: ${{ steps.main.outcome }}
+              run: julia --startup-file=no base/.github/dependents.jl row "$NAME" "$EXCLUDED" "$HEAD_OUTCOME" "$MAIN_OUTCOME"

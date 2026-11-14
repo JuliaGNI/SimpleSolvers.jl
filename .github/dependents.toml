@@ -1,0 +1,39 @@
+# Written by `harness dependents --apply` from the Project.toml files below Packages/ of the
+# research tree; run it again rather than edit this file. Dependents.yml reads it into the
+# matrix of its test job.
+
+[[dependent]]
+name = "GeometricBrackets"
+repository = "JuliaGNI/GeometricBrackets.jl"
+
+[[dependent]]
+name = "GeometricIntegrators"
+repository = "JuliaGNI/GeometricIntegrators.jl"
+
+[[dependent]]
+name = "GeometricIntegratorsBase"
+repository = "JuliaGNI/GeometricIntegratorsBase.jl"
+
+[[dependent]]
+name = "GeometricOptimizers"
+repository = "JuliaGNI/GeometricOptimizers.jl"
+
+[[dependent]]
+name = "MultisymplecticIntegrators"
+repository = "JuliaGNI/MultisymplecticIntegrators.jl"
+
+[[dependent]]
+name = "NonlinearIntegrators"
+repository = "JuliaGNI/NonlinearIntegrators.jl"
+
+[[dependent]]
+name = "SparseIdentification"
+repository = "JuliaRCM/SparseIdentification.jl"
+
+[[dependent]]
+name = "StochasticIntegrators"
+repository = "JuliaGNI/StochasticIntegrators.jl"
+
+[[dependent]]
+name = "VlasovMethods"
+repository = "JuliaPlasma/VlasovMethods.jl"
