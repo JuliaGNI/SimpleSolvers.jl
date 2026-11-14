@@ -133,12 +133,12 @@ jobs:
         # The stdlibs are skipped because their version is fixed by the Julia version. The list is
         # every stdlib a repository here depends on, and the common rest; add one when a
         # repository takes a stdlib that is not on it.
-        name: Downgrade - ${{ matrix.os }}
-        runs-on: ${{ matrix.os }}
+        name: Downgrade - ubuntu-latest - precompile tasks ${{ matrix.tasks || 'default' }}
+        runs-on: ubuntu-latest
         strategy:
             fail-fast: false
             matrix:
-                os: [ubuntu-latest, ubuntu-24.04]
+                tasks: ['', '1']
         timeout-minutes: 120
         # Advisory: see the header.
         continue-on-error: true
@@ -148,6 +148,9 @@ jobs:
         env:
             JULIA_NUM_THREADS: 2
         steps:
+            - name: Serial precompilation
+              if: matrix.tasks != ''
+              run: echo "JULIA_NUM_PRECOMPILE_TASKS=${{ matrix.tasks }}" >> "$GITHUB_ENV"
             - uses: actions/checkout@v7
             - uses: julia-actions/setup-julia@v3
               with:
