@@ -133,8 +133,12 @@ jobs:
         # The stdlibs are skipped because their version is fixed by the Julia version. The list is
         # every stdlib a repository here depends on, and the common rest; add one when a
         # repository takes a stdlib that is not on it.
-        name: Downgrade - ubuntu-latest
-        runs-on: ubuntu-latest
+        name: Downgrade - ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest, ubuntu-24.04]
         timeout-minutes: 120
         # Advisory: see the header.
         continue-on-error: true
@@ -162,6 +166,22 @@ jobs:
                   # Dependabot default would force the newest version of the bumped entry.
                   allow_reresolve: false
                   force_latest_compatible_version: false
+            # DIAGNOSTIC, never merged: Aqua 0.8.14's persistent-tasks wrapper, rebuilt outside
+            # Pkg.test with its precompile output visible.
+            - name: Rebuild Aqua's wrapper with strict precompile
+              if: always()
+              shell: julia --color=yes {0}
+              run: |
+                  using Pkg
+                  Pkg.respect_sysimage_versions(false)
+                  wrapperdir = tempname()
+                  Pkg.generate(wrapperdir)
+                  Pkg.activate(wrapperdir)
+                  Pkg.develop(PackageSpec(path = pwd()))
+                  Pkg.status(; mode = Pkg.PKGMODE_MANIFEST)
+                  write(joinpath(wrapperdir, "src", basename(wrapperdir) * ".jl"),
+                        "module $(basename(wrapperdir))\nusing SimpleSolvers\nend\n")
+                  run(`$(Base.julia_cmd()) --project=$wrapperdir -e 'using Pkg; Pkg.precompile(; strict = true)'`)
 
     doctest:
         # Doctests run here rather than across the test matrix, and rather than only inside the
