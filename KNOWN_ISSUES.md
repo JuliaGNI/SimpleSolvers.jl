@@ -222,6 +222,32 @@ follows is what is left.
 - **kind:** upstream
 - **found:** 2026-10-01
 
+### K19 · The `Downgrade` job fails Aqua's persistent-tasks check on Julia 1.12.
+
+- **location:** `test/quality/aqua.jl`
+- **evidence:** JuliaLang/julia#62917. On Julia 1.12.7, `Pkg.precompile()` can fail to precompile
+  the active project's own module when most of its dependency graph is cold, and still exit 0.
+  Aqua 0.8.14's persistent-tasks wrapper is such a project. In `Downgrade` the test environment
+  sits at the floors and the wrapper resolves the newest versions, so its whole stack is cold. The
+  wrapper then compiles ForwardDiff itself, beside Pkg's workers, and fails: "The call to
+  compilecache failed to create a usable precompiled cache file for ForwardDiff … Required
+  dependency Base.PkgId(…, "DiffRules") failed to load from a cache file". It ends as `?`
+  ("dependencies failed but may be precompilable after restarting julia"), `Pkg.precompile()`
+  exits 0, and Aqua reports `Unexpected error:
+  …/done.log was not created, but precompilation exited` (run 43607104458, job `precompile tasks
+  default`). The diagnostic PR #223 shows the wrapper's failure on ubuntu-26.04 and ubuntu-24.04
+  alike (run 43593021517). With `JULIA_NUM_PRECOMPILE_TASKS=1` the wrapper compiles first and Pkg
+  compiles the dependencies after it, for longer than Aqua's 10 s limit, so the check fails too
+  (run 43607104458). Upstream closes the issue as likely fixed by JuliaLang/julia#60000, the
+  reland of JuliaLang/julia#59765. That change is on `release-1.13` and has no 1.12 backport; no
+  CI run here tests 1.13 at the floors. A local probe (a generated project with only
+  `using ForwardDiff`, a cold depot, macOS arm64) ends `?` in 3 of 3 runs on 1.12.7, and on
+  1.13.4 compiles the project after ForwardDiff and passes. The job is advisory
+  (`continue-on-error: true`), so it blocks no merge. The entry leaves when 1.13 is the floor or
+  1.12 gets the fix.
+- **kind:** upstream
+- **found:** 2026-11-14
+
 ## Raised while adding the JET lines of the hot path, not addressed
 
 ### K15 · The Sparspak extension imports `SparseMatrixCSC` and never uses it.
