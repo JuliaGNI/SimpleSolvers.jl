@@ -2,7 +2,7 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
-## [Unreleased]
+## [0.14.4] — 2026-11-14
 
 ### Changed
 
@@ -43,7 +43,10 @@ All notable changes to SimpleSolvers.jl are documented here.
 - **The `UmfpackLU` solve with `x === b` is allocation-free.** It used the two-argument
   `ldiv!(F, x)` of `SparseArrays`, which copies `x` into a new array on every call: at
   `n = 384`, 3136 bytes on 1.12 and 1.13, and 3328 bytes on 1.14.0-alpha2. The cache now holds that copy, `rhs` beside `workspace` in its `ws` field, and
-  the solve allocates none on Julia 1.12, 1.13 and 1.14.0-alpha2.
+  the solve allocates none on Julia 1.12, 1.13 and 1.14.0-alpha2. `SparseFactorizationCache`, which
+  is not exported, takes a third type parameter for that field, so its four-argument constructor
+  `SparseFactorizationCache{T, FT}(F, n, info, factorized)` no longer exists;
+  `SparseFactorizationCache{T}(F, n)` is unchanged.
 - **The `directions!` doctest rounds `direction₁` as it rounds `direction₂`.** The last digit of
   its first component differs between `aarch64` and the `x86_64` runners of CI.
 
