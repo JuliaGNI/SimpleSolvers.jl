@@ -28,7 +28,11 @@
 #   head test `failure`, main setup and test `success`: regression
 #   head test `failure`, main setup `success`, main test `failure`: known red
 #   head setup or head test `failure`, main setup `failure`: inconclusive, with the failed setups
+#   a step `cancelled`, the steps before it as above and none after it run: inconclusive, with
+#   the cancelled step
 #
+# The first row takes precedence: an excluded dependent stays excluded whatever its steps report,
+# and otherwise a cancelled step, as after the timeout of the job, makes the row inconclusive.
 # After a failed setup, its test step does not run. `row` prints the row and appends it, under a
 # header, to the job summary. A regression and an inconclusive row exit 1, which fails the job;
 # a combination that is none of these exits 2.
@@ -119,13 +123,25 @@ end
 # GitHub reports a step that did not run as `skipped`, or as empty where the step is never reached.
 notrun(outcome) = outcome in ("", "skipped")
 
+# The four steps whose outcomes `row` takes, in the order in which they run.
+const STEPS = ("setup against the head", "test against the head",
+    "setup against the default branch", "test against the default branch")
+
 function row(name, isexcluded, headsetup, headtest, mainsetup, maintest)
     headfailed = (headsetup == "failure" && notrun(headtest)) ||
                  (headsetup == "success" && headtest == "failure")
+    outcomes = (headsetup, headtest, mainsetup, maintest)
+    cancelled = findfirst(==("cancelled"), outcomes)
+    # Whether the outcomes before each step let it run.
+    reached = (true, headsetup == "success", headfailed,
+        headfailed && mainsetup == "success")
     result = if isexcluded == "true"
         "excluded"
     elseif isexcluded != "false"
         nothing
+    elseif cancelled !== nothing
+        reached[cancelled] && all(notrun, outcomes[(cancelled + 1):end]) ?
+        "inconclusive: the $(STEPS[cancelled]) was cancelled" : nothing
     elseif headsetup == "success" && headtest == "success" && notrun(mainsetup) &&
            notrun(maintest)
         "green"
