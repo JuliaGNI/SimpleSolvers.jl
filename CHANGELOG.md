@@ -2,6 +2,15 @@
 
 All notable changes to SimpleSolvers.jl are documented here.
 
+## [Unreleased]
+
+### Changed
+
+- **A cancelled step of `Dependents.yml` gives an inconclusive row.** When a step of a dependent
+  is cancelled, as after the job's timeout, the row names the cancelled step as inconclusive, and
+  the job fails. Before, `.github/dependents.jl` stopped with "cannot classify" and wrote no row.
+  An excluded dependent stays excluded.
+
 ## [0.14.4] — 2026-11-14
 
 ### Changed
