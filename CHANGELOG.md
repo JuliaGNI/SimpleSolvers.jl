@@ -26,10 +26,12 @@ All notable changes to SimpleSolvers.jl are documented here.
     `solve!`; 0.10.1 is the first release that calls `ignorelimited` there.
 - **A pull request that changes `src/`, `ext/` or `Project.toml` runs the `core` tests of the 9
   direct dependents against the pull request** (`.github/workflows/Dependents.yml`, advisory). The
-  list is `.github/dependents.toml`, written by `harness dependents`. A red dependent runs again
-  against `main`: a failure that `main` does not have fails the job as a regression, a failure on
-  both is reported as known red, and a version outside a dependent's `[compat]` is reported as
-  excluded.
+  list is `.github/dependents.toml`, written by `harness dependents`. Each dependent has a setup
+  step (`Pkg.develop` of this package) and a test step. A dependent whose setup or tests fail runs
+  again against `main`: a failure that `main` does not have fails the job as a regression, failed
+  tests on both are reported as known red, a failed setup against `main` is reported as
+  inconclusive and also fails the job, and a version outside a dependent's `[compat]` is reported
+  as excluded.
 
 ### Fixed
 
