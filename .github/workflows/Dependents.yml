@@ -1,6 +1,7 @@
 # Canonical dependents workflow. `harness workflows` copies it into each base package that the
 # profile key `dependents_bases` lists, beside .github/dependents.jl, and removes both from every
-# other repository — edit this file and re-run the installer, never a copy in a repository.
+# other repository. Edit the template, githooks/workflows/Dependents.yml, and re-run the
+# installer; never edit an installed copy.
 # Byte-identical everywhere it is installed; verify-workflows.jl asserts it.
 #
 # It runs the `core` test group of each direct dependent of the base with the pull request's head

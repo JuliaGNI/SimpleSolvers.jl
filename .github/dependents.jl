@@ -1,6 +1,7 @@
 # The logic of the jobs of Dependents.yml. `harness workflows` copies this file to
 # .github/dependents.jl of each base that the profile key `dependents_bases` lists, beside
-# .github/workflows/Dependents.yml — edit this file and re-run the installer, never a copy.
+# .github/workflows/Dependents.yml. Edit the template, githooks/workflows/dependents.jl, and
+# re-run the installer; never edit an installed copy.
 #
 #   julia dependents.jl list <dependents.toml>
 #   julia dependents.jl excluded <base> <dependent>
